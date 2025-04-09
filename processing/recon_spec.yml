@@ -16,6 +16,7 @@ nodes:
     input: qsirecon
     name: dipy_dki
     parameters:
+        wmti: true
         write_fibgz: false
         write_mif: false
     qsirecon_suffix: DIPYDKI
