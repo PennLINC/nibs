@@ -1,0 +1,62 @@
+"""Split 4D IHMT files into 3D BIDS format."""
+
+import json
+import os
+import shutil
+from glob import glob
+
+import nibabel as nb
+
+
+if __name__ == "__main__":
+    in_dir = "/Users/taylor/Downloads/flywheel/bbl/dset"
+
+    patterns = [
+        "_acq-nosat_mt-off_ihMTRAGE",
+        "_acq-singlepos_mt-on_ihMTRAGE",
+        "_acq-dual1_mt-on_ihMTRAGE",
+        "_acq-singleneg_mt-on_ihMTRAGE",
+        "_acq-dual2_mt-on_ihMTRAGE",
+    ]
+
+    ihmt_files = sorted(
+        glob(
+            os.path.join(
+                in_dir,
+                "sub-*",
+                "ses-*",
+                "anat",
+                "sub-*_ihMTRAGE.nii.gz",
+            )
+        )
+    )
+    for ihmt_file in ihmt_files:
+        print(ihmt_file)
+        img = nb.load(ihmt_file)
+        fname_base = os.path.basename(ihmt_file)
+        out_dir = os.path.dirname(ihmt_file)
+        fname_base = fname_base.split("_ihMTRAGE")[0]
+        in_json = ihmt_file.replace(".nii.gz", ".json")
+        if img.ndim == 4:
+            print(f"Splitting {ihmt_file}")
+            for i_vol, pattern in enumerate(patterns):
+                img3d = img.slicer[..., i_vol]
+                out_fname = os.path.join(out_dir, f"{fname_base}{pattern}.nii.gz")
+                with open(in_json, "r") as fo:
+                    metadata = json.load(fo)
+
+                out_json = os.path.join(out_dir, f"{fname_base}{pattern}.json")
+                if "mt-off" in pattern:
+                    metadata["MTState"] = False
+                else:
+                    metadata["MTState"] = True
+
+                img3d.to_filename(out_fname)
+                with open(out_json, "w") as fo:
+                    json.dump(metadata, fo, indent=4, sort_keys=True)
+
+            os.remove(ihmt_file)
+            os.remove(in_json)
+
+        else:
+            print(f"Skipping {ihmt_file}")

@@ -33,103 +33,103 @@ def infotodict(
     outdicom = ("dicom", "nii.gz")
 
     t1_mprage = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-MPRAGE_T1w",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-MPRAGE_run-{item:02d}_T1w",
         outtype=outdicom,
     )
     t1_mprage_norm = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-MPRAGE_rec-norm_T1w",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-MPRAGE_rec-norm_run-{item:02d}_T1w",
         outtype=outdicom,
     )
     t1_space = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_T1w",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_run-{item:02d}_T1w",
         outtype=outdicom,
     )
     t1_space_norm = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_rec-norm_T1w",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_rec-norm_run-{item:02d}_T1w",
         outtype=outdicom,
     )
     t2_space = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_T2w",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_run-{item:02d}_T2w",
         outtype=outdicom,
     )
     t2_space_norm = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_rec-norm_T2w",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_rec-norm_run-{item:02d}_T2w",
         outtype=outdicom,
     )
     swi_mag = create_key(
-        "{bids_subject_session_dir}/swi/{bids_subject_session_prefix}_acq-QSM_part-mag_swi",
+        "{bids_subject_session_dir}/swi/{bids_subject_session_prefix}_acq-QSM_run-{item:02d}_part-mag_swi",
         outtype=outdicom,
     )
     swi_phase = create_key(
-        "{bids_subject_session_dir}/swi/{bids_subject_session_prefix}_acq-QSM_part-phase_swi",
+        "{bids_subject_session_dir}/swi/{bids_subject_session_prefix}_acq-QSM_run-{item:02d}_part-phase_swi",
         outtype=outdicom,
     )
     mese_echo1_pa = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-PA_echo-1_MESE",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-PA_run-{item:02d}_echo-1_MESE",
         outtype=outdicom,
     )
     mese_echo1_ap = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-AP_echo-1_MESE",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-AP_run-{item:02d}_echo-1_MESE",
         outtype=outdicom,
     )
     mese_echo2_ap = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-AP_echo-2_MESE",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-AP_run-{item:02d}_echo-2_MESE",
         outtype=outdicom,
     )
     mese_echo3_ap = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-AP_echo-3_MESE",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-AP_run-{item:02d}_echo-3_MESE",
         outtype=outdicom,
     )
     mese_echo4_ap = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-AP_echo-4_MESE",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_dir-AP_run-{item:02d}_echo-4_MESE",
         outtype=outdicom,
     )
     ihmtrage = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-MPRAGE_ihMT",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_run-{item:02d}_ihMTRAGE",
         outtype=outdicom,
     )
     mp2rage_inv1 = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_inv-1_MP2RAGE",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_run-{item:02d}_inv-1_MP2RAGE",
         outtype=outdicom,
     )
     mp2rage_inv2 = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_inv-2_MP2RAGE",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_run-{item:02d}_inv-2_MP2RAGE",
         outtype=outdicom,
     )
     mp2rage_uni = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_UNIT1",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_run-{item:02d}_UNIT1",
         outtype=outdicom,
     )
     tb1tfl_anat = create_key(
-        "{bids_subject_session_dir}/fmap/{bids_subject_session_prefix}_acq-anat_TB1TFL",
+        "{bids_subject_session_dir}/fmap/{bids_subject_session_prefix}_acq-anat_run-{item:02d}_TB1TFL",
         outtype=outdicom,
     )
     tb1tfl_famp = create_key(
-        "{bids_subject_session_dir}/fmap/{bids_subject_session_prefix}_acq-famp_TB1TFL",
+        "{bids_subject_session_dir}/fmap/{bids_subject_session_prefix}_acq-famp_run-{item:02d}_TB1TFL",
         outtype=outdicom,
     )
     dwi_ap_sbref = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_dir-AP_acq-HBCD75_run-{item:02d}_sbref",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-AP_run-{item:02d}_sbref",
         outtype=outdicom,
     )
     dwi_pa_sbref = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_dir-PA_acq-HBCD75_run-{item:02d}_sbref",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-PA_run-{item:02d}_sbref",
         outtype=outdicom,
     )
     dwi_ap_mag = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_dir-AP_acq-HBCD75_run-{item:02d}_part-mag_dwi",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-AP_run-{item:02d}_part-mag_dwi",
         outtype=outdicom,
     )
     dwi_ap_phase = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_dir-AP_acq-HBCD75_run-{item:02d}_part-phase_dwi",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-AP_run-{item:02d}_part-phase_dwi",
         outtype=outdicom,
     )
     dwi_pa_mag = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_dir-PA_acq-HBCD75_run-{item:02d}_part-mag_dwi",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-PA_run-{item:02d}_part-mag_dwi",
         outtype=outdicom,
     )
     dwi_pa_phase = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_dir-PA_acq-HBCD75_run-{item:02d}_part-phase_dwi",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-PA_run-{item:02d}_part-phase_dwi",
         outtype=outdicom,
     )
 
@@ -163,19 +163,19 @@ def infotodict(
     for s in seqinfo:
         # Anatomical scans (we only want the last one)
         if ("anat-T1w_acq-MPRAGE" in s.protocol_name) and ("NORM" not in s.image_type):
-            info[t1_mprage] = [s.series_id]
+            info[t1_mprage].append(s.series_id)
         elif ("anat-T1w_acq-MPRAGE" in s.protocol_name) and ("NORM" in s.image_type):
-            info[t1_mprage_norm] = [s.series_id]
+            info[t1_mprage_norm].append(s.series_id)
         elif ("anat-T1w_acq-SPACE" in s.protocol_name) and ("NORM" not in s.image_type):
-            info[t1_space] = [s.series_id]
+            info[t1_space].append(s.series_id)
         elif ("anat-T1w_acq-SPACE" in s.protocol_name) and ("NORM" in s.image_type):
-            info[t1_space_norm] = [s.series_id]
+            info[t1_space_norm].append(s.series_id)
         elif ("anat-T2w_acq-SPACE" in s.protocol_name) and ("NORM" not in s.image_type):
-            info[t2_space] = [s.series_id]
+            info[t2_space].append(s.series_id)
         elif ("anat-T2w_acq-SPACE" in s.protocol_name) and ("NORM" in s.image_type):
-            info[t2_space_norm] = [s.series_id]
+            info[t2_space_norm].append(s.series_id)
         elif ("anat-ihMTRAGE" in s.protocol_name):
-            info[ihmtrage].append([s.series_id])
+            info[ihmtrage].append(s.series_id)
         elif ("anat-MP2RAGE_INV1" in s.series_description):
             info[mp2rage_inv1].append([s.series_id])
         elif ("anat-MP2RAGE_INV2" in s.series_description):
