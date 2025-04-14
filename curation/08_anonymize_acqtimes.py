@@ -14,7 +14,8 @@ from dateutil import parser
 
 
 if __name__ == "__main__":
-    dset_dir = "/cbica/projects/nibs/dset"
+    # dset_dir = "/cbica/projects/nibs/dset"
+    dset_dir = "/Users/taylor/Documents/datasets/nibs/dset"
 
     subject_dirs = sorted(glob(os.path.join(dset_dir, "sub-*")))
     for subject_dir in subject_dirs:
@@ -64,3 +65,6 @@ if __name__ == "__main__":
         # Remove scans files.
         for scans_file in scans_files:
             os.remove(scans_file)
+
+    if os.path.isfile(os.path.join(dset_dir, "scans.json")):
+        os.remove(os.path.join(dset_dir, "scans.json"))
