@@ -10,5 +10,3 @@ if __name__ == "__main__":
         print(f"Processing {os.path.basename(zip_file)}")
         with zipfile.ZipFile(zip_file, "r") as zip_ref:
             zip_ref.extractall(os.path.dirname(zip_file))
-
-        # os.remove(zip_file)
