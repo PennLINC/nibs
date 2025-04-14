@@ -32,28 +32,20 @@ def infotodict(
     # and functional scans
     outdicom = ("dicom", "nii.gz")
 
-    t1_mprage = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-MPRAGE_run-{item:02d}_T1w",
-        outtype=outdicom,
-    )
     t1_mprage_norm = create_key(
         "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-MPRAGE_rec-norm_run-{item:02d}_T1w",
-        outtype=outdicom,
-    )
-    t1_space = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_run-{item:02d}_T1w",
         outtype=outdicom,
     )
     t1_space_norm = create_key(
         "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_rec-norm_run-{item:02d}_T1w",
         outtype=outdicom,
     )
-    t2_space = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_run-{item:02d}_T2w",
-        outtype=outdicom,
-    )
     t2_space_norm = create_key(
         "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-SPACE_rec-norm_run-{item:02d}_T2w",
+        outtype=outdicom,
+    )
+    t2_tse_norm = create_key(
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-TSE_rec-norm_run-{item:02d}_T2w",
         outtype=outdicom,
     )
     swi_mag = create_key(
@@ -89,15 +81,15 @@ def infotodict(
         outtype=outdicom,
     )
     mp2rage_inv1 = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_run-{item:02d}_inv-1_MP2RAGE",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_MP2RAGE",
         outtype=outdicom,
     )
     mp2rage_inv2 = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_run-{item:02d}_inv-2_MP2RAGE",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_MP2RAGE",
         outtype=outdicom,
     )
     mp2rage_uni = create_key(
-        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_run-{item:02d}_UNIT1",
+        "{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_UNIT1",
         outtype=outdicom,
     )
     tb1tfl_anat = create_key(
@@ -109,37 +101,35 @@ def infotodict(
         outtype=outdicom,
     )
     dwi_ap_sbref = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-AP_run-{item:02d}_sbref",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_rec-norm_dir-AP_run-{item:02d}_sbref",
         outtype=outdicom,
     )
     dwi_pa_sbref = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-PA_run-{item:02d}_sbref",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_rec-norm_dir-PA_run-{item:02d}_sbref",
         outtype=outdicom,
     )
     dwi_ap_mag = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-AP_run-{item:02d}_part-mag_dwi",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_rec-norm_dir-AP_run-{item:02d}_part-mag_dwi",
         outtype=outdicom,
     )
     dwi_ap_phase = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-AP_run-{item:02d}_part-phase_dwi",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_rec-norm_dir-AP_run-{item:02d}_part-phase_dwi",
         outtype=outdicom,
     )
     dwi_pa_mag = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-PA_run-{item:02d}_part-mag_dwi",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_rec-norm_dir-PA_run-{item:02d}_part-mag_dwi",
         outtype=outdicom,
     )
     dwi_pa_phase = create_key(
-        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_dir-PA_run-{item:02d}_part-phase_dwi",
+        "{bids_subject_session_dir}/dwi/{bids_subject_session_prefix}_acq-HBCD75_rec-norm_dir-PA_run-{item:02d}_part-phase_dwi",
         outtype=outdicom,
     )
 
     info: dict[tuple[str, tuple[str, ...], None], list] = {
-        t1_mprage: [],
         t1_mprage_norm: [],
-        t1_space: [],
         t1_space_norm: [],
-        t2_space: [],
         t2_space_norm: [],
+        t2_tse_norm: [],
         swi_mag: [],
         swi_phase: [],
         mese_echo1_pa: [],
@@ -162,19 +152,15 @@ def infotodict(
     }
     for s in seqinfo:
         # Anatomical scans (we only want the last one)
-        if ("anat-T1w_acq-MPRAGE" in s.protocol_name) and ("NORM" not in s.image_type):
-            info[t1_mprage].append(s.series_id)
-        elif ("anat-T1w_acq-MPRAGE" in s.protocol_name) and ("NORM" in s.image_type):
+        if (("anat-T1w_acq-MPRAGE" in s.protocol_name) or ("t1_mprage_sag_p3" in s.protocol_name)) and ("NORM" in s.image_type):
             info[t1_mprage_norm].append(s.series_id)
-        elif ("anat-T1w_acq-SPACE" in s.protocol_name) and ("NORM" not in s.image_type):
-            info[t1_space].append(s.series_id)
-        elif ("anat-T1w_acq-SPACE" in s.protocol_name) and ("NORM" in s.image_type):
+        elif (("anat-T1w_acq-SPACE" in s.protocol_name) or ("t1_space_sag_p3_iso" in s.protocol_name)) and ("NORM" in s.image_type) and ("DIS3D" in s.image_type):
             info[t1_space_norm].append(s.series_id)
-        elif ("anat-T2w_acq-SPACE" in s.protocol_name) and ("NORM" not in s.image_type):
-            info[t2_space].append(s.series_id)
-        elif ("anat-T2w_acq-SPACE" in s.protocol_name) and ("NORM" in s.image_type):
+        elif ("anat-T2w_acq-SPACE" in s.protocol_name) and ("NORM" in s.image_type) and ("DIS3D" in s.image_type):
             info[t2_space_norm].append(s.series_id)
-        elif ("anat-ihMTRAGE" in s.protocol_name):
+        elif ("t2_tse_tra_512" in s.protocol_name) and ("NORM" in s.image_type):
+            info[t2_tse_norm].append(s.series_id)
+        elif ("ihMT" in s.protocol_name):
             info[ihmtrage].append(s.series_id)
         elif ("anat-MP2RAGE_INV1" in s.series_description):
             info[mp2rage_inv1].append([s.series_id])
