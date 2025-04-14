@@ -1,5 +1,6 @@
-# paper-template
-A template repository for scientific projects.
+# NIBS
+
+Code for curating and processing the NIBS myelin mapping dataset.
 
 ## File organization on CUBIC
 
