@@ -7,8 +7,8 @@ from glob import glob
 
 
 if __name__ == "__main__":
-    #dset_dir = "/cbica/projects/nibs/dset"
-    dset_dir = "/Users/taylor/Documents/datasets/nibs/dset"
+    dset_dir = "/cbica/projects/nibs/dset"
+    #dset_dir = "/Users/taylor/Documents/datasets/nibs/dset"
     drop_keys = [
         "AcquisitionTime",
         "AcquisitionDateTime",
@@ -22,6 +22,7 @@ if __name__ == "__main__":
 
     json_files = sorted(glob(os.path.join(dset_dir, "sub-*/ses-*/*/*.json")))
     for json_file in json_files:
+        print(json_file)
         with open(json_file, "r") as fo:
             json_data = json.load(fo)
 

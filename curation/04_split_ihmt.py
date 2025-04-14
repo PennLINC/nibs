@@ -9,8 +9,8 @@ import nibabel as nb
 
 
 if __name__ == "__main__":
-    in_dir = "/Users/taylor/Downloads/flywheel/bbl/dset"
-    # in_dir = "/cbica/projects/nibs/dset"
+    # in_dir = "/Users/taylor/Downloads/flywheel/bbl/dset"
+    in_dir = "/cbica/projects/nibs/dset"
 
     patterns = [
         "_acq-nosat_run-{run}_mt-off_ihMTRAGE",

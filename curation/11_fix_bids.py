@@ -20,8 +20,8 @@ from glob import glob
 
 
 if __name__ == "__main__":
-    # dset_dir = "/cbica/projects/nibs/dset"
-    dset_dir = "/Users/taylor/Documents/datasets/nibs/dset"
+    dset_dir = "/cbica/projects/nibs/dset"
+    # dset_dir = "/Users/taylor/Documents/datasets/nibs/dset"
 
     subject_dirs = sorted(glob(os.path.join(dset_dir, "sub-*")))
     for subject_dir in subject_dirs:
@@ -72,6 +72,6 @@ if __name__ == "__main__":
 
     # Add multi-echo field maps to .bidsignore.
     bidsignore_file = os.path.join(dset_dir, ".bidsignore")
-    with open(bidsignore_file, "a") as f:
+    with open(bidsignore_file, "a+") as f:
         f.write("\n*_ihMTRAGE.*\n")
         f.write("swi\n")
