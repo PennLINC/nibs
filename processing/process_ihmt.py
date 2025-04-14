@@ -113,4 +113,7 @@ if __name__ == "__main__":
                     json.dump(metadata, f, sort_keys=True, indent=4)
 
                 # Calculate rigid transform to T1w
-                t1_file = os.path.join(session_dir, "anat", f"{subject_id}_{session_id}_T1w.nii.gz")
+                # Use preprocessed T1w from smriprep and M0 from raw
+                target_file = os.path.join(smriprep_dir, subject_id, session_id, "anat", f"{subject_id}_{session_id}_T1w.nii.gz")
+                source_file = imgs["M0"]
+                #transform = registration.resample(source_file, target_file)
