@@ -7,11 +7,11 @@
 
 /cbica/projects/nibs/.bashrc
 
-mamba activate curation
+conda activate curation
 
 # Run heudiconv on the first session
 # subjects=($(ls -d /cbica/projects/nibs/sourcedata/scitran/bbl/NIBS_857664/*_* | sed 's|.*/\([0-9a-zA-Z]*\)_.*|\1|' | sort -u))
-subjects=($(ls -d /cbica/projects/nibs/sourcedata/imaging/scitran/bbl/NIBS_857664/*_* | sed 's|.*/\([0-9a-zA-Z]*\)_.*|\1|' | sort -u))
+subjects=($(ls -d /cbica/projects/nibs/sourcedata/scitran/bbl/NIBS_857664/*_* | sed 's|.*/\([0-9a-zA-Z]*\)_.*|\1|' | sort -u))
 
 for sub in "${subjects[@]}"
 do
@@ -19,9 +19,9 @@ do
     heudiconv \
         -f /cbica/projects/nibs/code/curation/heuristic.py \
         -o /cbica/projects/nibs/dset \
-        -d "/cbica/projects/nibs/sourcedata/imaging/scitran/bbl/NIBS_857664/{subject}_{session}/*/*/*/*.dcm" \
+        -d "/cbica/projects/nibs/sourcedata/scitran/bbl/NIBS_857664/{subject}_{session}/*/*/*/*.dcm" \
         --subjects "$sub" \
-        --ses 1 \
+        --ses "01" \
         -g all \
         --bids \
         --queue SLURM
