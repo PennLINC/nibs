@@ -2,6 +2,7 @@ import json
 import os
 
 import matplotlib.pyplot as plt
+import nibabel as nb
 from pymp2rage import MP2RAGE
 
 
@@ -40,7 +41,11 @@ if __name__ == '__main__':
         inv1=os.path.join(in_dir, 'sub-02_ses-01_run-01_inv-1_MP2RAGE.nii.gz'),
         inv2=os.path.join(in_dir, 'sub-02_ses-01_run-01_inv-2_MP2RAGE.nii.gz'),
     )
-    mp2rage.t1map.to_filename(os.path.join(out_dir, 'sub-02_ses-01_run-01_T1map.nii.gz'))
+    t1map = mp2rage.t1map
+    t1map_arr = t1map.get_fdata()
+    t1map_arr = t1map_arr / 1000  # Convert from milliseconds to seconds
+    t1map = nb.Nifti1Image(t1map_arr, t1map.affine, t1map.header)
+    t1map.to_filename(os.path.join(out_dir, 'sub-02_ses-01_run-01_T1map.nii.gz'))
     mp2rage.t1w_uni.to_filename(os.path.join(out_dir, 'sub-02_ses-01_run-01_T1w.nii.gz'))
 
     plt.figure(figsize=(15, 6))
