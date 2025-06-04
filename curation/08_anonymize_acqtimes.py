@@ -13,27 +13,27 @@ import pandas as pd
 from dateutil import parser
 
 
-if __name__ == "__main__":
-    dset_dir = "/cbica/projects/nibs/dset"
+if __name__ == '__main__':
+    dset_dir = '/cbica/projects/nibs/dset'
     # dset_dir = "/Users/taylor/Documents/datasets/nibs/dset"
 
-    subject_dirs = sorted(glob(os.path.join(dset_dir, "sub-*")))
+    subject_dirs = sorted(glob(os.path.join(dset_dir, 'sub-*')))
     for subject_dir in subject_dirs:
         sub_id = os.path.basename(subject_dir)
-        print(f"Processing {sub_id}")
+        print(f'Processing {sub_id}')
 
         # Assumes sessions are named 01, 02, etc.
-        scans_files = sorted(glob(os.path.join(subject_dir, "ses-*/*_scans.tsv")))
+        scans_files = sorted(glob(os.path.join(subject_dir, 'ses-*/*_scans.tsv')))
         if len(scans_files) == 0:
-            print(f"\tNo scans files found for {sub_id}")
+            print(f'\tNo scans files found for {sub_id}')
             continue
 
         n_sessions = len(scans_files)
 
-        sessions_tsv = os.path.join(subject_dir, f"{sub_id}_sessions.tsv")
+        sessions_tsv = os.path.join(subject_dir, f'{sub_id}_sessions.tsv')
         if not os.path.exists(sessions_tsv):
             sessions_df = pd.DataFrame(
-                columns=["session_id", "acq_time"],
+                columns=['session_id', 'acq_time'],
                 index=range(n_sessions),
             )
         else:
@@ -42,29 +42,29 @@ if __name__ == "__main__":
         for i_ses, scans_file in enumerate(scans_files):
             ses_dir = os.path.dirname(scans_file)
             ses_name = os.path.basename(ses_dir)
-            print(f"\t{ses_name}")
+            print(f'\t{ses_name}')
 
             scans_df = pd.read_table(scans_file)
 
             # Anonymize in terms of first scan for subject.
-            first_scan = scans_df["acq_time"].min()
+            first_scan = scans_df['acq_time'].min()
             ses_start = parser.parse(first_scan)
 
             # Round to the nearest 15th and the time to the nearest hour.
             ses_start = ses_start.replace(day=15, minute=0, second=0)
-            ses_acqtime = str(ses_start).replace(" ", "T")
+            ses_acqtime = str(ses_start).replace(' ', 'T')
 
-            if ses_name not in sessions_df["session_id"].values:
+            if ses_name not in sessions_df['session_id'].values:
                 next_row = sessions_df.shape[0] - 1
-                sessions_df.loc[next_row, "session_id"] = ses_name
+                sessions_df.loc[next_row, 'session_id'] = ses_name
 
-            sessions_df.loc[sessions_df["session_id"] == ses_name, "acq_time"] = ses_acqtime
+            sessions_df.loc[sessions_df['session_id'] == ses_name, 'acq_time'] = ses_acqtime
 
-        sessions_df.to_csv(sessions_tsv, sep="\t", lineterminator="\n", na_rep="n/a", index=False)
+        sessions_df.to_csv(sessions_tsv, sep='\t', lineterminator='\n', na_rep='n/a', index=False)
 
         # Remove scans files.
         for scans_file in scans_files:
             os.remove(scans_file)
 
-    if os.path.isfile(os.path.join(dset_dir, "scans.json")):
-        os.remove(os.path.join(dset_dir, "scans.json"))
+    if os.path.isfile(os.path.join(dset_dir, 'scans.json')):
+        os.remove(os.path.join(dset_dir, 'scans.json'))

@@ -1,9 +1,7 @@
-import json
 import os
 
-import matplotlib.pyplot as plt
 import nibabel as nb
-from ants import apply_transforms, image_read, image_write,registration
+from ants import apply_transforms, image_read, image_write, registration
 from bids.layout import BIDSLayout, Query
 from nilearn import image
 from pymp2rage import MP2RAGE
@@ -11,12 +9,42 @@ from pymp2rage import MP2RAGE
 
 def collect_run_data(layout, bids_filters):
     queries = {
-        'inv1_magnitude': {'part': ['mag', Query.NONE], 'inv': 1, 'suffix': 'MP2RAGE','extension': ['.nii', '.nii.gz'],},
-        'inv1_phase': {'part': 'phase', 'inv': 1, 'suffix': 'MP2RAGE', 'extension': ['.nii', '.nii.gz']},
-        'inv2_magnitude': {'part': ['mag', Query.NONE], 'inv': 2, 'suffix': 'MP2RAGE', 'extension': ['.nii', '.nii.gz']},
-        'inv2_phase': {'part': 'phase', 'inv': 2, 'suffix': 'MP2RAGE', 'extension': ['.nii', '.nii.gz']},
-        'b1_famp': {'datatype': 'fmap', 'acquisition': 'famp', 'suffix': 'TB1TFL', 'extension': ['.nii', '.nii.gz']},
-        'b1_anat': {'datatype': 'fmap', 'acquisition': 'anat', 'suffix': 'TB1TFL', 'extension': ['.nii', '.nii.gz']},
+        'inv1_magnitude': {
+            'part': ['mag', Query.NONE],
+            'inv': 1,
+            'suffix': 'MP2RAGE',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'inv1_phase': {
+            'part': 'phase',
+            'inv': 1,
+            'suffix': 'MP2RAGE',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'inv2_magnitude': {
+            'part': ['mag', Query.NONE],
+            'inv': 2,
+            'suffix': 'MP2RAGE',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'inv2_phase': {
+            'part': 'phase',
+            'inv': 2,
+            'suffix': 'MP2RAGE',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'b1_famp': {
+            'datatype': 'fmap',
+            'acquisition': 'famp',
+            'suffix': 'TB1TFL',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'b1_anat': {
+            'datatype': 'fmap',
+            'acquisition': 'anat',
+            'suffix': 'TB1TFL',
+            'extension': ['.nii', '.nii.gz'],
+        },
     }
 
     run_data = {}
