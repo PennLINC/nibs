@@ -254,6 +254,7 @@ def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir
         n4_img = ants.n4_bias_field_correction(in_img)
 
         # Skull-stripping
+        # XXX: Need an actual function to skullstrip
         brain_n4_file = os.path.join(temp_dir, f'brain_n4_{i_file}_{name_base}')
         brain_n4_img = ants.skullstrip(n4_img)
         ants.image_write(brain_n4_img, brain_n4_file)
