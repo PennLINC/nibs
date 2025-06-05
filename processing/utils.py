@@ -36,11 +36,14 @@ def to_bidsuri(filename, dataset_dir, dataset_name):
     return f'bids:{dataset_name}:{os.path.relpath(filename, dataset_dir)}'
 
 
-def get_filename(name_source, layout, entities, dismiss_entities=None):
+def get_filename(name_source, layout, out_dir, entities, dismiss_entities=None):
     if dismiss_entities is None:
         dismiss_entities = []
 
     source_entities = layout.get_file(name_source).get_entities()
     source_entities = {k: v for k, v in source_entities.items() if k not in dismiss_entities}
     entities = {**source_entities, **entities}
-    return layout.build_path(**entities)
+    out_file = layout.build_path(entities, validate=False)
+    out_file = out_file.replace(os.path.abspath(layout.root), os.path.abspath(out_dir))
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
+    return out_file

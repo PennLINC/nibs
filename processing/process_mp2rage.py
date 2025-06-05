@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 
 import ants
 import nibabel as nb
@@ -67,13 +68,11 @@ def collect_run_data(layout, bids_filters):
     return run_data
 
 
-def process_run(in_layout, layout, run_data, temp_dir):
+def process_run(layout, run_data, out_dir, temp_dir):
     """Process a single MP2RAGE run.
 
     Parameters
     ----------
-    in_layout : BIDSLayout
-        BIDSLayout object for the input data.
     layout : BIDSLayout
         BIDSLayout object.
     run_data : dict
@@ -84,9 +83,9 @@ def process_run(in_layout, layout, run_data, temp_dir):
         Directory to write temporary files.
     """
     name_source = run_data['inv1_magnitude']
-    inv1_metadata = in_layout.get_metadata(run_data['inv1_magnitude'])
-    inv2_metadata = in_layout.get_metadata(run_data['inv2_magnitude'])
-    b1map_metadata = in_layout.get_metadata(run_data['b1_famp'])
+    inv1_metadata = layout.get_metadata(run_data['inv1_magnitude'])
+    inv2_metadata = layout.get_metadata(run_data['inv2_magnitude'])
+    b1map_metadata = layout.get_metadata(run_data['b1_famp'])
 
     # Rescale b1_famp to percentage of flip angle
     scalar = b1map_metadata['FlipAngle'] * 10
@@ -103,7 +102,47 @@ def process_run(in_layout, layout, run_data, temp_dir):
         moving=moving_img,
         type_of_transform='Rigid',
     )
-    fwd_transform = reg_output['fwdtransforms']
+    if len(reg_output['fwdtransforms']) != 1:
+        print(
+            f'Expected 1 transform, got {len(reg_output["fwdtransforms"])}: '
+            f'{reg_output["fwdtransforms"]}'
+        )
+    fwd_transform = reg_output['fwdtransforms'][0]
+
+    # Write the transform to a file
+    fwd_transform_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'datatype': 'fmap',
+            'from': 'B1map',
+            'to': 'T1map',
+            'mode': 'image',
+            'suffix': 'xfm',
+            'extension': '.txt',
+        },
+    )
+    shutil.copyfile(fwd_transform, fwd_transform_file)
+
+    # Write the transform to a file
+    inv_transform = reg_output['invtransforms'][0]
+    inv_transform_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'datatype': 'fmap',
+            'from': 'T1map',
+            'to': 'B1map',
+            'mode': 'image',
+            'suffix': 'xfm',
+            'extension': '.txt',
+        },
+    )
+    shutil.copyfile(inv_transform, inv_transform_file)
+
+    # Apply the transform to b1_famp
     b1map_rescaled_img = ants.image_read(b1map_rescaled_file)
     b1map_rescaled_reg = ants.apply_transforms(
         fixed=fixed_img,
@@ -114,10 +153,28 @@ def process_run(in_layout, layout, run_data, temp_dir):
     b1map_rescaled_reg_file = get_filename(
         name_source=name_source,
         layout=layout,
-        entities={'space': 'T1map', 'suffix': 'B1map'},
+        out_dir=out_dir,
+        entities={'datatype': 'fmap', 'space': 'T1map', 'suffix': 'B1map'},
         dismiss_entities=['inv', 'part'],
     )
     ants.image_write(b1map_rescaled_reg, b1map_rescaled_reg_file)
+
+    # Apply the transform to b1_anat
+    b1_anat_img = ants.image_read(run_data['b1_anat'])
+    b1_anat_reg = ants.apply_transforms(
+        fixed=fixed_img,
+        moving=b1_anat_img,
+        transformlist=fwd_transform,
+        interpolator='gaussian',
+    )
+    b1_anat_reg_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'datatype': 'fmap', 'space': 'T1map', 'suffix': 'B1anat'},
+        dismiss_entities=['inv', 'part'],
+    )
+    ants.image_write(b1_anat_reg, b1_anat_reg_file)
 
     inversion_times = [
         inv1_metadata['InversionTime'],
@@ -152,6 +209,7 @@ def process_run(in_layout, layout, run_data, temp_dir):
     t1map_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'suffix': 'T1map'},
         dismiss_entities=['inv', 'part'],
     )
@@ -160,6 +218,7 @@ def process_run(in_layout, layout, run_data, temp_dir):
     t1w_uni_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'suffix': 'T1w'},
         dismiss_entities=['inv', 'part'],
     )
@@ -175,6 +234,7 @@ def process_run(in_layout, layout, run_data, temp_dir):
     t1map_b1_corrected_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'suffix': 'T1map', 'desc': 'B1corrected'},
         dismiss_entities=['inv', 'part'],
     )
@@ -182,6 +242,7 @@ def process_run(in_layout, layout, run_data, temp_dir):
     t1w_uni_b1_corrected_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'suffix': 'T1w', 'desc': 'B1corrected'},
         dismiss_entities=['inv', 'part'],
     )
@@ -219,11 +280,6 @@ if __name__ == '__main__':
         config=os.path.join(code_dir, 'nibs_bids_config.json'),
         validate=False,
     )
-    out_layout = BIDSLayout(
-        out_dir,
-        config=os.path.join(code_dir, 'nibs_bids_config.json'),
-        validate=False,
-    )
     subjects = layout.get_subjects(suffix='MP2RAGE')
     for subject in subjects:
         print(f'Processing subject {subject}')
@@ -236,6 +292,7 @@ if __name__ == '__main__':
                 inv=1,
                 part=['mag', Query.NONE],
                 suffix='MP2RAGE',
+                extension=['.nii', '.nii.gz'],
             )
             for inv1_magnitude_file in inv1_magnitude_files:
                 entities = inv1_magnitude_file.get_entities()
@@ -244,6 +301,6 @@ if __name__ == '__main__':
                     entities.pop('part')
 
                 run_data = collect_run_data(layout, entities)
-                process_run(layout, out_layout, run_data, temp_dir)
+                process_run(layout, run_data, out_dir, temp_dir)
 
     print('DONE!')

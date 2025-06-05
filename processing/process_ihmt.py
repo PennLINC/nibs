@@ -5,8 +5,8 @@ import os
 import shutil
 
 import ants
-from bids import BIDSLayout, Query
-from ihmt_proc import fit_ihMTsat_CLI
+from bids.layout import BIDSLayout, Query
+from ihmt_proc import cli
 from nilearn import image
 
 from utils import run_command, get_filename
@@ -18,60 +18,52 @@ def collect_run_data(layout, bids_filters):
             'acquisition': 'nosat',
             'mt': 'off',
             'suffix': 'ihMTRAGE',
-            'extension': 'nii.gz',
+            'extension': ['.nii', '.nii.gz'],
         },
         'mt+': {
             'acquisition': 'singlepos',
             'mt': 'on',
             'suffix': 'ihMTRAGE',
-            'extension': 'nii.gz',
+            'extension': ['.nii', '.nii.gz'],
         },
         'mt-': {
             'acquisition': 'singleneg',
             'mt': 'on',
             'suffix': 'ihMTRAGE',
-            'extension': 'nii.gz',
+            'extension': ['.nii', '.nii.gz'],
         },
         'mtdual1': {
             'acquisition': 'dual1',
             'mt': 'on',
             'suffix': 'ihMTRAGE',
-            'extension': 'nii.gz',
+            'extension': ['.nii', '.nii.gz'],
         },
         'mtdual2': {
             'acquisition': 'dual2',
             'mt': 'on',
             'suffix': 'ihMTRAGE',
-            'extension': 'nii.gz',
+            'extension': ['.nii', '.nii.gz'],
         },
         'b1map': {
-            'run': Query.NONE,
             'space': 'T1map',
             'suffix': 'B1map',
-            'extension': 'nii.gz',
+            'extension': ['.nii', '.nii.gz'],
         },
         't1map': {
-            'run': Query.NONE,
+            'desc': 'B1corrected',
             'suffix': 'T1map',
-            'extension': 'nii.gz',
-        },
-        'mask': {
-            'run': Query.NONE,
-            'modality': 'T1map',
-            'desc': 'brain',
-            'suffix': 'mask',
-            'extension': 'nii.gz',
+            'extension': ['.nii', '.nii.gz'],
         },
     }
 
     run_data = {}
     for key, query in queries.items():
-        query = {**query, **bids_filters}
+        query = {**bids_filters, **query}
         files = layout.get(**query)
         if len(files) > 1:
-            raise ValueError(f'Expected 1 file for {key}, got {len(files)}')
+            raise ValueError(f'Expected 1 file for {key}, got {len(files)}: {query}')
         elif len(files) == 0:
-            print(f'Expected 1 file for {key}, got {len(files)}')
+            print(f'Expected 1 file for {key}, got {len(files)}: {query}')
             run_data[key] = None
             continue
 
@@ -81,7 +73,7 @@ def collect_run_data(layout, bids_filters):
     return run_data
 
 
-def process_run(name_source, layout, run_data, temp_dir):
+def process_run(name_source, layout, run_data, out_dir, temp_dir):
     name_base = os.path.basename(name_source)
 
     # ihMTRAGE parameters
@@ -129,6 +121,7 @@ def process_run(name_source, layout, run_data, temp_dir):
         name_source=name_source,
         layout=layout,
         in_files=denoised_ihmt_files,
+        out_dir=out_dir,
         temp_dir=temp_dir,
     )
     coreg_transform = coregister_to_t1(
@@ -136,6 +129,7 @@ def process_run(name_source, layout, run_data, temp_dir):
         layout=layout,
         in_file=ihmt_template,
         t1_file=run_data['t1map'],
+        out_dir=out_dir,
     )
 
     # Apply motion correction and coregistration to ihMTRAGE files
@@ -154,6 +148,7 @@ def process_run(name_source, layout, run_data, temp_dir):
         ihmt_file_t1space = get_filename(
             name_source=in_file,
             layout=layout,
+            out_dir=out_dir,
             entities={'space': 'T1map'},
             dismiss_entities=['acquisition', 'mt'],
         )
@@ -169,47 +164,52 @@ def process_run(name_source, layout, run_data, temp_dir):
     ihmtsat_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'space': 'T1map', 'suffix': 'ihMTsat'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtdsat_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'space': 'T1map', 'suffix': 'MTdsat'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtssat_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'space': 'T1map', 'suffix': 'MTssat'},
         dismiss_entities=['acquisition', 'mt'],
     )
     ihmtsatb1sq_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'space': 'T1map', 'suffix': 'ihMTsatB1sq'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtdsatb1sq_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'space': 'T1map', 'suffix': 'MTdsatB1sq'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtssatb1sq_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'suffix': 'MTssatB1sq'},
         dismiss_entities=['acquisition', 'mt'],
     )
 
-    fit_ihMTsat_CLI.main(
+    cli.main(
         ihmt=concat_ihmt_t1space,
         t1=run_data['t1map'],
         ihmtparx=ihmt_params,
         tb1tflparx=tb1tfl_params,
         b1=run_data['b1map'],
-        mask=run_data['mask'],
         ihmtsat_file=ihmtsat_file,
         mtdsat_file=mtdsat_file,
         mtssat_file=mtssat_file,
@@ -219,7 +219,7 @@ def process_run(name_source, layout, run_data, temp_dir):
     )
 
 
-def iterative_motion_correction(name_source, layout, in_files, temp_dir):
+def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir):
     """Apply iterative motion correction to a list of images.
 
     This method is based on the method described in https://doi.org/10.1101/2020.09.11.292649.
@@ -232,6 +232,8 @@ def iterative_motion_correction(name_source, layout, in_files, temp_dir):
         BIDSLayout object.
     in_files : list of str
         List of input image files.
+    out_dir : str
+        Directory to write output files.
     temp_dir : str
         Directory to write temporary files.
 
@@ -283,6 +285,7 @@ def iterative_motion_correction(name_source, layout, in_files, temp_dir):
         transform_file = get_filename(
             name_source=name_source,
             layout=layout,
+            out_dir=out_dir,
             entities={
                 'from': suffix,
                 'to': 'ihMTRAGEref',
@@ -299,6 +302,7 @@ def iterative_motion_correction(name_source, layout, in_files, temp_dir):
     template_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={'suffix': 'ihMTRAGEref'},
         dismiss_entities=['acquisition', 'mt'],
     )
@@ -311,6 +315,7 @@ def iterative_motion_correction(name_source, layout, in_files, temp_dir):
         out_file = get_filename(
             name_source=name_source,
             layout=layout,
+            out_dir=out_dir,
             entities={'space': 'ihMTRAGEref', 'suffix': suffix},
         )
         out_img = ants.apply_transforms(
@@ -361,6 +366,7 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir):
     transform_file = get_filename(
         name_source=name_source,
         layout=layout,
+        out_dir=out_dir,
         entities={
             'from': 'ihMTRAGEref',
             'to': 'T1map',
@@ -410,11 +416,6 @@ if __name__ == '__main__':
         validate=False,
         derivatives=[mp2rage_dir],
     )
-    output_layout = BIDSLayout(
-        out_dir,
-        config=os.path.join(code_dir, 'nibs_bids_config.json'),
-        validate=False,
-    )
     subjects = layout.get_subjects(suffix='ihMTRAGE')
     for subject in subjects:
         print(f'Processing subject {subject}')
@@ -427,10 +428,11 @@ if __name__ == '__main__':
                 acquisition='nosat',
                 mt='off',
                 suffix='ihMTRAGE',
+                extension=['.nii', '.nii.gz'],
             )
             for m0_file in m0_files:
                 entities = m0_file.get_entities()
                 entities.pop('acquisition')
                 entities.pop('mt')
                 run_data = collect_run_data(layout, entities)
-                process_run(m0_file, output_layout, run_data, temp_dir)
+                process_run(m0_file, layout, run_data, out_dir, temp_dir)
