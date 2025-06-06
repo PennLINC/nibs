@@ -172,14 +172,10 @@ def infotodict(
                 or ('t1_space_sag_p3_iso' in s.protocol_name)
             )
             and ('NORM' in s.image_type)
-            and ('DIS3D' in s.image_type)
         ):
             info[t1_space_norm].append(s.series_id)
-        elif (
-            ('anat-T2w_acq-SPACE' in s.protocol_name)
-            and ('NORM' in s.image_type)
-            and ('DIS3D' in s.image_type)
-        ):
+        elif ('anat-T2w_acq-SPACE' in s.protocol_name) and ('NORM' in s.image_type):
+            # Some scans have DIS3D enabled. Some don't. I'll let CuBIDS figure that out.
             info[t2_space_norm].append(s.series_id)
         elif ('t2_tse_tra_512' in s.protocol_name) and ('NORM' in s.image_type):
             info[t2_tse_norm].append(s.series_id)
@@ -193,15 +189,16 @@ def infotodict(
             info[mp2rage_inv2_mag].append([s.series_id])
         elif 'anat-MP2RAGE_UNI' in s.series_description:
             info[mp2rage_uni].append([s.series_id])
-        elif 'anat-MESE_echo-1_dir-PA' in s.protocol_name:
+        elif 'anat-mese_echo-1_dir-pa' in s.protocol_name.lower():
+            # dir was capitalized as DIR in some scans
             info[mese_echo1_pa].append([s.series_id])
-        elif 'anat-MESE_echo-1_dir-AP' in s.protocol_name:
+        elif 'anat-mese_echo-1_dir-ap' in s.protocol_name.lower():
             info[mese_echo1_ap].append([s.series_id])
-        elif 'anat-MESE_echo-2_dir-AP' in s.protocol_name:
+        elif 'anat-mese_echo-2_dir-ap' in s.protocol_name.lower():
             info[mese_echo2_ap].append([s.series_id])
-        elif 'anat-MESE_echo-3_dir-AP' in s.protocol_name:
+        elif 'anat-mese_echo-3_dir-ap' in s.protocol_name.lower():
             info[mese_echo3_ap].append([s.series_id])
-        elif 'anat-MESE_echo-4_dir-AP' in s.protocol_name:
+        elif 'anat-mese_echo-4_dir-ap' in s.protocol_name.lower():
             info[mese_echo4_ap].append([s.series_id])
         # Field maps
         elif ('fmap-TB1TFL' in s.protocol_name) and ('FLIP ANGLE MAP' not in s.image_type):
