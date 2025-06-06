@@ -205,7 +205,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'suffix': 'MTssatB1sq'},
+        entities={'space': 'T1map', 'suffix': 'MTssatB1sq'},
         dismiss_entities=['acquisition', 'mt'],
     )
 
