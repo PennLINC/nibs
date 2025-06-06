@@ -1,11 +1,12 @@
-flake8  # To lint Python code
-flake8-absolute-import
-flake8-black
-flake8-docstrings
-flake8-isort
-flake8-unused-arguments
-flake8-use-fstring
-flake8-warnings
-pep8-naming
-pyflakes
-nbqa  # To lint Jupyter notebooks
+git+https://github.com/ANTsX/ANTsPyNet.git@7a2bb8f92fa0fee1002dc7b61e0711178e1811b7
+git+https://github.com/PennLINC/ihmt_proc.git@1c6f74a855da45a1162983f5f6224bce6d1215e6
+git+https://github.com/PennLINC/pymp2rage.git@0e419f884d3e1ac19aa6c5e596afc88c8030fdca
+numpy
+nibabel
+scipy
+matplotlib
+antspyx
+heudiconv
+pandas
+nilearn
+pybids
