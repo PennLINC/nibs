@@ -43,7 +43,7 @@ def get_filename(name_source, layout, out_dir, entities, dismiss_entities=None):
     source_entities = layout.get_file(name_source).get_entities()
     source_entities = {k: v for k, v in source_entities.items() if k not in dismiss_entities}
     entities = {**source_entities, **entities}
-    out_file = layout.build_path(entities, validate=False)
+    out_file = layout.build_path(entities, validate=False, strict=True)
     out_file = out_file.replace(os.path.abspath(layout.root), os.path.abspath(out_dir))
     os.makedirs(os.path.dirname(out_file), exist_ok=True)
     return out_file
