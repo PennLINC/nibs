@@ -1,3 +1,10 @@
+"""Calculate T2* maps from MESE data.
+
+This is still just a draft.
+I need to calculate SDC from the first echo and apply that to the T2* map.
+Plus we need proper output names.
+"""
+
 import json
 import os
 

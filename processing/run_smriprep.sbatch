@@ -15,7 +15,6 @@ pwd; hostname; date
 set -e
 
 #==============Shell script==============#
-# Location of the *reduced* BIDS dataset
 BIDS_DIR="/cbica/projects/nibs/dset"
 CODE_DIR="/cbica/projects/nibs/code"
 JOBS_DIR="/cbica/projects/nibs/jobs"
@@ -30,6 +29,7 @@ FS_LICENSE="/cbica/projects/nibs/tokens/freesurfer_license.txt"
 # Parse the participants.tsv file and extract one subject ID from the line corresponding to this SLURM task.
 subject=$( sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" ${BIDS_DIR}/participants.tsv )
 
+# We'll run fMRIPrep in anat-only mode instead of sMRIPrep because we're more familiar with fMRIPrep.
 cmd="apptainer run --home $HOME --cleanenv --containall --writable-tmpfs \
       -B ${BIDS_DIR}:/data \
       -B ${DERIVS_DIR}:/out \
