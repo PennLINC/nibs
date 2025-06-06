@@ -12,45 +12,54 @@ from nilearn import image
 
 from utils import run_command, get_filename
 
+CODE_DIR = '/Users/taylor/Documents/linc/nibs'
+
 
 def collect_run_data(layout, bids_filters):
     queries = {
         'm0': {
+            'datatype': 'anat',
             'acquisition': 'nosat',
             'mt': 'off',
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
-        'mt+': {
+        'mtplus': {
+            'datatype': 'anat',
             'acquisition': 'singlepos',
             'mt': 'on',
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
-        'mt-': {
+        'mtminus': {
+            'datatype': 'anat',
             'acquisition': 'singleneg',
             'mt': 'on',
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
         'mtdual1': {
+            'datatype': 'anat',
             'acquisition': 'dual1',
             'mt': 'on',
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
         'mtdual2': {
+            'datatype': 'anat',
             'acquisition': 'dual2',
             'mt': 'on',
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
         'b1map': {
+            'datatype': 'fmap',
             'space': 'T1map',
             'suffix': 'B1map',
             'extension': ['.nii', '.nii.gz'],
         },
         't1map': {
+            'datatype': 'anat',
             'desc': 'B1corrected',
             'suffix': 'T1map',
             'extension': ['.nii', '.nii.gz'],
@@ -90,17 +99,12 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     flip_angle = 80  # deg
     n_repetitions = 1
     t_r = 9500  # ms
-    tb1tfl_params = f'{echo_spacing},{flip_angle},{n_repetitions},{t_r}'
+    tfl_params = f'{echo_spacing},{flip_angle},{n_repetitions},{t_r}'
 
-    # TODO: Concatenate ihMTRAGE files into one 4D file (has to be right order)
+    # Concatenate ihMTRAGE files into one 4D file (has to be right order)
     # nosat_mt-off, singlepos_mt-on, dual1_mt-on, singleneg_mt-on, dual2_mt-on
-    in_files = [
-        run_data['m0'],
-        run_data['mt+'],
-        run_data['mtdual1'],
-        run_data['mt-'],
-        run_data['mtdual2'],
-    ]
+    filetypes = ['m0', 'mtplus', 'mtdual1', 'mtminus', 'mtdual2']
+    in_files = [run_data[filetype] for filetype in filetypes]
     concat_ihmt_img = image.concat_imgs([in_files])
     concat_ihmt_file = os.path.join(temp_dir, f'concat_{name_base}')
     concat_ihmt_img.to_filename(concat_ihmt_file)
@@ -119,9 +123,10 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
 
     # Motion correct ihMTRAGE files
     ihmt_template, hmc_transforms = iterative_motion_correction(
-        name_source=name_source,
+        name_sources=in_files,
         layout=layout,
         in_files=denoised_ihmt_files,
+        filetypes=filetypes,
         out_dir=out_dir,
         temp_dir=temp_dir,
     )
@@ -151,12 +156,11 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'T1map'},
-            dismiss_entities=['acquisition', 'mt'],
         )
         ants.image_write(ihmt_img_t1space, ihmt_file_t1space)
         ihmt_files_t1space.append(ihmt_file_t1space)
 
-    # TODO: Concatenate ihMTRAGE files into one 4D file (has to be right order)
+    # Concatenate ihMTRAGE files into one 4D file (has to be right order)
     # nosat_mt-off, singlepos_mt-on, dual1_mt-on, singleneg_mt-on, dual2_mt-on
     concat_ihmt_t1space = os.path.join(temp_dir, f'concat_t1space_{name_base}')
     concat_ihmt_img = image.concat_imgs(ihmt_files_t1space)
@@ -209,7 +213,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         ihmt=concat_ihmt_t1space,
         t1=run_data['t1map'],
         ihmtparx=ihmt_params,
-        tb1tflparx=tb1tfl_params,
+        tflparx=tfl_params,
         b1=run_data['b1map'],
         ihmtsat_file=ihmtsat_file,
         mtdsat_file=mtdsat_file,
@@ -220,19 +224,21 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     )
 
 
-def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir):
+def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_dir, temp_dir):
     """Apply iterative motion correction to a list of images.
 
     This method is based on the method described in https://doi.org/10.1101/2020.09.11.292649.
 
     Parameters
     ----------
-    name_source : str
-        Name of the source file to use for output file names.
+    name_sources : list of str
+        List of names of the source files to use for output file names.
     layout : BIDSLayout
         BIDSLayout object.
     in_files : list of str
         List of input image files.
+    filetypes : list of str
+        List of filetypes of the input images.
     out_dir : str
         Directory to write output files.
     temp_dir : str
@@ -245,8 +251,6 @@ def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir
     transforms : list of str
         List of transform files.
     """
-    name_base = os.path.basename(name_source)
-
     # Step 1: Apply N4 bias field correction and skull-stripping to each image.
     brain_n4_files = []
     for i_file, in_file in enumerate(in_files):
@@ -256,6 +260,7 @@ def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir
 
         # Skull-stripping
         dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
+        dseg_img = dseg_img['segmentation_image']
         mask_img = ants.threshold_image(
             dseg_img,
             low_thresh=1,
@@ -265,6 +270,7 @@ def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir
             binary=True,
         )
         n4_img_masked = n4_img * mask_img
+        name_base = os.path.basename(name_sources[i_file])
         brain_n4_file = os.path.join(temp_dir, f'brain_n4_{i_file}_{name_base}')
         ants.image_write(n4_img_masked, brain_n4_file)
         brain_n4_files.append(brain_n4_file)
@@ -274,11 +280,10 @@ def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir
     transforms = []
     for i_file, brain_n4_file in enumerate(brain_n4_files):
         in_file = in_files[i_file]
-        suffix = layout.parse_file_entities(in_file)['suffix']
+        filetype = filetypes[i_file]
         if i_file == 0:
             template_img = ants.image_read(brain_n4_file)
-            # XXX: Locate identity ITK transform file
-            transform = 'identity'  # identity transform
+            transform = os.path.join(CODE_DIR, 'processing', 'itkIdentityTransform.txt')
         else:
             reg = ants.registration(
                 fixed=template_img,
@@ -293,15 +298,15 @@ def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir
 
         # Step 2a: Write out individual transforms to ihMTRAGEref space.
         transform_file = get_filename(
-            name_source=name_source,
+            name_source=name_sources[i_file],
             layout=layout,
             out_dir=out_dir,
             entities={
-                'from': suffix,
+                'from': filetype,
                 'to': 'ihMTRAGEref',
                 'mode': 'image',
                 'suffix': 'xfm',
-                'extension': 'txt',
+                'extension': 'txt' if transform.endswith('.txt') else 'mat',
             },
             dismiss_entities=['acquisition', 'mt'],
         )
@@ -310,7 +315,7 @@ def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir
 
     # Step 3: Write out template image as ihMTRAGEref.nii.gz
     template_file = get_filename(
-        name_source=name_source,
+        name_source=name_sources[0],
         layout=layout,
         out_dir=out_dir,
         entities={'suffix': 'ihMTRAGEref'},
@@ -320,13 +325,12 @@ def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir
 
     # Step 5: Apply transforms to original images.
     for i_file, in_file in enumerate(in_files):
-        suffix = layout.parse_file_entities(in_file)['suffix']
         transform_file = transforms[i_file]
         out_file = get_filename(
-            name_source=name_source,
+            name_source=name_sources[i_file],
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'ihMTRAGEref', 'suffix': suffix},
+            entities={'space': 'ihMTRAGEref'},
         )
         out_img = ants.apply_transforms(
             fixed=ants.image_read(template_file),
@@ -364,8 +368,10 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir):
     t1_img = ants.image_read(t1_file)
     n4_img = ants.n4_bias_field_correction(t1_img)
     dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
+    dseg_img = dseg_img['segmentation_image']
+    # TODO: Construct filename
     ants.image_write(dseg_img, os.path.join(out_dir, 'space-T1map_desc-t1threetissue_dseg.nii.gz'))
-    # TODO: Binarize the brain mask
+    # Binarize the brain mask
     mask_img = ants.threshold_image(
         dseg_img,
         low_thresh=1,
@@ -374,6 +380,7 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir):
         outval=0,
         binary=True,
     )
+    # TODO: Construct filename
     ants.image_write(mask_img, os.path.join(out_dir, 'space-T1map_desc-brain_mask.nii.gz'))
     n4_img_masked = n4_img * mask_img
 
@@ -393,7 +400,7 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir):
             'to': 'T1map',
             'mode': 'image',
             'suffix': 'xfm',
-            'extension': 'txt',
+            'extension': 'txt' if transform.endswith('.txt') else 'mat',
         },
         dismiss_entities=['acquisition', 'mt'],
     )
