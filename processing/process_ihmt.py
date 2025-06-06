@@ -5,6 +5,7 @@ import os
 import shutil
 
 import ants
+import antspynet
 from bids.layout import BIDSLayout, Query
 from ihmt_proc import cli
 from nilearn import image
@@ -254,10 +255,18 @@ def iterative_motion_correction(name_source, layout, in_files, out_dir, temp_dir
         n4_img = ants.n4_bias_field_correction(in_img)
 
         # Skull-stripping
-        # XXX: Need an actual function to skullstrip
+        dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
+        mask_img = ants.threshold_image(
+            dseg_img,
+            low_thresh=1,
+            high_thresh=1,
+            inval=1,
+            outval=0,
+            binary=True,
+        )
+        n4_img_masked = n4_img * mask_img
         brain_n4_file = os.path.join(temp_dir, f'brain_n4_{i_file}_{name_base}')
-        brain_n4_img = ants.skullstrip(n4_img)
-        ants.image_write(brain_n4_img, brain_n4_file)
+        ants.image_write(n4_img_masked, brain_n4_file)
         brain_n4_files.append(brain_n4_file)
 
     # Step 2: Define template image, then register each image to the template.
@@ -354,12 +363,23 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir):
     # Step 1: Apply N4 bias field correction and skull-stripping to T1.
     t1_img = ants.image_read(t1_file)
     n4_img = ants.n4_bias_field_correction(t1_img)
-    brain_n4_img = ants.skullstrip(n4_img)
-    ants.image_write(brain_n4_img, os.path.join(out_dir, 'space-T1map_brain.nii.gz'))
+    dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
+    ants.image_write(dseg_img, os.path.join(out_dir, 'space-T1map_desc-t1threetissue_dseg.nii.gz'))
+    # TODO: Binarize the brain mask
+    mask_img = ants.threshold_image(
+        dseg_img,
+        low_thresh=1,
+        high_thresh=1,
+        inval=1,
+        outval=0,
+        binary=True,
+    )
+    ants.image_write(mask_img, os.path.join(out_dir, 'space-T1map_desc-brain_mask.nii.gz'))
+    n4_img_masked = n4_img * mask_img
 
     # Step 2: Coregister the brain-extracted image to the T1w image.
     registered_img = ants.registration(
-        fixed=ants.image_read(os.path.join(out_dir, 'space-T1map_brain.nii.gz')),
+        fixed=n4_img_masked,
         moving=ants.image_read(in_file),
         type_of_transform='Rigid',
     )
