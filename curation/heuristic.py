@@ -80,12 +80,20 @@ def infotodict(
         '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_run-{item:02d}_ihMTRAGE',
         outtype=outdicom,
     )
-    mp2rage_inv1 = create_key(
-        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_MP2RAGE',
+    mp2rage_inv1_mag = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_part-mag_MP2RAGE',
         outtype=outdicom,
     )
-    mp2rage_inv2 = create_key(
-        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_MP2RAGE',
+    mp2rage_inv1_phase = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_part-phase_MP2RAGE',
+        outtype=outdicom,
+    )
+    mp2rage_inv2_mag = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_part-mag_MP2RAGE',
+        outtype=outdicom,
+    )
+    mp2rage_inv2_phase = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_part-phase_MP2RAGE',
         outtype=outdicom,
     )
     mp2rage_uni = create_key(
@@ -138,8 +146,10 @@ def infotodict(
         mese_echo3_ap: [],
         mese_echo4_ap: [],
         ihmtrage: [],
-        mp2rage_inv1: [],
-        mp2rage_inv2: [],
+        mp2rage_inv1_mag: [],
+        mp2rage_inv1_phase: [],
+        mp2rage_inv2_mag: [],
+        mp2rage_inv2_phase: [],
         mp2rage_uni: [],
         tb1tfl_anat: [],
         tb1tfl_famp: [],
@@ -175,10 +185,12 @@ def infotodict(
             info[t2_tse_norm].append(s.series_id)
         elif 'ihMT' in s.protocol_name:
             info[ihmtrage].append(s.series_id)
+        # XXX: Need to modify when we get phase data.
+        # I don't know what differentiates phase and mag in the metadata.
         elif 'anat-MP2RAGE_INV1' in s.series_description:
-            info[mp2rage_inv1].append([s.series_id])
+            info[mp2rage_inv1_mag].append([s.series_id])
         elif 'anat-MP2RAGE_INV2' in s.series_description:
-            info[mp2rage_inv2].append([s.series_id])
+            info[mp2rage_inv2_mag].append([s.series_id])
         elif 'anat-MP2RAGE_UNI' in s.series_description:
             info[mp2rage_uni].append([s.series_id])
         elif 'anat-MESE_echo-1_dir-PA' in s.protocol_name:
