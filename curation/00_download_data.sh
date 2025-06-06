@@ -1,7 +1,7 @@
 #!/bin/bash
 unset LD_LIBRARY_PATH
 
-subjects="techdev_human_myelin_02 techdev_dt_myelin techdev_ihmt"
+subjects="153-327"
 token=$(</cbica/projects/nibs/tokens/flywheel.txt)
 #~/bin/glibc-2.34/lib/ld-linux-x86-64.so.2 ~/bin/linux_amd64/fw login "$token"
 ~/bin/linux_amd64/fw login "$token"
