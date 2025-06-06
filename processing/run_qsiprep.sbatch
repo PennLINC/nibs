@@ -2,7 +2,7 @@
 #SBATCH --job-name=qsiprep
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-12
+#SBATCH --array=1-4
 #SBATCH --cpus-per-task=20
 #SBATCH --mem-per-cpu=4gb
 #SBATCH --time=36:00:00
@@ -35,7 +35,7 @@ cmd="apptainer run --cleanenv \
       -B ${DERIVS_DIR}:/deriv \
       -B ${SCRATCH_DIR}:/work \
       -B ${FS_LICENSE}:/license.txt \
-      /cbica/projects/nibs/apptainer/qsiprep-1.0.0.sif \
+      /cbica/projects/nibs/apptainer/qsiprep-1.0.1.sif \
       /data \
       /deriv/qsiprep \
       participant \

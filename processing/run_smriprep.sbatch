@@ -2,13 +2,13 @@
 #SBATCH --job-name=smriprep
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=2-12
+#SBATCH --array=1-4
 #SBATCH --cpus-per-task=20
 #SBATCH --mem-per-cpu=4gb
 #SBATCH --time=48:00:00
 # Outputs ----------------------------------
-#SBATCH --output=/cbica/projects/nibs/jobs/smriprep_%A-%a.out
-#SBATCH --error=/cbica/projects/nibs/jobs/smriprep_%A-%a.err
+#SBATCH --output=/cbica/projects/nibs/code/processing/jobs/smriprep_%A-%a.out
+#SBATCH --error=/cbica/projects/nibs/code/processing/jobs/smriprep_%A-%a.err
 # ------------------------------------------
 
 pwd; hostname; date
@@ -17,7 +17,7 @@ set -e
 #==============Shell script==============#
 BIDS_DIR="/cbica/projects/nibs/dset"
 CODE_DIR="/cbica/projects/nibs/code"
-JOBS_DIR="/cbica/projects/nibs/jobs"
+JOBS_DIR="/cbica/projects/nibs/code/processing/jobs"
 SCRATCH_DIR="/cbica/comp_space/nibs/smriprep"
 DERIVS_DIR="/cbica/projects/nibs/derivatives/smriprep"
 mkdir -p ${SCRATCH_DIR}
