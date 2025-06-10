@@ -73,7 +73,7 @@ def collect_run_data(layout, bids_filters):
         'b1map': {
             'datatype': 'fmap',
             'space': 'T1w',
-            'suffix': 'B1map',
+            'suffix': 'TB1map',
             'extension': ['.nii', '.nii.gz'],
         },
         # sMRIPrep T1w-space T1 map from MP2RAGE derivatives
@@ -238,7 +238,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1w', 'suffix': 'MTR'},
+        entities={'space': 'T1w', 'suffix': 'MTRmap'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtr_img.to_filename(mtr_file)

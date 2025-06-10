@@ -134,3 +134,50 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_spac
     )
     shutil.copyfile(transform, transform_file)
     return transform_file
+
+
+def fit_monoexponential(in_files, echo_times):
+    """Fit monoexponential decay model to MESE data.
+
+    Parameters
+    ----------
+    in_files : list of str
+        List of paths to MESE data.
+    echo_times : list of float
+        List of echo times in milliseconds.
+
+    Returns
+    -------
+    t2s_s_img : nibabel.Nifti1Image
+        T2* map in seconds.
+    r2s_hz_img : nibabel.Nifti1Image
+        R2* map in Hertz.
+    s0_img : nibabel.Nifti1Image
+        S0 map in arbitrary units.
+    """
+    import numpy as np
+    from tedana import io, decay
+
+    data_cat, ref_img = io.load_data(in_files, n_echos=len(echo_times))
+
+    # Fit model on all voxels, using all echoes
+    mask = np.ones(data_cat.shape[0], dtype=int)
+    masksum = mask * len(echo_times)
+
+    t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
+        data_cat=data_cat,
+        echo_times=echo_times,
+        adaptive_mask=masksum,
+        report=False,
+    )
+
+    t2s_s = t2s_limited / 1000
+    t2s_s[np.isinf(t2s_s)] = 0.5
+    s0_limited[np.isinf(s0_limited)] = 0
+
+    r2s_hz = 1 / t2s_s
+
+    t2s_s_img = io.new_nii_like(ref_img, t2s_s)
+    r2s_hz_img = io.new_nii_like(ref_img, r2s_hz)
+    s0_img = io.new_nii_like(ref_img, s0_limited)
+    return t2s_s_img, r2s_hz_img, s0_img

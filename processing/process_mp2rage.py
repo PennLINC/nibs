@@ -166,7 +166,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
         entities={
             'datatype': 'fmap',
-            'from': 'B1map',
+            'from': 'TB1map',
             'to': 'MP2RAGE',
             'mode': 'image',
             'suffix': 'xfm',
@@ -184,7 +184,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         entities={
             'datatype': 'fmap',
             'from': 'MP2RAGE',
-            'to': 'B1map',
+            'to': 'TB1map',
             'mode': 'image',
             'suffix': 'xfm',
             'extension': '.txt',
@@ -204,7 +204,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'datatype': 'fmap', 'space': 'MP2RAGE', 'suffix': 'B1map'},
+        entities={'datatype': 'fmap', 'space': 'MP2RAGE', 'suffix': 'TB1map'},
         dismiss_entities=['inv', 'part'],
     )
     ants.image_write(b1map_rescaled_reg, b1map_rescaled_reg_file)

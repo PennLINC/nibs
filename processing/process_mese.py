@@ -1,24 +1,24 @@
-"""Calculate T2* maps from MESE data.
+"""Calculate T2/R2/S0 maps from MESE data.
 
 This is still just a draft.
-I need to calculate SDC from the first echo and apply that to the T2* map.
+I need to calculate SDC from the first echo and apply that to the T2 map.
 Plus we need proper output names.
 
 Steps:
 
-1.  Calculate T2* map from AP MESE data.
+1.  Calculate T2 map from AP MESE data.
 2.  Calculate distortion map from AP and PA echo-1 data with SDCFlows.
     - topup vs. 3dQwarp vs. something else?
 3.  Apply SDC transform to AP echo-1 image.
 4.  Coregister SDCed AP echo-1 image to preprocessed T1w from sMRIPrep.
 5.  Write out coregistration transform to preprocessed T1w.
-6.  Warp T2* map to MNI152NLin2009cAsym (distortion map, coregistration transform,
+6.  Warp T2 map to MNI152NLin2009cAsym (distortion map, coregistration transform,
     normalization transform from sMRIPrep).
 7.  Warp S0 map to MNI152NLin2009cAsym.
 
 Notes:
 
-- The T2* map will be used for QSM processing.
+- The T2 map will be used for QSM processing.
 - sMRIPrep's preprocessed T1w image is used as the "native T1w space".
 """
 
@@ -30,7 +30,7 @@ import ants
 from bids.layout import BIDSLayout, Query
 from sdcflows.workflows.fit.pepolar import init_topup_wf
 
-from utils import coregister_to_t1, get_filename
+from utils import coregister_to_t1, fit_monoexponential, get_filename
 
 
 def collect_run_data(layout, bids_filters):
@@ -104,53 +104,6 @@ def collect_run_data(layout, bids_filters):
     return run_data
 
 
-def fit_monoexponential(in_files, echo_times):
-    """Fit monoexponential decay model to MESE data.
-
-    Parameters
-    ----------
-    in_files : list of str
-        List of paths to MESE data.
-    echo_times : list of float
-        List of echo times in milliseconds.
-
-    Returns
-    -------
-    t2s_s_img : nibabel.Nifti1Image
-        T2* map in seconds.
-    r2s_hz_img : nibabel.Nifti1Image
-        R2* map in Hertz.
-    s0_img : nibabel.Nifti1Image
-        S0 map in arbitrary units.
-    """
-    import numpy as np
-    from tedana import io, decay
-
-    data_cat, ref_img = io.load_data(in_files, n_echos=len(echo_times))
-
-    # Fit model on all voxels, using all echoes
-    mask = np.ones(data_cat.shape[0], dtype=int)
-    masksum = mask * len(echo_times)
-
-    t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
-        data_cat=data_cat,
-        echo_times=echo_times,
-        adaptive_mask=masksum,
-        report=False,
-    )
-
-    t2s_s = t2s_limited / 1000
-    t2s_s[np.isinf(t2s_s)] = 0.5
-    s0_limited[np.isinf(s0_limited)] = 0
-
-    r2s_hz = 1 / t2s_s
-
-    t2s_s_img = io.new_nii_like(ref_img, t2s_s)
-    r2s_hz_img = io.new_nii_like(ref_img, r2s_hz)
-    s0_img = io.new_nii_like(ref_img, s0_limited)
-    return t2s_s_img, r2s_hz_img, s0_img
-
-
 def process_run(layout, run_data, out_dir, temp_dir):
     """Process a single run of MESE data.
 
@@ -170,37 +123,37 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_ap_metadata = [layout.get_metadata(f) for f in run_data['mese_mag_ap']]
     mese_pa_metadata = layout.get_metadata(run_data['mese_mag_pa'])
     echo_times = [m['EchoTime'] * 1000 for m in mese_ap_metadata]
-    t2s_img, r2s_img, s0_img = fit_monoexponential(
+    t2_img, r2_img, s0_img = fit_monoexponential(
         in_files=run_data['mese_mag_ap'],
         echo_times=echo_times,
     )
-    t2s_filename = get_filename(
+    t2_filename = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
         entities={
             'datatype': 'anat',
             'space': 'MESE',
-            'suffix': 'T2starmap',
+            'suffix': 'T2map',
             'extension': '.nii.gz',
         },
         dismiss_entities=['echo', 'part'],
     )
-    t2s_img.to_filename(t2s_filename)
+    t2_img.to_filename(t2_filename)
 
-    r2s_filename = get_filename(
+    r2_filename = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
         entities={
             'datatype': 'anat',
             'space': 'MESE',
-            'suffix': 'R2starmap',
+            'suffix': 'R2map',
             'extension': '.nii.gz',
         },
         dismiss_entities=['echo', 'part'],
     )
-    r2s_img.to_filename(r2s_filename)
+    r2_img.to_filename(r2_filename)
 
     s0_filename = get_filename(
         name_source=name_source,
@@ -314,7 +267,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     # XXX: This ignores the SDC transform.
-    for file_ in [t2s_filename, r2s_filename, s0_filename]:
+    for file_ in [t2_filename, r2_filename, s0_filename]:
         suffix = os.path.basename(file_).split('_')[1].split('.')[0]
         out_file = get_filename(
             name_source=name_source,
