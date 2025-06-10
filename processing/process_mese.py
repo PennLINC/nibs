@@ -105,6 +105,24 @@ def collect_run_data(layout, bids_filters):
 
 
 def fit_monoexponential(in_files, echo_times):
+    """Fit monoexponential decay model to MESE data.
+
+    Parameters
+    ----------
+    in_files : list of str
+        List of paths to MESE data.
+    echo_times : list of float
+        List of echo times in milliseconds.
+
+    Returns
+    -------
+    t2s_s_img : nibabel.Nifti1Image
+        T2* map in seconds.
+    r2s_hz_img : nibabel.Nifti1Image
+        R2* map in Hertz.
+    s0_img : nibabel.Nifti1Image
+        S0 map in arbitrary units.
+    """
     import numpy as np
     from tedana import io, decay
 
@@ -125,9 +143,12 @@ def fit_monoexponential(in_files, echo_times):
     t2s_s[np.isinf(t2s_s)] = 0.5
     s0_limited[np.isinf(s0_limited)] = 0
 
+    r2s_hz = 1 / t2s_s
+
     t2s_s_img = io.new_nii_like(ref_img, t2s_s)
+    r2s_hz_img = io.new_nii_like(ref_img, r2s_hz)
     s0_img = io.new_nii_like(ref_img, s0_limited)
-    return t2s_s_img, s0_img
+    return t2s_s_img, r2s_hz_img, s0_img
 
 
 def process_run(layout, run_data, out_dir, temp_dir):
@@ -149,7 +170,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_ap_metadata = [layout.get_metadata(f) for f in run_data['mese_mag_ap']]
     mese_pa_metadata = layout.get_metadata(run_data['mese_mag_pa'])
     echo_times = [m['EchoTime'] * 1000 for m in mese_ap_metadata]
-    t2s_img, s0_img = fit_monoexponential(
+    t2s_img, r2s_img, s0_img = fit_monoexponential(
         in_files=run_data['mese_mag_ap'],
         echo_times=echo_times,
     )
@@ -166,6 +187,20 @@ def process_run(layout, run_data, out_dir, temp_dir):
         dismiss_entities=['echo', 'part'],
     )
     t2s_img.to_filename(t2s_filename)
+
+    r2s_filename = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'datatype': 'anat',
+            'space': 'MESE',
+            'suffix': 'R2starmap',
+            'extension': '.nii.gz',
+        },
+        dismiss_entities=['echo', 'part'],
+    )
+    r2s_img.to_filename(r2s_filename)
 
     s0_filename = get_filename(
         name_source=name_source,
@@ -279,7 +314,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     # XXX: This ignores the SDC transform.
-    for file_ in [t2s_filename, s0_filename]:
+    for file_ in [t2s_filename, r2s_filename, s0_filename]:
         suffix = os.path.basename(file_).split('_')[1].split('.')[0]
         out_file = get_filename(
             name_source=name_source,
