@@ -49,19 +49,19 @@ addpath(genpath('your_path/to/mritools'))
 %% Run options - User define
 RunOptions = struct();
 % 'dicom': input DICOM | 'nifti': input NIfTI | Else: custom input (.mat)
-RunOptions.InputType = 'dicom';
+RunOptions.InputType = 'nifti';
 
 % 'multi': multiple subjects | 'single: single-subject
 RunOptions.multi = 'single';
 
 % true: input brain mask | false: calculate brain mask
-RunOptions.Mask = false;
+RunOptions.Mask = true;
 
 % 'MEDI': MEDI brain extraction | 'custom': customize using FSL BET
 RunOptions.Mask_method = 'MEDI';
 
 % 'ARLO' | 'NNLS fitting' | 'Use preprocessed R2* or R2'' map'
-RunOptions.R2sfit = 'ARLO';
+RunOptions.R2sfit = 'Use preprocessed R2* or R2'' map';
 
 % 'ROMEO + weighted echo averaging' | 'nonlinear complex fitting + SEGUE' | 'Laplacian'
 RunOptions.Unwrap = 'ROMEO + weighted echo averaging';
@@ -82,7 +82,7 @@ RunOptions.Tukey = double(0.4);
 RunOptions.PhaseInverse = 0;
 
 % 1: have R2' | 0: don't have R2'
-RunOptions.HaveR2Prime = 0;
+RunOptions.HaveR2Prime = 1;
 % r2prime - R2' map in Hz unit (x, y, z). If you don't have R2' map, use chi-sepnet-R2* which doesn't require R2' map.
 
 % 0: generate R2' from R2* using R2pnet | 1: generate R2' from R2* using scaling
@@ -97,7 +97,7 @@ RunOptions.resgen = false;
 % Determine whether to use resolution generalization pipeline or to interpolate to 1 mm isotropic resolution
 % 7T processing is available only with resolution generalization
 
-RunOptions.OutputPath = '';
+RunOptions.OutputPath = '/cbica/projects/nibs/derivatives/qsm';
 % Output path must not contatin ' '(spaces)
 
 % Interpolation options (for B0 direction, Resampling)
@@ -146,8 +146,8 @@ if strcmp(RunOptions.InputType, 'dicom')
     Data.MGRE_Phs = double(angle(meas));
 
 elseif strcmp(RunOptions.InputType, 'nifti')
-    pathNifti_mag = [fullfile(subj_dir(subj).folder,subj_dir(subj).name),'\Mag.nii'];
-    pathNifti_phs = [fullfile(subj_dir(subj).folder,subj_dir(subj).name),'\Phase.nii'];
+    pathNifti_mag = [fullfile(subj_dir(subj).folder, subj_dir(subj).name), '\Mag.nii'];
+    pathNifti_phs = [fullfile(subj_dir(subj).folder, subj_dir(subj).name), '\Phase.nii'];
     % magnitude
     nii_file = load_untouch_nii(pathNifti_mag);
     Data.MGRE_Mag = rot90(double(nii_file.img));

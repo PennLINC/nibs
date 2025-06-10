@@ -4,17 +4,22 @@ subid = char(subid);
 sesid = char(sesid);
 
 % Add general Path
-addpath(genpath("/cbica/projects/pennlinc_qsm/software/sepia-1.2.2.6/"));
+addpath(genpath("/cbica/projects/nibs/software/sepia-1.2.2.6/"));
 sepia_addpath;
 
 % Define paths
-base_path = '/cbica/projects/pennlinc_qsm/';
-input(1).name = fullfile(base_path, 'data', 'bids_directory', ['sub-',subid], ['ses-',sesid],'qsm', ...
-    ['sub-', subid, '_ses-', sesid, '_phase.nii.gz']);
-input(2).name = fullfile(base_path, 'data', 'bids_directory', ['sub-',subid], ['ses-',sesid],'qsm', ...
-    ['sub-', subid, '_ses-', sesid, '_mag.nii.gz']);
+base_path = '/cbica/projects/nibs/';
+% Concatenated phase image
+input(1).name = fullfile(base_path, 'derivatives', 'qsm', ...
+    ['sub-', subid], ['ses-', sesid], 'swi', ...
+    ['sub-', subid, '_ses-', sesid, '_acq-QSM_part-phase_swi.nii.gz']);
+
+% Concatenated, skull-stripped magnitude image
+input(2).name = fullfile(base_path, 'derivatives', 'qsm', ...
+    ['sub-', subid], ['ses-', sesid], 'swi', ...
+    ['sub-', subid, '_ses-', sesid, '_acq-QSM_part-mag_swi.nii.gz']);
 input(3).name = '';  % Leave empty if not needed
-input(4).name = fullfile(base_path, 'scripts','tools','sepia_header.mat');
+input(4).name = fullfile(base_path, 'scripts', 'tools', 'sepia_header.mat');
 
 % Output base name
 output_basename = fullfile(base_path, 'output','SEPIA', ['sub-',subid], ['ses-',sesid], ['sub-', subid, '_ses-', sesid]);

@@ -48,6 +48,13 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'swi',
             'extension': ['.nii', '.nii.gz'],
         },
+        # T1w-space R2 map from MESE pipeline
+        'r2_map': {
+            'datatype': 'anat',
+            'space': 'T1w',
+            'suffix': 'R2map',
+            'extension': '.nii.gz',
+        },
         # T1w-space T1w image from sMRIPrep
         't1w': {
             'datatype': 'anat',
@@ -198,6 +205,34 @@ def process_run(layout, run_data, out_dir, temp_dir):
         source_space='QSM',
         target_space='T1w',
     )
+
+    # Warp R2 map from T1w space to QSM space
+    r2_qsm_filename = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'QSM', 'suffix': 'R2map'},
+        dismiss_entities=['echo', 'part'],
+    )
+    r2_qsm_img = ants.apply_transforms(
+        fixed=ants.image_read(mean_mag_filename),
+        moving=ants.image_read(run_data['r2_map']),
+        transformlist=[coreg_transform],
+        whichtoinvert=[True],
+    )
+    ants.image_write(r2_qsm_img, r2_qsm_filename)
+
+    # Calculate R2' (R2 - R2*)
+    # R2' is used in chi-separation QSM estimation.
+    r2_prime_filename = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'QSM', 'suffix': 'R2prime'},
+        dismiss_entities=['echo', 'part'],
+    )
+    r2_prime_img = r2_qsm_img - r2s_img
+    ants.image_write(r2_prime_img, r2_prime_filename)
 
     # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
