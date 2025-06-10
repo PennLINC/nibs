@@ -4,7 +4,7 @@ subid = char(subid);
 sesid = char(sesid);
 
 % Add general Path
-addpath(genpath("/cbica/projects/pennlinc_qsm/software/sepia-1.2.2.6/")); 
+addpath(genpath("/cbica/projects/pennlinc_qsm/software/sepia-1.2.2.6/"));
 sepia_addpath;
 
 % Define paths

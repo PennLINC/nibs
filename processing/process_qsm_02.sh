@@ -24,8 +24,8 @@ for session in $(ls -d /cbica/projects/pennlinc_qsm/data/bids_directory/sub-*/*)
 
 
 	out_dir=/cbica/projects/pennlinc_qsm/output/SEPIA/sub-${subID}/ses-${sessionID}
-	
-	# check if the given session has already been processed 
+
+	# check if the given session has already been processed
 	if [ -e ${out_dir}/sub-${subID}_ses-${sessionID}_Chimap.nii.gz ]; then
 		echo -e "${session} already processed">>${logfile}
 		continue
@@ -34,10 +34,10 @@ for session in $(ls -d /cbica/projects/pennlinc_qsm/data/bids_directory/sub-*/*)
 	out_dir_for_transformation=/cbica/projects/pennlinc_qsm/output/skullStripAndRegistration/sub-${subID}/ses-${sessionID}
 	mask=${out_dir_for_transformation}/anat/sub-${subID}_ses-${sessionID}_T1BrainMask_in_mag_space.nii.gz
 	if [ -e ${mask} ]; then
-		
+
 		echo -e "Running SEPIA for sub-${subID} ses-${sessionID}">>${logfile}
 		/cbica/software/external/slurm/current/bin/sbatch -e /cbica/projects/pennlinc_qsm/scripts/logs/${subID}_${sessionID}.err -o /cbica/projects/pennlinc_qsm/scripts/logs/${subID}_${sessionID}.out \
-		/cbica/projects/pennlinc_qsm/scripts/tools/run_one_QSM_session.sh ${subID} ${sessionID} 
+		/cbica/projects/pennlinc_qsm/scripts/tools/process_qsm_02a.sh ${subID} ${sessionID}
 	else
 		# did not have the custom mask to pass into MEDI toolbox
 		echo -e "Does not have custom mask ${mask} to pass into MEDI for sub-${subID} ses-${sessionID}">>${logfile}

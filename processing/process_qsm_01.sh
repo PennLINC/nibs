@@ -39,7 +39,7 @@ for f in $(ls -d /cbica/projects/pennlinc_qsm/data/bids_directory/sub*); do
 		if [ ! -e ${output_dir}/mag/${bblid}_${sesid}_masked_mag_in_mag_space.nii.gz ]; then
 			echo -e "Perform skull-strip for ${bblid_num} ${sesid_num}">>${logfile}
 			qsub -N SS_${bblid}_${sesid} -l h_vmem=22.5G -l s_vmem=22G \
-			/cbica/projects/pennlinc_qsm/scripts/tools/proc_one_mag_and_T1_sub.sh \
+			/cbica/projects/pennlinc_qsm/scripts/tools/process_qsm_01a.sh \
 			${T1_path} ${mag_path} ${output_dir} ${bblid} ${sesid} ${sumfile}
 		else
 			echo -e "Already processed ${bblid_num} ${sesid_num}">>${logfile}

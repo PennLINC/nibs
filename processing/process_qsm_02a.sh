@@ -19,7 +19,7 @@ rm /cbica/projects/pennlinc_qsm/output/SEPIA/sub-${SUBJECT}/ses-${SESSION}/sub-$
 # Run MATLAB, treating inputs as strings
 module load matlab
 if [ ! -e /cbica/projects/pennlinc_qsm/output/SEPIA/sub-${SUBJECT}/ses-${SESSION}/sub-${SUBJECT}_ses-${SESSION}_Chimap.nii.gz ]; then
-	matlab -nodisplay -r "addpath('/cbica/projects/pennlinc_qsm/scripts/tools/'); run_one_QSM_session('$SUBJECT', '$SESSION'); exit"
+	matlab -nodisplay -r "addpath('/cbica/projects/pennlinc_qsm/scripts/tools/'); process_qsm_02b('$SUBJECT', '$SESSION'); exit"
 fi
 
 # Transform the QSM NIFTI image by warping it to T1 space, and also apply brain mask to QSM, all in T1 space
