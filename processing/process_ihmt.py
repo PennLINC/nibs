@@ -10,6 +10,10 @@ Steps:
 6.  Calculate T1w-space ihMT derivatives with ihmt_proc.
 7.  Warp T1w-space ihMT derivatives to MNI152NLin2009cAsym using normalization transform from
     sMRIPrep.
+
+Notes:
+
+- sMRIPrep's preprocessed T1w image is used as the "native T1w space".
 """
 
 import json
@@ -409,6 +413,7 @@ if __name__ == '__main__':
     # in_dir = "/cbica/projects/nibs/dset"
     in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
     mp2rage_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/pymp2rage'
+    smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
     # out_dir = "/cbica/projects/nibs/derivatives/ihmt"
     out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/ihmt'
     os.makedirs(out_dir, exist_ok=True)
@@ -422,6 +427,7 @@ if __name__ == '__main__':
         'DatasetLinks': {
             'raw': in_dir,
             'mp2rage': mp2rage_dir,
+            'smriprep': smriprep_dir,
         },
         'GeneratedBy': [
             {
@@ -438,7 +444,7 @@ if __name__ == '__main__':
         in_dir,
         config=os.path.join(code_dir, 'nibs_bids_config.json'),
         validate=False,
-        derivatives=[mp2rage_dir],
+        derivatives=[mp2rage_dir, smriprep_dir],
     )
     subjects = layout.get_subjects(suffix='ihMTRAGE')
     for subject in subjects:

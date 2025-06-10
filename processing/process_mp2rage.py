@@ -15,6 +15,11 @@ Steps:
 11. Write out T1w-space T1map and T1w images.
 12. Warp original and B1-corrected T1 maps to MNI152NLin2009cAsym (distortion map,
     coregistration transform, normalization transform from sMRIPrep).
+
+Notes:
+
+- The T1 map will be used for ihMTRAGE processing.
+- sMRIPrep's preprocessed T1w image is used as the "native T1w space".
 """
 
 import json
@@ -324,6 +329,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
 if __name__ == '__main__':
     code_dir = '/Users/taylor/Documents/linc/nibs'
     in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
+    smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
     out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/pymp2rage'
     os.makedirs(out_dir, exist_ok=True)
     temp_dir = '/Users/taylor/Documents/datasets/nibs/work/pymp2rage'
@@ -335,6 +341,7 @@ if __name__ == '__main__':
         'DatasetType': 'derivative',
         'DatasetLinks': {
             'raw': in_dir,
+            'smriprep': smriprep_dir,
         },
         'GeneratedBy': [
             {
@@ -351,6 +358,7 @@ if __name__ == '__main__':
         in_dir,
         config=os.path.join(code_dir, 'nibs_bids_config.json'),
         validate=False,
+        derivatives=[smriprep_dir],
     )
     subjects = layout.get_subjects(suffix='MP2RAGE')
     for subject in subjects:

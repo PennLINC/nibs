@@ -15,6 +15,11 @@ Steps:
 6.  Warp T2* map to MNI152NLin2009cAsym (distortion map, coregistration transform,
     normalization transform from sMRIPrep).
 7.  Warp S0 map to MNI152NLin2009cAsym.
+
+Notes:
+
+- The T2* map will be used for QSM processing.
+- sMRIPrep's preprocessed T1w image is used as the "native T1w space".
 """
 
 import json
