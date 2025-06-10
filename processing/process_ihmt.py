@@ -1,4 +1,16 @@
-"""Calculate derivatives for ihMTRAGE files."""
+"""Calculate derivatives for ihMTRAGE files.
+
+Steps:
+
+1.  Concatenate ihMTRAGE files into one 4D file (has to be right order).
+2.  Motion correct ihMTRAGE files using iterative motion correction algorithm.
+3.  Coregister ihMTRAGE reference image to T1w image from sMRIPrep.
+4.  Apply motion correction and coregistration transforms to ihMTRAGE files.
+5.  Concatenate T1w-space ihMTRAGE files into one 4D file (has to be right order)
+6.  Calculate T1w-space ihMT derivatives with ihmt_proc.
+7.  Warp T1w-space ihMT derivatives to MNI152NLin2009cAsym using normalization transform from
+    sMRIPrep.
+"""
 
 import json
 import os
@@ -6,17 +18,18 @@ import shutil
 
 import ants
 import antspynet
-from bids.layout import BIDSLayout, Query
+from bids.layout import BIDSLayout
 from ihmt_proc import cli
 from nilearn import image
 
-from utils import run_command, get_filename
+from utils import coregister_to_t1, get_filename, run_command
 
 CODE_DIR = '/Users/taylor/Documents/linc/nibs'
 
 
 def collect_run_data(layout, bids_filters):
     queries = {
+        # ihMTRAGE files from raw BIDS dataset
         'm0': {
             'datatype': 'anat',
             'acquisition': 'nosat',
@@ -52,17 +65,36 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
+        # sMRIPrep T1w-space B1 map from MP2RAGE derivatives
         'b1map': {
             'datatype': 'fmap',
-            'space': 'T1map',
+            'space': 'T1w',
             'suffix': 'B1map',
             'extension': ['.nii', '.nii.gz'],
         },
+        # sMRIPrep T1w-space T1 map from MP2RAGE derivatives
         't1map': {
             'datatype': 'anat',
+            'space': 'T1w',
             'desc': 'B1corrected',
             'suffix': 'T1map',
             'extension': ['.nii', '.nii.gz'],
+        },
+        # MNI-space T1w image from sMRIPrep
+        't1w_mni': {
+            'datatype': 'anat',
+            'space': 'MNI152NLin2009cAsym',
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # Normalization transform from sMRIPrep
+        't1w2mni_xfm': {
+            'datatype': 'anat',
+            'from': 'T1w',
+            'to': 'MNI152NLin2009cAsym',
+            'suffix': 'xfm',
+            'extension': '.h5',
         },
     }
 
@@ -130,12 +162,16 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
         temp_dir=temp_dir,
     )
+
+    # Coregister ihMTRAGE reference image to T1map (in sMRIPrep's T1w space)
     coreg_transform = coregister_to_t1(
         name_source=name_source,
         layout=layout,
         in_file=ihmt_template,
         t1_file=run_data['t1map'],
         out_dir=out_dir,
+        source_space='ihMTRAGEref',
+        target_space='T1w',
     )
 
     # Apply motion correction and coregistration to ihMTRAGE files
@@ -155,7 +191,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
             name_source=in_file,
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'T1map'},
+            entities={'space': 'T1w'},
         )
         ants.image_write(ihmt_img_t1space, ihmt_file_t1space)
         ihmt_files_t1space.append(ihmt_file_t1space)
@@ -166,46 +202,47 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     concat_ihmt_img = image.concat_imgs(ihmt_files_t1space)
     concat_ihmt_img.to_filename(concat_ihmt_t1space)
 
+    # Run ihmt_proc to calculate T1w-space ihMT derivatives
     ihmtsat_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1map', 'suffix': 'ihMTsat'},
+        entities={'space': 'T1w', 'suffix': 'ihMTsat'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtdsat_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1map', 'suffix': 'MTdsat'},
+        entities={'space': 'T1w', 'suffix': 'MTdsat'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtssat_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1map', 'suffix': 'MTssat'},
+        entities={'space': 'T1w', 'suffix': 'MTssat'},
         dismiss_entities=['acquisition', 'mt'],
     )
     ihmtsatb1sq_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1map', 'suffix': 'ihMTsatB1sq'},
+        entities={'space': 'T1w', 'suffix': 'ihMTsatB1sq'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtdsatb1sq_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1map', 'suffix': 'MTdsatB1sq'},
+        entities={'space': 'T1w', 'suffix': 'MTdsatB1sq'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtssatb1sq_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1map', 'suffix': 'MTssatB1sq'},
+        entities={'space': 'T1w', 'suffix': 'MTssatB1sq'},
         dismiss_entities=['acquisition', 'mt'],
     )
 
@@ -222,6 +259,30 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         mtdsatb1sq_file=mtdsatb1sq_file,
         mtssatb1sq_file=mtssatb1sq_file,
     )
+
+    # Warp T1w-space ihMT derivatives to MNI152NLin2009cAsym using normalization transform from
+    # sMRIPrep
+    for file_ in [
+        ihmtsat_file,
+        mtdsat_file,
+        mtssat_file,
+        ihmtsatb1sq_file,
+        mtdsatb1sq_file,
+        mtssatb1sq_file,
+    ]:
+        suffix = os.path.basename(file_).split('_')[1].split('.')[0]
+        out_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+        )
+        reg_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w_mni']),
+            moving=ants.image_read(file_),
+            transformlist=[run_data['t1w2mni_xfm']],
+        )
+        ants.image_write(reg_img, out_file)
 
 
 def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_dir, temp_dir):
@@ -343,71 +404,6 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     return template_file, transforms
 
 
-def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir):
-    """Coregister an image to a T1w image.
-
-    Parameters
-    ----------
-    name_source : str
-        Name of the source file to use for output file names.
-    layout : BIDSLayout
-        BIDSLayout object.
-    in_file : str
-        Path to the input image.
-    t1_file : str
-        Path to the T1w image.
-    out_dir : str
-        Directory to write output files.
-
-    Returns
-    -------
-    transform_file : str
-        Path to the transform file.
-    """
-    # Step 1: Apply N4 bias field correction and skull-stripping to T1.
-    t1_img = ants.image_read(t1_file)
-    n4_img = ants.n4_bias_field_correction(t1_img)
-    dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
-    dseg_img = dseg_img['segmentation_image']
-    # TODO: Construct filename
-    ants.image_write(dseg_img, os.path.join(out_dir, 'space-T1map_desc-t1threetissue_dseg.nii.gz'))
-    # Binarize the brain mask
-    mask_img = ants.threshold_image(
-        dseg_img,
-        low_thresh=1,
-        high_thresh=1,
-        inval=1,
-        outval=0,
-        binary=True,
-    )
-    # TODO: Construct filename
-    ants.image_write(mask_img, os.path.join(out_dir, 'space-T1map_desc-brain_mask.nii.gz'))
-    n4_img_masked = n4_img * mask_img
-
-    # Step 2: Coregister the brain-extracted image to the T1w image.
-    registered_img = ants.registration(
-        fixed=n4_img_masked,
-        moving=ants.image_read(in_file),
-        type_of_transform='Rigid',
-    )
-    transform = registered_img['fwdtransforms'][0]
-    transform_file = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'from': 'ihMTRAGEref',
-            'to': 'T1map',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': 'txt' if transform.endswith('.txt') else 'mat',
-        },
-        dismiss_entities=['acquisition', 'mt'],
-    )
-    shutil.copyfile(transform, transform_file)
-    return transform_file
-
-
 if __name__ == '__main__':
     code_dir = '/Users/taylor/Documents/linc/nibs'
     # in_dir = "/cbica/projects/nibs/dset"
@@ -464,3 +460,5 @@ if __name__ == '__main__':
                 entities.pop('mt')
                 run_data = collect_run_data(layout, entities)
                 process_run(m0_file, layout, run_data, out_dir, temp_dir)
+
+    print('DONE!')

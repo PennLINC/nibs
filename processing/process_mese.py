@@ -3,6 +3,18 @@
 This is still just a draft.
 I need to calculate SDC from the first echo and apply that to the T2* map.
 Plus we need proper output names.
+
+Steps:
+
+1.  Calculate T2* map from AP MESE data.
+2.  Calculate distortion map from AP and PA echo-1 data with SDCFlows.
+    - topup vs. 3dQwarp vs. something else?
+3.  Apply SDC transform to AP echo-1 image.
+4.  Coregister SDCed AP echo-1 image to preprocessed T1w from sMRIPrep.
+5.  Write out coregistration transform to preprocessed T1w.
+6.  Warp T2* map to MNI152NLin2009cAsym (distortion map, coregistration transform,
+    normalization transform from sMRIPrep).
+7.  Warp S0 map to MNI152NLin2009cAsym.
 """
 
 import json
@@ -13,11 +25,12 @@ import ants
 from bids.layout import BIDSLayout, Query
 from sdcflows.workflows.fit.pepolar import init_topup_wf
 
-from utils import get_filename
+from utils import coregister_to_t1, get_filename
 
 
 def collect_run_data(layout, bids_filters):
     queries = {
+        # MESE images from raw BIDS dataset
         'mese_mag_ap': {
             'part': ['mag', Query.NONE],
             'echo': 1,
@@ -32,6 +45,7 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'MESE',
             'extension': ['.nii', '.nii.gz'],
         },
+        # T1w-space T1w image from sMRIPrep
         't1w': {
             'datatype': 'anat',
             'space': Query.NONE,
@@ -40,6 +54,7 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
+        # sMRIPrep T1w-space brain mask
         't1w_mask': {
             'datatype': 'anat',
             'space': Query.NONE,
@@ -48,6 +63,15 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'mask',
             'extension': ['.nii', '.nii.gz'],
         },
+        # MNI-space T1w image from sMRIPrep
+        't1w_mni': {
+            'datatype': 'anat',
+            'space': 'MNI152NLin2009cAsym',
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
             'datatype': 'anat',
             'from': 'T1w',
@@ -114,19 +138,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         Path to the output directory.
     temp_dir : str
         Path to the temporary directory.
-
-    Notes
-    -----
-    Steps:
-
-    1. Calculate T2* map from AP MESE data.
-    2. Calculate distortion map from AP and PA echo-1 data.
-    3. Perform SDC on T2* map.
-    4. Perform SDC on AP echo-1 data.
-    5. Coregister AP echo-1 data to preprocessed T1w.
-    6. Write out transform to preprocessed T1w.
-    7. Apply transforms to MNI152NLin2009cAsym
-       (distortion map, coregistration transform, normalization transform from sMRIPrep).
+        Not currently used.
     """
     name_source = run_data['mese_mag_ap'][0]
     mese_ap_metadata = [layout.get_metadata(f) for f in run_data['mese_mag_ap']]
@@ -142,7 +154,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
         entities={
             'datatype': 'anat',
-            'suffix': 'T2star',
+            'space': 'MESE',
+            'suffix': 'T2starmap',
             'extension': '.nii.gz',
         },
         dismiss_entities=['echo', 'part'],
@@ -155,6 +168,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
         entities={
             'datatype': 'anat',
+            'space': 'MESE',
             'suffix': 'S0map',
             'extension': '.nii.gz',
         },
@@ -247,38 +261,33 @@ def process_run(layout, run_data, out_dir, temp_dir):
     shutil.copyfile(fmap_mask, fmap_mask_filename)
 
     # Coregister AP echo-1 data to preprocessed T1w
-    fixed_img = ants.image_read(run_data['t1w'])
-    moving_img = ants.image_read(run_data['mese_mag_ap'][0])
-    reg_output = ants.registration(
-        fixed=fixed_img,
-        moving=moving_img,
-        type_of_transform='Rigid',
-    )
-    if len(reg_output['fwdtransforms']) != 1:
-        print(
-            f'Expected 1 transform, got {len(reg_output["fwdtransforms"])}: '
-            f'{reg_output["fwdtransforms"]}'
-        )
-    fwd_transform = reg_output['fwdtransforms'][0]
-
-    fwd_transform_filename = get_filename(
+    # XXX: This is currently using non-SDCed MESE data.
+    coreg_transform = coregister_to_t1(
         name_source=name_source,
         layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'anat',
-            'from': 'MESE',
-            'to': 'T1w',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.h5',
-        },
-        dismiss_entities=['echo', 'part'],
+        in_file=mese_mag_ap_echo1,
+        t1_file=run_data['t1w'],
+        source_space='MESE',
+        target_space='T1w',
     )
-    shutil.copyfile(fwd_transform, fwd_transform_filename)
 
-    # Apply transforms to MNI152NLin2009cAsym
-    ...
+    # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
+    # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
+    # XXX: This ignores the SDC transform.
+    for file_ in [t2s_filename, s0_filename]:
+        suffix = os.path.basename(file_).split('_')[1].split('.')[0]
+        out_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+        )
+        reg_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w_mni']),
+            moving=ants.image_read(file_),
+            transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
+        )
+        ants.image_write(reg_img, out_file)
 
 
 if __name__ == '__main__':

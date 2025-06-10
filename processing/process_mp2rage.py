@@ -1,3 +1,22 @@
+"""Process MP2RAGE data.
+
+Steps:
+
+1.  Rescale B1 famp image into B1 field map.
+2.  Register B1 anat image to inv1_magnitude with ANTs.
+3.  Write out B1-to-MP2RAGE transform.
+4.  Apply B1-to-MP2RAGE transform to B1 field map and anat image.
+5.  Write out MP2RAGE-space B1 images.
+6.  Calculate T1 map from MP2RAGE images.
+7.  Correct T1 map for B1+ inhomogeneity.
+8.  Write out T1 map and T1w image in T1-space.
+9.  Coregister T1w image to sMRIPrep T1w image.
+10. Write out coregistration transform.
+11. Write out T1w-space T1map and T1w images.
+12. Warp original and B1-corrected T1 maps to MNI152NLin2009cAsym (distortion map,
+    coregistration transform, normalization transform from sMRIPrep).
+"""
+
 import json
 import os
 import shutil
@@ -8,11 +27,12 @@ from bids.layout import BIDSLayout, Query
 from nilearn import image
 from pymp2rage import MP2RAGE
 
-from utils import get_filename
+from utils import coregister_to_t1, get_filename
 
 
 def collect_run_data(layout, bids_filters):
     queries = {
+        # MP2RAGE images from raw BIDS dataset
         'inv1_magnitude': {
             'part': ['mag', Query.NONE],
             'inv': 1,
@@ -37,6 +57,7 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'MP2RAGE',
             'extension': ['.nii', '.nii.gz'],
         },
+        # B1 field map from raw BIDS dataset
         'b1_famp': {
             'datatype': 'fmap',
             'acquisition': 'famp',
@@ -48,6 +69,30 @@ def collect_run_data(layout, bids_filters):
             'acquisition': 'anat',
             'suffix': 'TB1TFL',
             'extension': ['.nii', '.nii.gz'],
+        },
+        # T1w-space T1w image from sMRIPrep
+        't1w': {
+            'datatype': 'anat',
+            'space': Query.NONE,
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # MNI-space T1w image from sMRIPrep
+        't1w_mni': {
+            'datatype': 'anat',
+            'space': 'MNI152NLin2009cAsym',
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # Normalization transform from sMRIPrep
+        't1w2mni_xfm': {
+            'datatype': 'anat',
+            'from': 'T1w',
+            'to': 'MNI152NLin2009cAsym',
+            'suffix': 'xfm',
+            'extension': '.h5',
         },
     }
 
@@ -117,7 +162,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         entities={
             'datatype': 'fmap',
             'from': 'B1map',
-            'to': 'T1map',
+            'to': 'MP2RAGE',
             'mode': 'image',
             'suffix': 'xfm',
             'extension': '.txt',
@@ -133,7 +178,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
         entities={
             'datatype': 'fmap',
-            'from': 'T1map',
+            'from': 'MP2RAGE',
             'to': 'B1map',
             'mode': 'image',
             'suffix': 'xfm',
@@ -154,7 +199,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'datatype': 'fmap', 'space': 'T1map', 'suffix': 'B1map'},
+        entities={'datatype': 'fmap', 'space': 'MP2RAGE', 'suffix': 'B1map'},
         dismiss_entities=['inv', 'part'],
     )
     ants.image_write(b1map_rescaled_reg, b1map_rescaled_reg_file)
@@ -171,7 +216,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'datatype': 'fmap', 'space': 'T1map', 'suffix': 'B1anat'},
+        entities={'datatype': 'fmap', 'space': 'MP2RAGE', 'suffix': 'B1anat'},
         dismiss_entities=['inv', 'part'],
     )
     ants.image_write(b1_anat_reg, b1_anat_reg_file)
@@ -247,6 +292,33 @@ def process_run(layout, run_data, out_dir, temp_dir):
         dismiss_entities=['inv', 'part'],
     )
     mp2rage.t1w_uni_b1_corrected.to_filename(t1w_uni_b1_corrected_file)
+
+    # Coregister MP2RAGE-space T1w image to sMRIPrep T1w image
+    coreg_transform = coregister_to_t1(
+        name_source=name_source,
+        layout=layout,
+        in_file=t1w_uni_b1_corrected_file,
+        t1_file=run_data['t1w'],
+        source_space='MP2RAGE',
+        target_space='T1w',
+    )
+
+    # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
+    # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
+    for file_ in [t1map_file, t1map_b1_corrected_file, t1w_uni_file, t1w_uni_b1_corrected_file]:
+        suffix = os.path.basename(file_).split('_')[1].split('.')[0]
+        out_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+        )
+        reg_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w_mni']),
+            moving=ants.image_read(file_),
+            transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
+        )
+        ants.image_write(reg_img, out_file)
 
 
 if __name__ == '__main__':
