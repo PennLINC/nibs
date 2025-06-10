@@ -200,6 +200,49 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         ants.image_write(ihmt_img_t1space, ihmt_file_t1space)
         ihmt_files_t1space.append(ihmt_file_t1space)
 
+    # Calculate ihMTw
+    ihmtw_img = image.math_img(
+        'mtplus + mtminus - (mtdual1 + mtdual2)',
+        mtplus=ihmt_files_t1space[1],
+        mtminus=ihmt_files_t1space[3],
+        mtdual1=ihmt_files_t1space[2],
+        mtdual2=ihmt_files_t1space[4],
+    )
+    ihmtw_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'suffix': 'ihMTw'},
+        dismiss_entities=['acquisition', 'mt'],
+    )
+    ihmtw_img.to_filename(ihmtw_file)
+
+    # Calculate ihMTR
+    ihmtr_img = image.math_img('ihmt / m0', ihmt=ihmtw_img, m0=ihmt_files_t1space[0])
+    ihmtr_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'suffix': 'ihMTR'},
+        dismiss_entities=['acquisition', 'mt'],
+    )
+    ihmtr_img.to_filename(ihmtr_file)
+
+    # Calculate MTR
+    mtr_img = image.math_img(
+        '1 - mtplus / m0',
+        mtplus=ihmt_files_t1space[1],
+        m0=ihmt_files_t1space[0],
+    )
+    mtr_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'suffix': 'MTR'},
+        dismiss_entities=['acquisition', 'mt'],
+    )
+    mtr_img.to_filename(mtr_file)
+
     # Concatenate ihMTRAGE files into one 4D file (has to be right order)
     # nosat_mt-off, singlepos_mt-on, dual1_mt-on, singleneg_mt-on, dual2_mt-on
     concat_ihmt_t1space = os.path.join(temp_dir, f'concat_t1space_{name_base}')
@@ -267,6 +310,9 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     # Warp T1w-space ihMT derivatives to MNI152NLin2009cAsym using normalization transform from
     # sMRIPrep
     for file_ in [
+        ihmtw_file,
+        ihmtr_file,
+        mtr_file,
         ihmtsat_file,
         mtdsat_file,
         mtssat_file,
