@@ -33,19 +33,19 @@ def collect_run_data(layout, bids_filters):
     queries = {
         # SWI images from raw BIDS dataset
         'megre_mag': {
-            'datatype': 'swi',
+            'datatype': 'anat',
             'acquisition': 'QSM',
             'part': 'mag',
             'echo': Query.ANY,
-            'suffix': 'swi',
+            'suffix': 'MEGRE',
             'extension': ['.nii', '.nii.gz'],
         },
         'megre_phase': {
-            'datatype': 'swi',
+            'datatype': 'anat',
             'acquisition': 'QSM',
             'part': 'phase',
             'echo': Query.ANY,
-            'suffix': 'swi',
+            'suffix': 'MEGRE',
             'extension': ['.nii', '.nii.gz'],
         },
         # T1w-space R2 map from MESE pipeline
@@ -191,7 +191,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'QSM', 'desc': 'mean', 'suffix': 'swi'},
+        entities={'space': 'QSM', 'desc': 'mean', 'suffix': 'MEGRE'},
         dismiss_entities=['echo'],
     )
     mean_mag_img.to_filename(mean_mag_filename)
@@ -289,10 +289,10 @@ if __name__ == '__main__':
         validate=False,
         derivatives=[smriprep_dir],
     )
-    subjects = layout.get_subjects(suffix='swi')
+    subjects = layout.get_subjects(suffix='MEGRE')
     for subject in subjects:
         print(f'Processing subject {subject}')
-        sessions = layout.get_sessions(subject=subject, suffix='swi')
+        sessions = layout.get_sessions(subject=subject, suffix='MEGRE')
         for session in sessions:
             print(f'Processing session {session}')
             megre_files = layout.get(
@@ -301,7 +301,7 @@ if __name__ == '__main__':
                 acquisition='QSM',
                 echo=1,
                 part='mag',
-                suffix='swi',
+                suffix='MEGRE',
                 extension=['.nii', '.nii.gz'],
             )
             for megre_file in megre_files:

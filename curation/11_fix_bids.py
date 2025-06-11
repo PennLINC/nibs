@@ -74,4 +74,3 @@ if __name__ == '__main__':
     bidsignore_file = os.path.join(dset_dir, '.bidsignore')
     with open(bidsignore_file, 'a+') as f:
         f.write('\n*_ihMTRAGE.*\n')
-        f.write('swi\n')

@@ -48,12 +48,12 @@ def infotodict(
         '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-TSE_rec-norm_run-{item:02d}_T2w',
         outtype=outdicom,
     )
-    swi_mag = create_key(
-        '{bids_subject_session_dir}/swi/{bids_subject_session_prefix}_acq-QSM_run-{item:02d}_part-mag_swi',
+    megre_mag = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-QSM_run-{item:02d}_part-mag_MEGRE',
         outtype=outdicom,
     )
-    swi_phase = create_key(
-        '{bids_subject_session_dir}/swi/{bids_subject_session_prefix}_acq-QSM_run-{item:02d}_part-phase_swi',
+    megre_phase = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_acq-QSM_run-{item:02d}_part-phase_MEGRE',
         outtype=outdicom,
     )
     mese_echo1_pa = create_key(
@@ -138,8 +138,8 @@ def infotodict(
         t1_space_norm: [],
         t2_space_norm: [],
         t2_tse_norm: [],
-        swi_mag: [],
-        swi_phase: [],
+        megre_mag: [],
+        megre_phase: [],
         mese_echo1_pa: [],
         mese_echo1_ap: [],
         mese_echo2_ap: [],
@@ -207,9 +207,9 @@ def infotodict(
             info[tb1tfl_famp].append([s.series_id])
         # QSM scans
         elif ('swi-swi_acq-QSM' in s.protocol_name) and ('M' in s.image_type):
-            info[swi_mag].append([s.series_id])
+            info[megre_mag].append([s.series_id])
         elif ('swi-swi_acq-QSM' in s.protocol_name) and ('P' in s.image_type):
-            info[swi_phase].append([s.series_id])
+            info[megre_phase].append([s.series_id])
         # DWI scans
         elif 'dwi-dwi_acq-HBCD75_dir-AP_SBRef' in s.series_description:
             info[dwi_ap_sbref].append([s.series_id])

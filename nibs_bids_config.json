@@ -115,7 +115,7 @@
       },
       {
           "name": "datatype",
-          "pattern": "[/\\\\]+(anat|beh|dwi|eeg|fmap|func|ieeg|meg|micr|motion|mrs|nirs|perf|pet|swi)[/\\\\]+"
+          "pattern": "[/\\\\]+(anat|beh|dwi|eeg|fmap|func|ieeg|meg|micr|motion|mrs|nirs|perf|pet)[/\\\\]+"
       },
       {
           "name": "extension",
@@ -158,7 +158,6 @@
       "sub-{subject}[/ses-{session}]/{datatype<fmap>|fmap}/sub-{subject}[_ses-{session}][_task-{task}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_run-{run}][_echo-{echo}][_mt-{mt<on|off>}][_part-{part}][_chunk-{chunk}][_space-{space}][_cohort-{cohort}][_res-{resolution}][_desc-{desc}]_{suffix<TB1map|B1anat>}{extension<.nii|.nii.gz|.json>|.nii.gz}",
       "sub-{subject}[/ses-{session}]/{datatype<anat>|anat}/sub-{subject}[_ses-{session}][_task-{task}]_acq-{acquisition<singlepos|singleneg|nosat|dual1|dual2>}[_ce-{ceagent}][_rec-{reconstruction}][_run-{run}][_echo-{echo}]_mt-{mt<on|off>}[_part-{part}][_chunk-{chunk}]_{suffix<ihMTRAGE>}{extension<.nii|.nii.gz|.json>|.nii.gz}",
       "sub-{subject}[/ses-{session}]/{datatype<anat>|anat}/sub-{subject}[_ses-{session}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_dir-{direction}][_run-{run}]_echo-{echo}[_part-{part<mag|phase|real|imag>}]_{suffix<MEGRE|MESE>}{extension<.nii|.nii.gz|.json>|.nii.gz}",
-      "sub-{subject}[/ses-{session}]/{datatype<swi>|swi}/sub-{subject}[_ses-{session}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_dir-{direction}][_run-{run}][_echo-{echo}][_part-{part<mag|phase|real|imag>}]_{suffix<swi>}{extension<.nii|.nii.gz|.json>|.nii.gz}",
       "sub-{subject}[/ses-{session}]/{datatype<anat>|anat}/sub-{subject}[_ses-{session}][_task-{task}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_run-{run}][_echo-{echo}][_part-{part}][_chunk-{chunk}]_{suffix<T1w|T2w|T2star|T2starw|FLAIR|FLASH|PD|PDw|PDT2|inplaneT[12]|angio>}{extension<.nii|.nii.gz|.json>|.nii.gz}",
       "sub-{subject}[/ses-{session}]/{datatype<anat>|anat}/sub-{subject}[_ses-{session}][_task-{task}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_run-{run}][_mod-{modality}]_{suffix<defacemask>}{extension<.nii|.nii.gz|.json>|.nii.gz}",
       "sub-{subject}[/ses-{session}]/{datatype<func>|func}/sub-{subject}[_ses-{session}]_task-{task}[_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_dir-{direction}][_run-{run}][_echo-{echo}][_part-{part}]_{suffix<bold|cbv|sbref>}{extension<.nii|.nii.gz|.json>|.nii.gz}",
