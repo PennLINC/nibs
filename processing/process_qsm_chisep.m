@@ -19,12 +19,13 @@
 %% Necessary preparation
 
 % Set x-separation tool directory path
-home_directory = 'your_path/x-separation tool directory';
+home_directory = '/cbica/projects/nibs/software/Chisep_Toolbox_v1.2';
 addpath(genpath(home_directory))
 
 % Set MATLAB tool directory path
 % xiangruili/dicm2nii (https://kr.mathworks.com/matlabcentral/fileexchange/42997-xiangruili-dicm2nii)
-addpath(genpath('your_path/dicm2nii'))
+% TS: Hopefully we don't need this.
+% addpath(genpath('your_path/dicm2nii'))
 % Tools for NIfTI and ANALYZE image (https://kr.mathworks.com/matlabcentral/fileexchange/8797-tools-for-nifti-and-analyze-image)
 addpath(genpath('your_path/Tools_for_NIfTI_and_ANALYZE_image'))
 
@@ -34,16 +35,16 @@ addpath(genpath('your_path/Tools_for_NIfTI_and_ANALYZE_image'))
 
 % Set QSM tool directory path
 % STI Suite (Version 3.0) (https://people.eecs.berkeley.edu/~chunlei.liu/software.html)
-addpath(genpath('your_path/to/STISuite'))
+addpath(genpath('/cbica/projects/nibs/software/STISuite'))
 
 % MEDI toolbox (http://pre.weill.cornell.edu/mri/pages/qsm.html)
-addpath(genpath('your_path/to/MEDItoolbox'))
+addpath(genpath('/cbica/projects/nibs/software/MEDItoolbox'))
 
 % SEGUE toolbox (https://xip.uclb.com/product/SEGUE)
-addpath(genpath('your_path/to/SEGUE'))
+addpath(genpath('/cbica/projects/nibs/software/SEGUE'))
 
 % mritools toolbox (https://github.com/korbinian90/CompileMRI.jl/releases)
-addpath(genpath('your_path/to/mritools'))
+addpath(genpath('/cbica/projects/nibs/software/mritools'))
 
 
 %% Run options - User define
