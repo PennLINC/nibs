@@ -10,14 +10,10 @@ sepia_addpath;
 % Define paths
 base_path = '/cbica/projects/nibs/';
 % Concatenated phase image
-input(1).name = fullfile(base_path, 'derivatives', 'qsm', ...
-    ['sub-', subid], ['ses-', sesid], 'anat', ...
-    ['sub-', subid, '_ses-', sesid, '_acq-QSM_part-phase_MEGRE.nii.gz']);
+input(1).name = '{{ phase_file }}';
 
 % Concatenated, skull-stripped magnitude image
-input(2).name = fullfile(base_path, 'derivatives', 'qsm', ...
-    ['sub-', subid], ['ses-', sesid], 'anat', ...
-    ['sub-', subid, '_ses-', sesid, '_acq-QSM_part-mag_MEGRE.nii.gz']);
+input(2).name = '{{ mag_file }}';
 input(3).name = '';  % Leave empty if not needed
 input(4).name = fullfile(base_path, 'scripts', 'tools', 'sepia_header.mat');
 
@@ -25,8 +21,7 @@ input(4).name = fullfile(base_path, 'scripts', 'tools', 'sepia_header.mat');
 output_basename = fullfile(base_path, 'output','SEPIA', ['sub-',subid], ['ses-',sesid], ['sub-', subid, '_ses-', sesid]);
 
 % Mask filename
-mask_filename = fullfile(base_path, 'output', 'skullStripAndRegistration', ['sub-',subid], ['ses-',sesid],'anat', ...
-    ['sub-', subid, '_ses-', sesid, '_T1BrainMask_in_mag_space.nii.gz']);
+mask_filename = '{{ mask_file }}';
 
 % Algorithm parameters (same as before)
 algorParam = struct();

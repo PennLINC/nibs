@@ -298,6 +298,34 @@ def process_run(layout, run_data, out_dir, temp_dir):
         ],
     )
 
+    # Run SEPIA QSM estimation
+    sepia_script = os.path.join(code_dir, 'process_qsm_sepia.m')
+    with open(sepia_script, 'r') as fobj:
+        base_sepia_script = fobj.read()
+
+    modified_sepia_script = (
+        base_sepia_script.replace("{{ phase_file }}", os.path.join(temp_dir, 'phase.nii'))
+        .replace("{{ mag_file }}", os.path.join(temp_dir, 'mag.nii'))
+        .replace("{{ mask_file }}", mask_file)
+        .replace("{{ output_dir }}", temp_dir)
+    )
+
+    out_sepia_script = os.path.join(temp_dir, 'process_qsm_sepia.m')
+    with open(out_sepia_script, "w") as fobj:
+        fobj.write(modified_sepia_script)
+
+    subprocess.run(
+        [
+            "matlab",
+            "-nodisplay",
+            "-nosplash",
+            "-nodesktop",
+            "-r",
+            f"run('{out_sepia_script}');",
+            "exit;",
+        ],
+    )
+
     # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     for file_ in [t2s_filename, r2s_filename, s0_filename]:
