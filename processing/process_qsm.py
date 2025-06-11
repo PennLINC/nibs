@@ -21,6 +21,7 @@ Notes:
 """
 import json
 import os
+import subprocess
 
 import ants
 import nibabel as nb
@@ -134,7 +135,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
         Path to the output directory.
     temp_dir : str
         Path to the temporary directory.
-        Not currently used.
     """
     name_source = run_data['megre_mag'][0]
 
@@ -253,26 +253,50 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Now run the chi-separation QSM estimation
     # Create mat file with parameters
-    mat_file = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=temp_dir,
-        entities={'desc': 'params', 'suffix': 'MEGRE', 'extension': '.mat'},
-    )
-    param_dict = {
-        'TE': echo_times,
-        'CF': 123252525,  # Center frequency in Hertz
-        'B0dir': [0, 0, 1],  # B0 direction in x, y, z
-        'VoxelSize': nb.load(r2s_filename).header.get_zooms(),  # Voxel size in mm
-        'R2s': nb.load(r2s_filename).get_fdata(),
-        'R2p': nb.load(r2_prime_filename).get_fdata(),
-        # 'LocalField': ...,  # we don't have a field map
-        'Mask': nb.load(mask_qsm_filename).get_fdata(),
-        # 'QSM': ...,  # we don't have a QSM map yet
-    }
-    savemat(mat_file, param_dict)
+    mask_file = os.path.join(temp_dir, 'mask.mat')
+    savemat(mask_file, {'Mask': nb.load(mask_qsm_filename).get_fdata()})
+
+    r2s_file = os.path.join(temp_dir, 'r2s.mat')
+    savemat(r2s_file, {'R2s': nb.load(r2s_filename).get_fdata()})
+
+    r2p_file = os.path.join(temp_dir, 'r2p.mat')
+    savemat(r2p_file, {'R2p': nb.load(r2_prime_filename).get_fdata()})
 
     # Concatenate MEGRE images across echoes
+    mag_img = image.concat_imgs(run_data['megre_mag'])
+    phase_img = image.concat_imgs(run_data['megre_phase'])
+    mag_img.to_filename(os.path.join(temp_dir, 'mag.nii'))
+    phase_img.to_filename(os.path.join(temp_dir, 'phase.nii'))
+
+    # Modify, write out, and run the MATLAB script
+    chisep_script = os.path.join(code_dir, 'process_qsm_chisep.m')
+    with open(chisep_script, 'r') as fobj:
+        base_chisep_script = fobj.read()
+
+    modified_chisep_script = (
+        base_chisep_script.replace("{{ mag_file }}", os.path.join(temp_dir, 'mag.nii'))
+        .replace("{{ phase_file }}", os.path.join(temp_dir, 'phase.nii'))
+        .replace("{{ mask_file }}", mask_file)
+        .replace("{{ r2s_file }}", r2s_file)
+        .replace("{{ r2p_file }}", r2p_file)
+        .replace("{{ output_dir }}", temp_dir)
+    )
+
+    out_chisep_script = os.path.join(temp_dir, 'process_qsm_chisep.m')
+    with open(out_chisep_script, "w") as fobj:
+        fobj.write(modified_chisep_script)
+
+    subprocess.run(
+        [
+            "matlab",
+            "-nodisplay",
+            "-nosplash",
+            "-nodesktop",
+            "-r",
+            f"run('{out_chisep_script}');",
+            "exit;",
+        ],
+    )
 
     # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
@@ -347,6 +371,8 @@ if __name__ == '__main__':
                 entities.pop('part')
                 entities.pop('acquisition')
                 run_data = collect_run_data(layout, entities)
-                process_run(layout, run_data, out_dir, temp_dir)
+                run_temp_dir = os.path.join(temp_dir, os.path.basename(megre_file.path).split('.')[0])
+                os.makedirs(run_temp_dir, exist_ok=True)
+                process_run(layout, run_data, out_dir, run_temp_dir)
 
     print('DONE!')

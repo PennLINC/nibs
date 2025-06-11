@@ -48,12 +48,12 @@ addpath(genpath('/cbica/projects/nibs/software/MEDI'))
 addpath(genpath('/cbica/projects/nibs/software/mritools'))
 
 %% Data input
-pathNifti_mag = '/path/to/mag.nii';
-pathNifti_phs = '/path/to/phase.nii';
-mask_file = '/path/to/mask.mat';
-r2s_file = '/path/to/r2s.mat';
-r2p_file = '/path/to/r2p.mat';
-output_dir = '/cbica/projects/nibs/derivatives/qsm';
+pathNifti_mag = '{{ mag_file }}';
+pathNifti_phs = '{{ phase_file }}';
+mask_file = '{{ mask_file }}';
+r2s_file = '{{ r2s_file }}';
+r2p_file = '{{ r2p_file }}';
+output_dir = '{{ output_dir }}';
 
 %% Run options - User define
 RunOptions = struct();
@@ -70,7 +70,11 @@ RunOptions.Mask = true;
 RunOptions.Mask_method = 'MEDI';
 
 % 'ARLO' | 'NNLS fitting' | 'Use preprocessed R2* or R2'' map'
-RunOptions.R2sfit = 'Use preprocessed R2* or R2'' map';
+if strcmp(r2p_file, 'None')
+    RunOptions.R2sfit = 'ARLO';
+else
+    RunOptions.R2sfit = 'Use preprocessed R2* or R2'' map';
+end
 
 % 'ROMEO + weighted echo averaging' | 'nonlinear complex fitting + SEGUE' | 'Laplacian'
 RunOptions.Unwrap = 'ROMEO + weighted echo averaging';
@@ -91,8 +95,11 @@ RunOptions.Tukey = double(0.4);
 RunOptions.PhaseInverse = 0;
 
 % 1: have R2' | 0: don't have R2'
-RunOptions.HaveR2Prime = 1;
-% r2prime - R2' map in Hz unit (x, y, z). If you don't have R2' map, use chi-sepnet-R2* which doesn't require R2' map.
+if strcmp(r2p_file, 'None')
+    RunOptions.HaveR2Prime = 0;
+else
+    RunOptions.HaveR2Prime = 1;
+end
 
 % 0: generate R2' from R2* using R2pnet | 1: generate R2' from R2* using scaling
 RunOptions.is_scaling = 0;
@@ -122,10 +129,10 @@ RunOptions.tukey_pad = 0.1; %Recommend not to fix this
 
 Data = struct();
 %% Fill in necessary parameters if empty
-Data.TE = [];                     % [ms]  [row vector]
-Data.B0dir = [];                  % []    [row vector]
-Data.CF = [];                     % [Hz]
-Data.B0_strength = [];            % [T]   B0_strength = CF / 42.58e6;
+Data.TE = [6.34, 11.78, 17.32, 22.81, 28.30];  % [ms]  [row vector]
+Data.B0dir = [0, 0, 1];                  % []    [row vector]
+Data.CF = 123252525;                     % [Hz]
+Data.B0_strength = 3;            % [T]   B0_strength = CF / 42.58e6;
 
 Data.RunOptions = RunOptions;
 
@@ -147,10 +154,10 @@ Data.TE = [];
 Data.MatrixSize = size(Data.MGRE_Mag);
 Data.nifti_template = nii_file;
 
-Data.output_root = [RunOptions.OutputPath,filesep,'chisep_output_',char(datetime('now','Format',"MM-dd-yy_HH.mm.ss"))];
+Data.output_root = [RunOptions.OutputPath,filesep,'chisep_output'];
 mkdir(Data.output_root);
 
-clearvars -except Params Data type_dir subj subj_dir path type type_path RunOptions home_directory
+clearvars -except Params Data type_dir path type type_path RunOptions home_directory
 
 
 %% Params_check
@@ -191,7 +198,7 @@ clearvars imgc
 %% Brain mask (Range [0,1])
 disp("=================< Brain masking >=================")
 if RunOptions.Mask
-    Data.Mask = load(mask_file);
+    Data.Mask = load(mask_file).Mask;
 else
     if strcmp(RunOptions.Mask_method,'MEDI')  % Use MEDI BET
         Data.Mask = BET(Data.MGRE_Mag_Tukey(:,:,:,1), Data.MatrixSize(1:3), Data.VoxelSize);
@@ -212,9 +219,9 @@ clearvars mask_brain
 %% R2* fitting (Range [0,100])
 disp("==================< R2* fitting >==================")
 if strcmp(RunOptions.R2sfit, 'Use preprocessed R2* or R2'' map')  % If you have R2s or R2p
-    Data.R2s = load(r2s_file);
+    Data.R2s = load(r2s_file).R2s;
     if RunOptions.HaveR2Prime == 1
-        Data.R2p = load(r2p_file);
+        Data.R2p = load(r2p_file).R2p;
     end
 else  % R2s fitting
     if strcmp(RunOptions.R2sfit, 'ARLO')
