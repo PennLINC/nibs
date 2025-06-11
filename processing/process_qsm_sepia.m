@@ -1,14 +1,10 @@
-function run_one_session(subid, sesid)
-% Always treat inputs as strings
-subid = char(subid);
-sesid = char(sesid);
-
 % Add general Path
 addpath(genpath("/cbica/projects/nibs/software/sepia-1.2.2.6/"));
 sepia_addpath;
 
 % Define paths
 base_path = '/cbica/projects/nibs/';
+output_dir = '{{ output_dir }}';
 % Concatenated phase image
 input(1).name = '{{ phase_file }}';
 
@@ -16,9 +12,6 @@ input(1).name = '{{ phase_file }}';
 input(2).name = '{{ mag_file }}';
 input(3).name = '';  % Leave empty if not needed
 input(4).name = fullfile(base_path, 'scripts', 'tools', 'sepia_header.mat');
-
-% Output base name
-output_basename = fullfile(base_path, 'output','SEPIA', ['sub-',subid], ['ses-',sesid], ['sub-', subid, '_ses-', sesid]);
 
 % Mask filename
 mask_filename = '{{ mask_file }}';
@@ -63,12 +56,9 @@ algorParam.qsm.merit = 1;
 algorParam.qsm.isLambdaCSF = 1;
 algorParam.qsm.lambdaCSF = 100;
 
-output_dir = fileparts(output_basename); % Get parent directory path
 if ~exist(output_dir, 'dir')
     mkdir(output_dir); % This creates all required parent directories
 end
 
 % Run SEPIA process
-fprintf('Processing subject %s, session %s...\n', subid, sesid);
-sepiaIO(input, output_basename, mask_filename, algorParam);
-end
+sepiaIO(input, output_dir, mask_filename, algorParam);

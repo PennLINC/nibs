@@ -269,6 +269,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     phase_img.to_filename(os.path.join(temp_dir, 'phase.nii'))
 
     # Modify, write out, and run the MATLAB script
+    chisep_dir = os.path.join(temp_dir, 'chisep_output')
+    os.makedirs(chisep_dir, exist_ok=True)
     chisep_script = os.path.join(code_dir, 'process_qsm_chisep.m')
     with open(chisep_script, 'r') as fobj:
         base_chisep_script = fobj.read()
@@ -299,6 +301,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
 
     # Run SEPIA QSM estimation
+    sepia_dir = os.path.join(temp_dir, 'sepia')
+    os.makedirs(sepia_dir, exist_ok=True)
     sepia_script = os.path.join(code_dir, 'process_qsm_sepia.m')
     with open(sepia_script, 'r') as fobj:
         base_sepia_script = fobj.read()
@@ -307,7 +311,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         base_sepia_script.replace("{{ phase_file }}", os.path.join(temp_dir, 'phase.nii'))
         .replace("{{ mag_file }}", os.path.join(temp_dir, 'mag.nii'))
         .replace("{{ mask_file }}", mask_file)
-        .replace("{{ output_dir }}", temp_dir)
+        .replace("{{ output_dir }}", sepia_dir)
     )
 
     out_sepia_script = os.path.join(temp_dir, 'process_qsm_sepia.m')
