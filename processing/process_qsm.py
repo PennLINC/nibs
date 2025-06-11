@@ -23,8 +23,10 @@ import json
 import os
 
 import ants
+import nibabel as nb
 from bids.layout import BIDSLayout, Query
 from nilearn import image
+from scipy.io import savemat
 
 from utils import coregister_to_t1, fit_monoexponential, get_filename
 
@@ -138,7 +140,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Calculate T2*, R2*, and S0 maps
     megre_metadata = [layout.get_metadata(f) for f in run_data['megre_mag']]
-    echo_times = [m['EchoTime'] * 1000 for m in megre_metadata]
+    echo_times = [m['EchoTime'] * 1000 for m in megre_metadata]  # convert to ms
     t2s_img, r2s_img, s0_img = fit_monoexponential(
         in_files=run_data['megre_mag'],
         echo_times=echo_times,
@@ -149,7 +151,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
         entities={
             'datatype': 'anat',
-            'space': 'QSM',
+            'space': 'MEGRE',
             'suffix': 'T2starmap',
             'extension': '.nii.gz',
         },
@@ -163,7 +165,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
         entities={
             'datatype': 'anat',
-            'space': 'QSM',
+            'space': 'MEGRE',
             'suffix': 'R2starmap',
             'extension': '.nii.gz',
         },
@@ -177,7 +179,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
         entities={
             'datatype': 'anat',
-            'space': 'QSM',
+            'space': 'MEGRE',
             'suffix': 'S0map',
             'extension': '.nii.gz',
         },
@@ -191,7 +193,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'QSM', 'desc': 'mean', 'suffix': 'MEGRE'},
+        entities={'space': 'MEGRE', 'desc': 'mean', 'suffix': 'MEGRE'},
         dismiss_entities=['echo'],
     )
     mean_mag_img.to_filename(mean_mag_filename)
@@ -202,16 +204,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         in_file=mean_mag_filename,
         t1_file=run_data['t1w'],
-        source_space='QSM',
+        source_space='MEGRE',
         target_space='T1w',
     )
 
-    # Warp R2 map from T1w space to QSM space
+    # Warp R2 map from T1w space to MEGRE space
     r2_qsm_filename = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'QSM', 'suffix': 'R2map'},
+        entities={'space': 'MEGRE', 'suffix': 'R2map'},
         dismiss_entities=['echo', 'part'],
     )
     r2_qsm_img = ants.apply_transforms(
@@ -228,14 +230,47 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'QSM', 'suffix': 'R2prime'},
+        entities={'space': 'MEGRE', 'suffix': 'R2prime'},
         dismiss_entities=['echo', 'part'],
     )
     r2_prime_img = r2_qsm_img - r2s_img
     ants.image_write(r2_prime_img, r2_prime_filename)
 
+    # Warp brain mask from T1w space to MEGRE space
+    mask_qsm_filename = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'desc': 'brain', 'suffix': 'mask'},
+    )
+    mask_qsm_img = ants.apply_transforms(
+        fixed=ants.image_read(mean_mag_filename),
+        moving=ants.image_read(run_data['t1w_mask']),
+        transformlist=[coreg_transform],
+        whichtoinvert=[True],
+    )
+    ants.image_write(mask_qsm_img, mask_qsm_filename)
+
     # Now run the chi-separation QSM estimation
-    ...
+    # Create mat file with parameters
+    mat_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=temp_dir,
+        entities={'desc': 'params', 'suffix': 'MEGRE', 'extension': '.mat'},
+    )
+    param_dict = {
+        'TE': echo_times,
+        'CF': None,  # Center frequency in Hertz
+        'B0dir': None,  # B0 direction in x, y, z
+        'VoxelSize': nb.load(r2s_filename).header.get_zooms(),  # Voxel size in mm
+        'R2s': nb.load(r2s_filename).get_fdata(),
+        'R2p': nb.load(r2_prime_filename).get_fdata(),
+        # 'LocalField': ...,  # we don't have a field map
+        'Mask': nb.load(mask_qsm_filename).get_fdata(),
+        # 'QSM': ...,  # we don't have a QSM map yet
+    }
+    savemat(mat_file, param_dict)
 
     # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
