@@ -261,8 +261,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     param_dict = {
         'TE': echo_times,
-        'CF': None,  # Center frequency in Hertz
-        'B0dir': None,  # B0 direction in x, y, z
+        'CF': 123252525,  # Center frequency in Hertz
+        'B0dir': [0, 0, 1],  # B0 direction in x, y, z
         'VoxelSize': nb.load(r2s_filename).header.get_zooms(),  # Voxel size in mm
         'R2s': nb.load(r2s_filename).get_fdata(),
         'R2p': nb.load(r2_prime_filename).get_fdata(),
@@ -271,6 +271,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
         # 'QSM': ...,  # we don't have a QSM map yet
     }
     savemat(mat_file, param_dict)
+
+    # Concatenate MEGRE images across echoes
 
     # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.

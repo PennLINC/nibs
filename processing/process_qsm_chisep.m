@@ -35,13 +35,14 @@ addpath(genpath('your_path/Tools_for_NIfTI_and_ANALYZE_image'))
 
 % Set QSM tool directory path
 % STI Suite (Version 3.0) (https://people.eecs.berkeley.edu/~chunlei.liu/software.html)
-addpath(genpath('/cbica/projects/nibs/software/STISuite'))
+addpath(genpath('/cbica/projects/nibs/software/STISuite_V3.0'))
 
 % MEDI toolbox (http://pre.weill.cornell.edu/mri/pages/qsm.html)
-addpath(genpath('/cbica/projects/nibs/software/MEDItoolbox'))
+addpath(genpath('/cbica/projects/nibs/software/MEDI'))
 
 % SEGUE toolbox (https://xip.uclb.com/product/SEGUE)
-addpath(genpath('/cbica/projects/nibs/software/SEGUE'))
+% TS: We use ROMEO, not SEGUE.
+% addpath(genpath('/cbica/projects/nibs/software/SEGUE'))
 
 % mritools toolbox (https://github.com/korbinian90/CompileMRI.jl/releases)
 addpath(genpath('/cbica/projects/nibs/software/mritools'))
@@ -124,7 +125,8 @@ if strcmp(RunOptions.multi, 'multi')
     subj_dir = dir([multi_subj_path,'\subj*']);
 elseif strcmp(RunOptions.multi, 'single')
     single_subj_path = 'Single_subj_path';
-    subj_dir(1).folder = single_subj_path; subj_dir(1).name = [];
+    subj_dir(1).folder = single_subj_path;
+    subj_dir(1).name = [];
 end
 
 for subj = 1:length(subj_dir)
