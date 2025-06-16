@@ -14,7 +14,6 @@ Steps:
 
 Notes:
 
-- This doesn't apply the X-separation method or use the T2* map.
 - Remember to name the QSM files with the suffix "Chimap".
 - Chimap outputs should be in parts per million (ppm).
 - The R2* map is calculated using the monoexponential fit.
@@ -251,7 +250,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     ants.image_write(mask_qsm_img, mask_qsm_filename)
 
-    # Now run the chi-separation QSM estimation
+    # Prepare for chi-separation QSM estimation
     # Create mat file with parameters
     mask_file = os.path.join(temp_dir, 'mask.mat')
     savemat(mask_file, {'Mask': nb.load(mask_qsm_filename).get_fdata()})
@@ -268,9 +267,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mag_img.to_filename(os.path.join(temp_dir, 'mag.nii'))
     phase_img.to_filename(os.path.join(temp_dir, 'phase.nii'))
 
-    # Modify, write out, and run the MATLAB script
-    chisep_dir = os.path.join(temp_dir, 'chisep_output')
-    os.makedirs(chisep_dir, exist_ok=True)
+    # Now run the chi-separation QSM estimation with R2' map
+    chisep_r2p_dir = os.path.join(temp_dir, 'chisep_r2p', 'chisep_output')
+    os.makedirs(chisep_r2p_dir, exist_ok=True)
     chisep_script = os.path.join(code_dir, 'process_qsm_chisep.m')
     with open(chisep_script, 'r') as fobj:
         base_chisep_script = fobj.read()
@@ -281,10 +280,42 @@ def process_run(layout, run_data, out_dir, temp_dir):
         .replace("{{ mask_file }}", mask_file)
         .replace("{{ r2s_file }}", r2s_file)
         .replace("{{ r2p_file }}", r2p_file)
-        .replace("{{ output_dir }}", temp_dir)
+        .replace("{{ output_dir }}", os.path.join(temp_dir, 'chisep_r2p'))
     )
 
-    out_chisep_script = os.path.join(temp_dir, 'process_qsm_chisep.m')
+    out_chisep_script = os.path.join(temp_dir, 'process_qsm_chisep_r2p.m')
+    with open(out_chisep_script, "w") as fobj:
+        fobj.write(modified_chisep_script)
+
+    subprocess.run(
+        [
+            "matlab",
+            "-nodisplay",
+            "-nosplash",
+            "-nodesktop",
+            "-r",
+            f"run('{out_chisep_script}');",
+            "exit;",
+        ],
+    )
+
+    # Run X-separation QSM estimation with R2' map
+    chisep_no_r_dir = os.path.join(temp_dir, 'chisep_no_r2p', 'chisep_output')
+    os.makedirs(chisep_no_r_dir, exist_ok=True)
+    chisep_script = os.path.join(code_dir, 'process_qsm_chisep.m')
+    with open(chisep_script, 'r') as fobj:
+        base_chisep_script = fobj.read()
+
+    modified_chisep_script = (
+        base_chisep_script.replace("{{ mag_file }}", os.path.join(temp_dir, 'mag.nii'))
+        .replace("{{ phase_file }}", os.path.join(temp_dir, 'phase.nii'))
+        .replace("{{ mask_file }}", mask_file)
+        .replace("{{ r2s_file }}", r2s_file)
+        .replace("{{ r2p_file }}", 'None')
+        .replace("{{ output_dir }}", os.path.join(temp_dir, 'chisep_no_r2p'))
+    )
+
+    out_chisep_script = os.path.join(temp_dir, 'process_qsm_chisep_no_r2p.m')
     with open(out_chisep_script, "w") as fobj:
         fobj.write(modified_chisep_script)
 
