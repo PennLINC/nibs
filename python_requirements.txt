@@ -10,3 +10,4 @@ heudiconv
 pandas
 nilearn
 pybids
+tedana

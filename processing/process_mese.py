@@ -99,9 +99,7 @@ def collect_run_data(layout, bids_filters):
         elif len(files) > 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)}')
         elif len(files) == 0:
-            print(f'Expected 1 file for {key}, got {len(files)}')
-            run_data[key] = None
-            continue
+            raise ValueError(f'Expected 1 file for {key}, got {len(files)} with query {query}')
         else:
             files = files[0].path
 
