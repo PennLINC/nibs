@@ -174,6 +174,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
         dismiss_entities=['echo', 'part'],
     )
     s0_img.to_filename(s0_filename)
+    raise Exception(
+        f"s0_filename: {s0_filename}\n"
+        f"t2_filename: {t2_filename}\n"
+        f"r2_filename: {r2_filename}"
+    )
 
     # Calculate distortion map from AP and PA echo-1 data
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
