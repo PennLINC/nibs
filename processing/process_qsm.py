@@ -365,7 +365,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     for file_ in [t2s_filename, r2s_filename, s0_filename]:
-        suffix = os.path.basename(file_).split('_')[1].split('.')[0]
+        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
         out_file = get_filename(
             name_source=name_source,
             layout=layout,

@@ -321,7 +321,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         mtdsatb1sq_file,
         mtssatb1sq_file,
     ]:
-        suffix = os.path.basename(file_).split('_')[1].split('.')[0]
+        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
         out_file = get_filename(
             name_source=name_source,
             layout=layout,

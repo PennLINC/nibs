@@ -174,11 +174,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
         dismiss_entities=['echo', 'part'],
     )
     s0_img.to_filename(s0_filename)
-    raise Exception(
-        f"s0_filename: {s0_filename}\n"
-        f"t2_filename: {t2_filename}\n"
-        f"r2_filename: {r2_filename}"
-    )
 
     # Calculate distortion map from AP and PA echo-1 data
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
@@ -280,7 +275,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     # XXX: This ignores the SDC transform.
     for file_ in [t2_filename, r2_filename, s0_filename]:
-        suffix = os.path.basename(file_).split('_')[1].split('.')[0]
+        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
         out_file = get_filename(
             name_source=name_source,
             layout=layout,
