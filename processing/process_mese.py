@@ -285,12 +285,17 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
 
 if __name__ == '__main__':
-    code_dir = '/Users/taylor/Documents/linc/nibs'
-    in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
-    smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
-    out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/mese'
+    # code_dir = '/Users/taylor/Documents/linc/nibs'
+    code_dir = '/cbica/projects/nibs/code'
+    # in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
+    in_dir = '/cbica/projects/nibs/dset'
+    # smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
+    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
+    # out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/mese'
+    out_dir = '/cbica/projects/nibs/derivatives/mese'
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/Users/taylor/Documents/datasets/nibs/work/mese'
+    # temp_dir = '/Users/taylor/Documents/datasets/nibs/work/mese'
+    temp_dir = '/cbica/projects/nibs/work/mese'
     os.makedirs(temp_dir, exist_ok=True)
 
     dataset_description = {

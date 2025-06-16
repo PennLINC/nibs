@@ -29,7 +29,8 @@ from nilearn import image
 
 from utils import coregister_to_t1, get_filename, run_command
 
-CODE_DIR = '/Users/taylor/Documents/linc/nibs'
+# CODE_DIR = '/Users/taylor/Documents/linc/nibs'
+CODE_DIR = '/cbica/projects/nibs/code'
 
 
 def collect_run_data(layout, bids_filters):
@@ -456,15 +457,16 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
 
 
 if __name__ == '__main__':
-    code_dir = '/Users/taylor/Documents/linc/nibs'
-    # in_dir = "/cbica/projects/nibs/dset"
-    in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
-    mp2rage_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/pymp2rage'
-    smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
-    # out_dir = "/cbica/projects/nibs/derivatives/ihmt"
-    out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/ihmt'
+    # code_dir = '/Users/taylor/Documents/linc/nibs'
+    in_dir = '/cbica/projects/nibs/dset'
+    # in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
+    mp2rage_dir = '/cbica/projects/nibs/derivatives/pymp2rage'
+    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
+    out_dir = '/cbica/projects/nibs/derivatives/ihmt'
+    # out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/ihmt'
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/Users/taylor/Documents/datasets/nibs/work/ihmt'
+    # temp_dir = '/Users/taylor/Documents/datasets/nibs/work/ihmt'
+    temp_dir = '/cbica/projects/nibs/work/ihmt'
     os.makedirs(temp_dir, exist_ok=True)
 
     dataset_description = {
@@ -489,7 +491,7 @@ if __name__ == '__main__':
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(code_dir, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
         validate=False,
         derivatives=[mp2rage_dir, smriprep_dir],
     )
