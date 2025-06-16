@@ -61,8 +61,9 @@ def collect_run_data(layout, bids_filters):
         # T1w-space T1w image from sMRIPrep
         't1w': {
             'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
             'space': Query.NONE,
-            'resolution': Query.NONE,
+            'res': Query.NONE,
             'desc': 'preproc',
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
@@ -70,8 +71,9 @@ def collect_run_data(layout, bids_filters):
         # sMRIPrep T1w-space brain mask
         't1w_mask': {
             'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
             'space': Query.NONE,
-            'resolution': Query.NONE,
+            'res': Query.NONE,
             'desc': 'brain',
             'suffix': 'mask',
             'extension': ['.nii', '.nii.gz'],
@@ -79,6 +81,7 @@ def collect_run_data(layout, bids_filters):
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -87,6 +90,7 @@ def collect_run_data(layout, bids_filters):
         # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
             'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
@@ -97,7 +101,7 @@ def collect_run_data(layout, bids_filters):
 
     run_data = {}
     for key, query in queries.items():
-        query = {**query, **bids_filters}
+        query = {**bids_filters, **query}
         files = layout.get(**query)
         if key.startswith('megre_'):
             if len(files) != 4:
@@ -106,12 +110,8 @@ def collect_run_data(layout, bids_filters):
                 run_data[key] = files
                 continue
 
-        elif len(files) > 1:
-            raise ValueError(f'Expected 1 file for {key}, got {len(files)}')
-        elif len(files) == 0:
-            print(f'Expected 1 file for {key}, got {len(files)}')
-            run_data[key] = None
-            continue
+        elif len(files) != 1:
+            raise ValueError(f'Expected 1 file for {key}, got {len(files)} with query {query}')
 
         file = files[0]
         run_data[key] = file.path

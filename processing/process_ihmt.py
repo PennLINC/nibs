@@ -23,7 +23,7 @@ import shutil
 
 import ants
 import antspynet
-from bids.layout import BIDSLayout
+from bids.layout import BIDSLayout, Query
 from ihmt_proc import cli
 from nilearn import image
 
@@ -89,6 +89,7 @@ def collect_run_data(layout, bids_filters):
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -97,8 +98,10 @@ def collect_run_data(layout, bids_filters):
         # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
             'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
+            'mode': 'image',
             'suffix': 'xfm',
             'extension': '.h5',
         },
@@ -108,12 +111,8 @@ def collect_run_data(layout, bids_filters):
     for key, query in queries.items():
         query = {**bids_filters, **query}
         files = layout.get(**query)
-        if len(files) > 1:
+        if len(files) != 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)}: {query}')
-        elif len(files) == 0:
-            print(f'Expected 1 file for {key}, got {len(files)}: {query}')
-            run_data[key] = None
-            continue
 
         file = files[0]
         run_data[key] = file.path

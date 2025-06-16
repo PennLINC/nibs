@@ -100,10 +100,8 @@ def collect_run_data(layout, bids_filters):
             raise ValueError(f'Expected 4 files for {key}, got {len(files)}')
         elif key == 'mese_mag_ap':
             files = [f.path for f in files]
-        elif len(files) > 1:
-            raise ValueError(f'Expected 1 file for {key}, got {len(files)}')
-        elif len(files) == 0:
-            raise ValueError(f'Expected 1 file for {key}, got {len(files)} with query {query}')
+        elif len(files) != 1:
+            raise ValueError(f'Expected 1 file for {key}, got {len(files)}: {query}')
         else:
             files = files[0].path
 
