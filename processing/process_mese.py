@@ -95,7 +95,7 @@ def collect_run_data(layout, bids_filters):
         if key == 'mese_mag_ap' and len(files) != 4:
             raise ValueError(f'Expected 4 files for {key}, got {len(files)}')
         elif key == 'mese_mag_ap':
-            pass
+            files = [f.path for f in files]
         elif len(files) > 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)}')
         elif len(files) == 0:
@@ -103,10 +103,9 @@ def collect_run_data(layout, bids_filters):
             run_data[key] = None
             continue
         else:
-            files = files[0]
+            files = files[0].path
 
-        file = files
-        run_data[key] = file.path
+        run_data[key] = files
 
     return run_data
 
