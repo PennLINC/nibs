@@ -39,7 +39,7 @@ def collect_run_data(layout, bids_filters):
         # MESE images from raw BIDS dataset
         'mese_mag_ap': {
             'part': ['mag', Query.NONE],
-            'echo': 1,
+            'echo': Query.ANY,
             'direction': 'AP',
             'suffix': 'MESE',
             'extension': ['.nii', '.nii.gz'],
