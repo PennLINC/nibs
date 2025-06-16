@@ -347,7 +347,9 @@ if __name__ == '__main__':
                 print(f'Processing MESE file {mese_file.path}')
                 entities = mese_file.get_entities()
                 entities.pop('echo')
-                entities.pop('part')
+                if 'part' in entities:
+                    entities.pop('part')
+
                 entities.pop('direction')
                 run_data = collect_run_data(layout, entities)
                 process_run(layout, run_data, out_dir, temp_dir)
