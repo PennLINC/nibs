@@ -166,7 +166,7 @@ def fit_monoexponential(in_files, echo_times):
     mask = np.ones(data_cat.shape[0], dtype=int)
     masksum = mask * len(echo_times)
 
-    t2s_limited, s0_limited, _, _ = decay.fit_loglinear(
+    t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
         data_cat=data_cat,
         echo_times=echo_times,
         adaptive_mask=masksum,
