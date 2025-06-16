@@ -339,6 +339,7 @@ if __name__ == '__main__':
                 extension=['.nii', '.nii.gz'],
             )
             if not mese_files:
+                print(layout.get(subject=subject, session=session, suffix='MESE'))
                 raise ValueError(f'No MESE files found for subject {subject} and session {session}')
 
             for mese_file in mese_files:
