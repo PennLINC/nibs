@@ -54,6 +54,7 @@ def collect_run_data(layout, bids_filters):
         # T1w-space T1w image from sMRIPrep
         't1w': {
             'datatype': 'anat',
+            'run': Query.NONE,
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'preproc',
@@ -63,6 +64,7 @@ def collect_run_data(layout, bids_filters):
         # sMRIPrep T1w-space brain mask
         't1w_mask': {
             'datatype': 'anat',
+            'run': Query.NONE,
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'brain',
@@ -72,6 +74,7 @@ def collect_run_data(layout, bids_filters):
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
+            'run': Query.NONE,
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -80,6 +83,7 @@ def collect_run_data(layout, bids_filters):
         # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
             'datatype': 'anat',
+            'run': Query.NONE,
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
@@ -90,10 +94,7 @@ def collect_run_data(layout, bids_filters):
 
     run_data = {}
     for key, query in queries.items():
-        query = {**query, **bids_filters}
-        if key.startswith('t1w') and 'run' in query:
-            query.pop('run')
-
+        query = {**bids_filters, **query}
         files = layout.get(**query)
         if key == 'mese_mag_ap' and len(files) != 4:
             raise ValueError(f'Expected 4 files for {key}, got {len(files)}')
