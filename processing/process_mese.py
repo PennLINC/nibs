@@ -29,7 +29,7 @@ import shutil
 
 import ants
 from bids.layout import BIDSLayout, Query
-from sdcflows.workflows.fit.pepolar import init_topup_wf
+# from sdcflows.workflows.fit.pepolar import init_topup_wf
 
 from utils import coregister_to_t1, fit_monoexponential, get_filename
 
@@ -172,29 +172,29 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Calculate distortion map from AP and PA echo-1 data
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
-    mese_mag_pa_echo1 = run_data['mese_mag_pa'][0]
-    topup_wf = init_topup_wf(
-        grid_reference=0,
-        use_metadata_estimates=False,
-        fallback_total_readout_time=None,
-        omp_nthreads=1,
-        sloppy=False,
-        debug=False,
-        name='topup_estimate_wf',
-    )
-    topup_wf.inputs.in_files = [mese_mag_ap_echo1, mese_mag_pa_echo1]
-    topup_wf.inputs.metadata = [mese_ap_metadata[0], mese_pa_metadata]
-    wf_results = topup_wf.run()
+    # mese_mag_pa_echo1 = run_data['mese_mag_pa'][0]
+    # topup_wf = init_topup_wf(
+    #     grid_reference=0,
+    #     use_metadata_estimates=False,
+    #     fallback_total_readout_time=None,
+    #     omp_nthreads=1,
+    #     sloppy=False,
+    #     debug=False,
+    #     name='topup_estimate_wf',
+    # )
+    # topup_wf.inputs.in_files = [mese_mag_ap_echo1, mese_mag_pa_echo1]
+    # topup_wf.inputs.metadata = [mese_ap_metadata[0], mese_pa_metadata]
+    # wf_results = topup_wf.run()
     # output fields are fmap, fmap_ref, fmap_coeff, fmap_mask, jacobians, xfms, out_warps, method
-    fmap_coeff = wf_results.outputs.fmap_coeff
-    fmap_ref = wf_results.outputs.fmap_ref
-    fmap = wf_results.outputs.fmap
-    fmap_mask = wf_results.outputs.fmap_mask
+    # fmap_coeff = wf_results.outputs.fmap_coeff
+    # fmap_ref = wf_results.outputs.fmap_ref
+    # fmap = wf_results.outputs.fmap
+    # fmap_mask = wf_results.outputs.fmap_mask
     # jacobians = wf_results.outputs.jacobians
     # xfms = wf_results.outputs.xfms
     # out_warps = wf_results.outputs.out_warps
 
-    fmap_filename = get_filename(
+    """fmap_filename = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
@@ -252,7 +252,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         },
         dismiss_entities=['echo', 'part'],
     )
-    shutil.copyfile(fmap_mask, fmap_mask_filename)
+    shutil.copyfile(fmap_mask, fmap_mask_filename)"""
 
     # Coregister AP echo-1 data to preprocessed T1w
     # XXX: This is currently using non-SDCed MESE data.
