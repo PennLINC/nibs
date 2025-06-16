@@ -91,6 +91,9 @@ def collect_run_data(layout, bids_filters):
     run_data = {}
     for key, query in queries.items():
         query = {**query, **bids_filters}
+        if key.startswith('t1w') and 'run' in query:
+            query.pop('run')
+
         files = layout.get(**query)
         if key == 'mese_mag_ap' and len(files) != 4:
             raise ValueError(f'Expected 4 files for {key}, got {len(files)}')
