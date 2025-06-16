@@ -336,7 +336,7 @@ if __name__ == '__main__':
                 part='mag',
                 direction='AP',
                 suffix='MESE',
-                extension=['.nii', '.nii.gz'],
+                extension=['nii', 'nii.gz'],
             )
             if not mese_files:
                 print(layout.get(subject=subject, session=session, suffix='MESE'))
