@@ -17,6 +17,7 @@ Notes:
 - Remember to name the QSM files with the suffix "Chimap".
 - Chimap outputs should be in parts per million (ppm).
 - The R2* map is calculated using the monoexponential fit.
+- This must be run after sMRIPrep and process_mese.py.
 """
 import json
 import os

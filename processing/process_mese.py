@@ -20,6 +20,7 @@ Notes:
 
 - The T2 map will be used for QSM processing.
 - sMRIPrep's preprocessed T1w image is used as the "native T1w space".
+- This must be run after sMRIPrep.
 """
 
 import json
