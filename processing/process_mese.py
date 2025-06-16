@@ -92,14 +92,20 @@ def collect_run_data(layout, bids_filters):
     for key, query in queries.items():
         query = {**query, **bids_filters}
         files = layout.get(**query)
-        if len(files) > 1:
+        if key == 'mese_mag_ap' and len(files) != 4:
+            raise ValueError(f'Expected 4 files for {key}, got {len(files)}')
+        elif key == 'mese_mag_ap':
+            pass
+        elif len(files) > 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)}')
         elif len(files) == 0:
             print(f'Expected 1 file for {key}, got {len(files)}')
             run_data[key] = None
             continue
+        else:
+            files = files[0]
 
-        file = files[0]
+        file = files
         run_data[key] = file.path
 
     return run_data
