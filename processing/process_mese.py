@@ -333,7 +333,7 @@ if __name__ == '__main__':
                 subject=subject,
                 session=session,
                 echo=1,
-                part='mag',
+                part=['mag', Query.NONE],
                 direction='AP',
                 suffix='MESE',
                 extension=['.nii', '.nii.gz'],
