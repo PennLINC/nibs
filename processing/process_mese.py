@@ -268,6 +268,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         t1_file=run_data['t1w'],
         source_space='MESE',
         target_space='T1w',
+        out_dir=out_dir,
     )
 
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
