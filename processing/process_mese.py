@@ -55,7 +55,7 @@ def collect_run_data(layout, bids_filters):
         't1w': {
             'datatype': 'anat',
             'space': Query.NONE,
-            'resolution': Query.NONE,
+            'res': Query.NONE,
             'desc': 'preproc',
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
@@ -64,7 +64,7 @@ def collect_run_data(layout, bids_filters):
         't1w_mask': {
             'datatype': 'anat',
             'space': Query.NONE,
-            'resolution': Query.NONE,
+            'res': Query.NONE,
             'desc': 'brain',
             'suffix': 'mask',
             'extension': ['.nii', '.nii.gz'],
