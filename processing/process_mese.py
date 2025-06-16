@@ -336,11 +336,11 @@ if __name__ == '__main__':
                 part='mag',
                 direction='AP',
                 suffix='MESE',
-                extension=['nii', 'nii.gz'],
+                extension=['.nii', '.nii.gz'],
             )
             if not mese_files:
-                files = layout.get(subject=subject, session=session, suffix='MESE')
-                print(files[1].entities)
+                files = layout.get(subject=subject, session=session, suffix='MESE', extension=['.nii', '.nii.gz'])
+                print(files[0].get_entities())
                 raise ValueError(f'No MESE files found for subject {subject} and session {session}')
 
             for mese_file in mese_files:
