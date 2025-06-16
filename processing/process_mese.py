@@ -338,7 +338,11 @@ if __name__ == '__main__':
                 suffix='MESE',
                 extension=['.nii', '.nii.gz'],
             )
+            if not mese_files:
+                raise ValueError(f'No MESE files found for subject {subject} and session {session}')
+
             for mese_file in mese_files:
+                print(f'Processing MESE file {mese_file.path}')
                 entities = mese_file.get_entities()
                 entities.pop('echo')
                 entities.pop('part')
