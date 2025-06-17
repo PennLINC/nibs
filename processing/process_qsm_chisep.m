@@ -138,12 +138,12 @@ Data.RunOptions = RunOptions;
 
 % magnitude
 nii_file = load_untouch_nii(pathNifti_mag);
-Data.MGRE_Mag = rot90(double(nii_file.img));
+Data.MGRE_Mag = double(nii_file.img);
 % phase
 nii_file_phs = load_untouch_nii(pathNifti_phs);
 maxval = max(double(nii_file_phs.img(:)));
 minval = min(double(nii_file_phs.img(:)));
-Data.MGRE_Phs = (rot90(double(nii_file_phs.img))-(minval+maxval)/2)/(maxval-minval)*2*pi;
+Data.MGRE_Phs = (double(nii_file_phs.img)-(minval+maxval)/2)/(maxval-minval)*2*pi;
 % info
 VoxelSize_org = double(nii_file.hdr.dime.pixdim(2:4));
 Data.VoxelSize = VoxelSize_org([2,1,3]);
@@ -206,7 +206,7 @@ else
         mat2nii_ungz(Data.MGRE_Mag_Tukey,[Data.output_root,'\mag_tmp'])
         cmd = ['/home/user/fsl/bin/bet ',[Data.output_root,'\mag_tmp '],[Data.output_root,'\BET'], ' -m -R -f 0.55 -g 0.15 -S'];%-f 0.7 -g -0.08
         [status, result] = system(fsl_PathCorr(cmd));
-        mask_brain = fliplr(rot90(niftiread([Data.output_root,'\BET_mask.nii.gz'])));
+        mask_brain = fliplr(niftiread([Data.output_root,'\BET_mask.nii.gz']));
         Data.Mask = imerode(imdilate(mask_brain,strel('sphere',2)),strel('sphere',4));
     end
 end
@@ -575,7 +575,7 @@ function [save_func, nii_file, save_name]=load_nii_template_and_make_nii(Data, d
         save_func = @save_nii;
         save_name = [save_name, '.nii'];
         origin = [1 1 1];
-        nii_file = make_nii(rot90(data,-1), voxel_size, origin);
+        nii_file = make_nii(data, voxel_size, origin);
         [q, nii_file.hdr.hist.pixdim(1)] = CalculateQuatFromB0Dir(Data.B0dir);
 
         nii_file.hdr.hist.quatern_b = q(2);
@@ -584,7 +584,7 @@ function [save_func, nii_file, save_name]=load_nii_template_and_make_nii(Data, d
         nii_file.hdr.hist.originator = origin;
     else
         save_func = @save_untouch_nii;
-        nii_file.img = rot90(data,-1);
+        nii_file.img = data;
     end
 
     nii_file.hdr.dime.datatype = 16;
