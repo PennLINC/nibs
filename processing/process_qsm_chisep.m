@@ -537,9 +537,7 @@ if ~(sum(RunOptions.EvenSizePadding) == 0)
     end
 end
 
-SaveData_Chisep(Data, RunOptions)
-
-end
+SaveData_Chisep(Data, RunOptions);
 
 
 function SaveData_Chisep(Data, RunOptions)
