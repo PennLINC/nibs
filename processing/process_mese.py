@@ -276,18 +276,31 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # XXX: This ignores the SDC transform.
     for file_ in [t2_filename, r2_filename, s0_filename]:
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
-        out_file = get_filename(
+        mni_file = get_filename(
             name_source=name_source,
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
         )
-        reg_img = ants.apply_transforms(
+        mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
         )
-        ants.image_write(reg_img, out_file)
+        ants.image_write(mni_img, mni_file)
+
+        t1w_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'suffix': suffix},
+        )
+        t1w_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w']),
+            moving=ants.image_read(file_),
+            transformlist=[coreg_transform],
+        )
+        ants.image_write(t1w_img, t1w_file)
 
 
 if __name__ == '__main__':
