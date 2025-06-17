@@ -11,7 +11,7 @@ input(1).name = '{{ phase_file }}';
 % Concatenated, skull-stripped magnitude image
 input(2).name = '{{ mag_file }}';
 input(3).name = '';  % Leave empty if not needed
-input(4).name = fullfile(base_path, 'scripts', 'tools', 'sepia_header.mat');
+input(4).name = fullfile(base_path, 'code', 'processing', 'sepia_header.mat');
 
 % Mask filename
 mask_filename = '{{ mask_file }}';
