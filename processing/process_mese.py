@@ -127,7 +127,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     """
     name_source = run_data['mese_mag_ap'][0]
     mese_ap_metadata = [layout.get_metadata(f) for f in run_data['mese_mag_ap']]
-    mese_pa_metadata = layout.get_metadata(run_data['mese_mag_pa'])
+    # mese_pa_metadata = layout.get_metadata(run_data['mese_mag_pa'])
     echo_times = [m['EchoTime'] * 1000 for m in mese_ap_metadata]
     t2_img, r2_img, s0_img = fit_monoexponential(
         in_files=run_data['mese_mag_ap'],
