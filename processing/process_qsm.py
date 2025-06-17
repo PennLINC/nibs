@@ -104,8 +104,8 @@ def collect_run_data(layout, bids_filters):
         query = {**bids_filters, **query}
         files = layout.get(**query)
         if key.startswith('megre_'):
-            if len(files) != 4:
-                raise ValueError(f'Expected 4 files for {key}, got {len(files)}')
+            if len(files) != 5:
+                raise ValueError(f'Expected 5 files for {key}, got {len(files)}')
             else:
                 run_data[key] = files
                 continue
