@@ -274,7 +274,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Now run the chi-separation QSM estimation with R2' map
     chisep_r2p_dir = os.path.join(temp_dir, 'chisep_r2p', 'chisep_output')
     os.makedirs(chisep_r2p_dir, exist_ok=True)
-    chisep_script = os.path.join(code_dir, 'process_qsm_chisep.m')
+    chisep_script = os.path.join(code_dir, 'processing', 'process_qsm_chisep.m')
     with open(chisep_script, 'r') as fobj:
         base_chisep_script = fobj.read()
 
@@ -306,7 +306,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Run X-separation QSM estimation with R2' map
     chisep_no_r_dir = os.path.join(temp_dir, 'chisep_no_r2p', 'chisep_output')
     os.makedirs(chisep_no_r_dir, exist_ok=True)
-    chisep_script = os.path.join(code_dir, 'process_qsm_chisep.m')
+    chisep_script = os.path.join(code_dir, 'processing', 'process_qsm_chisep.m')
     with open(chisep_script, 'r') as fobj:
         base_chisep_script = fobj.read()
 
@@ -338,7 +338,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Run SEPIA QSM estimation
     sepia_dir = os.path.join(temp_dir, 'sepia')
     os.makedirs(sepia_dir, exist_ok=True)
-    sepia_script = os.path.join(code_dir, 'process_qsm_sepia.m')
+    sepia_script = os.path.join(code_dir, 'processing', 'process_qsm_sepia.m')
     with open(sepia_script, 'r') as fobj:
         base_sepia_script = fobj.read()
 
