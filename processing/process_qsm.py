@@ -388,6 +388,7 @@ if __name__ == '__main__':
     in_dir = '/cbica/projects/nibs/dset'
     # smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
+    mese_dir = '/cbica/projects/nibs/derivatives/mese'
     # out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/qsm'
     out_dir = '/cbica/projects/nibs/derivatives/qsm'
     os.makedirs(out_dir, exist_ok=True)
@@ -418,7 +419,7 @@ if __name__ == '__main__':
         in_dir,
         config=os.path.join(code_dir, 'nibs_bids_config.json'),
         validate=False,
-        derivatives=[smriprep_dir],
+        derivatives=[smriprep_dir, mese_dir],
     )
     subjects = layout.get_subjects(suffix='MEGRE')
     # PILOT02 has MEGRE but not MESE, so we skip it.
