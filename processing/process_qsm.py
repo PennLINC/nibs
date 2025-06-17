@@ -421,6 +421,8 @@ if __name__ == '__main__':
         derivatives=[smriprep_dir],
     )
     subjects = layout.get_subjects(suffix='MEGRE')
+    # PILOT02 has MEGRE but not MESE, so we skip it.
+    subjects = ['PILOT03', 'PILOT04']
     for subject in subjects:
         print(f'Processing subject {subject}')
         sessions = layout.get_sessions(subject=subject, suffix='MEGRE')
