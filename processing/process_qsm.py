@@ -140,6 +140,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Calculate T2*, R2*, and S0 maps
     megre_metadata = [layout.get_metadata(f) for f in run_data['megre_mag']]
+    raise Exception(megre_metadata)
     echo_times = [m['EchoTime'] * 1000 for m in megre_metadata]  # convert to ms
     t2s_img, r2s_img, s0_img = fit_monoexponential(
         in_files=run_data['megre_mag'],
