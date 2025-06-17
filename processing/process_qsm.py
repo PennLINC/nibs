@@ -173,6 +173,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         dismiss_entities=['echo', 'part'],
     )
     r2s_img.to_filename(r2s_filename)
+    r2s_img = ants.image_read(r2s_filename)
 
     s0_filename = get_filename(
         name_source=name_source,
