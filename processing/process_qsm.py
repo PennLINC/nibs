@@ -256,15 +256,15 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Prepare for chi-separation QSM estimation
     mask_qsm_img = nb.load(mask_qsm_filename)
-    mask_qsm_img.set_slope_inter(1, 0)
+    mask_qsm_img.header.set_slope_inter(1, 0)
     mask_qsm_img.to_filename(os.path.join(temp_dir, 'mask.nii'))
 
     r2s_img = nb.load(r2s_filename)
-    r2s_img.set_slope_inter(1, 0)
+    r2s_img.header.set_slope_inter(1, 0)
     r2s_img.to_filename(os.path.join(temp_dir, 'r2s.nii'))
 
     r2_prime_img = nb.load(r2_prime_filename)
-    r2_prime_img.set_slope_inter(1, 0)
+    r2_prime_img.header.set_slope_inter(1, 0)
     r2_prime_img.to_filename(os.path.join(temp_dir, 'r2p.nii'))
 
     # Concatenate MEGRE images across echoes
