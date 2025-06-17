@@ -206,6 +206,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         t1_file=run_data['t1w'],
         source_space='MEGRE',
         target_space='T1w',
+        out_dir=out_dir,
     )
 
     # Warp R2 map from T1w space to MEGRE space
@@ -230,7 +231,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MEGRE', 'suffix': 'R2prime'},
+        entities={'space': 'MEGRE', 'suffix': 'R2primemap'},
         dismiss_entities=['echo', 'part'],
     )
     r2_prime_img = r2_qsm_img - r2s_img
