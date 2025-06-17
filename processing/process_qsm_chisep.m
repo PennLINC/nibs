@@ -148,9 +148,6 @@ Data.MGRE_Phs = (rot90(double(nii_file_phs.img))-(minval+maxval)/2)/(maxval-minv
 VoxelSize_org = double(nii_file.hdr.dime.pixdim(2:4));
 Data.VoxelSize = VoxelSize_org([2,1,3]);
 Data.Necho = size(Data.MGRE_Mag,4);
-Data.CF = 0;
-Data.B0_strength = 0;
-Data.TE = [];
 Data.MatrixSize = size(Data.MGRE_Mag);
 Data.nifti_template = nii_file;
 
