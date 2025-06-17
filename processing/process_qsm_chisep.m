@@ -157,7 +157,7 @@ Data.nifti_template = nii_file;
 Data.output_root = [RunOptions.OutputPath,filesep,'chisep_output'];
 mkdir(Data.output_root);
 
-clearvars -except Params Data type_dir path type type_path RunOptions home_directory
+clearvars -except Params Data type_dir path type type_path RunOptions home_directory mask_file r2s_file r2p_file output_dir
 
 
 %% Params_check
