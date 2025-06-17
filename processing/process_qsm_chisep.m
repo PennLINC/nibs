@@ -199,8 +199,7 @@ clearvars imgc
 disp("=================< Brain masking >=================")
 if RunOptions.Mask
     maskvars = load(mask_file);
-    tmp = maskvars.Mask;
-    Data.Mask = tmp;
+    Data.Mask = maskvars.Mask;
 else
     if strcmp(RunOptions.Mask_method,'MEDI')  % Use MEDI BET
         Data.Mask = BET(Data.MGRE_Mag_Tukey(:,:,:,1), Data.MatrixSize(1:3), Data.VoxelSize);
@@ -221,9 +220,11 @@ clearvars mask_brain
 %% R2* fitting (Range [0,100])
 disp("==================< R2* fitting >==================")
 if strcmp(RunOptions.R2sfit, 'Use preprocessed R2* or R2'' map')  % If you have R2s or R2p
-    Data.R2s = load(r2s_file).R2s;
+    r2s_vars = load(r2s_file);
+    Data.R2s = r2s_vars.R2s;
     if RunOptions.HaveR2Prime == 1
-        Data.R2p = load(r2p_file).R2p;
+        r2p_vars = load(r2p_file);
+        Data.R2p = r2p_vars.R2p;
     end
 else  % R2s fitting
     if strcmp(RunOptions.R2sfit, 'ARLO')
