@@ -198,7 +198,9 @@ clearvars imgc
 %% Brain mask (Range [0,1])
 disp("=================< Brain masking >=================")
 if RunOptions.Mask
-    Data.Mask = load(mask_file).Mask;
+    maskvars = load(mask_file);
+    tmp = maskvars.Mask;
+    Data.Mask = tmp;
 else
     if strcmp(RunOptions.Mask_method,'MEDI')  % Use MEDI BET
         Data.Mask = BET(Data.MGRE_Mag_Tukey(:,:,:,1), Data.MatrixSize(1:3), Data.VoxelSize);
