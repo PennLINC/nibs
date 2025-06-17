@@ -276,6 +276,36 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mag_img.to_filename(os.path.join(temp_dir, 'mag.nii'))
     phase_img.to_filename(os.path.join(temp_dir, 'phase.nii'))
 
+    # Run SEPIA QSM estimation
+    sepia_dir = os.path.join(temp_dir, 'sepia')
+    os.makedirs(sepia_dir, exist_ok=True)
+    sepia_script = os.path.join(code_dir, 'processing', 'process_qsm_sepia.m')
+    with open(sepia_script, 'r') as fobj:
+        base_sepia_script = fobj.read()
+
+    modified_sepia_script = (
+        base_sepia_script.replace("{{ phase_file }}", os.path.join(temp_dir, 'phase.nii'))
+        .replace("{{ mag_file }}", os.path.join(temp_dir, 'mag.nii'))
+        .replace("{{ mask_file }}", os.path.join(temp_dir, 'mask.nii'))
+        .replace("{{ output_dir }}", sepia_dir)
+    )
+
+    out_sepia_script = os.path.join(temp_dir, 'process_qsm_sepia.m')
+    with open(out_sepia_script, "w") as fobj:
+        fobj.write(modified_sepia_script)
+
+    subprocess.run(
+        [
+            "matlab",
+            "-nodisplay",
+            "-nosplash",
+            "-nodesktop",
+            "-r",
+            f"run('{out_sepia_script}');",
+            "exit;",
+        ],
+    )
+
     # Now run the chi-separation QSM estimation with R2' map
     chisep_r2p_dir = os.path.join(temp_dir, 'chisep_r2p', 'chisep_output')
     os.makedirs(chisep_r2p_dir, exist_ok=True)
@@ -336,36 +366,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
             "-nodesktop",
             "-r",
             f"run('{out_chisep_script}');",
-            "exit;",
-        ],
-    )
-
-    # Run SEPIA QSM estimation
-    sepia_dir = os.path.join(temp_dir, 'sepia')
-    os.makedirs(sepia_dir, exist_ok=True)
-    sepia_script = os.path.join(code_dir, 'processing', 'process_qsm_sepia.m')
-    with open(sepia_script, 'r') as fobj:
-        base_sepia_script = fobj.read()
-
-    modified_sepia_script = (
-        base_sepia_script.replace("{{ phase_file }}", os.path.join(temp_dir, 'phase.nii'))
-        .replace("{{ mag_file }}", os.path.join(temp_dir, 'mag.nii'))
-        .replace("{{ mask_file }}", os.path.join(temp_dir, 'mask.nii'))
-        .replace("{{ output_dir }}", sepia_dir)
-    )
-
-    out_sepia_script = os.path.join(temp_dir, 'process_qsm_sepia.m')
-    with open(out_sepia_script, "w") as fobj:
-        fobj.write(modified_sepia_script)
-
-    subprocess.run(
-        [
-            "matlab",
-            "-nodisplay",
-            "-nosplash",
-            "-nodesktop",
-            "-r",
-            f"run('{out_sepia_script}');",
             "exit;",
         ],
     )
