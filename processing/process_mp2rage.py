@@ -258,8 +258,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
         FLASH_tr=repetition_times,
         inv1=run_data['inv1_magnitude'],
         inv2=run_data['inv2_magnitude'],
-        inv1ph=run_data['inv1_phase'],
-        inv2ph=run_data['inv2_phase'],
+        inv1ph=run_data.get('inv1_phase', None),
+        inv2ph=run_data.get('inv2_phase', None),
     )
     t1map = mp2rage.t1map
     t1map_arr = t1map.get_fdata()
