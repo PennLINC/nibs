@@ -496,6 +496,7 @@ if __name__ == '__main__':
         derivatives=[mp2rage_dir, smriprep_dir],
     )
     subjects = layout.get_subjects(suffix='ihMTRAGE')
+    subjects = ['PILOT02', 'PILOT03', 'PILOT04']
     for subject in subjects:
         print(f'Processing subject {subject}')
         sessions = layout.get_sessions(subject=subject, suffix='ihMTRAGE')
