@@ -124,6 +124,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     name_base = os.path.basename(name_source)
 
     # ihMTRAGE parameters
+    # These will eventually be read from the BIDS metadata?
     interpulse_delay = 100  # ms
     n_pulses_per_burst = 1
     n_bursts = 10
@@ -146,6 +147,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     concat_ihmt_file = os.path.join(temp_dir, f'concat_{name_base}')
     concat_ihmt_img.to_filename(concat_ihmt_file)
 
+    # How many volumes are in ihmt?
     dwidenoise_extent = '3,3,3'
     denoised_ihmt_file = os.path.join(temp_dir, f'dwidenoise_{name_base}')
     cmd = f'dwidenoise {concat_ihmt_file} {denoised_ihmt_file} -force --extent {dwidenoise_extent}'
@@ -219,7 +221,11 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     ihmtw_img.to_filename(ihmtw_file)
 
     # Calculate ihMTR
+    # Is there an advantage to keeping ihmt_files_t1space as a list?
+    # It's less intuitive than using variables
     ihmtr_img = image.math_img('ihmt / m0', ihmt=ihmtw_img, m0=ihmt_files_t1space[0])
+    # What do you think about making a project-wide setting for what to do with calculations that
+    # involve division? It's an unstable operation and we should handle it consistently.
     ihmtr_file = get_filename(
         name_source=name_source,
         layout=layout,
@@ -332,6 +338,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']],
+            # Add interpolation setting here? Default is linear if you don't.
         )
         ants.image_write(reg_img, out_file)
 
@@ -371,6 +378,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
         n4_img = ants.n4_bias_field_correction(in_img)
 
         # Skull-stripping
+        # How well has this been working? It could be worth using synthstrip if it's flaky.
         dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
         dseg_img = dseg_img['segmentation_image']
         mask_img = ants.threshold_image(
@@ -452,6 +460,10 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
         )
         ants.image_write(out_img, out_file)
 
+    # There is a final step here that has to happen, which is you average together
+    # all the transforms and apply the inverse to the template.
+    # This prevents the template from drifting.
+    # See https://github.com/PennLINC/qsiprep/blob/c74ff2f041a9ff6121042d30b5467af6082be85f/qsiprep/workflows/dwi/hmc.py#L273
     return template_file, transforms
 
 
