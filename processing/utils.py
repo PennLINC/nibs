@@ -90,7 +90,7 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_spac
         layout=layout,
         out_dir=out_dir,
         entities={'space': target_space, 'desc': 't1threetissue', 'suffix': 'dseg'},
-        dismiss_entities=['echo'],
+        dismiss_entities=['echo', 'inv', 'reconstruction'],
     )
     ants.image_write(dseg_img, dseg_file)
 
@@ -108,7 +108,7 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_spac
         layout=layout,
         out_dir=out_dir,
         entities={'space': target_space, 'desc': 'brain', 'suffix': 'mask'},
-        dismiss_entities=['echo'],
+        dismiss_entities=['echo', 'inv', 'reconstruction'],
     )
     ants.image_write(mask_img, mask_file)
 
@@ -132,7 +132,7 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_spac
             'suffix': 'xfm',
             'extension': 'txt' if transform.endswith('.txt') else 'mat',
         },
-        dismiss_entities=['acquisition', 'mt', 'echo', 'part'],
+        dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
     )
     shutil.copyfile(transform, transform_file)
     return transform_file
