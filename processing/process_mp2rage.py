@@ -322,19 +322,67 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     for file_ in [t1map_file, t1map_b1_corrected_file, t1w_uni_file, t1w_uni_b1_corrected_file]:
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
-        out_file = get_filename(
+        mni_file = get_filename(
             name_source=name_source,
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
             dismiss_entities=['inv', 'part', 'reconstruction'],
         )
-        reg_img = ants.apply_transforms(
+        mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
+            interpolator='lanczosWindowedSinc',
         )
-        ants.image_write(reg_img, out_file)
+        ants.image_write(mni_img, mni_file)
+
+        t1w_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'suffix': suffix},
+            dismiss_entities=['inv', 'part', 'reconstruction'],
+        )
+        t1w_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w']),
+            moving=ants.image_read(file_),
+            transformlist=[coreg_transform],
+            interpolator='lanczosWindowedSinc',
+        )
+        ants.image_write(t1w_img, t1w_file)
+
+    for file_ in [run_data['b1_anat'], b1map_rescaled_file]:
+        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
+        mni_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+            dismiss_entities=['inv', 'part', 'reconstruction'],
+        )
+        mni_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w_mni']),
+            moving=ants.image_read(file_),
+            transformlist=[run_data['t1w2mni_xfm'], coreg_transform, fwd_transform],
+            interpolator='gaussian',
+        )
+        ants.image_write(mni_img, mni_file)
+
+        t1w_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'suffix': suffix},
+            dismiss_entities=['inv', 'part', 'reconstruction'],
+        )
+        t1w_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w']),
+            moving=ants.image_read(file_),
+            transformlist=[coreg_transform, fwd_transform],
+            interpolator='gaussian',
+        )
+        ants.image_write(t1w_img, t1w_file)
 
 
 if __name__ == '__main__':
