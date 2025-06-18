@@ -67,12 +67,14 @@ def collect_run_data(layout, bids_filters):
         'b1_famp': {
             'datatype': 'fmap',
             'acquisition': 'famp',
+            'reconstruction': Query.NONE,
             'suffix': 'TB1TFL',
             'extension': ['.nii', '.nii.gz'],
         },
         'b1_anat': {
             'datatype': 'fmap',
             'acquisition': 'anat',
+            'reconstruction': Query.NONE,
             'suffix': 'TB1TFL',
             'extension': ['.nii', '.nii.gz'],
         },
