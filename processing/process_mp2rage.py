@@ -320,13 +320,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
-    for file_ in [t1map_file, t1map_b1_corrected_file, t1w_uni_file, t1w_uni_b1_corrected_file]:
+    files = [t1map_file, t1map_b1_corrected_file, t1w_uni_file, t1w_uni_b1_corrected_file]
+    descs = [None, 'B1corrected', None, 'B1corrected']
+    for i_file, file_ in enumerate(files):
+        desc = descs[i_file]
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
         mni_file = get_filename(
             name_source=name_source,
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix, 'desc': desc},
             dismiss_entities=['inv', 'part', 'reconstruction'],
         )
         mni_img = ants.apply_transforms(
@@ -341,7 +344,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             name_source=name_source,
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'T1w', 'suffix': suffix},
+            entities={'space': 'T1w', 'suffix': suffix, 'desc': desc},
             dismiss_entities=['inv', 'part', 'reconstruction'],
         )
         t1w_img = ants.apply_transforms(

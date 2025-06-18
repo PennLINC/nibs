@@ -82,7 +82,8 @@ def collect_run_data(layout, bids_filters):
         't1map': {
             'datatype': 'anat',
             'space': 'T1w',
-            'desc': 'B1corrected',
+            # 'desc': 'B1corrected',
+            'desc': Query.NONE,
             'suffix': 'T1map',
             'extension': ['.nii', '.nii.gz'],
         },
