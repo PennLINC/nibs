@@ -179,7 +179,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             'suffix': 'xfm',
             'extension': '.txt',
         },
-        dismiss_entities=['reconstruction'],
+        dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     shutil.copyfile(fwd_transform, fwd_transform_file)
 
@@ -197,7 +197,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             'suffix': 'xfm',
             'extension': '.txt',
         },
-        dismiss_entities=['reconstruction'],
+        dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     shutil.copyfile(inv_transform, inv_transform_file)
 
