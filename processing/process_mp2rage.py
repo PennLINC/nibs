@@ -358,7 +358,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             name_source=name_source,
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+            entities={'datatype': 'fmap', 'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
             dismiss_entities=['inv', 'part', 'reconstruction'],
         )
         mni_img = ants.apply_transforms(
@@ -373,7 +373,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             name_source=name_source,
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'T1w', 'suffix': suffix},
+            entities={'datatype': 'fmap', 'space': 'T1w', 'suffix': suffix},
             dismiss_entities=['inv', 'part', 'reconstruction'],
         )
         t1w_img = ants.apply_transforms(
