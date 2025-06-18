@@ -295,7 +295,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'suffix': 'T1map', 'desc': 'B1corrected'},
-        dismiss_entities=['inv', 'part'],
+        dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     t1map.to_filename(t1map_b1_corrected_file)
     t1w_uni_b1_corrected_file = get_filename(
@@ -303,7 +303,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'suffix': 'T1w', 'desc': 'B1corrected'},
-        dismiss_entities=['inv', 'part'],
+        dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     mp2rage.t1w_uni_b1_corrected.to_filename(t1w_uni_b1_corrected_file)
 
@@ -327,6 +327,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+            dismiss_entities=['inv', 'part', 'reconstruction'],
         )
         reg_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
