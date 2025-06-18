@@ -352,8 +352,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(t1w_img, t1w_file)
 
-    for file_ in [run_data['b1_anat'], b1map_rescaled_file]:
-        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
+    suffixes = ['B1anat', 'TB1map']
+    for i_file, file_ in enumerate([run_data['b1_anat'], b1map_rescaled_file]):
+        suffix = suffixes[i_file]
         mni_file = get_filename(
             name_source=name_source,
             layout=layout,
