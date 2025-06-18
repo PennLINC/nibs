@@ -111,7 +111,10 @@ def collect_run_data(layout, bids_filters):
     for key, query in queries.items():
         query = {**bids_filters, **query}
         files = layout.get(**query)
-        if len(files) != 1:
+        if 'phase' in key and len(files) == 0:
+            print(f'No phase images found for {key}, skipping')
+            continue
+        elif len(files) != 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)}: {query}')
 
         file = files[0]
