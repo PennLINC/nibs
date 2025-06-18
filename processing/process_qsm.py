@@ -251,6 +251,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         moving=ants.image_read(run_data['t1w_mask']),
         transformlist=[coreg_transform],
         whichtoinvert=[True],
+        interpolator='nearestNeighbor',
     )
     ants.image_write(mask_qsm_img, mask_qsm_filename)
 
