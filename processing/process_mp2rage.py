@@ -179,6 +179,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             'suffix': 'xfm',
             'extension': '.txt',
         },
+        dismiss_entities=['reconstruction'],
     )
     shutil.copyfile(fwd_transform, fwd_transform_file)
 
@@ -196,6 +197,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             'suffix': 'xfm',
             'extension': '.txt',
         },
+        dismiss_entities=['reconstruction'],
     )
     shutil.copyfile(inv_transform, inv_transform_file)
 
@@ -212,7 +214,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'datatype': 'fmap', 'space': 'MP2RAGE', 'suffix': 'TB1map'},
-        dismiss_entities=['inv', 'part'],
+        dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     ants.image_write(b1map_rescaled_reg, b1map_rescaled_reg_file)
 
@@ -229,7 +231,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'datatype': 'fmap', 'space': 'MP2RAGE', 'suffix': 'B1anat'},
-        dismiss_entities=['inv', 'part'],
+        dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     ants.image_write(b1_anat_reg, b1_anat_reg_file)
 
