@@ -209,3 +209,101 @@ def fit_monoexponential(in_files, echo_times):
     r2s_hz_img = io.new_nii_like(ref_img, r2s_hz)
     s0_img = io.new_nii_like(ref_img, s0_limited)
     return t2s_s_img, r2s_hz_img, s0_img
+
+
+def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vmax=None, cmap='Reds'):
+    import matplotlib.pyplot as plt
+    import nibabel as nb
+    import pandas as pd
+    import seaborn as sns
+    from matplotlib import cm
+    from nilearn import image, masking, plotting
+    from nireports.reportlets.utils import cuts_from_bbox
+
+    if not os.path.isdir(os.path.dirname(out_file)):
+        os.makedirs(os.path.dirname(out_file), exist_ok=True)
+
+    cuts = cuts_from_bbox(nb.load(underlay), cuts=6)
+    z_cuts = cuts['z']
+    overlay_masked = masking.unmask(masking.apply_mask(overlay, mask), mask)
+
+    if dseg is not None:
+        tissue_types = ['GM', 'WM', 'CSF']
+        tissue_values = [1, 2, 3]
+        tissue_colors = ['#1b60a5', '#2da467', '#9d8f25']
+    else:
+        tissue_types = ['Brain']
+        tissue_values = [1]
+        tissue_colors = ['#1b60a5']
+        dseg = mask
+
+    tissue_palette = dict(zip(tissue_types, tissue_colors))
+
+    # Histogram time
+    dfs = []
+    for i_tissue_type, tissue_type in enumerate(tissue_types):
+        tissue_type_val = tissue_values[i_tissue_type]
+        mask_img = image.math_img(
+            f'(img == {tissue_type_val}).astype(int)',
+            img=dseg,
+        )
+        tissue_type_vals = masking.apply_mask(overlay, mask_img)
+        df = pd.DataFrame(
+            columns=['Data', 'Tissue Type'],
+            data=list(map(list, zip(*[tissue_type_vals, [tissue_type] * tissue_type_vals.size]))),
+        )
+        dfs.append(df)
+
+    df = pd.concat(dfs, axis=0)
+    fig, axes = plt.subplots(
+        figsize=(43, 6),
+        ncols=3,
+        gridspec_kw=dict(width_ratios=[6, 36, 0.25], wspace=0),
+    )
+    ax0, ax1, ax2 = axes
+    with sns.axes_style('whitegrid'), sns.plotting_context(font_scale=3):
+        sns.kdeplot(
+            data=df,
+            x='Data',
+            palette=tissue_palette,
+            hue='Tissue Type',
+            fill=True,
+            ax=ax0,
+        )
+
+    xticks = ax0.get_xticklabels()
+    xlim = ax0.get_xlim()
+    if vmin is not None:
+        xlim[0] = vmin
+
+    if vmax is not None:
+        xlim[1] = vmax
+
+    ax0.set_xlim(xlim)
+
+    xticks = [i for i in xticks if i.get_position()[0] <= xlim[1] and i.get_position()[0] >= xlim[0]]
+    xticklabels = [xtick.get_text() for xtick in xticks]
+    xticks = [xtick.get_position()[0] for xtick in xticks]
+    xmin = xticks[0]
+    xmax = xticks[-1]
+    plotting.plot_stat_map(
+        stat_map_img=overlay_masked,
+        bg_img=underlay,
+        resampling_interpolation='nearest',
+        display_mode='z',
+        cut_coords=z_cuts,
+        threshold=0.00001,
+        draw_cross=False,
+        symmetric_cbar=False,
+        colorbar=False,
+        cmap='Reds',
+        black_bg=False,
+        vmin=xmin,
+        vmax=xmax,
+        axes=ax1,
+    )
+    mappable = cm.ScalarMappable(norm=plt.Normalize(vmin=xmin, vmax=xmax), cmap=cmap)
+    cbar = plt.colorbar(cax=ax2, mappable=mappable)
+    cbar.set_ticks(xticks)
+    cbar.set_ticklabels(xticklabels)
+    fig.savefig(out_file, bbox_inches=0)
