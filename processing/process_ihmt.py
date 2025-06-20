@@ -202,7 +202,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         ihmt_files_t1space.append(ihmt_file_t1space)
 
         plot_coregistration(
-            name_source=in_file,
+            name_source=ihmt_file_t1space,
             layout=layout,
             in_file=ihmt_file_t1space,
             t1_file=run_data['t1map'],
@@ -346,6 +346,16 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(reg_img, out_file)
 
+        plot_coregistration(
+            name_source=out_file,
+            layout=layout,
+            in_file=out_file,
+            t1_file=run_data['t1w_mni'],
+            out_dir=out_dir,
+            source_space=suffix,
+            target_space='MNI152NLin2009cAsym',
+        )
+
 
 def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_dir, temp_dir):
     """Apply iterative motion correction to a list of images.
@@ -462,6 +472,16 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
             interpolator='lanczosWindowedSinc',
         )
         ants.image_write(out_img, out_file)
+
+        plot_coregistration(
+            name_source=out_file,
+            layout=layout,
+            in_file=out_file,
+            t1_file=template_file,
+            out_dir=out_dir,
+            source_space=filetypes[i_file],
+            target_space='ihMTRAGEref',
+        )
 
     return template_file, transforms
 

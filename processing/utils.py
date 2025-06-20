@@ -171,7 +171,7 @@ def fit_monoexponential(in_files, echo_times):
     in_files : list of str
         List of paths to MESE data.
     echo_times : list of float
-        List of echo times in milliseconds.
+        List of echo times in seconds.
 
     Returns
     -------
@@ -191,9 +191,10 @@ def fit_monoexponential(in_files, echo_times):
     mask = np.ones(data_cat.shape[0], dtype=int)
     masksum = mask * len(echo_times)
 
-    t2s_limited, s0_limited, _, _ = decay.fit_loglinear(
+    echo_times_ms = [te * 1000 for te in echo_times]
+    t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
         data_cat=data_cat,
-        echo_times=echo_times,
+        echo_times=echo_times_ms,
         adaptive_mask=masksum,
         report=False,
     )
