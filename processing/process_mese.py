@@ -32,7 +32,13 @@ import os
 import ants
 from bids.layout import BIDSLayout, Query
 
-from utils import coregister_to_t1, fit_monoexponential, get_filename, plot_coregistration
+from utils import (
+    coregister_to_t1,
+    fit_monoexponential,
+    get_filename,
+    plot_coregistration,
+    plot_scalar_map,
+)
 
 
 def collect_run_data(layout, bids_filters):
@@ -90,6 +96,14 @@ def collect_run_data(layout, bids_filters):
             'mode': 'image',
             'suffix': 'xfm',
             'extension': '.h5',
+        },
+        # MNI-space dseg from sMRIPrep
+        'dseg_mni': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MNI152NLin2009cAsym',
+            'suffix': 'dseg',
+            'extension': ['.nii', '.nii.gz'],
         },
     }
 
@@ -194,7 +208,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     # XXX: This ignores the SDC transform.
-    for file_ in [t2_filename, r2_filename, s0_filename]:
+    image_types = ['T2map', 'R2map', 'S0map']
+    images = [t2_filename, r2_filename, s0_filename]
+    for i_file, file_ in enumerate(images):
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
         mni_file = get_filename(
             name_source=name_source,
@@ -240,6 +256,28 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space=suffix,
             target_space='T1w',
+        )
+
+        scalar_report = get_filename(
+            name_source=t1w_file,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'datatype': 'figures', 'space': 'MNI152NLin2009cAsym', 'desc': 'scalar', 'extension': '.svg'},
+        )
+        if image_types[i_file] == 'T2map':
+            kwargs = {'vmin': 0, 'vmax': 0.2}
+        elif image_types[i_file] == 'R2map':
+            kwargs = {'vmin': 0, 'vmax': 5}
+        elif image_types[i_file] == 'S0map':
+            kwargs = {}
+
+        plot_scalar_map(
+            underlay=run_data['t1w_mni'],
+            overlay=mni_file,
+            mask=run_data['t1w_mask'],
+            dseg=run_data['dseg_mni'],
+            out_file=scalar_report,
+            **kwargs,
         )
 
 
