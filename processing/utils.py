@@ -37,10 +37,13 @@ def to_bidsuri(filename, dataset_dir, dataset_name):
 
 
 def get_filename(name_source, layout, out_dir, entities, dismiss_entities=None):
+    from bids.layout import parse_file_entities
+
     if dismiss_entities is None:
         dismiss_entities = []
 
-    source_entities = layout.get_file(name_source).get_entities()
+    source_entities = parse_file_entities(name_source)
+    # source_entities = layout.get_file(name_source).get_entities()
     source_entities = {k: v for k, v in source_entities.items() if k not in dismiss_entities}
     entities = {**source_entities, **entities}
     out_file = layout.build_path(entities, validate=False, strict=True)
