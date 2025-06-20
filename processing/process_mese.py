@@ -8,9 +8,12 @@ Steps:
 
 1.  Calculate T2 map from AP MESE data.
 2.  Calculate distortion map from AP and PA echo-1 data with SDCFlows.
-    - topup vs. 3dQwarp vs. something else?
+    -   topup vs. 3dQwarp vs. something else?
+    -   Currently disabled.
 3.  Apply SDC transform to AP echo-1 image.
+    - Currently disabled.  This is not needed for the T2 map.
 4.  Coregister SDCed AP echo-1 image to preprocessed T1w from sMRIPrep.
+    -   Currently using non-SDCed MESE data.
 5.  Write out coregistration transform to preprocessed T1w.
 6.  Warp T2 map to MNI152NLin2009cAsym (distortion map, coregistration transform,
     normalization transform from sMRIPrep).
@@ -25,13 +28,11 @@ Notes:
 
 import json
 import os
-import shutil
 
 import ants
 from bids.layout import BIDSLayout, Query
-# from sdcflows.workflows.fit.pepolar import init_topup_wf
 
-from utils import coregister_to_t1, fit_monoexponential, get_filename
+from utils import coregister_to_t1, fit_monoexponential, get_filename, plot_coregistration
 
 
 def collect_run_data(layout, bids_filters):
@@ -177,87 +178,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Calculate distortion map from AP and PA echo-1 data
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
-    # mese_mag_pa_echo1 = run_data['mese_mag_pa'][0]
-    # topup_wf = init_topup_wf(
-    #     grid_reference=0,
-    #     use_metadata_estimates=False,
-    #     fallback_total_readout_time=None,
-    #     omp_nthreads=1,
-    #     sloppy=False,
-    #     debug=False,
-    #     name='topup_estimate_wf',
-    # )
-    # topup_wf.inputs.in_files = [mese_mag_ap_echo1, mese_mag_pa_echo1]
-    # topup_wf.inputs.metadata = [mese_ap_metadata[0], mese_pa_metadata]
-    # wf_results = topup_wf.run()
-    # output fields are fmap, fmap_ref, fmap_coeff, fmap_mask, jacobians, xfms, out_warps, method
-    # fmap_coeff = wf_results.outputs.fmap_coeff
-    # fmap_ref = wf_results.outputs.fmap_ref
-    # fmap = wf_results.outputs.fmap
-    # fmap_mask = wf_results.outputs.fmap_mask
-    # jacobians = wf_results.outputs.jacobians
-    # xfms = wf_results.outputs.xfms
-    # out_warps = wf_results.outputs.out_warps
-
-    """fmap_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'fmap',
-            'fmapid': 'MESE',
-            'desc': 'preproc',
-            'suffix': 'fieldmap',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    shutil.copyfile(fmap, fmap_filename)
-
-    fmap_ref_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'fmap',
-            'fmapid': 'MESE',
-            'desc': 'ref',
-            'suffix': 'fieldmap',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    shutil.copyfile(fmap_ref, fmap_ref_filename)
-
-    fmap_coeff_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'fmap',
-            'fmapid': 'MESE',
-            'desc': 'coeff',
-            'suffix': 'fieldmap',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    shutil.copyfile(fmap_coeff, fmap_coeff_filename)
-
-    fmap_mask_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'fmap',
-            'fmapid': 'MESE',
-            'desc': 'fieldmap',
-            'suffix': 'mask',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    shutil.copyfile(fmap_mask, fmap_mask_filename)"""
 
     # Coregister AP echo-1 data to preprocessed T1w
     # XXX: This is currently using non-SDCed MESE data.
@@ -289,6 +209,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(mni_img, mni_file)
 
+        plot_coregistration(
+            name_source=mni_file,
+            layout=layout,
+            in_file=mni_file,
+            t1_file=run_data['t1w_mni'],
+            out_dir=out_dir,
+            source_space=suffix,
+            target_space='MNI152NLin2009cAsym',
+        )
+
         t1w_file = get_filename(
             name_source=name_source,
             layout=layout,
@@ -302,18 +232,23 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(t1w_img, t1w_file)
 
+        plot_coregistration(
+            name_source=t1w_file,
+            layout=layout,
+            in_file=t1w_file,
+            t1_file=run_data['t1w'],
+            out_dir=out_dir,
+            source_space=suffix,
+            target_space='T1w',
+        )
+
 
 if __name__ == '__main__':
-    # code_dir = '/Users/taylor/Documents/linc/nibs'
     code_dir = '/cbica/projects/nibs/code'
-    # in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
     in_dir = '/cbica/projects/nibs/dset'
-    # smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    # out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/mese'
     out_dir = '/cbica/projects/nibs/derivatives/mese'
     os.makedirs(out_dir, exist_ok=True)
-    # temp_dir = '/Users/taylor/Documents/datasets/nibs/work/mese'
     temp_dir = '/cbica/projects/nibs/work/mese'
     os.makedirs(temp_dir, exist_ok=True)
 

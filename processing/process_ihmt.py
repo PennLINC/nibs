@@ -27,7 +27,7 @@ from bids.layout import BIDSLayout, Query
 from ihmt_proc import cli
 from nilearn import image
 
-from utils import coregister_to_t1, get_filename, run_command
+from utils import coregister_to_t1, get_filename, plot_coregistration, run_command
 
 # CODE_DIR = '/Users/taylor/Documents/linc/nibs'
 CODE_DIR = '/cbica/projects/nibs/code'
@@ -147,9 +147,8 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     concat_ihmt_file = os.path.join(temp_dir, f'concat_{name_base}')
     concat_ihmt_img.to_filename(concat_ihmt_file)
 
-    dwidenoise_extent = '3,3,3'
     denoised_ihmt_file = os.path.join(temp_dir, f'dwidenoise_{name_base}')
-    cmd = f'dwidenoise {concat_ihmt_file} {denoised_ihmt_file} -force --extent {dwidenoise_extent}'
+    cmd = f'dwidenoise {concat_ihmt_file} {denoised_ihmt_file} -force --extent 3,3,3'
     run_command(cmd)
 
     denoised_ihmt_imgs = list(image.iter_img(denoised_ihmt_file))
@@ -201,6 +200,16 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(ihmt_img_t1space, ihmt_file_t1space)
         ihmt_files_t1space.append(ihmt_file_t1space)
+
+        plot_coregistration(
+            name_source=in_file,
+            layout=layout,
+            in_file=ihmt_file_t1space,
+            t1_file=run_data['t1map'],
+            out_dir=out_dir,
+            source_space='ihMTRAGEref',
+            target_space='T1w',
+        )
 
     # Calculate ihMTw
     ihmtw_img = image.math_img(

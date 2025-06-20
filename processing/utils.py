@@ -135,7 +135,29 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_spac
         dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
     )
     shutil.copyfile(transform, transform_file)
+
     return transform_file
+
+
+def plot_coregistration(name_source, layout, in_file, t1_file, out_dir, source_space, target_space):
+    """Plot the coregistration of an image to a T1w image."""
+    from nireports.interfaces.reporting.base import SimpleBeforeAfterRPT
+
+    out_report = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'datatype': 'figures', 'space': target_space, 'desc': 'coreg', 'extension': '.svg'},
+    )
+    coreg_report = SimpleBeforeAfterRPT(
+        before_label=source_space,
+        after_label=target_space,
+        dismiss_affine=True,
+        before=in_file,
+        after=t1_file,
+        out_report=out_report,
+    )
+    coreg_report.run()
 
 
 def fit_monoexponential(in_files, echo_times):
