@@ -272,7 +272,7 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
         )
 
     xticks = ax0.get_xticklabels()
-    xlim = ax0.get_xlim()
+    xlim = list(ax0.get_xlim())
     if vmin is not None:
         xlim[0] = vmin
 
