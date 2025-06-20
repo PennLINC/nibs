@@ -79,6 +79,15 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'mask',
             'extension': ['.nii', '.nii.gz'],
         },
+        # sMRIPrep MNI-space brain mask
+        'mni_mask': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MNI152NLin2009cAsym',
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': ['.nii', '.nii.gz'],
+        },
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
@@ -277,7 +286,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         plot_scalar_map(
             underlay=run_data['t1w_mni'],
             overlay=mni_file,
-            mask=run_data['t1w_mask'],
+            mask=run_data['mni_mask'],
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
             **kwargs,
