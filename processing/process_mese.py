@@ -28,6 +28,7 @@ Notes:
 
 import json
 import os
+from pprint import pprint
 
 import ants
 from bids.layout import BIDSLayout, Query
@@ -121,6 +122,8 @@ def collect_run_data(layout, bids_filters):
             files = files[0].path
 
         run_data[key] = files
+
+    pprint(run_data)
 
     return run_data
 
