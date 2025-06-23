@@ -32,6 +32,7 @@ from pprint import pprint
 
 import ants
 from bids.layout import BIDSLayout, Query
+from nireports.assembler.report import Report
 
 from utils import (
     coregister_to_t1,
@@ -302,6 +303,9 @@ if __name__ == '__main__':
     temp_dir = '/cbica/projects/nibs/work/mese'
     os.makedirs(temp_dir, exist_ok=True)
 
+    bootstrap_file = os.path.join(code_dir, 'reports_spec_mese.yml')
+    assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
+
     dataset_description = {
         'Name': 'NIBS MESE Derivatives',
         'BIDSVersion': '1.10.0',
@@ -357,5 +361,19 @@ if __name__ == '__main__':
                 entities.pop('direction')
                 run_data = collect_run_data(layout, entities)
                 process_run(layout, run_data, out_dir, temp_dir)
+
+            report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
+            robj = Report(
+                report_dir,
+                run_uuid=None,
+                bootstrap_file=bootstrap_file,
+                out_filename=f'sub-{subject}_ses-{session}.html',
+                reportlets_dir=out_dir,
+                plugins=None,
+                plugin_meta=None,
+                subject=subject,
+                session=session,
+            )
+            robj.generate_report()
 
     print('DONE!')

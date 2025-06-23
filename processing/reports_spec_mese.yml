@@ -1,0 +1,32 @@
+package: MESE Derivatives
+sections:
+- name: Processing Summary
+  ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo
+  reportlets:
+  - bids: {datatype: figures, space: T1w, desc: coreg, suffix: T2map}
+    subtitle: Alignment of MESE T2map data to T1w space
+    static: false
+  - bids: {datatype: figures, space: T1w, desc: coreg, suffix: R2map}
+    subtitle: Alignment of MESE R2map data to T1w space
+    static: false
+  - bids: {datatype: figures, space: T1w, desc: coreg, suffix: S0map}
+    subtitle: Alignment of MESE S0map data to T1w space
+    static: false
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: coreg, suffix: T2map}
+    subtitle: Alignment of MESE T2map data to MNI152NLin2009cAsym space
+    static: false
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: coreg, suffix: R2map}
+    subtitle: Alignment of MESE R2map data to MNI152NLin2009cAsym space
+    static: false
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: coreg, suffix: S0map}
+    subtitle: Alignment of MESE S0map data to MNI152NLin2009cAsym space
+    static: false
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: scalar, suffix: T2map}
+    subtitle: Scalar map of T2map data in MNI152NLin2009cAsym space
+    static: false
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: scalar, suffix: R2map}
+    subtitle: Scalar map of R2map data in MNI152NLin2009cAsym space
+    static: false
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: scalar, suffix: S0map}
+    subtitle: Scalar map of S0map data in MNI152NLin2009cAsym space
+    static: false
