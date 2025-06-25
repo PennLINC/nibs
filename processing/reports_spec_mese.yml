@@ -17,10 +17,10 @@ sections:
     static: false
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: scalar, suffix: T2map}
     subtitle: Scalar map of T2map data in MNI152NLin2009cAsym space
-    static: false
+    static: true
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: scalar, suffix: R2map}
     subtitle: Scalar map of R2map data in MNI152NLin2009cAsym space
-    static: false
+    static: true
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: scalar, suffix: S0map}
     subtitle: Scalar map of S0map data in MNI152NLin2009cAsym space
-    static: false
+    static: true
