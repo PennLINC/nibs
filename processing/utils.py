@@ -202,7 +202,7 @@ def fit_monoexponential(in_files, echo_times):
     t2s_limited[np.isinf(t2s_limited)] = 500
     s0_limited[np.isinf(s0_limited)] = 0
 
-    r_squared = calculate_r_squared(data_cat, echo_times_ms, s0_limited, t2s_limited)
+    r_squared = calculate_r_squared(np.squeeze(data_cat), echo_times_ms, s0_limited, t2s_limited)
 
     t2s_s = t2s_limited / 1000
 
