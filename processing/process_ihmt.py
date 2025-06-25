@@ -26,8 +26,9 @@ import antspynet
 from bids.layout import BIDSLayout, Query
 from ihmt_proc import cli
 from nilearn import image
+from nireports.assembler.report import Report
 
-from utils import coregister_to_t1, get_filename, plot_coregistration, run_command
+from utils import coregister_to_t1, get_filename, plot_coregistration, plot_scalar_map, run_command
 
 # CODE_DIR = '/Users/taylor/Documents/linc/nibs'
 CODE_DIR = '/cbica/projects/nibs/code'
@@ -354,6 +355,20 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space=suffix,
             target_space='MNI152NLin2009cAsym',
+        )
+
+        scalar_report = get_filename(
+            name_source=out_file,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
+        )
+        plot_scalar_map(
+            underlay=run_data['t1w_mni'],
+            overlay=out_file,
+            mask=run_data['mni_mask'],
+            dseg=run_data['dseg_mni'],
+            out_file=scalar_report,
         )
 
 

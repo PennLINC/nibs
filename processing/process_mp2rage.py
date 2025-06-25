@@ -31,9 +31,10 @@ import ants
 import nibabel as nb
 from bids.layout import BIDSLayout, Query
 from nilearn import image
+from nireports.assembler.report import Report
 from pymp2rage import MP2RAGE
 
-from utils import coregister_to_t1, get_filename
+from utils import coregister_to_t1, get_filename, plot_coregistration, plot_scalar_map
 
 
 def collect_run_data(layout, bids_filters):
@@ -340,6 +341,33 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(mni_img, mni_file)
 
+        plot_coregistration(
+            name_source=mni_file,
+            layout=layout,
+            in_file=mni_file,
+            t1_file=run_data['t1w_mni'],
+            out_dir=out_dir,
+            source_space=suffix,
+            target_space='MNI152NLin2009cAsym',
+        )
+        scalar_desc = 'scalar'
+        if desc:
+            scalar_desc += f'{desc}{scalar_desc}'
+
+        scalar_report = get_filename(
+            name_source=mni_file,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'datatype': 'figures', 'desc': scalar_desc, 'extension': '.svg'},
+        )
+        plot_scalar_map(
+            underlay=run_data['t1w_mni'],
+            overlay=mni_file,
+            mask=run_data['mni_mask'],
+            dseg=run_data['dseg_mni'],
+            out_file=scalar_report,
+        )
+
         t1w_file = get_filename(
             name_source=name_source,
             layout=layout,
@@ -354,6 +382,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
             interpolator='lanczosWindowedSinc',
         )
         ants.image_write(t1w_img, t1w_file)
+
+        plot_coregistration(
+            name_source=t1w_file,
+            layout=layout,
+            in_file=t1w_file,
+            t1_file=run_data['t1w'],
+            out_dir=out_dir,
+            source_space=suffix,
+            target_space='T1w',
+        )
 
     suffixes = ['B1anat', 'TB1map']
     for i_file, file_ in enumerate([run_data['b1_anat'], b1map_rescaled_file]):
@@ -373,6 +411,29 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(mni_img, mni_file)
 
+        plot_coregistration(
+            name_source=mni_file,
+            layout=layout,
+            in_file=mni_file,
+            t1_file=run_data['t1w_mni'],
+            out_dir=out_dir,
+            source_space=suffix,
+            target_space='MNI152NLin2009cAsym',
+        )
+        scalar_report = get_filename(
+            name_source=mni_file,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'datatype': 'figures', 'space': 'MNI152NLin2009cAsym', 'desc': 'scalar', 'extension': '.svg'},
+        )
+        plot_scalar_map(
+            underlay=run_data['t1w_mni'],
+            overlay=mni_file,
+            mask=run_data['mni_mask'],
+            dseg=run_data['dseg_mni'],
+            out_file=scalar_report,
+        )
+
         t1w_file = get_filename(
             name_source=name_source,
             layout=layout,
@@ -388,6 +449,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(t1w_img, t1w_file)
 
+        plot_coregistration(
+            name_source=t1w_file,
+            layout=layout,
+            in_file=t1w_file,
+            t1_file=run_data['t1w'],
+            out_dir=out_dir,
+            source_space=suffix,
+            target_space='T1w',
+        )
+
 
 if __name__ == '__main__':
     # code_dir = '/Users/taylor/Documents/linc/nibs'
@@ -402,6 +473,9 @@ if __name__ == '__main__':
     # temp_dir = '/Users/taylor/Documents/datasets/nibs/work/pymp2rage'
     temp_dir = '/cbica/projects/nibs/work/pymp2rage'
     os.makedirs(temp_dir, exist_ok=True)
+
+    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_mp2rage.yml')
+    assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     dataset_description = {
         'Name': 'NIBS MP2RAGE Derivatives',
@@ -450,5 +524,19 @@ if __name__ == '__main__':
 
                 run_data = collect_run_data(layout, entities)
                 process_run(layout, run_data, out_dir, temp_dir)
+
+            report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
+            robj = Report(
+                report_dir,
+                run_uuid=None,
+                bootstrap_file=bootstrap_file,
+                out_filename=f'sub-{subject}_ses-{session}.html',
+                reportlets_dir=out_dir,
+                plugins=None,
+                plugin_meta=None,
+                subject=subject,
+                session=session,
+            )
+            robj.generate_report()
 
     print('DONE!')

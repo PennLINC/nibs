@@ -146,11 +146,16 @@ def plot_coregistration(name_source, layout, in_file, t1_file, out_dir, source_s
     """Plot the coregistration of an image to a T1w image."""
     from nireports.interfaces.reporting.base import SimpleBeforeAfterRPT
 
+    desc = 'coreg'
+    if 'desc-' in name_source:
+        # Append the desc to the target desc
+        desc = name_source.split('desc-')[-1].split('_')[0] + 'coreg'
+
     out_report = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'datatype': 'figures', 'space': target_space, 'desc': 'coreg', 'extension': '.svg'},
+        entities={'datatype': 'figures', 'space': target_space, 'desc': desc, 'extension': '.svg'},
     )
     coreg_report = SimpleBeforeAfterRPT(
         before_label=source_space,
