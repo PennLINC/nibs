@@ -293,8 +293,8 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
     xticks = [i for i in xticks if i.get_position()[0] <= xlim[1] and i.get_position()[0] >= xlim[0]]
     xticklabels = [xtick.get_text() for xtick in xticks]
     xticks = [xtick.get_position()[0] for xtick in xticks]
-    xmin = xticks[0]
-    xmax = xticks[-1]
+    xmin = xlim[0]
+    xmax = xlim[1]
     plotting.plot_stat_map(
         stat_map_img=overlay_masked,
         bg_img=underlay,
