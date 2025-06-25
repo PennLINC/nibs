@@ -88,7 +88,6 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_spac
     dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
     dseg_img = dseg_img['segmentation_image']
 
-    raise Exception(name_source)
     dseg_file = get_filename(
         name_source=name_source,
         layout=layout,

@@ -139,8 +139,8 @@ def collect_run_data(layout, bids_filters):
     return run_data
 
 
-def process_run(name_source, layout, run_data, out_dir, temp_dir):
-    name_base = os.path.basename(name_source)
+def process_run(layout, run_data, out_dir, temp_dir):
+    name_base = os.path.basename(run_data['m0'])
 
     # ihMTRAGE parameters
     interpulse_delay = 100  # ms
@@ -188,7 +188,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
 
     # Coregister ihMTRAGE reference image to T1map (in sMRIPrep's T1w space)
     coreg_transform = coregister_to_t1(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         in_file=ihmt_template,
         t1_file=run_data['t1map'],
@@ -238,7 +238,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         mtdual2=ihmt_files_t1space[4],
     )
     ihmtw_file = get_filename(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'ihMTw'},
@@ -249,7 +249,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     # Calculate ihMTR
     ihmtr_img = image.math_img('ihmt / m0', ihmt=ihmtw_img, m0=ihmt_files_t1space[0])
     ihmtr_file = get_filename(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'ihMTR'},
@@ -264,7 +264,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
         m0=ihmt_files_t1space[0],
     )
     mtr_file = get_filename(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'MTRmap'},
@@ -280,42 +280,42 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
 
     # Run ihmt_proc to calculate T1w-space ihMT derivatives
     ihmtsat_file = get_filename(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'ihMTsat'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtdsat_file = get_filename(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'MTdsat'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtssat_file = get_filename(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'MTssat'},
         dismiss_entities=['acquisition', 'mt'],
     )
     ihmtsatb1sq_file = get_filename(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'ihMTsatB1sq'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtdsatb1sq_file = get_filename(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'MTdsatB1sq'},
         dismiss_entities=['acquisition', 'mt'],
     )
     mtssatb1sq_file = get_filename(
-        name_source=name_source,
+        name_source=run_data['m0'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'MTssatB1sq'},
@@ -351,7 +351,7 @@ def process_run(name_source, layout, run_data, out_dir, temp_dir):
     ]:
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
         out_file = get_filename(
-            name_source=name_source,
+            name_source=run_data['m0'],
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
@@ -519,17 +519,17 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
 
 
 if __name__ == '__main__':
-    # code_dir = '/Users/taylor/Documents/linc/nibs'
+    code_dir = '/cbica/projects/nibs/code'
     in_dir = '/cbica/projects/nibs/dset'
-    # in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
     mp2rage_dir = '/cbica/projects/nibs/derivatives/pymp2rage'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
     out_dir = '/cbica/projects/nibs/derivatives/ihmt'
-    # out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/ihmt'
     os.makedirs(out_dir, exist_ok=True)
-    # temp_dir = '/Users/taylor/Documents/datasets/nibs/work/ihmt'
     temp_dir = '/cbica/projects/nibs/work/ihmt'
     os.makedirs(temp_dir, exist_ok=True)
+
+    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_ihmt.yml')
+    assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     dataset_description = {
         'Name': 'NIBS',
@@ -577,6 +577,20 @@ if __name__ == '__main__':
                 entities.pop('acquisition')
                 entities.pop('mt')
                 run_data = collect_run_data(layout, entities)
-                process_run(m0_file, layout, run_data, out_dir, temp_dir)
+                process_run(layout, run_data, out_dir, temp_dir)
+
+            report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
+            robj = Report(
+                report_dir,
+                run_uuid=None,
+                bootstrap_file=bootstrap_file,
+                out_filename=f'sub-{subject}_ses-{session}.html',
+                reportlets_dir=out_dir,
+                plugins=None,
+                plugin_meta=None,
+                subject=subject,
+                session=session,
+            )
+            robj.generate_report()
 
     print('DONE!')
