@@ -236,8 +236,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     # XXX: This ignores the SDC transform.
-    image_types = ['T2map', 'R2map', 'S0map']
-    images = [t2_filename, r2_filename, s0_filename]
+    image_types = ['T2map', 'R2map', 'S0map', 'Rsquaredmap']
+    images = [t2_filename, r2_filename, s0_filename, r_squared_filename]
     for i_file, file_ in enumerate(images):
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
         mni_file = get_filename(
@@ -287,10 +287,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
 
         scalar_report = get_filename(
-            name_source=t1w_file,
+            name_source=mni_file,
             layout=layout,
             out_dir=out_dir,
-            entities={'datatype': 'figures', 'space': 'MNI152NLin2009cAsym', 'desc': 'scalar', 'extension': '.svg'},
+            entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
         )
         if image_types[i_file] == 'T2map':
             kwargs = {'vmin': 0}
@@ -298,6 +298,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
             kwargs = {'vmin': 0, 'vmax': 20}
         elif image_types[i_file] == 'S0map':
             kwargs = {}
+        elif image_types[i_file] == 'Rsquaredmap':
+            kwargs = {'vmin': 0, 'vmax': 1}
 
         plot_scalar_map(
             underlay=run_data['t1w_mni'],
