@@ -108,6 +108,23 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'xfm',
             'extension': '.h5',
         },
+        # MNI-space dseg from sMRIPrep
+        'dseg_mni': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MNI152NLin2009cAsym',
+            'suffix': 'dseg',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # sMRIPrep MNI-space brain mask
+        'mni_mask': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MNI152NLin2009cAsym',
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': ['.nii', '.nii.gz'],
+        },
     }
 
     run_data = {}
