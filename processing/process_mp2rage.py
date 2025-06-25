@@ -369,7 +369,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         scalar_desc = 'scalar'
         if desc:
-            scalar_desc += f'{desc}{scalar_desc}'
+            scalar_desc = f'{desc}{scalar_desc}'
 
         scalar_report = get_filename(
             name_source=mni_file,
