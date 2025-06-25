@@ -210,8 +210,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
         entities={
             'datatype': 'anat',
             'space': 'MESE',
-            'statistic': 'rsquared',
-            'suffix': 'MESE',
+            'desc': 'monoexp',
+            'suffix': 'Rsquaredmap',
             'extension': '.nii.gz',
         },
         dismiss_entities=['echo', 'part'],
