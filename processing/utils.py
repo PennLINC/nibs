@@ -192,23 +192,27 @@ def fit_monoexponential(in_files, echo_times):
     masksum = mask * len(echo_times)
 
     echo_times_ms = [te * 1000 for te in echo_times]
-    t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
+    t2s_limited, s0_limited, _, _ = decay.fit_loglin(
         data_cat=data_cat,
         echo_times=echo_times_ms,
         adaptive_mask=masksum,
         report=False,
     )
+    # Limit infinite values to 0.5 seconds (500 ms)
+    t2s_limited[np.isinf(t2s_limited)] = 500
+    s0_limited[np.isinf(s0_limited)] = 0
+
+    r_squared = calculate_r_squared(data_cat, echo_times_ms, s0_limited, t2s_limited)
 
     t2s_s = t2s_limited / 1000
-    t2s_s[np.isinf(t2s_s)] = 0.5
-    s0_limited[np.isinf(s0_limited)] = 0
 
     r2s_hz = 1 / t2s_s
 
     t2s_s_img = io.new_nii_like(ref_img, t2s_s)
     r2s_hz_img = io.new_nii_like(ref_img, r2s_hz)
     s0_img = io.new_nii_like(ref_img, s0_limited)
-    return t2s_s_img, r2s_hz_img, s0_img
+    r_squared_img = io.new_nii_like(ref_img, r_squared)
+    return t2s_s_img, r2s_hz_img, s0_img, r_squared_img
 
 
 def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vmax=None, cmap='Reds'):
@@ -307,3 +311,51 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
     cbar.set_ticks(xticks)
     cbar.set_ticklabels(xticklabels)
     fig.savefig(out_file, bbox_inches=0)
+
+
+def calculate_r_squared(data, echo_times, s0, t2s):
+    """Calculate R-squared from data and T2*/S0 estimates.
+
+    R-squared is a measure of goodness of fit of a monoexponential model to the data.
+
+    Parameters
+    ----------
+    data : numpy.ndarray of shape (n_samples, n_echos)
+        Data to calculate R-squared for.
+    echo_times : list of float
+        Echo times in seconds.
+    s0 : numpy.ndarray of shape (n_samples,)
+        S0 values from a monoexponential fit of echo times against the data.
+    t2s : numpy.ndarray of shape (n_samples,)
+        T2* values from a monoexponential fit of echo times against the data.
+
+    Returns
+    -------
+    r_squared : numpy.ndarray of shape (n_samples,)
+        R-squared values.
+    """
+    import numpy as np
+
+    n_voxels, n_echos = data.shape
+    echo_times_rep = np.tile(echo_times, (n_voxels, 1))
+    s_pred = s0[:, np.newaxis] * np.exp(-echo_times_rep / t2s[:, np.newaxis])  # monoexp
+
+    # Calculate residuals (observed - predicted) for each voxel
+    residuals = data - s_pred
+
+    # Sum of squared residuals per voxel
+    ss_resid = np.sum(residuals ** 2, axis=1)
+
+    # Calculate mean signal per voxel
+    mean_signal = np.mean(data, axis=1)
+
+    # Total sum of squares per voxel (sum of squared deviations from mean)
+    ss_total = np.sum((data - mean_signal[:, np.newaxis]) ** 2, axis=1)
+
+    # Handle division by zero
+    ss_total[ss_total == 0] = np.spacing(1)
+
+    # R-squared = 1 - (SS_residual / SS_total)
+    r_squared = 1 - (ss_resid / ss_total)
+
+    return r_squared

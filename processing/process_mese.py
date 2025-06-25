@@ -157,7 +157,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_ap_metadata = [layout.get_metadata(f) for f in run_data['mese_mag_ap']]
     # mese_pa_metadata = layout.get_metadata(run_data['mese_mag_pa'])
     echo_times = [m['EchoTime'] for m in mese_ap_metadata]  # TEs in seconds
-    t2_img, r2_img, s0_img = fit_monoexponential(
+    t2_img, r2_img, s0_img, r_squared_img = fit_monoexponential(
         in_files=run_data['mese_mag_ap'],
         echo_times=echo_times,
     )
@@ -202,6 +202,21 @@ def process_run(layout, run_data, out_dir, temp_dir):
         dismiss_entities=['echo', 'part'],
     )
     s0_img.to_filename(s0_filename)
+
+    r_squared_filename = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'datatype': 'anat',
+            'space': 'MESE',
+            'statistic': 'rsquared',
+            'suffix': 'MESE',
+            'extension': '.nii.gz',
+        },
+        dismiss_entities=['echo', 'part'],
+    )
+    r_squared_img.to_filename(r_squared_filename)
 
     # Calculate distortion map from AP and PA echo-1 data
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
