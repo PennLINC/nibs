@@ -245,6 +245,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+            dismiss_entities=['echo', 'part'],
         )
         mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
@@ -268,6 +269,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'T1w', 'suffix': suffix},
+            dismiss_entities=['echo', 'part'],
         )
         t1w_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
@@ -293,7 +295,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
         )
         if image_types[i_file] == 'T2map':
-            kwargs = {'vmin': 0}
+            kwargs = {'vmin': 0, 'vmax': 0.08}
         elif image_types[i_file] == 'R2map':
             kwargs = {'vmin': 0, 'vmax': 20}
         elif image_types[i_file] == 'S0map':
