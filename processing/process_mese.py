@@ -293,9 +293,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
             entities={'datatype': 'figures', 'space': 'MNI152NLin2009cAsym', 'desc': 'scalar', 'extension': '.svg'},
         )
         if image_types[i_file] == 'T2map':
-            kwargs = {'vmin': 0, 'vmax': 0.2}
+            kwargs = {'vmin': 0, 'vmax': 0.1}
         elif image_types[i_file] == 'R2map':
-            kwargs = {'vmin': 0, 'vmax': 5}
+            kwargs = {'vmin': 0, 'vmax': 10}
         elif image_types[i_file] == 'S0map':
             kwargs = {}
 
