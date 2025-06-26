@@ -331,7 +331,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         elif suffix == 'Rsquaredmap':
             kwargs = {'vmin': 0, 'vmax': 1}
         elif suffix == 'R2primemap':
-            kwargs = {'cmap': 'coolwarm'}
+            kwargs = {'vmin': 0, 'vmax': 30}
 
         plot_scalar_map(
             underlay=run_data['t1w_mni'],
