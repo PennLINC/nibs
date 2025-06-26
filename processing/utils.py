@@ -295,6 +295,11 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
     xticks = [xtick.get_position()[0] for xtick in xticks]
     xmin = xlim[0]
     xmax = xlim[1]
+    if xmin < 0:
+        kwargs = {'symmetric_cbar': True}
+    else:
+        kwargs = {'symmetric_cbar': False}
+
     plotting.plot_stat_map(
         stat_map_img=overlay_masked,
         bg_img=underlay,
@@ -303,13 +308,13 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
         cut_coords=z_cuts,
         threshold=0.00001,
         draw_cross=False,
-        symmetric_cbar=False,
         colorbar=False,
-        cmap='Reds',
         black_bg=False,
         vmin=xmin,
         vmax=xmax,
         axes=ax1,
+        cmap=cmap,
+        **kwargs,
     )
     mappable = cm.ScalarMappable(norm=plt.Normalize(vmin=xmin, vmax=xmax), cmap=cmap)
     cbar = plt.colorbar(cax=ax2, mappable=mappable)

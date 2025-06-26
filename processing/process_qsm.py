@@ -321,13 +321,21 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
         )
+        if suffix == 'R2primemap':
+            cmap = 'coolwarm'
+        else:
+            cmap = 'Reds'
+
         plot_scalar_map(
             underlay=run_data['t1w_mni'],
             overlay=mni_file,
             mask=run_data['mni_mask'],
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
+            cmap=cmap,
         )
+
+    return
 
     # Prepare for chi-separation QSM estimation
     # We will explicitly set the slope and intercept to 1 and 0 to avoid issues with matlab nifti
