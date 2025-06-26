@@ -22,6 +22,7 @@ Notes:
 import json
 import os
 import subprocess
+from pprint import pprint
 
 import ants
 import nibabel as nb
@@ -142,6 +143,8 @@ def collect_run_data(layout, bids_filters):
 
     if len(run_data['megre_mag']) != len(run_data['megre_phase']):
         raise ValueError('Expected same number of magnitude and phase images')
+
+    pprint(run_data)
 
     return run_data
 
