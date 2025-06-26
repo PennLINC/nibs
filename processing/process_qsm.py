@@ -25,6 +25,7 @@ import subprocess
 
 import ants
 import nibabel as nb
+import numpy as np
 from bids.layout import BIDSLayout, Query
 from nilearn import image
 from nireports.assembler.report import Report
@@ -346,6 +347,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # tools and write out uncompressed nifti files.
     mask_qsm_img = nb.load(mask_qsm_filename)
     mask_qsm_img.header.set_slope_inter(1, 0)
+    mask_qsm_img.set_data_dtype(np.uint8)
     matlab_mask_filename = os.path.join(temp_dir, 'python_mask.nii')
     mask_qsm_img.to_filename(matlab_mask_filename)
 
@@ -354,7 +356,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
     phase_img = image.concat_imgs(run_data['megre_phase'])
     # Explicitly set slope and intercept to 1 and 0 to avoid issues with matlab nifti tools.
     mag_img.header.set_slope_inter(1, 0)
+    mag_img.set_data_dtype(np.float32)
     phase_img.header.set_slope_inter(1, 0)
+    phase_img.set_data_dtype(np.int16)
     matlab_mag_filename = os.path.join(temp_dir, 'python_mag.nii')
     matlab_phase_filename = os.path.join(temp_dir, 'python_phase.nii')
     mag_img.to_filename(matlab_mag_filename)
