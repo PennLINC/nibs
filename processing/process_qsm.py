@@ -102,7 +102,7 @@ def collect_run_data(layout, bids_filters):
             'to': 'T1w',
             'mode': 'image',
             'suffix': 'xfm',
-            'extension': '.h5',
+            'extension': '.mat',
         },
         # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
@@ -112,7 +112,7 @@ def collect_run_data(layout, bids_filters):
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
             'suffix': 'xfm',
-            'extension': '.mat',
+            'extension': '.h5',
         },
         # MNI-space dseg from sMRIPrep
         'dseg_mni': {
