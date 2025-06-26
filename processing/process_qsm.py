@@ -321,10 +321,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
         )
-        if suffix == 'R2primemap':
-            cmap = 'coolwarm'
-        else:
-            cmap = 'Reds'
+        if suffix == 'T2starmap':
+            kwargs = {'vmin': 0, 'vmax': 0.08}
+        elif suffix == 'R2starmap':
+            kwargs = {'vmin': 0, 'vmax': 50}
+        elif suffix == 'S0map':
+            kwargs = {}
+        elif suffix == 'Rsquaredmap':
+            kwargs = {'vmin': 0, 'vmax': 1}
+        elif suffix == 'R2primemap':
+            kwargs = {'cmap': 'coolwarm'}
 
         plot_scalar_map(
             underlay=run_data['t1w_mni'],
@@ -332,7 +338,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             mask=run_data['mni_mask'],
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
-            cmap=cmap,
+            **kwargs,
         )
 
     return
