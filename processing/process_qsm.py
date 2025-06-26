@@ -27,9 +27,15 @@ import ants
 import nibabel as nb
 from bids.layout import BIDSLayout, Query
 from nilearn import image
-from scipy.io import savemat
+from nireports.assembler.report import Report
 
-from utils import coregister_to_t1, fit_monoexponential, get_filename
+from utils import (
+    coregister_to_t1,
+    fit_monoexponential,
+    get_filename,
+    plot_coregistration,
+    plot_scalar_map,
+)
 
 
 def collect_run_data(layout, bids_filters):
@@ -96,6 +102,23 @@ def collect_run_data(layout, bids_filters):
             'mode': 'image',
             'suffix': 'xfm',
             'extension': '.h5',
+        },
+        # MNI-space dseg from sMRIPrep
+        'dseg_mni': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MNI152NLin2009cAsym',
+            'suffix': 'dseg',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # sMRIPrep MNI-space brain mask
+        'mni_mask': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MNI152NLin2009cAsym',
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': ['.nii', '.nii.gz'],
         },
     }
 
@@ -255,7 +278,50 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     ants.image_write(mask_qsm_img, mask_qsm_filename)
 
+    # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
+    # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
+    for file_ in [t2s_filename, r2s_filename, s0_filename]:
+        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
+        mni_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+        )
+        reg_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w_mni']),
+            moving=ants.image_read(file_),
+            transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
+        )
+        ants.image_write(reg_img, mni_file)
+
+        plot_coregistration(
+            name_source=mni_file,
+            layout=layout,
+            in_file=mni_file,
+            t1_file=run_data['t1w_mni'],
+            out_dir=out_dir,
+            source_space=suffix,
+            target_space='MNI152NLin2009cAsym',
+        )
+
+        scalar_report = get_filename(
+            name_source=mni_file,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
+        )
+        plot_scalar_map(
+            underlay=run_data['t1w_mni'],
+            overlay=mni_file,
+            mask=run_data['mni_mask'],
+            dseg=run_data['dseg_mni'],
+            out_file=scalar_report,
+        )
+
     # Prepare for chi-separation QSM estimation
+    # We will explicitly set the slope and intercept to 1 and 0 to avoid issues with matlab nifti
+    # tools and write out uncompressed nifti files.
     mask_qsm_img = nb.load(mask_qsm_filename)
     mask_qsm_img.header.set_slope_inter(1, 0)
     mask_qsm_img.to_filename(os.path.join(temp_dir, 'mask.nii'))
@@ -371,38 +437,19 @@ def process_run(layout, run_data, out_dir, temp_dir):
         ],
     )
 
-    # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
-    # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
-    for file_ in [t2s_filename, r2s_filename, s0_filename]:
-        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
-        out_file = get_filename(
-            name_source=name_source,
-            layout=layout,
-            out_dir=out_dir,
-            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
-        )
-        reg_img = ants.apply_transforms(
-            fixed=ants.image_read(run_data['t1w_mni']),
-            moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
-        )
-        ants.image_write(reg_img, out_file)
-
 
 if __name__ == '__main__':
-    # code_dir = '/Users/taylor/Documents/linc/nibs'
     code_dir = '/cbica/projects/nibs/code'
-    # in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
     in_dir = '/cbica/projects/nibs/dset'
-    # smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
     mese_dir = '/cbica/projects/nibs/derivatives/mese'
-    # out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/qsm'
     out_dir = '/cbica/projects/nibs/derivatives/qsm'
     os.makedirs(out_dir, exist_ok=True)
-    # temp_dir = '/Users/taylor/Documents/datasets/nibs/work/qsm'
     temp_dir = '/cbica/projects/nibs/work/qsm'
     os.makedirs(temp_dir, exist_ok=True)
+
+    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_qsm.yml')
+    assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     dataset_description = {
         'Name': 'NIBS QSM Derivatives',
@@ -455,5 +502,19 @@ if __name__ == '__main__':
                 run_temp_dir = os.path.join(temp_dir, os.path.basename(megre_file.path).split('.')[0])
                 os.makedirs(run_temp_dir, exist_ok=True)
                 process_run(layout, run_data, out_dir, run_temp_dir)
+
+            report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
+            robj = Report(
+                report_dir,
+                run_uuid=None,
+                bootstrap_file=bootstrap_file,
+                out_filename=f'sub-{subject}_ses-{session}.html',
+                reportlets_dir=out_dir,
+                plugins=None,
+                plugin_meta=None,
+                subject=subject,
+                session=session,
+            )
+            robj.generate_report()
 
     print('DONE!')
