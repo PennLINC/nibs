@@ -112,7 +112,7 @@ def collect_run_data(layout, bids_filters):
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
             'suffix': 'xfm',
-            'extension': '.h5',
+            'extension': '.mat',
         },
         # MNI-space dseg from sMRIPrep
         'dseg_mni': {
