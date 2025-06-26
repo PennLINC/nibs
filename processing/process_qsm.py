@@ -165,7 +165,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # layout.get_metadata only works on full paths
     megre_metadata = [layout.get_metadata(f) for f in run_data['megre_mag']]
     echo_times = [m['EchoTime'] for m in megre_metadata]  # TEs in seconds
-    t2s_img, r2s_img, s0_img = fit_monoexponential(
+    t2s_img, r2s_img, s0_img, rsquared_img = fit_monoexponential(
         in_files=run_data['megre_mag'],
         echo_times=echo_times,
     )
@@ -211,6 +211,15 @@ def process_run(layout, run_data, out_dir, temp_dir):
         dismiss_entities=['echo', 'part'],
     )
     s0_img.to_filename(s0_filename)
+
+    rsquared_filename = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'suffix': 'R2squaredmap'},
+        dismiss_entities=['echo', 'part'],
+    )
+    rsquared_img.to_filename(rsquared_filename)
 
     # Average the magnitude images
     mean_mag_img = image.mean_img(run_data['megre_mag'])
@@ -280,13 +289,14 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
-    for file_ in [t2s_filename, r2s_filename, s0_filename]:
+    for file_ in [t2s_filename, r2s_filename, s0_filename, rsquared_filename, r2_prime_filename]:
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
         mni_file = get_filename(
             name_source=name_source,
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+            dismiss_entities=['echo', 'part'],
         )
         reg_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),

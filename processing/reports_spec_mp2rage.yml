@@ -4,7 +4,7 @@ sections:
   ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo
   reportlets:
   - bids: {datatype: figures, space: T1w, desc: [coreg, B1correctedcoreg], suffix: [TB1map, B1anat, T1w, T1map]}
-    subtitle: Alignment of B1+ map data to sMRIPrep T1w space
+    subtitle: Alignment of data to sMRIPrep T1w space
     static: false
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [coreg, B1correctedcoreg], suffix: [TB1map, B1anat, T1w, T1map]}
     subtitle: Alignment of data to MNI152NLin2009cAsym space
