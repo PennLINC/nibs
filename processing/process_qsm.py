@@ -216,7 +216,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MEGRE', 'suffix': 'R2squaredmap'},
+        entities={'space': 'MEGRE', 'suffix': 'Rsquaredmap'},
         dismiss_entities=['echo', 'part'],
     )
     rsquared_img.to_filename(rsquared_filename)
