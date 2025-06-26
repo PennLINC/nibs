@@ -341,20 +341,13 @@ def process_run(layout, run_data, out_dir, temp_dir):
             **kwargs,
         )
 
-    # Prepare for chi-separation QSM estimation
+    # Create MATLAB-compatible NIfTIs for QSM
     # We will explicitly set the slope and intercept to 1 and 0 to avoid issues with matlab nifti
     # tools and write out uncompressed nifti files.
     mask_qsm_img = nb.load(mask_qsm_filename)
     mask_qsm_img.header.set_slope_inter(1, 0)
-    mask_qsm_img.to_filename(os.path.join(temp_dir, 'python_mask.nii'))
-
-    r2s_img = nb.load(r2s_filename)
-    r2s_img.header.set_slope_inter(1, 0)
-    r2s_img.to_filename(os.path.join(temp_dir, 'python_r2s.nii'))
-
-    r2_prime_img = nb.load(r2_prime_filename)
-    r2_prime_img.header.set_slope_inter(1, 0)
-    r2_prime_img.to_filename(os.path.join(temp_dir, 'python_r2p.nii'))
+    matlab_mask_filename = os.path.join(temp_dir, 'python_mask.nii')
+    mask_qsm_img.to_filename(matlab_mask_filename)
 
     # Concatenate MEGRE images across echoes
     mag_img = image.concat_imgs(run_data['megre_mag'])
@@ -362,8 +355,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Explicitly set slope and intercept to 1 and 0 to avoid issues with matlab nifti tools.
     mag_img.header.set_slope_inter(1, 0)
     phase_img.header.set_slope_inter(1, 0)
-    mag_img.to_filename(os.path.join(temp_dir, 'python_mag.nii'))
-    phase_img.to_filename(os.path.join(temp_dir, 'python_phase.nii'))
+    matlab_mag_filename = os.path.join(temp_dir, 'python_mag.nii')
+    matlab_phase_filename = os.path.join(temp_dir, 'python_phase.nii')
+    mag_img.to_filename(matlab_mag_filename)
+    phase_img.to_filename(matlab_phase_filename)
 
     # Run SEPIA QSM estimation
     sepia_dir = os.path.join(temp_dir, 'sepia')
@@ -373,9 +368,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
         base_sepia_script = fobj.read()
 
     modified_sepia_script = (
-        base_sepia_script.replace("{{ phase_file }}", os.path.join(temp_dir, 'phase.nii'))
-        .replace("{{ mag_file }}", os.path.join(temp_dir, 'mag.nii'))
-        .replace("{{ mask_file }}", os.path.join(temp_dir, 'mask.nii'))
+        base_sepia_script.replace("{{ phase_file }}", matlab_phase_filename)
+        .replace("{{ mag_file }}", matlab_mag_filename)
+        .replace("{{ mask_file }}", matlab_mask_filename)
         .replace("{{ output_dir }}", sepia_dir)
     )
 
@@ -397,6 +392,18 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     return
 
+    # Prepare for chi-separation QSM estimation
+    # The chi-separation QSM estimation can use R2* and R2' maps.
+    r2s_img = nb.load(r2s_filename)
+    r2s_img.header.set_slope_inter(1, 0)
+    matlab_r2s_filename = os.path.join(temp_dir, 'python_r2s.nii')
+    r2s_img.to_filename(r2s_filename)
+
+    r2_prime_img = nb.load(r2_prime_filename)
+    r2_prime_img.header.set_slope_inter(1, 0)
+    matlab_r2p_filename = os.path.join(temp_dir, 'python_r2p.nii')
+    r2_prime_img.to_filename(matlab_r2p_filename)
+
     # Now run the chi-separation QSM estimation with R2' map
     chisep_r2p_dir = os.path.join(temp_dir, 'chisep_r2p', 'chisep_output')
     os.makedirs(chisep_r2p_dir, exist_ok=True)
@@ -405,11 +412,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
         base_chisep_script = fobj.read()
 
     modified_chisep_script = (
-        base_chisep_script.replace("{{ mag_file }}", os.path.join(temp_dir, 'mag.nii'))
-        .replace("{{ phase_file }}", os.path.join(temp_dir, 'phase.nii'))
-        .replace("{{ mask_file }}", os.path.join(temp_dir, 'mask.nii'))
-        .replace("{{ r2s_file }}", os.path.join(temp_dir, 'r2s.nii'))
-        .replace("{{ r2p_file }}", os.path.join(temp_dir, 'r2p.nii'))
+        base_chisep_script.replace("{{ mag_file }}", matlab_mag_filename)
+        .replace("{{ phase_file }}", matlab_phase_filename)
+        .replace("{{ mask_file }}", matlab_mask_filename)
+        .replace("{{ r2s_file }}", matlab_r2s_filename)
+        .replace("{{ r2p_file }}", matlab_r2p_filename)
         .replace("{{ output_dir }}", os.path.join(temp_dir, 'chisep_r2p'))
     )
 
@@ -437,10 +444,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
         base_chisep_script = fobj.read()
 
     modified_chisep_script = (
-        base_chisep_script.replace("{{ mag_file }}", os.path.join(temp_dir, 'mag.nii'))
-        .replace("{{ phase_file }}", os.path.join(temp_dir, 'phase.nii'))
-        .replace("{{ mask_file }}", os.path.join(temp_dir, 'mask.nii'))
-        .replace("{{ r2s_file }}", os.path.join(temp_dir, 'r2s.nii'))
+        base_chisep_script.replace("{{ mag_file }}", matlab_mag_filename)
+        .replace("{{ phase_file }}", matlab_phase_filename)
+        .replace("{{ mask_file }}", matlab_mask_filename)
+        .replace("{{ r2s_file }}", matlab_r2s_filename)
         .replace("{{ r2p_file }}", 'None')
         .replace("{{ output_dir }}", os.path.join(temp_dir, 'chisep_no_r2p'))
     )
