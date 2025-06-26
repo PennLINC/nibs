@@ -131,7 +131,7 @@ def collect_run_data(layout, bids_filters):
             if len(files) != 5:
                 raise ValueError(f'Expected 5 files for {key}, got {len(files)}')
             else:
-                run_data[key] = [f.path for f in files]
+                run_data[key] = sorted([f.path for f in files])
                 continue
 
         elif len(files) != 1:
