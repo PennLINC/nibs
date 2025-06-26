@@ -298,7 +298,7 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
     if xmin < 0:
         kwargs = {'symmetric_cbar': True}
     else:
-        kwargs = {'symmetric_cbar': False}
+        kwargs = {'symmetric_cbar': False, 'vmin': xmin}
 
     plotting.plot_stat_map(
         stat_map_img=overlay_masked,
@@ -310,7 +310,6 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
         draw_cross=False,
         colorbar=False,
         black_bg=False,
-        vmin=xmin,
         vmax=xmax,
         axes=ax1,
         cmap=cmap,
