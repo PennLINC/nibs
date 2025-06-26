@@ -269,7 +269,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         entities={'space': 'MEGRE', 'suffix': 'R2primemap'},
         dismiss_entities=['echo', 'part'],
     )
-    r2_prime_img = r2_qsm_img - r2s_img
+    r2_prime_img = r2s_img - r2_qsm_img
     ants.image_write(r2_prime_img, r2_prime_filename)
 
     # Warp brain mask from T1w space to MEGRE space
