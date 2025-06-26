@@ -44,7 +44,7 @@ algorParam.bfr.iteration = 50;
 algorParam.bfr.padSize = 40;
 
 % QSM algorithm parameters
-algorParam.qsm.reference_tissue = 'Brain mask';
+algorParam.qsm.reference_tissue = 'CSF';
 algorParam.qsm.method = 'MEDI';
 algorParam.qsm.lambda = 1000;
 algorParam.qsm.wData = 1;

@@ -162,7 +162,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     name_source = run_data['megre_mag'][0]
 
     # Calculate T2*, R2*, and S0 maps
-    # layout.get_metadata only works on full paths
+    # NOTE: layout.get_metadata only works on full paths
     megre_metadata = [layout.get_metadata(f) for f in run_data['megre_mag']]
     echo_times = [m['EchoTime'] for m in megre_metadata]  # TEs in seconds
     t2s_img, r2s_img, s0_img, rsquared_img = fit_monoexponential(
@@ -221,7 +221,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     rsquared_img.to_filename(rsquared_filename)
 
-    # Average the magnitude images
+    # Average the magnitude images, to use for coregistration
     mean_mag_img = image.mean_img(run_data['megre_mag'])
     mean_mag_filename = get_filename(
         name_source=name_source,
@@ -341,22 +341,20 @@ def process_run(layout, run_data, out_dir, temp_dir):
             **kwargs,
         )
 
-    return
-
     # Prepare for chi-separation QSM estimation
     # We will explicitly set the slope and intercept to 1 and 0 to avoid issues with matlab nifti
     # tools and write out uncompressed nifti files.
     mask_qsm_img = nb.load(mask_qsm_filename)
     mask_qsm_img.header.set_slope_inter(1, 0)
-    mask_qsm_img.to_filename(os.path.join(temp_dir, 'mask.nii'))
+    mask_qsm_img.to_filename(os.path.join(temp_dir, 'python_mask.nii'))
 
     r2s_img = nb.load(r2s_filename)
     r2s_img.header.set_slope_inter(1, 0)
-    r2s_img.to_filename(os.path.join(temp_dir, 'r2s.nii'))
+    r2s_img.to_filename(os.path.join(temp_dir, 'python_r2s.nii'))
 
     r2_prime_img = nb.load(r2_prime_filename)
     r2_prime_img.header.set_slope_inter(1, 0)
-    r2_prime_img.to_filename(os.path.join(temp_dir, 'r2p.nii'))
+    r2_prime_img.to_filename(os.path.join(temp_dir, 'python_r2p.nii'))
 
     # Concatenate MEGRE images across echoes
     mag_img = image.concat_imgs(run_data['megre_mag'])
@@ -364,8 +362,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Explicitly set slope and intercept to 1 and 0 to avoid issues with matlab nifti tools.
     mag_img.header.set_slope_inter(1, 0)
     phase_img.header.set_slope_inter(1, 0)
-    mag_img.to_filename(os.path.join(temp_dir, 'mag.nii'))
-    phase_img.to_filename(os.path.join(temp_dir, 'phase.nii'))
+    mag_img.to_filename(os.path.join(temp_dir, 'python_mag.nii'))
+    phase_img.to_filename(os.path.join(temp_dir, 'python_phase.nii'))
 
     # Run SEPIA QSM estimation
     sepia_dir = os.path.join(temp_dir, 'sepia')
@@ -396,6 +394,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
             "exit;",
         ],
     )
+
+    return
 
     # Now run the chi-separation QSM estimation with R2' map
     chisep_r2p_dir = os.path.join(temp_dir, 'chisep_r2p', 'chisep_output')
