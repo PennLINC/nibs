@@ -95,15 +95,15 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
-        'megre2t1w_xfm': {
-            'datatype': 'anat',
-            'run': [Query.NONE, Query.ANY],
-            'from': 'MEGRE',
-            'to': 'T1w',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.mat',
-        },
+        #'megre2t1w_xfm': {
+        #    'datatype': 'anat',
+        #    'run': [Query.NONE, Query.ANY],
+        #    'from': 'MEGRE',
+        #    'to': 'T1w',
+        #    'mode': 'image',
+        #    'suffix': 'xfm',
+        #    'extension': '.mat',
+        #},
         # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
             'datatype': 'anat',
@@ -246,16 +246,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mean_mag_img.to_filename(mean_mag_filename)
 
     # Coregister MEGRE data to preprocessed T1w
-    # coreg_transform = coregister_to_t1(
-    #     name_source=name_source,
-    #     layout=layout,
-    #     in_file=mean_mag_filename,
-    #     t1_file=run_data['t1w'],
-    #     source_space='MEGRE',
-    #     target_space='T1w',
-    #     out_dir=out_dir,
-    # )
-    coreg_transform = run_data['megre2t1w_xfm']
+    coreg_transform = coregister_to_t1(
+        name_source=name_source,
+        layout=layout,
+        in_file=mean_mag_filename,
+        t1_file=run_data['t1w'],
+        source_space='MEGRE',
+        target_space='T1w',
+        out_dir=out_dir,
+    )
+    # coreg_transform = run_data['megre2t1w_xfm']
 
     # Warp R2 map from T1w space to MEGRE space
     r2_qsm_filename = get_filename(

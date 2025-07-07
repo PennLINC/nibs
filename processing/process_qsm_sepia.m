@@ -20,7 +20,7 @@ mask_filename = '{{ mask_file }}';
 algorParam = struct();
 algorParam.general.isBET = 0;
 algorParam.general.isInvert = 0;
-algorParam.general.isRefineBrainMask = 0;
+algorParam.general.isRefineBrainMask = 1;
 
 % Total field recovery algorithm parameters
 algorParam.unwrap.echoCombMethod = 'ROMEO total field calculation';
@@ -44,7 +44,7 @@ algorParam.bfr.iteration = 50;
 algorParam.bfr.padSize = 40;
 
 % QSM algorithm parameters
-algorParam.qsm.reference_tissue = 'Brain mask';
+algorParam.qsm.reference_tissue = 'CSF';
 algorParam.qsm.method = 'MEDI';
 algorParam.qsm.lambda = 1000;
 algorParam.qsm.wData = 1;
@@ -53,7 +53,7 @@ algorParam.qsm.zeropad = [0 0 0];
 algorParam.qsm.isSMV = 1;
 algorParam.qsm.radius = 3;
 algorParam.qsm.merit = 1;
-algorParam.qsm.isLambdaCSF = 0;
+algorParam.qsm.isLambdaCSF = 1;
 algorParam.qsm.lambdaCSF = 100;
 
 if ~exist(output_dir, 'dir')
