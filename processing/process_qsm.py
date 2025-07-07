@@ -405,10 +405,23 @@ def process_run(layout, run_data, out_dir, temp_dir):
             f"run('{out_sepia_script}'); exit;",
         ],
     )
+    sepia_chimap_file = f"{sepia_dir}_Chimap.nii.gz"
+    if not os.path.isfile(sepia_chimap_file):
+        raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')
 
-    return
+    sepia_chimap_img = ants.image_read(sepia_chimap_file)
+    sepia_chimap_img.header.set_slope_inter(1, 0)
+    sepia_chimap_img.set_data_dtype(np.float32)
+    sepia_chimap_filename = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'desc': 'SEPIA', 'suffix': 'Chimap'},
+        dismiss_entities=['echo', 'part', 'inv', 'reconstruction'],
+    )
+    ants.image_write(sepia_chimap_img, sepia_chimap_filename)
 
-    # Prepare for chi-separation QSM estimation
+    """# Prepare for chi-separation QSM estimation
     # The chi-separation QSM estimation can use R2* and R2' maps.
     r2s_img = nb.load(r2s_filename)
     r2s_img.header.set_slope_inter(1, 0)
@@ -480,7 +493,81 @@ def process_run(layout, run_data, out_dir, temp_dir):
             "-r",
             f"run('{out_chisep_script}'); exit;",
         ],
-    )
+    )"""
+
+    # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
+    # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
+    files = [sepia_chimap_filename]
+    descs = ['SEPIA']
+    for i_file, file_ in enumerate(files):
+        desc = descs[i_file]
+        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
+        mni_file = get_filename(
+            name_source=file_,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MNI152NLin2009cAsym'},
+            dismiss_entities=['echo', 'inv', 'part', 'reconstruction'],
+        )
+        mni_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w_mni']),
+            moving=ants.image_read(file_),
+            transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
+            interpolator='lanczosWindowedSinc',
+        )
+        ants.image_write(mni_img, mni_file)
+
+        plot_coregistration(
+            name_source=mni_file,
+            layout=layout,
+            in_file=mni_file,
+            t1_file=run_data['t1w_mni'],
+            out_dir=out_dir,
+            source_space='MEGRE',
+            target_space='MNI152NLin2009cAsym',
+        )
+        scalar_desc = 'scalar'
+        if desc:
+            scalar_desc = f'{desc}{scalar_desc}'
+
+        scalar_report = get_filename(
+            name_source=mni_file,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'datatype': 'figures', 'desc': scalar_desc, 'extension': '.svg'},
+        )
+        plot_scalar_map(
+            underlay=run_data['t1w_mni'],
+            overlay=mni_file,
+            mask=run_data['mni_mask'],
+            dseg=run_data['dseg_mni'],
+            out_file=scalar_report,
+        )
+
+        t1w_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'suffix': suffix, 'desc': desc},
+            dismiss_entities=['echo', 'inv', 'part', 'reconstruction'],
+        )
+        t1w_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w']),
+            moving=ants.image_read(file_),
+            transformlist=[coreg_transform],
+            interpolator='lanczosWindowedSinc',
+        )
+        ants.image_write(t1w_img, t1w_file)
+
+        plot_coregistration(
+            name_source=t1w_file,
+            layout=layout,
+            in_file=t1w_file,
+            t1_file=run_data['t1w'],
+            out_dir=out_dir,
+            source_space='MEGRE',
+            target_space='T1w',
+        )
 
 
 if __name__ == '__main__':
