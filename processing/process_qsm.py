@@ -410,8 +410,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
         raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')
 
     sepia_chimap_img = ants.image_read(sepia_chimap_file)
-    sepia_chimap_img.header.set_slope_inter(1, 0)
-    sepia_chimap_img.set_data_dtype(np.float32)
     sepia_chimap_filename = get_filename(
         name_source=name_source,
         layout=layout,
