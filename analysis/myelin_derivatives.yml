@@ -1,0 +1,108 @@
+queries:
+    other:
+        # Brain mask
+        brainmask:
+            datatype: anat
+            desc: brain
+            suffix: mask
+    # Myelin measures
+    myelin:
+        # ihMTRAGE
+        ihMTw:
+            datatype: anat
+            suffix: ihMTw
+        ihMTR:
+            datatype: anat
+            suffix: ihMTR
+        MTRmap:
+            datatype: anat
+            suffix: MTRmap
+        ihMTsat:
+            datatype: anat
+            suffix: ihMTsat
+        MTdsat:
+            datatype: anat
+            suffix: MTdsat
+        MTssat:
+            datatype: anat
+            suffix: MTssat
+        ihMTsatB1sq:
+            datatype: anat
+            suffix: ihMTsatB1sq
+        MTdsatB1sq:
+            datatype: anat
+            suffix: MTdsatB1sq
+        MTssatB1sq:
+            datatype: anat
+            suffix: MTssatB1sq
+        # MP2RAGE
+        T1map:
+            datatype: anat
+            desc: None
+            suffix: T1map
+        T1map_B1corrected:
+            datatype: anat
+            desc: B1corrected
+            suffix: T1map
+        # dMRI
+        FA:
+            datatype: dwi
+            model: tensor
+            param: fa
+            suffix: dwimap
+        AD:
+            datatype: dwi
+            model: dki
+            param: ad
+            suffix: dwimap
+        AWF:
+            datatype: dwi
+            model: dkimicro
+            param: awf
+            suffix: dwimap
+        MD:
+            datatype: dwi
+            model: dki
+            param: md
+            suffix: dwimap
+        MK:
+            datatype: dwi
+            model: dki
+            param: mk
+            suffix: dwimap
+        RD:
+            datatype: dwi
+            model: dki
+            param: rd
+            suffix: dwimap
+        RDe:
+            datatype: dwi
+            model: dkimicro
+            param: rde
+            suffix: dwimap
+        RK:
+            datatype: dwi
+            model: dki
+            param: rk
+            suffix: dwimap
+        # QSM
+        SEPIA:
+            datatype: anat
+            desc: SEPIA
+            suffix: Chimap
+        CHISEP_R2corrected_myelin:
+            datatype: anat
+            desc: R2corrected
+            suffix: myelinmap
+        CHISEP_R2corrected_iron:
+            datatype: anat
+            desc: R2corrected
+            suffix: Chimap
+        CHISEP_myelin:
+            datatype: anat
+            desc: None
+            suffix: myelinmap
+        CHISEP_iron:
+            datatype: anat
+            desc: None
+            suffix: Chimap
