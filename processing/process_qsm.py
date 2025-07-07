@@ -405,7 +405,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             f"run('{out_sepia_script}'); exit;",
         ],
     )
-    sepia_chimap_file = f"{sepia_dir}_Chimap.nii.gz"
+    sepia_chimap_file = os.path.join(sepia_dir, 'sepia_Chimap.nii.gz')
     if not os.path.isfile(sepia_chimap_file):
         raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')
 
