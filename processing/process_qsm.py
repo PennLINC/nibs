@@ -388,7 +388,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         base_sepia_script.replace("{{ phase_file }}", matlab_phase_filename)
         .replace("{{ mag_file }}", matlab_mag_filename)
         .replace("{{ mask_file }}", matlab_mask_filename)
-        .replace("{{ output_dir }}", sepia_dir)
+        .replace("{{ output_dir }}", os.path.join(sepia_dir, 'sepia'))
     )
 
     out_sepia_script = os.path.join(temp_dir, 'process_qsm_sepia.m')
@@ -402,8 +402,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             "-nosplash",
             "-nodesktop",
             "-r",
-            f"run('{out_sepia_script}');",
-            "exit;",
+            f"run('{out_sepia_script}'); exit;",
         ],
     )
 
@@ -448,8 +447,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             "-nosplash",
             "-nodesktop",
             "-r",
-            f"run('{out_chisep_script}');",
-            "exit;",
+            f"run('{out_chisep_script}'); exit;",
         ],
     )
 
@@ -480,8 +478,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             "-nosplash",
             "-nodesktop",
             "-r",
-            f"run('{out_chisep_script}');",
-            "exit;",
+            f"run('{out_chisep_script}'); exit;",
         ],
     )
 
