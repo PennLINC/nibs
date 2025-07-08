@@ -1,6 +1,7 @@
 """Process QSM data.
 
 Steps:
+
 1.  Average the magnitude images.
 2.  Calculate R2* map.
 3.  Coregister the averaged magnitude to the preprocessed T1w image from sMRIPrep.
@@ -14,9 +15,7 @@ Notes:
 - The R2* map is calculated using the monoexponential fit.
 - This must be run after sMRIPrep and process_mese.py.
 """
-import json
 import os
-import subprocess
 from pprint import pprint
 
 import ants
@@ -24,7 +23,6 @@ import nibabel as nb
 import numpy as np
 from bids.layout import BIDSLayout, Query
 from nilearn import image
-from nireports.assembler.report import Report
 
 from utils import (
     coregister_to_t1,
@@ -90,15 +88,6 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
-        #'megre2t1w_xfm': {
-        #    'datatype': 'anat',
-        #    'run': [Query.NONE, Query.ANY],
-        #    'from': 'MEGRE',
-        #    'to': 'T1w',
-        #    'mode': 'image',
-        #    'suffix': 'xfm',
-        #    'extension': '.mat',
-        #},
         # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
             'datatype': 'anat',
@@ -383,28 +372,6 @@ if __name__ == '__main__':
     temp_dir = '/cbica/projects/nibs/work/qsm'
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_qsm.yml')
-    assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
-
-    dataset_description = {
-        'Name': 'NIBS QSM Derivatives',
-        'BIDSVersion': '1.10.0',
-        'DatasetType': 'derivative',
-        'DatasetLinks': {
-            'raw': in_dir,
-            'smriprep': smriprep_dir,
-        },
-        'GeneratedBy': [
-            {
-                'Name': 'Custom code',
-                'Description': 'Custom Python code combining ANTsPy and tedana.',
-                'CodeURL': 'https://github.com/PennLINC/nibs',
-            }
-        ],
-    }
-    with open(os.path.join(out_dir, 'dataset_description.json'), 'w') as f:
-        json.dump(dataset_description, f, sort_keys=True, indent=4)
-
     layout = BIDSLayout(
         in_dir,
         config=os.path.join(code_dir, 'nibs_bids_config.json'),
@@ -437,19 +404,5 @@ if __name__ == '__main__':
                 run_temp_dir = os.path.join(temp_dir, os.path.basename(megre_file.path).split('.')[0])
                 os.makedirs(run_temp_dir, exist_ok=True)
                 process_run(layout, run_data, out_dir, run_temp_dir)
-
-            report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
-            robj = Report(
-                report_dir,
-                run_uuid=None,
-                bootstrap_file=bootstrap_file,
-                out_filename=f'sub-{subject}_ses-{session}.html',
-                reportlets_dir=out_dir,
-                plugins=None,
-                plugin_meta=None,
-                subject=subject,
-                session=session,
-            )
-            robj.generate_report()
 
     print('DONE!')
