@@ -361,6 +361,18 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mag_img.to_filename(matlab_mag_filename)
     phase_img.to_filename(matlab_phase_filename)
 
+    r2s_img = nb.load(r2s_filename)
+    r2s_img.header.set_slope_inter(1, 0)
+    r2s_img.set_data_dtype(np.float32)
+    matlab_r2s_filename = os.path.join(temp_dir, 'python_r2s.nii')
+    r2s_img.to_filename(matlab_r2s_filename)
+
+    r2p_img = nb.load(r2_prime_filename)
+    r2p_img.header.set_slope_inter(1, 0)
+    r2p_img.set_data_dtype(np.float32)
+    matlab_r2p_filename = os.path.join(temp_dir, 'python_r2p.nii')
+    r2p_img.to_filename(matlab_r2p_filename)
+
 
 if __name__ == '__main__':
     code_dir = '/cbica/projects/nibs/code'
