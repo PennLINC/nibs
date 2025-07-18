@@ -1,6 +1,6 @@
 # NIBS
 
-Code for curating and processing the NIBS myelin mapping dataset.
+Code for curating and processing the NIBS myelin mapping pilot dataset.
 
 ## File organization on CUBIC
 
