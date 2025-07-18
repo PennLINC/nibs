@@ -5,13 +5,32 @@ import zipfile
 from glob import glob
 
 if __name__ == '__main__':
-    zip_files = sorted(
-        glob('/cbica/projects/nibs/sourcedata/scitran/bbl/NIBS_857664/153-327/*/*/*.dicom.zip')
-    )
-    # zip_files = sorted(glob("/Users/taylor/Downloads/flywheel/bbl/NIBS_857664/*_*/*/*/*.dicom.zip"))
-    for zip_file in zip_files:
-        print(f'Processing {os.path.basename(zip_file)}')
-        with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-            zip_ref.extractall(os.path.dirname(zip_file))
+    status_file = '/cbica/projects/nibs/code/curation/status_unzip_dicoms.txt'
+    if os.path.exists(status_file):
+        with open(status_file, 'r') as f:
+            unzipped_subjects = f.read().splitlines()
+    else:
+        unzipped_subjects = []
 
-        os.remove(zip_file)
+    subjects = sorted(glob('/cbica/projects/nibs/sourcedata/scitran/bbl/NIBS_857664/*'))
+    subjects = [os.path.basename(subject) for subject in subjects]
+
+    for subject in subjects:
+        if subject in unzipped_subjects:
+            print(f'Subject {subject} already processed, skipping...')
+            continue
+
+        zip_files = sorted(
+            glob(
+                f'/cbica/projects/nibs/sourcedata/scitran/bbl/NIBS_857664/{subject}/*/*/*.dicom.zip'
+            )
+        )
+        print(f'Processing {subject}...')
+        for zip_file in zip_files:
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                zip_ref.extractall(os.path.dirname(zip_file))
+
+            os.remove(zip_file)
+
+        with open(status_file, 'a') as f:
+            f.write(f'{subject}\n')

@@ -24,7 +24,7 @@ token=$(</cbica/projects/nibs/tokens/flywheel.txt)
 cd "/cbica/projects/nibs/sourcedata" || exit
 
 # Initialize download status file if it doesn't exist
-download_status_file="download_status.txt"
+download_status_file="/cbica/projects/nibs/code/curation/status_download.txt"
 touch "$download_status_file"
 
 # Read already downloaded subjects into an array
