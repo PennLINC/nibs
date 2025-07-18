@@ -289,6 +289,19 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     for file_ in [t2s_filename, r2s_filename, s0_filename, rsquared_filename, r2_prime_filename]:
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
+        t1w_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'suffix': suffix},
+            dismiss_entities=['echo', 'part'],
+        )
+        t1w_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w']),
+            moving=ants.image_read(file_),
+            transformlist=[coreg_transform],
+        )
+        ants.image_write(t1w_img, t1w_file)
         mni_file = get_filename(
             name_source=name_source,
             layout=layout,
@@ -296,12 +309,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
             entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
             dismiss_entities=['echo', 'part'],
         )
-        reg_img = ants.apply_transforms(
+        mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
         )
-        ants.image_write(reg_img, mni_file)
+        ants.image_write(mni_img, mni_file)
 
         plot_coregistration(
             name_source=mni_file,

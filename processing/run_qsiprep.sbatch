@@ -32,6 +32,7 @@ subject=$( sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" ${BI
 # Compose the command line
 cmd="apptainer run --cleanenv \
       -B ${BIDS_DIR}:/data \
+      -B ${CODE_DIR}:/code \
       -B ${DERIVS_DIR}:/deriv \
       -B ${SCRATCH_DIR}:/work \
       -B ${FS_LICENSE}:/license.txt \
@@ -51,7 +52,9 @@ cmd="apptainer run --cleanenv \
       --subject-anatomical-reference sessionwise \
       --hmc-model 3dSHORE \
       --pepolar-method DRBUDDI \
-      --b1-biascorrect-stage none"
+      --b1-biascorrect-stage none \
+      --bids-filter-file /code/fmriprep_filter.json \
+      --ignore t2w"
 
 # Setup done, run the command
 echo Running task "${SLURM_ARRAY_TASK_ID}"

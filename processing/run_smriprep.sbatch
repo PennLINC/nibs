@@ -16,7 +16,7 @@ set -e
 
 #==============Shell script==============#
 BIDS_DIR="/cbica/projects/nibs/dset"
-CODE_DIR="/cbica/projects/nibs/code"
+CODE_DIR="/cbica/projects/nibs/code/processing"
 JOBS_DIR="/cbica/projects/nibs/code/processing/jobs"
 SCRATCH_DIR="/cbica/comp_space/nibs/smriprep"
 DERIVS_DIR="/cbica/projects/nibs/derivatives/smriprep"
@@ -30,8 +30,10 @@ FS_LICENSE="/cbica/projects/nibs/tokens/freesurfer_license.txt"
 subject=$( sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" ${BIDS_DIR}/participants.tsv )
 
 # We'll run fMRIPrep in anat-only mode instead of sMRIPrep because we're more familiar with fMRIPrep.
+# Only use the MPRAGE scan. Ignore the SPACE T1w and T2w.
 cmd="apptainer run --home $HOME --cleanenv --containall --writable-tmpfs \
       -B ${BIDS_DIR}:/data \
+      -B ${CODE_DIR}:/code \
       -B ${DERIVS_DIR}:/out \
       -B ${SCRATCH_DIR}:/work \
       -B ${FS_LICENSE}:/license.txt \
@@ -48,10 +50,13 @@ cmd="apptainer run --home $HOME --cleanenv --containall --writable-tmpfs \
       --output-layout bids \
       --anat-only \
       --project-goodvoxels \
-      --cifti-output 91k \
+      --cifti-output 170k \
       --fs-license-file /license.txt \
       --skip_bids_validation \
-      --level full"
+      --level full \
+      --longitudinal \
+      --bids-filter-file /code/fmriprep_filter.json \
+      --ignore t2w"
 
 # Setup done, run the command
 echo Running task "${SLURM_ARRAY_TASK_ID}"

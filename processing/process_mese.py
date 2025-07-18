@@ -141,6 +141,8 @@ def collect_run_data(layout, bids_filters):
 def process_run(layout, run_data, out_dir, temp_dir):
     """Process a single run of MESE data.
 
+    TODO: Use SDCFlows to calculate and possibly apply distortion map.
+
     Parameters
     ----------
     layout : BIDSLayout
