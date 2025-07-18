@@ -33,6 +33,7 @@ from pprint import pprint
 import ants
 from bids.layout import BIDSLayout, Query
 from nireports.assembler.report import Report
+from sdcflows.workflows.fit.pepolar import init_topup_wf
 
 from utils import (
     coregister_to_t1,
@@ -157,7 +158,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     """
     name_source = run_data['mese_mag_ap'][0]
     mese_ap_metadata = [layout.get_metadata(f) for f in run_data['mese_mag_ap']]
-    # mese_pa_metadata = layout.get_metadata(run_data['mese_mag_pa'])
+    mese_pa_metadata = layout.get_metadata(run_data['mese_mag_pa'])
     echo_times = [m['EchoTime'] for m in mese_ap_metadata]  # TEs in seconds
     t2_img, r2_img, s0_img, r_squared_img = fit_monoexponential(
         in_files=run_data['mese_mag_ap'],
@@ -222,6 +223,14 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Calculate distortion map from AP and PA echo-1 data
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
+    mese_mag_pa_echo1 = run_data['mese_mag_pa']
+    in_data = [mese_mag_ap_echo1, mese_mag_pa_echo1]
+    metadata = [mese_ap_metadata[0], mese_pa_metadata]
+    pepolar_estimate_wf = init_topup_wf(name='pepolar_estimate_wf')
+    pepolar_estimate_wf.inputs.in_data = in_data
+    pepolar_estimate_wf.inputs.metadata = metadata
+    pepolar_estimate_wf.base_dir = os.path.join(temp_dir, 'pepolar_estimate_wf')
+    wf_res = pepolar_estimate_wf.run()
 
     # Coregister AP echo-1 data to preprocessed T1w
     # XXX: This is currently using non-SDCed MESE data.
