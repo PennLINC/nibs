@@ -84,19 +84,31 @@ def infotodict(
         '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_part-mag_MP2RAGE',
         outtype=outdicom,
     )
-    mp2rage_inv1_phase = create_key(
-        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_part-phase_MP2RAGE',
-        outtype=outdicom,
-    )
     mp2rage_inv2_mag = create_key(
         '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_part-mag_MP2RAGE',
         outtype=outdicom,
     )
-    mp2rage_inv2_phase = create_key(
+    mp2rage_uni = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_UNIT1',
+        outtype=outdicom,
+    )
+    mp2rage_rr_inv1_mag = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_part-mag_MP2RAGE',
+        outtype=outdicom,
+    )
+    mp2rage_rr_inv2_mag = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_part-mag_MP2RAGE',
+        outtype=outdicom,
+    )
+    mp2rage_rr_inv1_phase = create_key(
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_part-phase_MP2RAGE',
+        outtype=outdicom,
+    )
+    mp2rage_rr_inv2_phase = create_key(
         '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_part-phase_MP2RAGE',
         outtype=outdicom,
     )
-    mp2rage_uni = create_key(
+    mp2rage_rr_uni = create_key(
         '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_UNIT1',
         outtype=outdicom,
     )
@@ -147,10 +159,13 @@ def infotodict(
         mese_echo4_ap: [],
         ihmtrage: [],
         mp2rage_inv1_mag: [],
-        mp2rage_inv1_phase: [],
         mp2rage_inv2_mag: [],
-        mp2rage_inv2_phase: [],
         mp2rage_uni: [],
+        mp2rage_rr_inv1_mag: [],
+        mp2rage_rr_inv1_phase: [],
+        mp2rage_rr_inv2_mag: [],
+        mp2rage_rr_inv2_phase: [],
+        mp2rage_rr_uni: [],
         tb1tfl_anat: [],
         tb1tfl_famp: [],
         dwi_ap_sbref: [],
@@ -181,14 +196,24 @@ def infotodict(
             info[t2_tse_norm].append(s.series_id)
         elif 'ihMT' in s.protocol_name:
             info[ihmtrage].append(s.series_id)
-        # XXX: Need to modify when we get phase data.
-        # I don't know what differentiates phase and mag in the metadata.
-        elif 'anat-MP2RAGE_INV1' in s.series_description:
+        elif 'anat-MP2RAGE_INV1' in s.series_description and 'DIS3D' in s.image_type:
             info[mp2rage_inv1_mag].append([s.series_id])
-        elif 'anat-MP2RAGE_INV2' in s.series_description:
+        elif 'anat-MP2RAGE_INV2' in s.series_description and 'DIS3D' in s.image_type:
             info[mp2rage_inv2_mag].append([s.series_id])
-        elif 'anat-MP2RAGE_UNI' in s.series_description:
+        elif 'anat-MP2RAGE_UNI' in s.series_description and 'DIS3D' in s.image_type:
             info[mp2rage_uni].append([s.series_id])
+        elif 'anat-MP2RAGE_RR_INV1' in s.series_description and 'DIS3D' in s.image_type:
+            if 'P' in s.image_type:
+                info[mp2rage_rr_inv1_phase].append([s.series_id])
+            else:
+                info[mp2rage_rr_inv1_mag].append([s.series_id])
+        elif 'anat-MP2RAGE_RR_INV2' in s.series_description and 'DIS3D' in s.image_type:
+            if 'P' in s.image_type:
+                info[mp2rage_rr_inv2_phase].append([s.series_id])
+            else:
+                info[mp2rage_rr_inv2_mag].append([s.series_id])
+        elif 'anat-MP2RAGE_RR_UNI' in s.series_description and 'DIS3D' in s.image_type:
+            info[mp2rage_rr_uni].append([s.series_id])
         elif 'anat-mese_echo-1_dir-pa' in s.protocol_name.lower():
             # dir was capitalized as DIR in some scans
             info[mese_echo1_pa].append([s.series_id])
@@ -223,5 +248,25 @@ def infotodict(
             info[dwi_pa_mag].append([s.series_id])
         elif ('dwi-dwi_acq-HBCD75_dir-PA' in s.protocol_name) and ('NORM' not in s.image_type):
             info[dwi_pa_phase].append([s.series_id])
+
+    # Only convert RR MP2RAGE if it has everything
+    if (
+        info[mp2rage_rr_inv1_mag]
+        and info[mp2rage_rr_inv1_phase]
+        and info[mp2rage_rr_inv2_mag]
+        and info[mp2rage_rr_inv2_phase]
+        and info[mp2rage_rr_uni]
+    ):
+        # Ignore the non-RR MP2RAGE scans
+        info[mp2rage_inv1_mag] = []
+        info[mp2rage_inv2_mag] = []
+        info[mp2rage_uni] = []
+    else:
+        # Ignore the RR MP2RAGE scans and just use the non-RR MP2RAGE scans
+        info[mp2rage_rr_inv1_mag] = []
+        info[mp2rage_rr_inv1_phase] = []
+        info[mp2rage_rr_inv2_mag] = []
+        info[mp2rage_rr_inv2_phase] = []
+        info[mp2rage_rr_uni] = []
 
     return info
