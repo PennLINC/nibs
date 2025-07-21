@@ -93,19 +93,19 @@ def infotodict(
         outtype=outdicom,
     )
     mp2rage_rr_inv1_mag = create_key(
-        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_part-mag_MP2RAGE',
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_MP2RAGE',
         outtype=outdicom,
     )
     mp2rage_rr_inv2_mag = create_key(
-        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_part-mag_MP2RAGE',
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_MP2RAGE',
         outtype=outdicom,
     )
     mp2rage_rr_inv1_phase = create_key(
-        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_part-phase_MP2RAGE',
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-1_MP2RAGE',
         outtype=outdicom,
     )
     mp2rage_rr_inv2_phase = create_key(
-        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_part-phase_MP2RAGE',
+        '{bids_subject_session_dir}/anat/{bids_subject_session_prefix}_rec-norm_run-{item:02d}_inv-2_MP2RAGE',
         outtype=outdicom,
     )
     mp2rage_rr_uni = create_key(
