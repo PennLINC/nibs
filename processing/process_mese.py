@@ -32,8 +32,8 @@ from pprint import pprint
 
 import ants
 from bids.layout import BIDSLayout, Query
+from nipype.interfaces.base import BaseInterfaceInputSpec, SimpleInterface, TraitedSpec, traits
 from nireports.assembler.report import Report
-from sdcflows.workflows.fit.pepolar import init_topup_wf
 
 from utils import (
     coregister_to_t1,
@@ -226,18 +226,34 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_mag_pa_echo1 = run_data['mese_mag_pa']
     in_data = [mese_mag_ap_echo1, mese_mag_pa_echo1]
     metadata = [mese_ap_metadata[0], mese_pa_metadata]
-    pepolar_estimate_wf = init_topup_wf(name='pepolar_estimate_wf')
+    pepolar_estimate_wf = init_fieldmap_wf(name='pepolar_estimate_wf')
     pepolar_estimate_wf.inputs.in_data = in_data
     pepolar_estimate_wf.inputs.metadata = metadata
     pepolar_estimate_wf.base_dir = os.path.join(temp_dir, 'pepolar_estimate_wf')
     wf_res = pepolar_estimate_wf.run()
+    fmap_file = wf_res.outputs.outputnode.fmap
+    fmap_ref_file = wf_res.outputs.outputnode.fmap_ref
+
+    mese_mag_ap_echo1_sdc = ants.apply_transforms(
+        fixed=ants.image_read(mese_mag_ap_echo1),
+        moving=ants.image_read(fmap_ref_file),
+        transformlist=[fmap_file],
+    )
+    mese_mag_ap_echo1_sdc_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MESE', 'desc': 'SDC', 'suffix': 'MESE'},
+        dismiss_entities=['part'],
+    )
+    ants.image_write(mese_mag_ap_echo1_sdc, mese_mag_ap_echo1_sdc_file)
 
     # Coregister AP echo-1 data to preprocessed T1w
     # XXX: This is currently using non-SDCed MESE data.
     coreg_transform = coregister_to_t1(
         name_source=name_source,
         layout=layout,
-        in_file=mese_mag_ap_echo1,
+        in_file=mese_mag_ap_echo1_sdc_file,
         t1_file=run_data['t1w'],
         source_space='MESE',
         target_space='T1w',
@@ -261,7 +277,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
+            transformlist=[run_data['t1w2mni_xfm'], coreg_transform, fmap_file],
         )
         ants.image_write(mni_img, mni_file)
 
@@ -285,7 +301,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         t1w_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
-            transformlist=[coreg_transform],
+            transformlist=[coreg_transform, fmap_file],
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -322,6 +338,86 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_file=scalar_report,
             **kwargs,
         )
+
+
+def init_fieldmap_wf(name='fieldmap_wf'):
+    """Initialize a fieldmap workflow.
+
+    Parameters
+    ----------
+    name : str, optional
+        Name of the workflow.
+    """
+    from nipype.interfaces import utility as niu
+    from nipype.pipeline import engine as pe
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from sdcflows.workflows.fit.pepolar import init_topup_wf
+
+    workflow = Workflow(name=name)
+
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_data', 'metadata']), name='inputnode')
+    outputnode = pe.Node(CopyFiles(), name='outputnode')
+
+    topup_wf = init_topup_wf(name='topup_wf')
+
+    workflow.connect([
+        (inputnode, topup_wf, [
+            ('in_data', 'inputnode.in_data'),
+            ('metadata', 'inputnode.metadata'),
+        ]),
+        (topup_wf, outputnode, [
+            ('outputnode.fmap', 'fmap'),
+            ('outputnode.fmap_mask', 'fmap_mask'),
+            ('outputnode.fmap_ref', 'fmap_ref'),
+            ('outputnode.fmap_coeff', 'fmap_coeff'),
+            ('outputnode.jacobians', 'jacobians'),
+            ('outputnode.out_warps', 'out_warps'),
+        ]),
+    ])  # fmt:skip
+
+    return workflow
+
+
+class _CopyFilesInputSpec(BaseInterfaceInputSpec):
+    fmap = traits.File(exists=True)
+    fmap_mask = traits.File(exists=True)
+    fmap_ref = traits.File(exists=True)
+    fmap_coeff = traits.File(exists=True)
+    jacobians = traits.File(exists=True)
+    out_warps = traits.File(exists=True)
+
+
+class _CopyFilesOutputSpec(TraitedSpec):
+    fmap = traits.File(exists=True)
+    fmap_mask = traits.File(exists=True)
+    fmap_ref = traits.File(exists=True)
+    fmap_coeff = traits.File(exists=True)
+    jacobians = traits.File(exists=True)
+    out_warps = traits.File(exists=True)
+
+
+class CopyFiles(SimpleInterface):
+    input_spec = _CopyFilesInputSpec
+    output_spec = _CopyFilesOutputSpec
+
+    def _run_interface(self, runtime):
+        import shutil
+
+        self._results['fmap'] = os.path.abspath('fmap.nii.gz')
+        self._results['fmap_mask'] = os.path.abspath('fmap_mask.nii.gz')
+        self._results['fmap_ref'] = os.path.abspath('fmap_ref.nii.gz')
+        self._results['fmap_coeff'] = os.path.abspath('fmap_coeff.nii.gz')
+        self._results['jacobians'] = os.path.abspath('jacobians.nii.gz')
+        self._results['out_warps'] = os.path.abspath('out_warps.nii.gz')
+
+        shutil.copyfile(self.inputs.fmap, self._results['fmap'])
+        shutil.copyfile(self.inputs.fmap_mask, self._results['fmap_mask'])
+        shutil.copyfile(self.inputs.fmap_ref, self._results['fmap_ref'])
+        shutil.copyfile(self.inputs.fmap_coeff, self._results['fmap_coeff'])
+        shutil.copyfile(self.inputs.jacobians, self._results['jacobians'])
+        shutil.copyfile(self.inputs.out_warps, self._results['out_warps'])
+
+        return runtime
 
 
 if __name__ == '__main__':
