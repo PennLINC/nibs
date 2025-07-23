@@ -249,7 +249,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.image_write(mese_mag_ap_echo1_sdc, mese_mag_ap_echo1_sdc_file)
 
     # Coregister AP echo-1 data to preprocessed T1w
-    # XXX: This is currently using non-SDCed MESE data.
     coreg_transform = coregister_to_t1(
         name_source=name_source,
         layout=layout,
