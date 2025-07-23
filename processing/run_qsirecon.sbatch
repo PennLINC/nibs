@@ -2,7 +2,7 @@
 #SBATCH --job-name=qsirecon
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-13
+#SBATCH --array=1-14
 #SBATCH --cpus-per-task=20
 #SBATCH --mem-per-cpu=4gb
 #SBATCH --time=36:00:00
