@@ -2,7 +2,7 @@
 #SBATCH --job-name=smriprep
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-9
+#SBATCH --array=2-13
 #SBATCH --cpus-per-task=20
 #SBATCH --mem-per-cpu=4gb
 #SBATCH --time=48:00:00

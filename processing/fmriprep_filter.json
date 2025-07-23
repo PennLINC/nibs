@@ -3,5 +3,8 @@
         "datatype": "anat",
         "acquisition": "MPRAGE",
         "suffix": "T1w"
+    },
+    "t2w": {
+        "acquisition": "NOTSPACE"
     }
 }
