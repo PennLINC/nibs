@@ -49,7 +49,7 @@ cmd="apptainer run --cleanenv \
       --skip-bids-validation \
       --denoise-method dwidenoise \
       --output-resolution 1.7 \
-      --subject-anatomical-reference sessionwise \
+      --subject-anatomical-reference unbiased \
       --hmc-model 3dSHORE \
       --pepolar-method DRBUDDI \
       --b1-biascorrect-stage none \
