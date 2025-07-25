@@ -405,11 +405,7 @@ def init_fieldmap_wf(name='fieldmap_wf'):
         ]),
         (qwarp_wf, outputnode, [
             ('outputnode.fmap', 'fmap'),
-            ('outputnode.fmap_mask', 'fmap_mask'),
             ('outputnode.fmap_ref', 'fmap_ref'),
-            ('outputnode.fmap_coeff', 'fmap_coeff'),
-            ('outputnode.jacobians', 'jacobians'),
-            ('outputnode.out_warps', 'out_warps'),
         ]),
     ])  # fmt:skip
 
@@ -418,20 +414,12 @@ def init_fieldmap_wf(name='fieldmap_wf'):
 
 class _CopyFilesInputSpec(BaseInterfaceInputSpec):
     fmap = traits.File(exists=True)
-    fmap_mask = traits.File(exists=True)
     fmap_ref = traits.File(exists=True)
-    fmap_coeff = traits.File(exists=True)
-    jacobians = traits.File(exists=True)
-    out_warps = traits.File(exists=True)
 
 
 class _CopyFilesOutputSpec(TraitedSpec):
     fmap = traits.File(exists=True)
-    fmap_mask = traits.File(exists=True)
     fmap_ref = traits.File(exists=True)
-    fmap_coeff = traits.File(exists=True)
-    jacobians = traits.File(exists=True)
-    out_warps = traits.File(exists=True)
 
 
 class CopyFiles(SimpleInterface):
@@ -442,18 +430,10 @@ class CopyFiles(SimpleInterface):
         import shutil
 
         self._results['fmap'] = os.path.abspath('fmap.nii.gz')
-        self._results['fmap_mask'] = os.path.abspath('fmap_mask.nii.gz')
         self._results['fmap_ref'] = os.path.abspath('fmap_ref.nii.gz')
-        self._results['fmap_coeff'] = os.path.abspath('fmap_coeff.nii.gz')
-        self._results['jacobians'] = os.path.abspath('jacobians.nii.gz')
-        self._results['out_warps'] = os.path.abspath('out_warps.nii.gz')
 
         shutil.copyfile(self.inputs.fmap, self._results['fmap'])
-        shutil.copyfile(self.inputs.fmap_mask, self._results['fmap_mask'])
         shutil.copyfile(self.inputs.fmap_ref, self._results['fmap_ref'])
-        shutil.copyfile(self.inputs.fmap_coeff, self._results['fmap_coeff'])
-        shutil.copyfile(self.inputs.jacobians, self._results['jacobians'])
-        shutil.copyfile(self.inputs.out_warps, self._results['out_warps'])
 
         return runtime
 
