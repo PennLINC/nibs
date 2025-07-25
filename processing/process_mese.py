@@ -166,8 +166,41 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_ap_metadata = [layout.get_metadata(f) for f in run_data['mese_mag_ap']]
     mese_pa_metadata = layout.get_metadata(run_data['mese_mag_pa'])
     echo_times = [m['EchoTime'] for m in mese_ap_metadata]  # TEs in seconds
+
+    # Coregister echoes 2-4 of AP MESE data to echo 1
+    mese_ap_echo1 = run_data['mese_mag_ap'][0]
+    mese_space_ap_files = [mese_ap_echo1]
+    hmc_transforms = []
+    for echo_file in run_data['mese_mag_ap'][1:]:
+        echo = layout.get_file(echo_file).entities['echo']
+        echo_meseref_filename = get_filename(
+            name_source=echo_file,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MESE', 'suffix': 'MESE'},
+            dismiss_entities=['part'],
+        )
+        echo_hmc_transform = coregister_to_t1(
+            name_source=echo_file,
+            layout=layout,
+            in_file=echo_file,
+            t1_file=mese_ap_echo1,
+            source_space=f'Echo-{echo}',
+            target_space='Echo-1',
+            out_dir=out_dir,
+        )
+        echo_hmc_img = ants.apply_transforms(
+            fixed=ants.image_read(mese_ap_echo1),
+            moving=ants.image_read(echo_file),
+            transformlist=[echo_hmc_transform],
+        )
+        echo_hmc_img.to_filename(echo_meseref_filename)
+        mese_space_ap_files.append(echo_meseref_filename)
+        hmc_transforms.append(echo_hmc_transform)
+
+    # Calculate T2 map from AP MESE data
     t2_img, r2_img, s0_img, r_squared_img = fit_monoexponential(
-        in_files=run_data['mese_mag_ap'],
+        in_files=mese_space_ap_files,
         echo_times=echo_times,
     )
     t2_filename = get_filename(
@@ -356,21 +389,21 @@ def init_fieldmap_wf(name='fieldmap_wf'):
     from nipype.interfaces import utility as niu
     from nipype.pipeline import engine as pe
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from sdcflows.workflows.fit.pepolar import init_topup_wf
+    from sdcflows.workflows.fit.pepolar import init_3dQwarp_wf
 
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['in_data', 'metadata']), name='inputnode')
     outputnode = pe.Node(CopyFiles(), name='outputnode')
 
-    topup_wf = init_topup_wf(name='topup_wf')
+    qwarp_wf = init_3dQwarp_wf(name='qwarp_wf')
 
     workflow.connect([
-        (inputnode, topup_wf, [
+        (inputnode, qwarp_wf, [
             ('in_data', 'inputnode.in_data'),
             ('metadata', 'inputnode.metadata'),
         ]),
-        (topup_wf, outputnode, [
+        (qwarp_wf, outputnode, [
             ('outputnode.fmap', 'fmap'),
             ('outputnode.fmap_mask', 'fmap_mask'),
             ('outputnode.fmap_ref', 'fmap_ref'),
