@@ -270,14 +270,14 @@ def process_run(layout, run_data, out_dir, temp_dir):
     pepolar_estimate_wf = init_fieldmap_wf(name='pepolar_estimate_wf')
     pepolar_estimate_wf.inputs.inputnode.in_data = in_data
     pepolar_estimate_wf.inputs.inputnode.metadata = metadata
-    pepolar_estimate_wf.base_dir = os.path.join(temp_dir, 'pepolar_estimate_wf')
+    basename = os.path.basename(mese_mag_ap_echo1).split('.')[0]
+    pepolar_estimate_wf.base_dir = os.path.join(temp_dir, basename)
     wf_res = pepolar_estimate_wf.run()
     fmap_file = wf_res.outputs.outputnode.fmap
-    fmap_ref_file = wf_res.outputs.outputnode.fmap_ref
 
     mese_mag_ap_echo1_sdc = ants.apply_transforms(
         fixed=ants.image_read(mese_mag_ap_echo1),
-        moving=ants.image_read(fmap_ref_file),
+        moving=ants.image_read(mese_mag_ap_echo1),
         transformlist=[fmap_file],
     )
     mese_mag_ap_echo1_sdc_file = get_filename(
