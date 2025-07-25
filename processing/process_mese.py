@@ -44,6 +44,7 @@ from utils import (
 )
 
 os.environ['SUBJECTS_DIR'] = '/cbica/projects/nibs/derivatives/smriprep/sourcedata/freesurfer'
+os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
 
 
 def collect_run_data(layout, bids_filters):
