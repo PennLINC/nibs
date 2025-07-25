@@ -406,7 +406,6 @@ def init_fieldmap_wf(name='fieldmap_wf'):
         ]),
         (qwarp_wf, outputnode, [
             ('outputnode.fmap', 'fmap'),
-            ('outputnode.fmap_ref', 'fmap_ref'),
         ]),
     ])  # fmt:skip
 
@@ -415,12 +414,10 @@ def init_fieldmap_wf(name='fieldmap_wf'):
 
 class _CopyFilesInputSpec(BaseInterfaceInputSpec):
     fmap = traits.File(exists=True)
-    fmap_ref = traits.File(exists=True)
 
 
 class _CopyFilesOutputSpec(TraitedSpec):
     fmap = traits.File(exists=True)
-    fmap_ref = traits.File(exists=True)
 
 
 class CopyFiles(SimpleInterface):
@@ -431,10 +428,8 @@ class CopyFiles(SimpleInterface):
         import shutil
 
         self._results['fmap'] = os.path.abspath('fmap.nii.gz')
-        self._results['fmap_ref'] = os.path.abspath('fmap_ref.nii.gz')
 
         shutil.copyfile(self.inputs.fmap, self._results['fmap'])
-        shutil.copyfile(self.inputs.fmap_ref, self._results['fmap_ref'])
 
         return runtime
 
@@ -532,6 +527,7 @@ def init_3dQwarp_wf(omp_nthreads=1, name='pepolar_estimate_wf'):
 
     qwarp = pe.Node(
         afni.QwarpPlusMinus(
+            outputtype='NIFTI_GZ',
             blur=[-1, -1],
             environ={'OMP_NUM_THREADS': f'{min(omp_nthreads, 4)}'},
             minpatch=9,
