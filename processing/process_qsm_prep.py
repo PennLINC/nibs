@@ -431,7 +431,12 @@ if __name__ == '__main__':
                 entities.pop('echo')
                 entities.pop('part')
                 entities.pop('acquisition')
-                run_data = collect_run_data(layout, entities)
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {megre_file}')
+                    print(e)
+                    continue
                 run_temp_dir = os.path.join(temp_dir, os.path.basename(megre_file.path).split('.')[0])
                 os.makedirs(run_temp_dir, exist_ok=True)
                 process_run(layout, run_data, out_dir, run_temp_dir)

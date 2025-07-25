@@ -510,11 +510,6 @@ if __name__ == '__main__':
                 suffix='MESE',
                 extension=['.nii', '.nii.gz'],
             )
-            if not mese_files:
-                files = layout.get(subject=subject, session=session, suffix='MESE', extension=['.nii', '.nii.gz'])
-                print(files[0].get_entities())
-                raise ValueError(f'No MESE files found for subject {subject} and session {session}')
-
             for mese_file in mese_files:
                 print(f'Processing MESE file {mese_file.path}')
                 entities = mese_file.get_entities()
@@ -523,7 +518,12 @@ if __name__ == '__main__':
                     entities.pop('part')
 
                 entities.pop('direction')
-                run_data = collect_run_data(layout, entities)
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {mese_file}')
+                    print(e)
+                    continue
                 process_run(layout, run_data, out_dir, temp_dir)
 
             report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')

@@ -544,7 +544,12 @@ if __name__ == '__main__':
                 if 'part' in entities:
                     entities.pop('part')
 
-                run_data = collect_run_data(layout, entities)
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {inv1_magnitude_file}')
+                    print(e)
+                    continue
                 process_run(layout, run_data, out_dir, temp_dir)
 
             report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')

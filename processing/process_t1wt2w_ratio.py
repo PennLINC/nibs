@@ -402,7 +402,14 @@ if __name__ == '__main__':
                 extension=['.nii', '.nii.gz'],
             )
             for space_t2w_file in space_t2w_files:
-                run_data = collect_run_data(layout, space_t2w_file.get_entities())
+                entities = space_t2w_file.get_entities()
+                entities.pop('acquisition')
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {space_t2w_file}')
+                    print(e)
+                    continue
                 process_run(layout, run_data, out_dir, temp_dir)
 
             report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
