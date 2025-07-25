@@ -43,6 +43,8 @@ from utils import (
     plot_scalar_map,
 )
 
+os.environ['SUBJECTS_DIR'] = '/cbica/projects/nibs/derivatives/smriprep/sourcedata/freesurfer'
+
 
 def collect_run_data(layout, bids_filters):
     queries = {
