@@ -64,6 +64,7 @@ def collect_run_data(layout, bids_filters):
         # T1w-space T1w image from sMRIPrep
         't1w': {
             'datatype': 'anat',
+            'session': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
@@ -74,6 +75,7 @@ def collect_run_data(layout, bids_filters):
         # sMRIPrep T1w-space brain mask
         't1w_mask': {
             'datatype': 'anat',
+            'session': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
@@ -84,6 +86,7 @@ def collect_run_data(layout, bids_filters):
         # sMRIPrep MNI-space brain mask
         'mni_mask': {
             'datatype': 'anat',
+            'session': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',
@@ -93,6 +96,7 @@ def collect_run_data(layout, bids_filters):
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
+            'session': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
@@ -102,6 +106,7 @@ def collect_run_data(layout, bids_filters):
         # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
             'datatype': 'anat',
+            'session': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
@@ -112,6 +117,7 @@ def collect_run_data(layout, bids_filters):
         # MNI-space dseg from sMRIPrep
         'dseg_mni': {
             'datatype': 'anat',
+            'session': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
@@ -227,8 +233,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     in_data = [mese_mag_ap_echo1, mese_mag_pa_echo1]
     metadata = [mese_ap_metadata[0], mese_pa_metadata]
     pepolar_estimate_wf = init_fieldmap_wf(name='pepolar_estimate_wf')
-    pepolar_estimate_wf.inputs.in_data = in_data
-    pepolar_estimate_wf.inputs.metadata = metadata
+    pepolar_estimate_wf.inputs.inputnode.in_data = in_data
+    pepolar_estimate_wf.inputs.inputnode.metadata = metadata
     pepolar_estimate_wf.base_dir = os.path.join(temp_dir, 'pepolar_estimate_wf')
     wf_res = pepolar_estimate_wf.run()
     fmap_file = wf_res.outputs.outputnode.fmap
