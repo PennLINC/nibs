@@ -11,6 +11,7 @@ The necessary steps are:
     - "NumberShots": 176
     - "RepetitionTimeExcitation": base on RepetitionTime
     - "RepetitionTimePreparation": base on RepetitionTime
+5.  Add 'TotalReadoutTime' to MESE JSONs.
 """
 
 import json
@@ -70,7 +71,16 @@ if __name__ == '__main__':
                 with open(mp2rage_json, 'w') as f:
                     json.dump(data, f, indent=4, sort_keys=True)
 
-    # Add multi-echo field maps to .bidsignore.
+            # Add field to MESE JSONs
+            mese_jsons = sorted(glob(os.path.join(session_dir, 'anat', '*_MESE.json')))
+            for mese_json in mese_jsons:
+                with open(mese_json, 'r') as f:
+                    data = json.load(f)
+                data['TotalReadoutTime'] = 0.01728
+                with open(mese_json, 'w') as f:
+                    json.dump(data, f, indent=4, sort_keys=True)
+
+    # Add ihMTRAGE to .bidsignore.
     bidsignore_file = os.path.join(dset_dir, '.bidsignore')
     with open(bidsignore_file, 'a+') as f:
         f.write('\n*_ihMTRAGE.*\n')
