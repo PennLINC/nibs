@@ -562,7 +562,6 @@ if __name__ == '__main__':
         derivatives=[mp2rage_dir, smriprep_dir],
     )
     subjects = layout.get_subjects(suffix='ihMTRAGE')
-    subjects = ['PILOT02', 'PILOT03', 'PILOT04']
     for subject in subjects:
         print(f'Processing subject {subject}')
         sessions = layout.get_sessions(subject=subject, suffix='ihMTRAGE')
@@ -580,7 +579,12 @@ if __name__ == '__main__':
                 entities = m0_file.get_entities()
                 entities.pop('acquisition')
                 entities.pop('mt')
-                run_data = collect_run_data(layout, entities)
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {m0_file}')
+                    print(e)
+                    continue
                 process_run(layout, run_data, out_dir, temp_dir)
 
             report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
