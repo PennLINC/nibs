@@ -360,7 +360,7 @@ if __name__ == '__main__':
     temp_dir = '/cbica/projects/nibs/work/t1wt2w_ratio'
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_mp2rage.yml')
+    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_t1wt2w_ratio.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     dataset_description = {
