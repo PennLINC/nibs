@@ -274,7 +274,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     basename = os.path.basename(mese_mag_ap_echo1).split('.')[0]
     pepolar_estimate_wf.base_dir = os.path.join(temp_dir, basename)
     wf_res = pepolar_estimate_wf.run()
-    fmap_file = wf_res.outputs.outputnode.fmap
+    nodes = get_nodes(wf_res)
+    fmap_file = nodes['outputnode'].get_output('fmap')
 
     mese_mag_ap_echo1_sdc = ants.apply_transforms(
         fixed=ants.image_read(mese_mag_ap_echo1),
@@ -614,6 +615,11 @@ def _sorted_pe(inlist):
         [out_ref, out_opp],
         {'i': '-noYdis -noZdis', 'j': '-noXdis -noZdis', 'k': '-noXdis -noYdis'}[ref_pe[0]],
     )
+
+
+def get_nodes(wf_results):
+    """Load nodes from a Nipype workflow's results."""
+    return {node.fullname: node for node in wf_results.nodes}
 
 
 if __name__ == '__main__':
