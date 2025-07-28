@@ -275,7 +275,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     pepolar_estimate_wf.base_dir = os.path.join(temp_dir, basename)
     wf_res = pepolar_estimate_wf.run()
     nodes = get_nodes(wf_res)
-    fmap_file = nodes['outputnode'].get_output('fmap')
+    fmap_file = nodes['pepolar_estimate_wf.outputnode'].get_output('fmap')
 
     mese_mag_ap_echo1_sdc = ants.apply_transforms(
         fixed=ants.image_read(mese_mag_ap_echo1),
