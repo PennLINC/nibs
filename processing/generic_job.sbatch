@@ -15,4 +15,5 @@ set -e
 
 # conda activate processing
 
-python process_mp2rage.py
+# python process_mp2rage.py
+python process_ihmt.py
