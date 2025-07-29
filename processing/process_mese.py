@@ -255,22 +255,51 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     r_squared_img.to_filename(r_squared_filename)
 
-    # Coregister AP echo-1 data to preprocessed T1w
+    # Coregister preprocessed T1w to MESEref space
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
-    coreg_transform = coregister_to_t1(
+    coreg_rv_transform = coregister_to_t1(
         name_source=name_source,
         layout=layout,
-        in_file=mese_mag_ap_echo1,
-        t1_file=run_data['t1w'],
-        source_space='MESE',
-        target_space='T1w',
+        in_file=run_data['t1w'],
+        t1_file=mese_mag_ap_echo1,
+        source_space='T1w',
+        target_space='MESE',
         out_dir=out_dir,
     )
+    mese_t1w_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MESE', 'suffix': 'T1w'},
+        dismiss_entities=['echo', 'part'],
+    )
+    mese_t1w_img = ants.apply_transforms(
+        fixed=ants.image_read(mese_mag_ap_echo1),
+        moving=ants.image_read(run_data['t1w']),
+        transformlist=[coreg_rv_transform],
+    )
+    ants.image_write(mese_t1w_img, mese_t1w_file)
+
+    mese_t1w_mask_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MESE', 'suffix': 'mask'},
+        dismiss_entities=['echo', 'part'],
+    )
+    mese_t1w_mask_img = ants.apply_transforms(
+        fixed=ants.image_read(mese_mag_ap_echo1),
+        moving=ants.image_read(run_data['t1w_mask']),
+        transformlist=[coreg_rv_transform],
+    )
+    ants.image_write(mese_t1w_mask_img, mese_t1w_mask_file)
 
     # Calculate distortion map from AP and PA echo-1 data
     fieldmap_wf = init_fieldmap_wf(name='fieldmap_wf')
-    fieldmap_wf.inputs.inputnode.in_data = [mese_mag_ap_echo1]
-    fieldmap_wf.inputs.inputnode.metadata = [mese_ap_metadata[0]]
+    fieldmap_wf.inputs.inputnode.epi_ref = (mese_mag_ap_echo1, mese_ap_metadata[0])
+    fieldmap_wf.inputs.inputnode.epi_mask = None
+    fieldmap_wf.inputs.inputnode.anat_ref = mese_t1w_file
+    fieldmap_wf.inputs.inputnode.anat_mask = mese_t1w_mask_file
     basename = os.path.basename(mese_mag_ap_echo1).split('.')[0]
     fieldmap_wf.base_dir = os.path.join(temp_dir, basename)
     wf_res = fieldmap_wf.run()
@@ -393,22 +422,32 @@ def init_fieldmap_wf(name='fieldmap_wf'):
     from nipype.interfaces import utility as niu
     from nipype.pipeline import engine as pe
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from sdcflows.workflows.fit.syn import init_syn_sdc_wf
 
     workflow = Workflow(name=name)
 
-    inputnode = pe.Node(niu.IdentityInterface(fields=['in_data', 'metadata']), name='inputnode')
+    inputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=[
+                'epi_ref',
+                'epi_mask',
+                'anat_ref',
+                'anat_mask',
+            ]
+        ),
+        name='inputnode',
+    )
     outputnode = pe.Node(CopyFiles(), name='outputnode')
 
-    sdc_wf = init_syn_sdc_wf(name='sdc_wf')
-
+    sdc_wf = init_syn_sdc_wf(name='sdc_wf', omp_nthreads=1)
     workflow.connect([
         (inputnode, sdc_wf, [
-            ('in_data', 'inputnode.in_data'),
-            ('metadata', 'inputnode.metadata'),
+            ('epi_ref', 'inputnode.epi_ref'),
+            ('epi_mask', 'inputnode.epi_mask'),
+            ('anat_ref', 'inputnode.anat_ref'),
+            ('anat_mask', 'inputnode.anat_mask'),
         ]),
-        (sdc_wf, outputnode, [
-            ('outputnode.fmap', 'fmap'),
-        ]),
+        (sdc_wf, outputnode, [('outputnode.fmap', 'fmap')]),
     ])  # fmt:skip
 
     return workflow
