@@ -18,13 +18,10 @@ import os
 import shutil
 
 import ants
-import nibabel as nb
 from bids.layout import BIDSLayout, Query
-from nilearn import image
 from nireports.assembler.report import Report
-from pymp2rage import MP2RAGE
 
-from utils import coregister_to_t1, get_filename, plot_coregistration, plot_scalar_map
+from utils import get_filename, plot_coregistration, plot_scalar_map
 
 
 def collect_run_data(layout, bids_filters):
@@ -333,6 +330,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
             mask=run_data['mni_mask'],
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
+            vmin=0,
+            vmax=3,
         )
 
         plot_coregistration(
