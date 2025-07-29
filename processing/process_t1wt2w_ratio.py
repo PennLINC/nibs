@@ -264,6 +264,19 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     ants.image_write(t1w_mprage_t1w_img, t1w_mprage_t1w_file)
 
+    # Plot coregistration of SPACE and MPRAGE files to sMRIPrep T1w
+    descs = ['SPACE', 'MPRAGE', 'SPACE']
+    for i_file, file_ in enumerate([t1w_space_t1w_file, t1w_mprage_t1w_file, t1w_space_t2w_file]):
+        plot_coregistration(
+            name_source=file_,
+            layout=layout,
+            in_file=file_,
+            t1_file=run_data['t1w'],
+            out_dir=out_dir,
+            source_space=descs[i_file],
+            target_space='T1w',
+        )
+
     # Calculate SPACE T1w/SPACE T2w ratio map
     t1w_space_ratio_file = get_filename(
         name_source=run_data['space_t1w'],
@@ -409,7 +422,13 @@ if __name__ == '__main__':
                     print(f'Failed {space_t2w_file}')
                     print(e)
                     continue
-                process_run(layout, run_data, out_dir, temp_dir)
+
+                run_temp_dir = os.path.join(
+                    temp_dir,
+                    os.path.basename(space_t2w_file).replace('.', '_'),
+                )
+                os.makedirs(run_temp_dir, exist_ok=True)
+                process_run(layout, run_data, out_dir, run_temp_dir)
 
             report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
             robj = Report(
