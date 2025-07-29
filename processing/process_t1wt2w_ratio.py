@@ -269,7 +269,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Calculate SPACE T1w/SPACE T2w ratio map
     t1w_space_ratio_file = get_filename(
-        name_source=run_data['t1w_space_t1w'],
+        name_source=run_data['space_t1w'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'desc': 'SPACE', 'suffix': 'myelinw'},
@@ -279,7 +279,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Calculate MPRAGE T1w/SPACE T2w ratio map
     t1w_mprage_ratio_file = get_filename(
-        name_source=run_data['t1w_mprage_t1w'],
+        name_source=run_data['mprage_t1w'],
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'desc': 'MPRAGE', 'suffix': 'myelinw'},
