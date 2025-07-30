@@ -338,6 +338,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space=descs[i_file],
             target_space='T1w',
+            wm_seg=wm_seg_t1w_file,
         )
 
         mni_file = get_filename(
@@ -363,6 +364,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space=descs[i_file],
             target_space='MNI152NLin2009cAsym',
+            wm_seg=wm_seg_file,
         )
         del mni_img, mni_file
 
