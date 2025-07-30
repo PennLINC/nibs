@@ -287,7 +287,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     mese_mag_ap_echo1_mni_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w_mni']),
-        moving=ants.image_read(mese_mag_ap_echo1_t1_img),
+        moving=ants.image_read(mese_mag_ap_echo1_t1_file),
         transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
         interpolator='lanczosWindowedSinc',
     )
