@@ -452,7 +452,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         n4_img = ants.n4_bias_field_correction(in_img)
 
         # Skull-stripping
-        dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t2')
+        dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
         dseg_img = dseg_img['segmentation_image']
         mask_img = ants.threshold_image(
             dseg_img,
