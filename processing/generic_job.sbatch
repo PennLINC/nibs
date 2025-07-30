@@ -15,6 +15,6 @@ set -e
 
 # conda activate processing
 
-# python process_mp2rage.py
+python process_mp2rage.py
 # python process_ihmt.py
-python process_t1wt2w_ratio.py
+# python process_t1wt2w_ratio.py
