@@ -483,11 +483,11 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     for i_file, brain_n4_file in enumerate(brain_n4_files):
         in_file = in_files[i_file]
         if i_file == 0:
-            template_img = ants.image_read(brain_n4_file)
+            ref_img = ants.image_read(brain_n4_file)
             transform = os.path.join(CODE_DIR, 'processing', 'itkIdentityTransform.txt')
         else:
             reg = ants.registration(
-                fixed=template_img,
+                fixed=ref_img,
                 moving=ants.image_read(brain_n4_file),
                 type_of_transform='Rigid',
             )
@@ -510,18 +510,30 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         transforms.append(transform_file)
 
     # Step 3: Write out template image as MESEref.nii.gz
-    template_file = get_filename(
+    ref_file = get_filename(
         name_source=name_sources[0],
         layout=layout,
         out_dir=out_dir,
         entities={'suffix': 'MESEref'},
         dismiss_entities=['echo', 'direction'],
     )
-    ants.image_write(template_img, template_file)
+    ants.image_write(ref_img, ref_file)
 
     # Step 5: Apply transforms to original images.
     hmced_files = [in_files[0]]
-    for i_file, in_file in enumerate(in_files[1:]):
+    for i_file, in_file in enumerate(in_files):
+        if i_file == 0:
+            plot_coregistration(
+                name_source=in_file,
+                layout=layout,
+                in_file=in_file,
+                t1_file=ref_file,
+                out_dir=out_dir,
+                source_space='MESE',
+                target_space='MESEref',
+            )
+            continue
+
         transform_file = transforms[i_file]
         out_file = get_filename(
             name_source=name_sources[i_file],
@@ -530,7 +542,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             entities={'space': 'MESEref'},
         )
         out_img = ants.apply_transforms(
-            fixed=ants.image_read(template_file),
+            fixed=ants.image_read(ref_file),
             moving=ants.image_read(in_file),
             transformlist=[transform_file],
             interpolator='lanczosWindowedSinc',
@@ -541,7 +553,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             name_source=out_file,
             layout=layout,
             in_file=out_file,
-            t1_file=template_file,
+            t1_file=ref_file,
             out_dir=out_dir,
             source_space='MESE',
             target_space='MESEref',
