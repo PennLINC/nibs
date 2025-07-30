@@ -227,8 +227,21 @@ def process_run(layout, run_data, out_dir, temp_dir):
         moving=mese_mag_ap_echo1_masked_img,
         type_of_transform='SyN',
     )
-    raise Exception(registered_img['fwdtransforms'])
-    mese_to_smriprep_xfm = get_filename(
+    mese_to_smriprep_warp_xfm = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'from': 'MESEref',
+            'to': 'T1w',
+            'mode': 'image',
+            'suffix': 'xfm',
+            'extension': 'nii.gz',
+        },
+        dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
+    )
+    shutil.copyfile(registered_img['fwdtransforms'][0], mese_to_smriprep_warp_xfm)
+    mese_to_smriprep_affine_xfm = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
@@ -241,7 +254,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         },
         dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
     )
-    shutil.copyfile(registered_img['fwdtransforms'][0], mese_to_smriprep_xfm)
+    shutil.copyfile(registered_img['fwdtransforms'][1], mese_to_smriprep_affine_xfm)
     mese_mag_ap_echo1_t1_file = get_filename(
         name_source=name_source,
         layout=layout,
@@ -251,7 +264,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_mag_ap_echo1_t1_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(mese_mag_ap_echo1),
-        transformlist=[mese_to_smriprep_xfm],
+        transformlist=[mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
         interpolator='lanczosWindowedSinc',
     )
     ants.image_write(mese_mag_ap_echo1_t1_img, mese_mag_ap_echo1_t1_file)
@@ -275,7 +288,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_mag_ap_echo1_mni_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(mese_mag_ap_echo1_t1_img),
-        transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_xfm],
+        transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
         interpolator='lanczosWindowedSinc',
     )
     ants.image_write(mese_mag_ap_echo1_mni_img, mese_mag_ap_echo1_mni_file)
@@ -326,7 +339,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         t1w_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
-            transformlist=[mese_to_smriprep_xfm],
+            transformlist=[mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -340,7 +353,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_xfm],
+            transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
         )
         ants.image_write(mni_img, mni_file)
 
