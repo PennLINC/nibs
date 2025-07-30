@@ -1,12 +1,12 @@
 package: T1w/T2w Ratio Derivatives
 sections:
 - name: Processing Summary
-  ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo
+  ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo,suffix
   reportlets:
-  - bids: {datatype: figures, space: T1w, desc: [MPRAGEcoreg, SPACEcoreg], suffix: myelinw}
+  - bids: {datatype: figures, space: T1w, desc: [MPRAGEcoreg, SPACEcoreg], suffix: [T1w, T2w]}
     subtitle: Alignment of data to sMRIPrep T1w space
     static: false
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [MPRAGEcoreg, SPACEcoreg], suffix: myelinw}
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [MPRAGEcoreg, SPACEcoreg], suffix: [T1w, T2w]}
     subtitle: Alignment of data to MNI152NLin2009cAsym space
     static: false
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [MPRAGEscalar, SPACEscalar], suffix: myelinw}

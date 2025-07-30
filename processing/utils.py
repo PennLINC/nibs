@@ -142,7 +142,16 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_spac
     return transform_file
 
 
-def plot_coregistration(name_source, layout, in_file, t1_file, out_dir, source_space, target_space):
+def plot_coregistration(
+    name_source,
+    layout,
+    in_file,
+    t1_file,
+    out_dir,
+    source_space,
+    target_space,
+    wm_seg=None,
+):
     """Plot the coregistration of an image to a T1w image."""
     from nireports.interfaces.reporting.base import SimpleBeforeAfterRPT
 
@@ -157,6 +166,11 @@ def plot_coregistration(name_source, layout, in_file, t1_file, out_dir, source_s
         out_dir=out_dir,
         entities={'datatype': 'figures', 'space': target_space, 'desc': desc, 'extension': '.svg'},
     )
+    if wm_seg is not None:
+        kwargs = {'wm_seg': wm_seg}
+    else:
+        kwargs = {}
+
     coreg_report = SimpleBeforeAfterRPT(
         before_label=source_space,
         after_label=target_space,
@@ -164,6 +178,7 @@ def plot_coregistration(name_source, layout, in_file, t1_file, out_dir, source_s
         before=in_file,
         after=t1_file,
         out_report=out_report,
+        **kwargs,
     )
     coreg_report.run()
 
@@ -235,6 +250,7 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
     cuts = cuts_from_bbox(nb.load(underlay), cuts=6)
     z_cuts = cuts['z']
     overlay_masked = masking.unmask(masking.apply_mask(overlay, mask), mask)
+    underlay_masked = masking.unmask(masking.apply_mask(underlay, mask), mask)
 
     if dseg is not None:
         tissue_types = ['GM', 'WM', 'CSF']
@@ -302,7 +318,7 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
 
     plotting.plot_stat_map(
         stat_map_img=overlay_masked,
-        bg_img=underlay,
+        bg_img=underlay_masked,
         resampling_interpolation='nearest',
         display_mode='z',
         cut_coords=z_cuts,

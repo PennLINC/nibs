@@ -23,6 +23,7 @@ import shutil
 
 import ants
 import antspynet
+import nibabel as nb
 from bids.layout import BIDSLayout, Query
 from ihmt_proc import cli
 from nilearn import image
@@ -161,6 +162,36 @@ def process_run(layout, run_data, out_dir, temp_dir):
     t_r = 9500  # ms
     tfl_params = f'{echo_spacing},{flip_angle},{n_repetitions},{t_r}'
 
+    # Get WM segmentation from sMRIPrep
+    wm_seg_img = nb.load(run_data['dseg_mni'])
+    wm_seg = wm_seg_img.get_fdata()
+    wm_seg = (wm_seg == 2).astype(int)
+    wm_seg_file = get_filename(
+        name_source=run_data['dseg_mni'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
+    )
+    wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
+    wm_seg_img.to_filename(wm_seg_file)
+
+    # Warp WM segmentation to T1w space
+    wm_seg_img = ants.image_read(wm_seg_file)
+    wm_seg_t1w_img = ants.apply_transforms(
+        fixed=ants.image_read(run_data['t1w']),
+        moving=wm_seg_img,
+        transformlist=[run_data['t1w2mni_xfm']],
+        whichtoinvert=[True],
+    )
+    wm_seg_t1w_file = get_filename(
+        name_source=wm_seg_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
+    )
+    ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
+    del wm_seg_img, wm_seg_t1w_img, wm_seg
+
     # Concatenate ihMTRAGE files into one 4D file (has to be right order)
     # nosat_mt-off, singlepos_mt-on, dual1_mt-on, singleneg_mt-on, dual2_mt-on
     filetypes = ['m0', 'mtplus', 'mtdual1', 'mtminus', 'mtdual2']
@@ -231,6 +262,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space='ihMTRAGEref',
             target_space='T1w',
+            wm_seg=wm_seg_t1w_file,
         )
 
     # Calculate ihMTw
@@ -376,6 +408,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space=suffix,
             target_space='MNI152NLin2009cAsym',
+            wm_seg=wm_seg_file,
         )
 
         scalar_report = get_filename(

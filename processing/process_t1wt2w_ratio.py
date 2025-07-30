@@ -18,6 +18,7 @@ import os
 import shutil
 
 import ants
+import nibabel as nb
 from bids.layout import BIDSLayout, Query
 from nireports.assembler.report import Report
 
@@ -134,7 +135,37 @@ def process_run(layout, run_data, out_dir, temp_dir):
     temp_dir : str
         Directory to write temporary files.
     """
-    # Register space_t1w to sMRIPrep T1w with ANTs
+    # Get WM segmentation from sMRIPrep
+    wm_seg_img = nb.load(run_data['dseg_mni'])
+    wm_seg = wm_seg_img.get_fdata()
+    wm_seg = (wm_seg == 2).astype(int)
+    wm_seg_file = get_filename(
+        name_source=run_data['dseg_mni'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
+    )
+    wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
+    wm_seg_img.to_filename(wm_seg_file)
+
+    # Warp WM segmentation to T1w space
+    wm_seg_img = ants.image_read(wm_seg_file)
+    wm_seg_t1w_img = ants.apply_transforms(
+        fixed=ants.image_read(run_data['t1w']),
+        moving=wm_seg_img,
+        transformlist=[run_data['t1w2mni_xfm']],
+        whichtoinvert=[True],
+    )
+    wm_seg_t1w_file = get_filename(
+        name_source=wm_seg_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
+    )
+    ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
+    del wm_seg_img, wm_seg_t1w_img, wm_seg
+
+    # Register SPACE T1w to sMRIPrep T1w with ANTs
     fixed_img = ants.image_read(run_data['t1w'])
     moving_img = ants.image_read(run_data['space_t1w'])
     reg_output = ants.registration(
@@ -148,6 +179,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
             f'{reg_output["fwdtransforms"]}'
         )
     fwd_transform = reg_output['fwdtransforms'][0]
+    inv_transform = reg_output['invtransforms'][0]
+    del moving_img, reg_output
 
     # Write the transform to a file
     fwd_transform_file = get_filename(
@@ -161,12 +194,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
             'suffix': 'xfm',
             'extension': '.txt',
         },
-        dismiss_entities=['inv', 'part', 'reconstruction'],
+        dismiss_entities=['reconstruction', 'acquisition'],
     )
     shutil.copyfile(fwd_transform, fwd_transform_file)
 
-    # Write the transform to a file
-    inv_transform = reg_output['invtransforms'][0]
+    # Write the inverse transform to a file
     inv_transform_file = get_filename(
         name_source=run_data['space_t1w'],
         layout=layout,
@@ -178,11 +210,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
             'suffix': 'xfm',
             'extension': '.txt',
         },
-        dismiss_entities=['inv', 'part', 'reconstruction'],
+        dismiss_entities=['reconstruction', 'acquisition'],
     )
     shutil.copyfile(inv_transform, inv_transform_file)
+    del fwd_transform_file, inv_transform_file
 
-    # Apply the transform to space_t1w
+    # Apply the transform to SPACE T1w
     space_t1w_img = ants.image_read(run_data['space_t1w'])
     t1w_space_t1w_img = ants.apply_transforms(
         fixed=fixed_img,
@@ -195,12 +228,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'T1w'},
-        dismiss_entities=['inv', 'part', 'reconstruction'],
+        dismiss_entities=['reconstruction'],
     )
     ants.image_write(t1w_space_t1w_img, t1w_space_t1w_file)
+    del space_t1w_img
 
-    # Register space_t2w to sMRIPrep T1w with ANTs
-    fixed_img = ants.image_read(run_data['t1w'])
+    # Register SPACE T2w to sMRIPrep T1w with ANTs
     moving_img = ants.image_read(run_data['space_t2w'])
     reg_output = ants.registration(
         fixed=fixed_img,
@@ -213,6 +246,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
             f'{reg_output["fwdtransforms"]}'
         )
     fwd_transform = reg_output['fwdtransforms'][0]
+    inv_transform = reg_output['invtransforms'][0]
+    del moving_img, reg_output
 
     # Write the transform to a file
     fwd_transform_file = get_filename(
@@ -226,11 +261,27 @@ def process_run(layout, run_data, out_dir, temp_dir):
             'suffix': 'xfm',
             'extension': '.txt',
         },
-        dismiss_entities=['inv', 'part', 'reconstruction'],
+        dismiss_entities=['reconstruction', 'acquisition'],
     )
     shutil.copyfile(fwd_transform, fwd_transform_file)
 
-    # Apply the transform to space_t2w
+    inv_transform_file = get_filename(
+        name_source=run_data['space_t2w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'from': 'T1w',
+            'to': 'SPACET2w',
+            'mode': 'image',
+            'suffix': 'xfm',
+            'extension': '.txt',
+        },
+        dismiss_entities=['reconstruction', 'acquisition'],
+    )
+    shutil.copyfile(inv_transform, inv_transform_file)
+    del fwd_transform_file, inv_transform_file
+
+    # Apply the transform to SPACE T2w
     space_t2w_img = ants.image_read(run_data['space_t2w'])
     t1w_space_t2w_img = ants.apply_transforms(
         fixed=fixed_img,
@@ -243,11 +294,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'T2w'},
-        dismiss_entities=['inv', 'part', 'reconstruction'],
+        dismiss_entities=['reconstruction'],
     )
     ants.image_write(t1w_space_t2w_img, t1w_space_t2w_file)
+    del space_t2w_img
 
-    # Apply the sMRIPrep coregistration transform to mprage_t1w
+    # Apply the sMRIPrep coregistration transform to MPRAGE T1w
     mprage_t1w_img = ants.image_read(run_data['mprage_t1w'])
     fwd_transform = run_data['mprage2t1w_xfm']
     t1w_mprage_t1w_img = ants.apply_transforms(
@@ -263,6 +315,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         entities={'space': 'T1w', 'suffix': 'T1w'},
     )
     ants.image_write(t1w_mprage_t1w_img, t1w_mprage_t1w_file)
+    del mprage_t1w_img
 
     # Plot coregistration of SPACE and MPRAGE files to sMRIPrep T1w
     descs = ['SPACE', 'MPRAGE', 'SPACE']
@@ -277,38 +330,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
             target_space='T1w',
         )
 
-    # Calculate SPACE T1w/SPACE T2w ratio map
-    t1w_space_ratio_file = get_filename(
-        name_source=run_data['space_t1w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'SPACE', 'suffix': 'myelinw'},
-    )
-    t1w_space_ratio_img = t1w_space_t1w_img / t1w_space_t2w_img
-    ants.image_write(t1w_space_ratio_img, t1w_space_ratio_file)
-
-    # Calculate MPRAGE T1w/SPACE T2w ratio map
-    t1w_mprage_ratio_file = get_filename(
-        name_source=run_data['mprage_t1w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'MPRAGE', 'suffix': 'myelinw'},
-    )
-    t1w_mprage_ratio_img = t1w_mprage_t1w_img / t1w_space_t2w_img
-    ants.image_write(t1w_mprage_ratio_img, t1w_mprage_ratio_file)
-
-    # Warp T1w-space SPACE T1w/SPACE T2w and MPRAGE T1w/SPACE T2w ratio maps to MNI152NLin2009cAsym
-    # using normalization transform from sMRIPrep.
-    files = [t1w_space_ratio_file, t1w_mprage_ratio_file]
-    descs = ['SPACE', 'MPRAGE']
-    for i_file, file_ in enumerate(files):
-        desc = descs[i_file]
         mni_file = get_filename(
             name_source=file_,
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MNI152NLin2009cAsym'},
-            dismiss_entities=['inv', 'part', 'reconstruction'],
+            dismiss_entities=['reconstruction'],
         )
         mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
@@ -324,9 +351,57 @@ def process_run(layout, run_data, out_dir, temp_dir):
             in_file=mni_file,
             t1_file=run_data['t1w_mni'],
             out_dir=out_dir,
-            source_space='T1w',
+            source_space=descs[i_file],
             target_space='MNI152NLin2009cAsym',
         )
+        del mni_img, mni_file
+
+    del t1w_space_t1w_file, t1w_mprage_t1w_file, t1w_space_t2w_file
+
+    # Calculate SPACE T1w/SPACE T2w ratio map
+    t1w_space_ratio_file = get_filename(
+        name_source=run_data['space_t1w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'SPACE', 'suffix': 'myelinw'},
+        dismiss_entities=['reconstruction', 'acquisition'],
+    )
+    t1w_space_ratio_img = t1w_space_t1w_img / t1w_space_t2w_img
+    ants.image_write(t1w_space_ratio_img, t1w_space_ratio_file)
+
+    # Calculate MPRAGE T1w/SPACE T2w ratio map
+    t1w_mprage_ratio_file = get_filename(
+        name_source=run_data['mprage_t1w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'MPRAGE', 'suffix': 'myelinw'},
+        dismiss_entities=['reconstruction', 'acquisition'],
+    )
+    t1w_mprage_ratio_img = t1w_mprage_t1w_img / t1w_space_t2w_img
+    ants.image_write(t1w_mprage_ratio_img, t1w_mprage_ratio_file)
+
+    # Warp T1w-space SPACE T1w/SPACE T2w and MPRAGE T1w/SPACE T2w ratio maps to MNI152NLin2009cAsym
+    # using normalization transform from sMRIPrep.
+    files = [t1w_space_ratio_file, t1w_mprage_ratio_file]
+    descs = ['SPACE', 'MPRAGE']
+    vmaxes = [3, 2]
+    for i_file, file_ in enumerate(files):
+        desc = descs[i_file]
+        mni_file = get_filename(
+            name_source=file_,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MNI152NLin2009cAsym'},
+            dismiss_entities=['reconstruction', 'acquisition'],
+        )
+        mni_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w_mni']),
+            moving=ants.image_read(file_),
+            transformlist=[run_data['t1w2mni_xfm']],
+            interpolator='lanczosWindowedSinc',
+        )
+        ants.image_write(mni_img, mni_file)
+
         scalar_desc = 'scalar'
         if desc:
             scalar_desc = f'{desc}{scalar_desc}'
@@ -344,31 +419,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
             vmin=0,
-            vmax=3,
-        )
-
-        plot_coregistration(
-            name_source=file_,
-            layout=layout,
-            in_file=file_,
-            t1_file=run_data['t1w'],
-            out_dir=out_dir,
-            source_space=desc,
-            target_space='T1w',
+            vmax=vmaxes[i_file],
         )
 
 
 if __name__ == '__main__':
-    # code_dir = '/Users/taylor/Documents/linc/nibs'
     code_dir = '/cbica/projects/nibs/code'
-    # in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
     in_dir = '/cbica/projects/nibs/dset'
-    # smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    # out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/pymp2rage'
     out_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
     os.makedirs(out_dir, exist_ok=True)
-    # temp_dir = '/Users/taylor/Documents/datasets/nibs/work/pymp2rage'
     temp_dir = '/cbica/projects/nibs/work/t1wt2w_ratio'
     os.makedirs(temp_dir, exist_ok=True)
 

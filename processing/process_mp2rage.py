@@ -174,6 +174,36 @@ def process_run(layout, run_data, out_dir, temp_dir):
     b1map_rescaled_file = os.path.join(temp_dir, os.path.basename(run_data['b1_famp']))
     b1map_rescaled.to_filename(b1map_rescaled_file)
 
+    # Get WM segmentation from sMRIPrep
+    wm_seg_img = nb.load(run_data['dseg_mni'])
+    wm_seg = wm_seg_img.get_fdata()
+    wm_seg = (wm_seg == 2).astype(int)
+    wm_seg_file = get_filename(
+        name_source=run_data['dseg_mni'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
+    )
+    wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
+    wm_seg_img.to_filename(wm_seg_file)
+
+    # Warp WM segmentation to T1w space
+    wm_seg_img = ants.image_read(wm_seg_file)
+    wm_seg_t1w_img = ants.apply_transforms(
+        fixed=ants.image_read(run_data['t1w']),
+        moving=wm_seg_img,
+        transformlist=[run_data['t1w2mni_xfm']],
+        whichtoinvert=[True],
+    )
+    wm_seg_t1w_file = get_filename(
+        name_source=wm_seg_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
+    )
+    ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
+    del wm_seg_img, wm_seg_t1w_img, wm_seg
+
     # Register b1_famp to inv1_magnitude using b1_anat with ANTs
     fixed_img = ants.image_read(run_data['inv1_magnitude'])
     moving_img = ants.image_read(run_data['b1_anat'])
@@ -371,6 +401,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space=suffix,
             target_space='MNI152NLin2009cAsym',
+            wm_seg=wm_seg_file,
         )
         scalar_desc = 'scalar'
         if desc:
@@ -413,6 +444,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space=suffix,
             target_space='T1w',
+            wm_seg=wm_seg_t1w_file,
         )
 
     suffixes = ['B1anat', 'TB1map']
@@ -441,6 +473,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space=suffix,
             target_space='MNI152NLin2009cAsym',
+            wm_seg=wm_seg_file,
         )
         scalar_report = get_filename(
             name_source=mni_file,
@@ -479,20 +512,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             source_space=suffix,
             target_space='T1w',
+            wm_seg=wm_seg_t1w_file,
         )
 
 
 if __name__ == '__main__':
-    # code_dir = '/Users/taylor/Documents/linc/nibs'
     code_dir = '/cbica/projects/nibs/code'
-    # in_dir = '/Users/taylor/Documents/datasets/nibs/dset'
     in_dir = '/cbica/projects/nibs/dset'
-    # smriprep_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/smriprep'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    # out_dir = '/Users/taylor/Documents/datasets/nibs/derivatives/pymp2rage'
     out_dir = '/cbica/projects/nibs/derivatives/pymp2rage'
     os.makedirs(out_dir, exist_ok=True)
-    # temp_dir = '/Users/taylor/Documents/datasets/nibs/work/pymp2rage'
     temp_dir = '/cbica/projects/nibs/work/pymp2rage'
     os.makedirs(temp_dir, exist_ok=True)
 
