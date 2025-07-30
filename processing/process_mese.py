@@ -34,15 +34,14 @@ from pprint import pprint
 import ants
 import nibabel as nb
 from bids.layout import BIDSLayout, Query
-from nipype.interfaces.base import BaseInterfaceInputSpec, SimpleInterface, TraitedSpec, traits
 from nireports.assembler.report import Report
 
 from utils import (
-    coregister_to_t1,
     fit_monoexponential,
     get_filename,
     plot_coregistration,
     plot_scalar_map,
+    run_command,
 )
 
 os.environ['SUBJECTS_DIR'] = '/cbica/projects/nibs/derivatives/smriprep/sourcedata/freesurfer'
@@ -213,82 +212,36 @@ def process_run(layout, run_data, out_dir, temp_dir):
         temp_dir=temp_dir,
     )
 
-    # Coregister preprocessed T1w to MESEref space
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
-    smriprep_to_mese_xfm = coregister_to_t1(
-        name_source=name_source,
-        layout=layout,
-        in_file=run_data['t1w'],
-        t1_file=mese_mag_ap_echo1,
-        source_space='T1w',
-        target_space='MESEref',
-        out_dir=out_dir,
-    )
-    mese_t1w_file = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MESEref', 'suffix': 'T1w'},
-        dismiss_entities=['echo'],
-    )
-    mese_t1w_img = ants.apply_transforms(
-        fixed=ants.image_read(mese_mag_ap_echo1),
-        moving=ants.image_read(run_data['t1w']),
-        transformlist=[smriprep_to_mese_xfm],
-        interpolator='lanczosWindowedSinc',
-    )
-    ants.image_write(mese_t1w_img, mese_t1w_file)
+    mese_mag_ap_echo1_img = ants.image_read(mese_mag_ap_echo1)
+    mask_img = ants.image_read(brain_mask)
+    mese_mag_ap_echo1_masked_img = mese_mag_ap_echo1_img * mask_img
 
-    mese_t1w_mask_file = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MESEref', 'suffix': 'mask'},
-        dismiss_entities=['echo'],
-    )
-    mese_t1w_mask_img = ants.apply_transforms(
-        fixed=ants.image_read(mese_mag_ap_echo1),
-        moving=ants.image_read(run_data['t1w_mask']),
-        transformlist=[smriprep_to_mese_xfm],
-        interpolator='nearestNeighbor',
-    )
-    ants.image_write(mese_t1w_mask_img, mese_t1w_mask_file)
-
-    # Calculate distortion map from AP and PA echo-1 data
-    fieldmap_wf = init_fieldmap_wf(name='fieldmap_wf')
-    fieldmap_wf.inputs.inputnode.epi_ref = (mese_mag_ap_echo1, mese_ap_metadata[0])
-    fieldmap_wf.inputs.inputnode.epi_mask = brain_mask
-    fieldmap_wf.inputs.inputnode.anat_ref = mese_t1w_file
-    fieldmap_wf.inputs.inputnode.anat_mask = mese_t1w_mask_file
-    basename = os.path.basename(mese_mag_ap_echo1).split('.')[0]
-    fieldmap_wf.base_dir = os.path.join(temp_dir, basename)
-    wf_res = fieldmap_wf.run()
-    nodes = get_nodes(wf_res)
-    fmap_xfm = nodes['fieldmap_wf.outputnode'].get_output('fmap')
-
-    mese_mag_ap_echo1_sdc = ants.apply_transforms(
-        fixed=ants.image_read(mese_mag_ap_echo1),
-        moving=ants.image_read(mese_mag_ap_echo1),
-        transformlist=[fmap_xfm],
-    )
-    mese_mag_ap_echo1_sdc_file = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MESEref', 'desc': 'SDC', 'suffix': 'MESE'},
-    )
-    ants.image_write(mese_mag_ap_echo1_sdc, mese_mag_ap_echo1_sdc_file)
+    t1w_img = ants.image_read(run_data['t1w'])
+    t1w_mask_img = ants.image_read(run_data['t1w_mask'])
+    t1w_masked_img = t1w_img * t1w_mask_img
 
     # Coregister AP echo-1 data to preprocessed T1w
-    mese_to_smriprep_xfm = coregister_to_t1(
+    registered_img = ants.registration(
+        fixed=t1w_masked_img,
+        moving=mese_mag_ap_echo1_masked_img,
+        type_of_transform='SyN',
+    )
+    raise Exception(registered_img['fwdtransforms'])
+    mese_to_smriprep_xfm = get_filename(
         name_source=name_source,
         layout=layout,
-        in_file=mese_mag_ap_echo1_sdc_file,
-        t1_file=run_data['t1w'],
-        source_space='MESEref',
-        target_space='T1w',
         out_dir=out_dir,
+        entities={
+            'from': 'MESEref',
+            'to': 'T1w',
+            'mode': 'image',
+            'suffix': 'xfm',
+            'extension': 'mat',
+        },
+        dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
     )
+    shutil.copyfile(registered_img['fwdtransforms'][0], mese_to_smriprep_xfm)
     mese_mag_ap_echo1_t1_file = get_filename(
         name_source=name_source,
         layout=layout,
@@ -298,7 +251,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_mag_ap_echo1_t1_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(mese_mag_ap_echo1),
-        transformlist=[mese_to_smriprep_xfm, fmap_xfm],
+        transformlist=[mese_to_smriprep_xfm],
         interpolator='lanczosWindowedSinc',
     )
     ants.image_write(mese_mag_ap_echo1_t1_img, mese_mag_ap_echo1_t1_file)
@@ -322,7 +275,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_mag_ap_echo1_mni_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(mese_mag_ap_echo1_t1_img),
-        transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_xfm, fmap_xfm],
+        transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_xfm],
         interpolator='lanczosWindowedSinc',
     )
     ants.image_write(mese_mag_ap_echo1_mni_img, mese_mag_ap_echo1_mni_file)
@@ -373,7 +326,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         t1w_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
-            transformlist=[mese_to_smriprep_xfm, fmap_xfm],
+            transformlist=[mese_to_smriprep_xfm],
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -387,7 +340,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_xfm, fmap_xfm],
+            transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_xfm],
         )
         ants.image_write(mni_img, mni_file)
 
@@ -442,53 +395,45 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     brain_mask : str
         Path to the brain mask.
     """
-    import antspynet
+    # Step 1: Create a brain mask from the first image with SynthStrip.
+    brain_mask = get_filename(
+        name_source=in_files[0],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MESEref', 'desc': 'brain', 'suffix': 'mask'},
+        dismiss_entities=['echo'],
+    )
+    skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_files[0])}')
+    cmd = (
+        'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
+        f'-i {in_files[0]} -o {skullstripped_file} -m {brain_mask}'
+    )
+    run_command(cmd)
 
     # Step 1: Apply N4 bias field correction and skull-stripping to each image.
-    brain_n4_files = []
+    skullstripped_files = [skullstripped_file]
     for i_file, in_file in enumerate(in_files):
-        in_img = ants.image_read(in_file)
-        # Bias field correction
-        n4_img = ants.n4_bias_field_correction(in_img)
-
-        # Skull-stripping
-        dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t2star')
-        dseg_img = dseg_img['segmentation_image']
-        mask_img = ants.threshold_image(
-            dseg_img,
-            low_thresh=1,
-            high_thresh=1,
-            inval=1,
-            outval=0,
-            binary=True,
-        )
         if i_file == 0:
-            brain_mask = get_filename(
-                name_source=in_file,
-                layout=layout,
-                out_dir=out_dir,
-                entities={'space': 'MESEref', 'desc': 'brain', 'suffix': 'mask'},
-                dismiss_entities=['echo'],
-            )
-            ants.image_write(mask_img, brain_mask)
+            continue
 
-        n4_img_masked = n4_img * mask_img
-        name_base = os.path.basename(name_sources[i_file])
-        brain_n4_file = os.path.join(temp_dir, f'brain_n4_{i_file}_{name_base}')
-        ants.image_write(n4_img_masked, brain_n4_file)
-        brain_n4_files.append(brain_n4_file)
+        cmd = (
+            'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
+            f'-i {in_file} -o {skullstripped_file}'
+        )
+        run_command(cmd)
+        skullstripped_files.append(skullstripped_file)
 
     # Step 2: Register each image to the first image.
     transforms = []
-    for i_file, brain_n4_file in enumerate(brain_n4_files):
+    for i_file, skullstripped_file in enumerate(skullstripped_files):
         in_file = in_files[i_file]
         if i_file == 0:
-            ref_img = ants.image_read(brain_n4_file)
+            ref_img = ants.image_read(skullstripped_file)
             transform = os.path.join(CODE_DIR, 'processing', 'itkIdentityTransform.txt')
         else:
             reg = ants.registration(
                 fixed=ref_img,
-                moving=ants.image_read(brain_n4_file),
+                moving=ants.image_read(skullstripped_file),
                 type_of_transform='Rigid',
             )
             transform = reg['fwdtransforms'][0]
@@ -561,75 +506,6 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         hmced_files.append(out_file)
 
     return hmced_files, brain_mask
-
-
-def init_fieldmap_wf(name='fieldmap_wf'):
-    """Initialize a fieldmap workflow.
-
-    Parameters
-    ----------
-    name : str, optional
-        Name of the workflow.
-    """
-    from nipype.interfaces import utility as niu
-    from nipype.pipeline import engine as pe
-    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from sdcflows.workflows.fit.syn import init_syn_sdc_wf
-
-    workflow = Workflow(name=name)
-
-    inputnode = pe.Node(
-        niu.IdentityInterface(
-            fields=[
-                'epi_ref',
-                'epi_mask',
-                'anat_ref',
-                'anat_mask',
-            ]
-        ),
-        name='inputnode',
-    )
-    outputnode = pe.Node(CopyFiles(), name='outputnode')
-
-    sdc_wf = init_syn_sdc_wf(name='sdc_wf', omp_nthreads=1)
-    workflow.connect([
-        (inputnode, sdc_wf, [
-            ('epi_ref', 'inputnode.epi_ref'),
-            ('epi_mask', 'inputnode.epi_mask'),
-            ('anat_ref', 'inputnode.anat_ref'),
-            ('anat_mask', 'inputnode.anat_mask'),
-        ]),
-        (sdc_wf, outputnode, [('outputnode.fmap', 'fmap')]),
-    ])  # fmt:skip
-
-    return workflow
-
-
-class _CopyFilesInputSpec(BaseInterfaceInputSpec):
-    fmap = traits.File(exists=True)
-
-
-class _CopyFilesOutputSpec(TraitedSpec):
-    fmap = traits.File(exists=True)
-
-
-class CopyFiles(SimpleInterface):
-    input_spec = _CopyFilesInputSpec
-    output_spec = _CopyFilesOutputSpec
-
-    def _run_interface(self, runtime):
-        import shutil
-
-        self._results['fmap'] = os.path.abspath('fmap.nii.gz')
-
-        shutil.copyfile(self.inputs.fmap, self._results['fmap'])
-
-        return runtime
-
-
-def get_nodes(wf_results):
-    """Load nodes from a Nipype workflow's results."""
-    return {node.fullname: node for node in wf_results.nodes}
 
 
 if __name__ == '__main__':
