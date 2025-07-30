@@ -111,6 +111,16 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'xfm',
             'extension': '.h5',
         },
+        'mni2t1w_xfm': {
+            'datatype': 'anat',
+            'session': Query.NONE,
+            'run': [Query.NONE, Query.ANY],
+            'from': 'MNI152NLin2009cAsym',
+            'to': 'T1w',
+            'mode': 'image',
+            'suffix': 'xfm',
+            'extension': '.h5',
+        },
         # MNI-space dseg from sMRIPrep
         'dseg_mni': {
             'datatype': 'anat',
@@ -192,8 +202,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     wm_seg_t1w_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w']),
         moving=wm_seg_img,
-        transformlist=[run_data['t1w2mni_xfm']],
-        whichtoinvert=[True],
+        transformlist=[run_data['mni2t1w_xfm']],
     )
     wm_seg_t1w_file = get_filename(
         name_source=wm_seg_file,

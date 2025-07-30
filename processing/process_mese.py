@@ -31,6 +31,7 @@ import os
 from pprint import pprint
 
 import ants
+import nibabel as nb
 from bids.layout import BIDSLayout, Query
 from nipype.interfaces.base import BaseInterfaceInputSpec, SimpleInterface, TraitedSpec, traits
 from nireports.assembler.report import Report
@@ -110,6 +111,16 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'xfm',
             'extension': '.h5',
         },
+        'mni2t1w_xfm': {
+            'datatype': 'anat',
+            'session': Query.NONE,
+            'run': [Query.NONE, Query.ANY],
+            'from': 'MNI152NLin2009cAsym',
+            'to': 'T1w',
+            'mode': 'image',
+            'suffix': 'xfm',
+            'extension': '.h5',
+        },
         # MNI-space dseg from sMRIPrep
         'dseg_mni': {
             'datatype': 'anat',
@@ -161,6 +172,35 @@ def process_run(layout, run_data, out_dir, temp_dir):
     name_source = run_data['mese_mag_ap'][0]
     mese_ap_metadata = [layout.get_metadata(f) for f in run_data['mese_mag_ap']]
     echo_times = [m['EchoTime'] for m in mese_ap_metadata]  # TEs in seconds
+
+    # Get WM segmentation from sMRIPrep
+    wm_seg_img = nb.load(run_data['dseg_mni'])
+    wm_seg = wm_seg_img.get_fdata()
+    wm_seg = (wm_seg == 2).astype(int)
+    wm_seg_file = get_filename(
+        name_source=run_data['dseg_mni'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
+    )
+    wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
+    wm_seg_img.to_filename(wm_seg_file)
+
+    # Warp WM segmentation to T1w space
+    wm_seg_img = ants.image_read(wm_seg_file)
+    wm_seg_t1w_img = ants.apply_transforms(
+        fixed=ants.image_read(run_data['t1w']),
+        moving=wm_seg_img,
+        transformlist=[run_data['mni2t1w_xfm']],
+    )
+    wm_seg_t1w_file = get_filename(
+        name_source=wm_seg_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
+    )
+    ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
+    del wm_seg_img, wm_seg_t1w_img, wm_seg
 
     # Coregister echoes 2-4 of AP MESE data to echo 1
     mese_ap_echo1 = run_data['mese_mag_ap'][0]
@@ -331,37 +371,64 @@ def process_run(layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
     )
 
+    mese_mag_ap_echo1_t1_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'suffix': 'MESE'},
+        dismiss_entities=['part'],
+    )
+    mese_mag_ap_echo1_t1_img = ants.apply_transforms(
+        fixed=ants.image_read(run_data['t1w']),
+        moving=ants.image_read(mese_mag_ap_echo1),
+        transformlist=[coreg_transform, fmap_file],
+        interpolator='lanczosWindowedSinc',
+    )
+    ants.image_write(mese_mag_ap_echo1_t1_img, mese_mag_ap_echo1_t1_file)
+    plot_coregistration(
+        name_source=mese_mag_ap_echo1_t1_file,
+        layout=layout,
+        in_file=mese_mag_ap_echo1_t1_file,
+        t1_file=run_data['t1w'],
+        out_dir=out_dir,
+        source_space='MESE',
+        target_space='T1w',
+        wm_seg=wm_seg_t1w_file,
+    )
+
+    mese_mag_ap_echo1_mni_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MNI152NLin2009cAsym', 'suffix': 'MESE'},
+        dismiss_entities=['part'],
+    )
+    mese_mag_ap_echo1_mni_img = ants.apply_transforms(
+        fixed=ants.image_read(run_data['t1w_mni']),
+        moving=ants.image_read(mese_mag_ap_echo1_t1_img),
+        transformlist=[run_data['t1w2mni_xfm'], coreg_transform, fmap_file],
+        interpolator='lanczosWindowedSinc',
+    )
+    ants.image_write(mese_mag_ap_echo1_mni_img, mese_mag_ap_echo1_mni_file)
+    plot_coregistration(
+        name_source=mese_mag_ap_echo1_mni_file,
+        layout=layout,
+        in_file=mese_mag_ap_echo1_mni_file,
+        t1_file=run_data['t1w_mni'],
+        out_dir=out_dir,
+        source_space='MESE',
+        target_space='MNI152NLin2009cAsym',
+        wm_seg=wm_seg_file,
+    )
+
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
-    # XXX: This ignores the SDC transform.
     image_types = ['T2map', 'R2map', 'S0map', 'Rsquaredmap']
     images = [t2_filename, r2_filename, s0_filename, r_squared_filename]
     for i_file, file_ in enumerate(images):
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
-        mni_file = get_filename(
-            name_source=name_source,
-            layout=layout,
-            out_dir=out_dir,
-            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
-            dismiss_entities=['echo', 'part'],
-        )
-        mni_img = ants.apply_transforms(
-            fixed=ants.image_read(run_data['t1w_mni']),
-            moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], coreg_transform, fmap_file],
-        )
-        ants.image_write(mni_img, mni_file)
 
-        plot_coregistration(
-            name_source=mni_file,
-            layout=layout,
-            in_file=mni_file,
-            t1_file=run_data['t1w_mni'],
-            out_dir=out_dir,
-            source_space=suffix,
-            target_space='MNI152NLin2009cAsym',
-        )
-
+        # Warp to T1w space
         t1w_file = get_filename(
             name_source=name_source,
             layout=layout,
@@ -376,16 +443,22 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(t1w_img, t1w_file)
 
-        plot_coregistration(
-            name_source=t1w_file,
+        # Warp to MNI152NLin2009cAsym space
+        mni_file = get_filename(
+            name_source=name_source,
             layout=layout,
-            in_file=t1w_file,
-            t1_file=run_data['t1w'],
             out_dir=out_dir,
-            source_space=suffix,
-            target_space='T1w',
+            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+            dismiss_entities=['echo', 'part'],
         )
+        mni_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w_mni']),
+            moving=ants.image_read(file_),
+            transformlist=[run_data['t1w2mni_xfm'], coreg_transform, fmap_file],
+        )
+        ants.image_write(mni_img, mni_file)
 
+        # Plot scalar map
         scalar_report = get_filename(
             name_source=mni_file,
             layout=layout,
