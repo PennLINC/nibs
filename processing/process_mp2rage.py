@@ -226,7 +226,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             f'Expected 1 transform, got {len(reg_output["fwdtransforms"])}: '
             f'{reg_output["fwdtransforms"]}'
         )
-    fwd_transform = reg_output['fwdtransforms'][0]
+    b1_to_mp2rage_xfm = reg_output['fwdtransforms'][0]
 
     # Write the transform to a file
     fwd_transform_file = get_filename(
@@ -243,7 +243,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         },
         dismiss_entities=['inv', 'part', 'reconstruction'],
     )
-    shutil.copyfile(fwd_transform, fwd_transform_file)
+    shutil.copyfile(b1_to_mp2rage_xfm, fwd_transform_file)
 
     # Write the transform to a file
     inv_transform = reg_output['invtransforms'][0]
@@ -268,7 +268,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     b1map_rescaled_reg = ants.apply_transforms(
         fixed=fixed_img,
         moving=b1map_rescaled_img,
-        transformlist=fwd_transform,
+        transformlist=b1_to_mp2rage_xfm,
         interpolator='gaussian',
     )
     b1map_rescaled_reg_file = get_filename(
@@ -285,7 +285,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     b1_anat_reg = ants.apply_transforms(
         fixed=fixed_img,
         moving=b1_anat_img,
-        transformlist=fwd_transform,
+        transformlist=b1_to_mp2rage_xfm,
         interpolator='gaussian',
     )
     b1_anat_reg_file = get_filename(
@@ -370,7 +370,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mp2rage.t1w_uni_b1_corrected.to_filename(t1w_uni_b1_corrected_file)
 
     # Coregister MP2RAGE-space T1w image to sMRIPrep T1w image
-    coreg_transform = coregister_to_t1(
+    mp2rage_to_smriprep_xfm = coregister_to_t1(
         name_source=name_source,
         layout=layout,
         in_file=t1w_uni_b1_corrected_file,
@@ -380,13 +380,80 @@ def process_run(layout, run_data, out_dir, temp_dir):
         out_dir=out_dir,
     )
 
+    # We only want the coregistration figures for the T1w_uni_b1_corrected file
+    t1w_t1w_uni_b1_corrected_file = get_filename(
+        name_source=t1w_uni_b1_corrected_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w'},
+    )
+    t1w_t1w_uni_b1_corrected_img = ants.apply_transforms(
+        fixed=ants.image_read(run_data['t1w']),
+        moving=ants.image_read(t1w_uni_b1_corrected_file),
+        transformlist=[mp2rage_to_smriprep_xfm],
+        interpolator='lanczosWindowedSinc',
+    )
+    ants.image_write(t1w_t1w_uni_b1_corrected_img, t1w_t1w_uni_b1_corrected_file)
+    plot_coregistration(
+        name_source=t1w_t1w_uni_b1_corrected_file,
+        layout=layout,
+        in_file=t1w_t1w_uni_b1_corrected_file,
+        t1_file=run_data['t1w'],
+        out_dir=out_dir,
+        source_space='MP2RAGE',
+        target_space='T1w',
+        wm_seg=wm_seg_t1w_file,
+    )
+    del t1w_t1w_uni_b1_corrected_img, t1w_t1w_uni_b1_corrected_file
+
+    mni_t1w_uni_b1_corrected_file = get_filename(
+        name_source=t1w_uni_b1_corrected_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MNI152NLin2009cAsym'},
+    )
+    mni_t1w_uni_b1_corrected_img = ants.apply_transforms(
+        fixed=ants.image_read(run_data['t1w_mni']),
+        moving=ants.image_read(t1w_uni_b1_corrected_file),
+        transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm],
+        interpolator='lanczosWindowedSinc',
+    )
+    ants.image_write(mni_t1w_uni_b1_corrected_img, mni_t1w_uni_b1_corrected_file)
+    plot_coregistration(
+        name_source=mni_t1w_uni_b1_corrected_file,
+        layout=layout,
+        in_file=mni_t1w_uni_b1_corrected_file,
+        t1_file=run_data['t1w_mni'],
+        out_dir=out_dir,
+        source_space='MP2RAGE',
+        target_space='MNI152NLin2009cAsym',
+        wm_seg=wm_seg_file,
+    )
+    del mni_t1w_uni_b1_corrected_img, mni_t1w_uni_b1_corrected_file
+
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
-    files = [t1map_file, t1map_b1_corrected_file, t1w_uni_file, t1w_uni_b1_corrected_file]
-    descs = [None, 'B1corrected', None, 'B1corrected']
+    files = [t1map_file, t1map_b1_corrected_file]
+    descs = [None, 'B1corrected']
     for i_file, file_ in enumerate(files):
         desc = descs[i_file]
-        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
+        suffix = 'T1map'
+
+        t1w_file = get_filename(
+            name_source=name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'suffix': suffix, 'desc': desc},
+            dismiss_entities=['inv', 'part', 'reconstruction'],
+        )
+        t1w_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w']),
+            moving=ants.image_read(file_),
+            transformlist=[mp2rage_to_smriprep_xfm],
+            interpolator='lanczosWindowedSinc',
+        )
+        ants.image_write(t1w_img, t1w_file)
+
         mni_file = get_filename(
             name_source=name_source,
             layout=layout,
@@ -397,21 +464,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
         mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
+            transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm],
             interpolator='lanczosWindowedSinc',
         )
         ants.image_write(mni_img, mni_file)
 
-        plot_coregistration(
-            name_source=mni_file,
-            layout=layout,
-            in_file=mni_file,
-            t1_file=run_data['t1w_mni'],
-            out_dir=out_dir,
-            source_space=suffix,
-            target_space='MNI152NLin2009cAsym',
-            wm_seg=wm_seg_file,
-        )
         scalar_desc = 'scalar'
         if desc:
             scalar_desc = f'{desc}{scalar_desc}'
@@ -430,73 +487,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_file=scalar_report,
         )
 
-        t1w_file = get_filename(
-            name_source=name_source,
-            layout=layout,
-            out_dir=out_dir,
-            entities={'space': 'T1w', 'suffix': suffix, 'desc': desc},
-            dismiss_entities=['inv', 'part', 'reconstruction'],
-        )
-        t1w_img = ants.apply_transforms(
-            fixed=ants.image_read(run_data['t1w']),
-            moving=ants.image_read(file_),
-            transformlist=[coreg_transform],
-            interpolator='lanczosWindowedSinc',
-        )
-        ants.image_write(t1w_img, t1w_file)
-
-        plot_coregistration(
-            name_source=t1w_file,
-            layout=layout,
-            in_file=t1w_file,
-            t1_file=run_data['t1w'],
-            out_dir=out_dir,
-            source_space=suffix,
-            target_space='T1w',
-            wm_seg=wm_seg_t1w_file,
-        )
-
     suffixes = ['B1anat', 'TB1map']
     for i_file, file_ in enumerate([run_data['b1_anat'], b1map_rescaled_file]):
         suffix = suffixes[i_file]
-        mni_file = get_filename(
-            name_source=name_source,
-            layout=layout,
-            out_dir=out_dir,
-            entities={'datatype': 'fmap', 'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
-            dismiss_entities=['inv', 'part', 'reconstruction'],
-        )
-        mni_img = ants.apply_transforms(
-            fixed=ants.image_read(run_data['t1w_mni']),
-            moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], coreg_transform, fwd_transform],
-            interpolator='gaussian',
-        )
-        ants.image_write(mni_img, mni_file)
-
-        plot_coregistration(
-            name_source=mni_file,
-            layout=layout,
-            in_file=mni_file,
-            t1_file=run_data['t1w_mni'],
-            out_dir=out_dir,
-            source_space=suffix,
-            target_space='MNI152NLin2009cAsym',
-            wm_seg=wm_seg_file,
-        )
-        scalar_report = get_filename(
-            name_source=mni_file,
-            layout=layout,
-            out_dir=out_dir,
-            entities={'datatype': 'figures', 'space': 'MNI152NLin2009cAsym', 'desc': 'scalar', 'extension': '.svg'},
-        )
-        plot_scalar_map(
-            underlay=run_data['t1w_mni'],
-            overlay=mni_file,
-            mask=run_data['mni_mask'],
-            dseg=run_data['dseg_mni'],
-            out_file=scalar_report,
-        )
 
         t1w_file = get_filename(
             name_source=name_source,
@@ -508,21 +501,67 @@ def process_run(layout, run_data, out_dir, temp_dir):
         t1w_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
-            transformlist=[coreg_transform, fwd_transform],
+            transformlist=[mp2rage_to_smriprep_xfm, b1_to_mp2rage_xfm],
             interpolator='gaussian',
         )
         ants.image_write(t1w_img, t1w_file)
 
-        plot_coregistration(
-            name_source=t1w_file,
+        mni_file = get_filename(
+            name_source=name_source,
             layout=layout,
-            in_file=t1w_file,
-            t1_file=run_data['t1w'],
             out_dir=out_dir,
-            source_space=suffix,
-            target_space='T1w',
-            wm_seg=wm_seg_t1w_file,
+            entities={'datatype': 'fmap', 'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+            dismiss_entities=['inv', 'part', 'reconstruction'],
         )
+        mni_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w_mni']),
+            moving=ants.image_read(file_),
+            transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm, b1_to_mp2rage_xfm],
+            interpolator='gaussian',
+        )
+        ants.image_write(mni_img, mni_file)
+
+        if suffix == 'B1anat':
+            # We only want the coregistration figures for the B1anat file
+            plot_coregistration(
+                name_source=mni_file,
+                layout=layout,
+                in_file=mni_file,
+                t1_file=run_data['t1w_mni'],
+                out_dir=out_dir,
+                source_space=suffix,
+                target_space='MNI152NLin2009cAsym',
+                wm_seg=wm_seg_file,
+            )
+            plot_coregistration(
+                name_source=t1w_file,
+                layout=layout,
+                in_file=t1w_file,
+                t1_file=run_data['t1w'],
+                out_dir=out_dir,
+                source_space=suffix,
+                target_space='T1w',
+                wm_seg=wm_seg_t1w_file,
+            )
+        else:
+            scalar_report = get_filename(
+                name_source=mni_file,
+                layout=layout,
+                out_dir=out_dir,
+                entities={
+                    'datatype': 'figures',
+                    'space': 'MNI152NLin2009cAsym',
+                    'desc': 'scalar',
+                    'extension': '.svg',
+                },
+            )
+            plot_scalar_map(
+                underlay=run_data['t1w_mni'],
+                overlay=mni_file,
+                mask=run_data['mni_mask'],
+                dseg=run_data['dseg_mni'],
+                out_file=scalar_report,
+            )
 
 
 if __name__ == '__main__':

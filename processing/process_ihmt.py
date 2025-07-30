@@ -89,6 +89,17 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'T1map',
             'extension': ['.nii', '.nii.gz'],
         },
+        # sMRIPrep T1w image
+        't1w': {
+            'datatype': 'anat',
+            'session': Query.NONE,
+            'run': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
+            'res': Query.NONE,
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
+        },
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
@@ -230,12 +241,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
         temp_dir=temp_dir,
     )
 
-    # Coregister ihMTRAGE reference image to T1map (in sMRIPrep's T1w space)
-    coreg_transform = coregister_to_t1(
+    # Coregister ihMTRAGE reference image to sMRIPrep T1w image
+    ihmtrage_to_smriprep_xfm = coregister_to_t1(
         name_source=run_data['m0'],
         layout=layout,
         in_file=ihmt_template,
-        t1_file=run_data['t1map'],
+        t1_file=run_data['t1w'],
         out_dir=out_dir,
         source_space='ihMTRAGEref',
         target_space='T1w',
@@ -249,9 +260,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
         hmc_transform = hmc_transforms[i_file]
         ihmt_img = ants.image_read(ihmt_file)
         ihmt_img_t1space = ants.apply_transforms(
-            fixed=ants.image_read(run_data['t1map']),
+            fixed=ants.image_read(run_data['t1w']),
             moving=ihmt_img,
-            transformlist=[coreg_transform, hmc_transform],
+            transformlist=[ihmtrage_to_smriprep_xfm, hmc_transform],
             interpolator='lanczosWindowedSinc',
         )
         ihmt_file_t1space = get_filename(
@@ -262,17 +273,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(ihmt_img_t1space, ihmt_file_t1space)
         ihmt_files_t1space.append(ihmt_file_t1space)
-
-        plot_coregistration(
-            name_source=ihmt_file_t1space,
-            layout=layout,
-            in_file=ihmt_file_t1space,
-            t1_file=run_data['t1map'],
-            out_dir=out_dir,
-            source_space='ihMTRAGEref',
-            target_space='T1w',
-            wm_seg=wm_seg_t1w_file,
-        )
 
     # Calculate ihMTw
     ihmtw_img = image.math_img(
@@ -409,17 +409,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(reg_img, out_file)
 
-        plot_coregistration(
-            name_source=out_file,
-            layout=layout,
-            in_file=out_file,
-            t1_file=run_data['t1w_mni'],
-            out_dir=out_dir,
-            source_space=suffix,
-            target_space='MNI152NLin2009cAsym',
-            wm_seg=wm_seg_file,
-        )
-
         scalar_report = get_filename(
             name_source=out_file,
             layout=layout,
@@ -433,6 +422,28 @@ def process_run(layout, run_data, out_dir, temp_dir):
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
         )
+
+        if suffix == 'ihMTw':
+            plot_coregistration(
+                name_source=file_,
+                layout=layout,
+                in_file=file_,
+                t1_file=run_data['t1w'],
+                out_dir=out_dir,
+                source_space='ihMTRAGEref',
+                target_space='T1w',
+                wm_seg=wm_seg_t1w_file,
+            )
+            plot_coregistration(
+                name_source=out_file,
+                layout=layout,
+                in_file=out_file,
+                t1_file=run_data['t1w'],
+                out_dir=out_dir,
+                source_space='ihMTRAGEref',
+                target_space='MNI152NLin2009cAsym',
+                wm_seg=wm_seg_file,
+            )
 
 
 def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_dir, temp_dir):

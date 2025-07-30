@@ -1,14 +1,23 @@
 package: MP2RAGE Derivatives
 sections:
-- name: Processing Summary
-  ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo
+- name: Motion Correction
+  ordering: session,task,ceagent,reconstruction,direction,run,echo
   reportlets:
-  - bids: {datatype: figures, space: T1w, desc: coreg, suffix: .*, regex_search: True}
-    subtitle: Alignment to sMRIPrep T1w space
+  - bids: {datatype: figures, space: ihMTRAGEref, desc: coreg, suffix: ihMTRAGE, regex_search: True}
+    subtitle: Alignment to ihMTRAGEref space
     static: false
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: coreg, suffix: .*, regex_search: True}
+- name: Coregistration
+  ordering: session,task,ceagent,reconstruction,direction,run,echo
+  reportlets:
+  - bids: {datatype: figures, space: T1w, desc: coreg, suffix: ihMTRAGEref}
+    subtitle: Alignment to T1w space
+    static: false
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: coreg, suffix: ihMTRAGEref}
     subtitle: Alignment to MNI152NLin2009cAsym space
     static: false
+- name: Myelin Derivatives
+  ordering: session,task,ceagent,reconstruction,direction,run,echo
+  reportlets:
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: scalar, suffix: .*, regex_search: True}
-    subtitle: Scalar map in MNI152NLin2009cAsym space
+    subtitle: Scalar map of myelin data in MNI152NLin2009cAsym space
     static: true

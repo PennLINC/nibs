@@ -28,6 +28,7 @@ Notes:
 
 import json
 import os
+import shutil
 from pprint import pprint
 
 import ants
@@ -46,6 +47,7 @@ from utils import (
 
 os.environ['SUBJECTS_DIR'] = '/cbica/projects/nibs/derivatives/smriprep/sourcedata/freesurfer'
 os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
+CODE_DIR = '/cbica/projects/nibs/code'
 
 
 def collect_run_data(layout, bids_filters):
@@ -203,120 +205,37 @@ def process_run(layout, run_data, out_dir, temp_dir):
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
     # Coregister echoes 2-4 of AP MESE data to echo 1
-    mese_ap_echo1 = run_data['mese_mag_ap'][0]
-    mese_space_ap_files = [mese_ap_echo1]
-    hmc_transforms = []
-    for echo_file in run_data['mese_mag_ap'][1:]:
-        echo = layout.get_file(echo_file).entities['echo']
-        echo_meseref_filename = get_filename(
-            name_source=echo_file,
-            layout=layout,
-            out_dir=out_dir,
-            entities={'space': 'MESE', 'suffix': 'MESE'},
-            dismiss_entities=['part'],
-        )
-        echo_hmc_transform = coregister_to_t1(
-            name_source=echo_file,
-            layout=layout,
-            in_file=echo_file,
-            t1_file=mese_ap_echo1,
-            source_space=f'Echo-{echo}',
-            target_space='Echo-1',
-            out_dir=out_dir,
-        )
-        echo_hmc_img = ants.apply_transforms(
-            fixed=ants.image_read(mese_ap_echo1),
-            moving=ants.image_read(echo_file),
-            transformlist=[echo_hmc_transform],
-        )
-        echo_hmc_img.to_filename(echo_meseref_filename)
-        mese_space_ap_files.append(echo_meseref_filename)
-        hmc_transforms.append(echo_hmc_transform)
-
-    # Calculate T2 map from AP MESE data
-    t2_img, r2_img, s0_img, r_squared_img = fit_monoexponential(
-        in_files=mese_space_ap_files,
-        echo_times=echo_times,
-    )
-    t2_filename = get_filename(
-        name_source=name_source,
+    hmced_files, brain_mask = iterative_motion_correction(
+        name_sources=run_data['mese_mag_ap'],
         layout=layout,
+        in_files=run_data['mese_mag_ap'],
         out_dir=out_dir,
-        entities={
-            'datatype': 'anat',
-            'space': 'MESE',
-            'suffix': 'T2map',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
+        temp_dir=temp_dir,
     )
-    t2_img.to_filename(t2_filename)
-
-    r2_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'anat',
-            'space': 'MESE',
-            'suffix': 'R2map',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    r2_img.to_filename(r2_filename)
-
-    s0_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'anat',
-            'space': 'MESE',
-            'suffix': 'S0map',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    s0_img.to_filename(s0_filename)
-
-    r_squared_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'anat',
-            'space': 'MESE',
-            'desc': 'monoexp',
-            'suffix': 'Rsquaredmap',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    r_squared_img.to_filename(r_squared_filename)
 
     # Coregister preprocessed T1w to MESEref space
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
-    coreg_rv_transform = coregister_to_t1(
+    smriprep_to_mese_xfm = coregister_to_t1(
         name_source=name_source,
         layout=layout,
         in_file=run_data['t1w'],
         t1_file=mese_mag_ap_echo1,
         source_space='T1w',
-        target_space='MESE',
+        target_space='MESEref',
         out_dir=out_dir,
     )
     mese_t1w_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MESE', 'suffix': 'T1w'},
-        dismiss_entities=['echo', 'part'],
+        entities={'space': 'MESEref', 'suffix': 'T1w'},
+        dismiss_entities=['echo'],
     )
     mese_t1w_img = ants.apply_transforms(
         fixed=ants.image_read(mese_mag_ap_echo1),
         moving=ants.image_read(run_data['t1w']),
-        transformlist=[coreg_rv_transform],
+        transformlist=[smriprep_to_mese_xfm],
+        interpolator='lanczosWindowedSinc',
     )
     ants.image_write(mese_t1w_img, mese_t1w_file)
 
@@ -324,64 +243,62 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MESE', 'suffix': 'mask'},
-        dismiss_entities=['echo', 'part'],
+        entities={'space': 'MESEref', 'suffix': 'mask'},
+        dismiss_entities=['echo'],
     )
     mese_t1w_mask_img = ants.apply_transforms(
         fixed=ants.image_read(mese_mag_ap_echo1),
         moving=ants.image_read(run_data['t1w_mask']),
-        transformlist=[coreg_rv_transform],
+        transformlist=[smriprep_to_mese_xfm],
+        interpolator='nearestNeighbor',
     )
     ants.image_write(mese_t1w_mask_img, mese_t1w_mask_file)
 
     # Calculate distortion map from AP and PA echo-1 data
     fieldmap_wf = init_fieldmap_wf(name='fieldmap_wf')
     fieldmap_wf.inputs.inputnode.epi_ref = (mese_mag_ap_echo1, mese_ap_metadata[0])
-    fieldmap_wf.inputs.inputnode.epi_mask = None
+    fieldmap_wf.inputs.inputnode.epi_mask = brain_mask
     fieldmap_wf.inputs.inputnode.anat_ref = mese_t1w_file
     fieldmap_wf.inputs.inputnode.anat_mask = mese_t1w_mask_file
     basename = os.path.basename(mese_mag_ap_echo1).split('.')[0]
     fieldmap_wf.base_dir = os.path.join(temp_dir, basename)
     wf_res = fieldmap_wf.run()
     nodes = get_nodes(wf_res)
-    fmap_file = nodes['fieldmap_wf.outputnode'].get_output('fmap')
+    fmap_xfm = nodes['fieldmap_wf.outputnode'].get_output('fmap')
 
     mese_mag_ap_echo1_sdc = ants.apply_transforms(
         fixed=ants.image_read(mese_mag_ap_echo1),
         moving=ants.image_read(mese_mag_ap_echo1),
-        transformlist=[fmap_file],
+        transformlist=[fmap_xfm],
     )
     mese_mag_ap_echo1_sdc_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MESE', 'desc': 'SDC', 'suffix': 'MESE'},
-        dismiss_entities=['part'],
+        entities={'space': 'MESEref', 'desc': 'SDC', 'suffix': 'MESE'},
     )
     ants.image_write(mese_mag_ap_echo1_sdc, mese_mag_ap_echo1_sdc_file)
 
     # Coregister AP echo-1 data to preprocessed T1w
-    coreg_transform = coregister_to_t1(
+    mese_to_smriprep_xfm = coregister_to_t1(
         name_source=name_source,
         layout=layout,
         in_file=mese_mag_ap_echo1_sdc_file,
         t1_file=run_data['t1w'],
-        source_space='MESE',
+        source_space='MESEref',
         target_space='T1w',
         out_dir=out_dir,
     )
-
     mese_mag_ap_echo1_t1_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'MESE'},
-        dismiss_entities=['part'],
     )
     mese_mag_ap_echo1_t1_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(mese_mag_ap_echo1),
-        transformlist=[coreg_transform, fmap_file],
+        transformlist=[mese_to_smriprep_xfm, fmap_xfm],
         interpolator='lanczosWindowedSinc',
     )
     ants.image_write(mese_mag_ap_echo1_t1_img, mese_mag_ap_echo1_t1_file)
@@ -391,7 +308,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         in_file=mese_mag_ap_echo1_t1_file,
         t1_file=run_data['t1w'],
         out_dir=out_dir,
-        source_space='MESE',
+        source_space='MESEref',
         target_space='T1w',
         wm_seg=wm_seg_t1w_file,
     )
@@ -401,12 +318,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MNI152NLin2009cAsym', 'suffix': 'MESE'},
-        dismiss_entities=['part'],
     )
     mese_mag_ap_echo1_mni_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(mese_mag_ap_echo1_t1_img),
-        transformlist=[run_data['t1w2mni_xfm'], coreg_transform, fmap_file],
+        transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_xfm, fmap_xfm],
         interpolator='lanczosWindowedSinc',
     )
     ants.image_write(mese_mag_ap_echo1_mni_img, mese_mag_ap_echo1_mni_file)
@@ -416,45 +332,62 @@ def process_run(layout, run_data, out_dir, temp_dir):
         in_file=mese_mag_ap_echo1_mni_file,
         t1_file=run_data['t1w_mni'],
         out_dir=out_dir,
-        source_space='MESE',
+        source_space='MESEref',
         target_space='MNI152NLin2009cAsym',
         wm_seg=wm_seg_file,
+    )
+
+    # Calculate T2 map from AP MESE data
+    t2_img, r2_img, s0_img, r_squared_img = fit_monoexponential(
+        in_files=hmced_files,
+        echo_times=echo_times,
     )
 
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     image_types = ['T2map', 'R2map', 'S0map', 'Rsquaredmap']
-    images = [t2_filename, r2_filename, s0_filename, r_squared_filename]
-    for i_file, file_ in enumerate(images):
-        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
-
-        # Warp to T1w space
-        t1w_file = get_filename(
+    images = [t2_img, r2_img, s0_img, r_squared_img]
+    for i_file, img in enumerate(images):
+        suffix = image_types[i_file]
+        file_ = get_filename(
             name_source=name_source,
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'T1w', 'suffix': suffix},
-            dismiss_entities=['echo', 'part'],
+            entities={
+                'datatype': 'anat',
+                'space': 'MESEref',
+                'suffix': suffix,
+                'extension': '.nii.gz',
+            },
+            dismiss_entities=['echo'],
+        )
+        img.to_filename(file_)
+
+        # Warp to T1w space
+        t1w_file = get_filename(
+            name_source=file_,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w'},
         )
         t1w_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
-            transformlist=[coreg_transform, fmap_file],
+            transformlist=[mese_to_smriprep_xfm, fmap_xfm],
         )
         ants.image_write(t1w_img, t1w_file)
 
         # Warp to MNI152NLin2009cAsym space
         mni_file = get_filename(
-            name_source=name_source,
+            name_source=file_,
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
-            dismiss_entities=['echo', 'part'],
+            entities={'space': 'MNI152NLin2009cAsym'},
         )
         mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], coreg_transform, fmap_file],
+            transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_xfm, fmap_xfm],
         )
         ants.image_write(mni_img, mni_file)
 
@@ -482,6 +415,140 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_file=scalar_report,
             **kwargs,
         )
+
+
+def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_dir):
+    """Apply iterative motion correction to a list of images.
+
+    This method is based on the method described in https://doi.org/10.1101/2020.09.11.292649.
+
+    Parameters
+    ----------
+    name_sources : list of str
+        List of names of the source files to use for output file names.
+    layout : BIDSLayout
+        BIDSLayout object.
+    in_files : list of str
+        List of input image files.
+    out_dir : str
+        Directory to write output files.
+    temp_dir : str
+        Directory to write temporary files.
+
+    Returns
+    -------
+    hmced_files : list of str
+        List of paths to the motion-corrected images.
+    brain_mask : str
+        Path to the brain mask.
+    """
+    import antspynet
+
+    # Step 1: Apply N4 bias field correction and skull-stripping to each image.
+    brain_n4_files = []
+    for i_file, in_file in enumerate(in_files):
+        in_img = ants.image_read(in_file)
+        # Bias field correction
+        n4_img = ants.n4_bias_field_correction(in_img)
+
+        # Skull-stripping
+        dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t2')
+        dseg_img = dseg_img['segmentation_image']
+        mask_img = ants.threshold_image(
+            dseg_img,
+            low_thresh=1,
+            high_thresh=1,
+            inval=1,
+            outval=0,
+            binary=True,
+        )
+        if i_file == 0:
+            brain_mask = get_filename(
+                name_source=in_file,
+                layout=layout,
+                out_dir=out_dir,
+                entities={'space': 'MESEref', 'desc': 'brain', 'suffix': 'mask'},
+                dismiss_entities=['echo'],
+            )
+            ants.image_write(mask_img, brain_mask)
+
+        n4_img_masked = n4_img * mask_img
+        name_base = os.path.basename(name_sources[i_file])
+        brain_n4_file = os.path.join(temp_dir, f'brain_n4_{i_file}_{name_base}')
+        ants.image_write(n4_img_masked, brain_n4_file)
+        brain_n4_files.append(brain_n4_file)
+
+    # Step 2: Register each image to the first image.
+    transforms = []
+    for i_file, brain_n4_file in enumerate(brain_n4_files):
+        in_file = in_files[i_file]
+        if i_file == 0:
+            template_img = ants.image_read(brain_n4_file)
+            transform = os.path.join(CODE_DIR, 'processing', 'itkIdentityTransform.txt')
+        else:
+            reg = ants.registration(
+                fixed=template_img,
+                moving=ants.image_read(brain_n4_file),
+                type_of_transform='Rigid',
+            )
+            transform = reg['fwdtransforms'][0]
+
+        # Step 2a: Write out individual transforms to ihMTRAGEref space.
+        transform_file = get_filename(
+            name_source=name_sources[i_file],
+            layout=layout,
+            out_dir=out_dir,
+            entities={
+                'from': 'MESE',
+                'to': 'MESEref',
+                'mode': 'image',
+                'suffix': 'xfm',
+                'extension': 'txt' if transform.endswith('.txt') else 'mat',
+            },
+        )
+        shutil.copyfile(transform, transform_file)
+        transforms.append(transform_file)
+
+    # Step 3: Write out template image as MESEref.nii.gz
+    template_file = get_filename(
+        name_source=name_sources[0],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'suffix': 'MESEref'},
+        dismiss_entities=['echo', 'direction'],
+    )
+    ants.image_write(template_img, template_file)
+
+    # Step 5: Apply transforms to original images.
+    hmced_files = [in_files[0]]
+    for i_file, in_file in enumerate(in_files[1:]):
+        transform_file = transforms[i_file]
+        out_file = get_filename(
+            name_source=name_sources[i_file],
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MESEref'},
+        )
+        out_img = ants.apply_transforms(
+            fixed=ants.image_read(template_file),
+            moving=ants.image_read(in_file),
+            transformlist=[transform_file],
+            interpolator='lanczosWindowedSinc',
+        )
+        ants.image_write(out_img, out_file)
+
+        plot_coregistration(
+            name_source=out_file,
+            layout=layout,
+            in_file=out_file,
+            t1_file=template_file,
+            out_dir=out_dir,
+            source_space='MESE',
+            target_space='MESEref',
+        )
+        hmced_files.append(out_file)
+
+    return hmced_files, brain_mask
 
 
 def init_fieldmap_wf(name='fieldmap_wf'):

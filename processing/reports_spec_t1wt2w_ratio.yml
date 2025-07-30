@@ -1,7 +1,7 @@
 package: T1w/T2w Ratio Derivatives
 sections:
-- name: Coregistration
-  ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo,suffix
+- name: Processing Summary
+  ordering: session,task,acquisition,ceagent,direction,run,echo,suffix
   reportlets:
   - bids: {datatype: figures, space: T1w, desc: coreg, suffix: [T1w, T2w]}
     subtitle: Alignment of data to sMRIPrep T1w space
@@ -9,9 +9,12 @@ sections:
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: coreg, suffix: [T1w, T2w]}
     subtitle: Alignment of data to MNI152NLin2009cAsym space
     static: false
-- name: Processing Summary
-  ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo,suffix
+- name: Myelin Derivatives
+  ordering: session,task,acquisition,ceagent,direction,run,echo,suffix
   reportlets:
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [MPRAGEscalar, SPACEscalar], suffix: myelinw}
-    subtitle: Scalar map of T1w/T2w ratio data in MNI152NLin2009cAsym space
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: SPACEscalar, suffix: myelinw}
+    subtitle: Scalar map of SPACE T1w/SPACE T2w ratio data in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: MPRAGEscalar, suffix: myelinw}
+    subtitle: Scalar map of MPRAGE T1w/SPACE T2w ratio data in MNI152NLin2009cAsym space
     static: true
