@@ -46,6 +46,7 @@ from utils import (
 )
 
 os.environ['SUBJECTS_DIR'] = '/cbica/projects/nibs/derivatives/smriprep/sourcedata/freesurfer'
+os.environ['FS_LICENSE'] = '/cbica/projects/nibs/tokens/freesurfer_license.txt'
 os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
 CODE_DIR = '/cbica/projects/nibs/code'
 
