@@ -487,6 +487,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
                 out_dir=out_dir,
                 source_space='MESE',
                 target_space='MESEref',
+                wm_seg=brain_mask,
             )
             continue
 
@@ -513,6 +514,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             out_dir=out_dir,
             source_space='MESE',
             target_space='MESEref',
+            wm_seg=brain_mask,
         )
         hmced_files.append(out_file)
 
