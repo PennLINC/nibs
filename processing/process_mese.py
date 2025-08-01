@@ -215,17 +215,17 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
     mese_mag_ap_echo1_img = ants.image_read(mese_mag_ap_echo1)
     mask_img = ants.image_read(brain_mask)
-    mese_mag_ap_echo1_masked_img = mese_mag_ap_echo1_img * mask_img
 
     t1w_img = ants.image_read(run_data['t1w'])
     t1w_mask_img = ants.image_read(run_data['t1w_mask'])
-    t1w_masked_img = t1w_img * t1w_mask_img
 
     # Coregister AP echo-1 data to preprocessed T1w
-    registered_img = ants.registration(
-        fixed=t1w_masked_img,
-        moving=mese_mag_ap_echo1_masked_img,
+    reg_dict = ants.registration(
+        fixed=t1w_img,
+        moving=mese_mag_ap_echo1_img,
         type_of_transform='SyN',
+        mask=t1w_mask_img,
+        moving_mask=mask_img,
     )
     mese_to_smriprep_warp_xfm = get_filename(
         name_source=name_source,
@@ -240,7 +240,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         },
         dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
     )
-    shutil.copyfile(registered_img['fwdtransforms'][0], mese_to_smriprep_warp_xfm)
+    shutil.copyfile(reg_dict['fwdtransforms'][0], mese_to_smriprep_warp_xfm)
     mese_to_smriprep_affine_xfm = get_filename(
         name_source=name_source,
         layout=layout,
@@ -254,7 +254,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         },
         dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
     )
-    shutil.copyfile(registered_img['fwdtransforms'][1], mese_to_smriprep_affine_xfm)
+    shutil.copyfile(reg_dict['fwdtransforms'][1], mese_to_smriprep_affine_xfm)
     mese_mag_ap_echo1_t1_file = get_filename(
         name_source=name_source,
         layout=layout,
@@ -386,8 +386,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
 def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_dir):
     """Apply iterative motion correction to a list of images.
 
-    This method is based on the method described in https://doi.org/10.1101/2020.09.11.292649.
-
     Parameters
     ----------
     name_sources : list of str
@@ -423,7 +421,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     )
     run_command(cmd)
 
-    # Step 1: Apply N4 bias field correction and skull-stripping to each image.
+    # Step 2: Skull-strip each image.
     skullstripped_files = [skullstripped_file]
     for i_file, in_file in enumerate(in_files):
         if i_file == 0:
@@ -436,7 +434,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         run_command(cmd)
         skullstripped_files.append(skullstripped_file)
 
-    # Step 2: Register each image to the first image.
+    # Step 3: Register each image to the first image.
     transforms = []
     for i_file, skullstripped_file in enumerate(skullstripped_files):
         in_file = in_files[i_file]
@@ -451,7 +449,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             )
             transform = reg['fwdtransforms'][0]
 
-        # Step 2a: Write out individual transforms to ihMTRAGEref space.
+        # Step 3a: Write out individual transforms to MESEref space.
         transform_file = get_filename(
             name_source=name_sources[i_file],
             layout=layout,
@@ -467,7 +465,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         shutil.copyfile(transform, transform_file)
         transforms.append(transform_file)
 
-    # Step 3: Write out template image as MESEref.nii.gz
+    # Step 4: Write out first image as MESEref.nii.gz
     ref_file = get_filename(
         name_source=name_sources[0],
         layout=layout,
