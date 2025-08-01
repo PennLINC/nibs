@@ -48,7 +48,7 @@ def collect_run_data(layout, bids_filters):
         # T1w-space T1w image from sMRIPrep
         't1w': {
             'datatype': 'anat',
-            'session': Query.NONE,
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
@@ -59,7 +59,7 @@ def collect_run_data(layout, bids_filters):
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
-            'session': Query.NONE,
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
@@ -79,7 +79,7 @@ def collect_run_data(layout, bids_filters):
         # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
             'datatype': 'anat',
-            'session': Query.NONE,
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
@@ -90,7 +90,7 @@ def collect_run_data(layout, bids_filters):
         # Normalization transform from sMRIPrep
         'mni2t1w_xfm': {
             'datatype': 'anat',
-            'session': Query.NONE,
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'from': 'MNI152NLin2009cAsym',
             'to': 'T1w',
@@ -101,7 +101,7 @@ def collect_run_data(layout, bids_filters):
         # MNI-space dseg from sMRIPrep
         'dseg_mni': {
             'datatype': 'anat',
-            'session': Query.NONE,
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
@@ -110,7 +110,7 @@ def collect_run_data(layout, bids_filters):
         # sMRIPrep MNI-space brain mask
         'mni_mask': {
             'datatype': 'anat',
-            'session': Query.NONE,
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',

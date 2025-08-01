@@ -77,24 +77,6 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'myelinw',
             'extension': ['.nii', '.nii.gz'],
         },
-        # T1w-space T1w image from sMRIPrep
-        't1w': {
-            'datatype': 'anat',
-            'run': [Query.NONE, Query.ANY],
-            'space': Query.NONE,
-            'desc': 'preproc',
-            'suffix': 'T1w',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        # MNI-space T1w image from sMRIPrep
-        't1w_mni': {
-            'datatype': 'anat',
-            'run': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
-            'desc': 'preproc',
-            'suffix': 'T1w',
-            'extension': ['.nii', '.nii.gz'],
-        },
         # Coregistration transform from process_qsm_prep.py
         'megre2t1w_xfm': {
             'datatype': 'anat',
@@ -105,9 +87,30 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'xfm',
             'extension': '.mat',
         },
+        # T1w-space T1w image from sMRIPrep
+        't1w': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # MNI-space T1w image from sMRIPrep
+        't1w_mni': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MNI152NLin2009cAsym',
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
+        },
         # Normalization transform from sMRIPrep
         't1w2mni_xfm': {
             'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
@@ -118,6 +121,7 @@ def collect_run_data(layout, bids_filters):
         # MNI-space dseg from sMRIPrep
         'dseg_mni': {
             'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
@@ -126,6 +130,7 @@ def collect_run_data(layout, bids_filters):
         # sMRIPrep MNI-space brain mask
         'mni_mask': {
             'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',
@@ -273,8 +278,6 @@ if __name__ == '__main__':
         derivatives=[smriprep_dir, mese_dir, out_dir],
     )
     subjects = layout.get_subjects(suffix='MEGRE')
-    # PILOT02 has MEGRE but not MESE, so we skip it.
-    subjects = ['PILOT03', 'PILOT04']
     for subject in subjects:
         print(f'Processing subject {subject}')
         sessions = layout.get_sessions(subject=subject, suffix='MEGRE')
@@ -294,7 +297,12 @@ if __name__ == '__main__':
                 entities.pop('echo')
                 entities.pop('part')
                 entities.pop('acquisition')
-                run_data = collect_run_data(layout, entities)
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {megre_file}')
+                    print(e)
+                    continue
                 run_temp_dir = os.path.join(temp_dir, os.path.basename(megre_file.path).split('.')[0])
                 os.makedirs(run_temp_dir, exist_ok=True)
                 process_run(layout, run_data, out_dir, run_temp_dir)
