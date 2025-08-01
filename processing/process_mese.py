@@ -241,6 +241,7 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
             source_file=mese_mag_ap_echo1,
             contrast_type='t2',
             subject_id=subject_id,
+            init='coreg',
             out_reg_file=mese_to_smriprep_xfm,
             registered_file=mese_mag_ap_echo1_t1_file,
         )
