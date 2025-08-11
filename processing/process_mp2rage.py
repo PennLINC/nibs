@@ -23,6 +23,7 @@ Notes:
 - This must be run after sMRIPrep.
 """
 
+import argparse
 import json
 import os
 import shutil
@@ -563,8 +564,24 @@ def process_run(layout, run_data, out_dir, temp_dir):
                 out_file=scalar_report,
             )
 
+def _get_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--subject-id',
+        type=lambda label: label.removeprefix('sub-'),
+        required=True,
+    )
+    return parser
 
-if __name__ == '__main__':
+
+def _main(argv=None):
+    """Run the process_mese workflow."""
+    options = _get_parser().parse_args(argv)
+    kwargs = vars(options)
+    main(**kwargs)
+
+
+def main(subject_id):
     code_dir = '/cbica/projects/nibs/code'
     in_dir = '/cbica/projects/nibs/dset'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
@@ -576,71 +593,77 @@ if __name__ == '__main__':
     bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_mp2rage.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
-    dataset_description = {
-        'Name': 'NIBS MP2RAGE Derivatives',
-        'BIDSVersion': '1.10.0',
-        'DatasetType': 'derivative',
-        'DatasetLinks': {
-            'raw': in_dir,
-            'smriprep': smriprep_dir,
-        },
-        'GeneratedBy': [
-            {
-                'Name': 'Custom code',
-                'Description': 'Custom Python code combining ANTsPy and pymp2rage.',
-                'CodeURL': 'https://github.com/PennLINC/nibs',
-            }
-        ],
-    }
-    with open(os.path.join(out_dir, 'dataset_description.json'), 'w') as f:
-        json.dump(dataset_description, f, sort_keys=True, indent=4)
-
     layout = BIDSLayout(
         in_dir,
         config=os.path.join(code_dir, 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir],
     )
-    subjects = layout.get_subjects(suffix='MP2RAGE')
-    for subject in subjects:
-        print(f'Processing subject {subject}')
-        sessions = layout.get_sessions(subject=subject, suffix='MP2RAGE')
-        for session in sessions:
-            print(f'Processing session {session}')
-            inv1_magnitude_files = layout.get(
-                subject=subject,
-                session=session,
-                inv=1,
-                part=['mag', Query.NONE],
-                suffix='MP2RAGE',
-                extension=['.nii', '.nii.gz'],
-            )
-            for inv1_magnitude_file in inv1_magnitude_files:
-                entities = inv1_magnitude_file.get_entities()
-                entities.pop('inv')
-                if 'part' in entities:
-                    entities.pop('part')
 
-                try:
-                    run_data = collect_run_data(layout, entities)
-                except ValueError as e:
-                    print(f'Failed {inv1_magnitude_file}')
-                    print(e)
-                    continue
-                process_run(layout, run_data, out_dir, temp_dir)
+    print(f'Processing subject {subject_id}')
+    sessions = layout.get_sessions(subject=subject_id, suffix='MP2RAGE')
+    for session in sessions:
+        print(f'Processing session {session}')
+        inv1_magnitude_files = layout.get(
+            subject=subject_id,
+            session=session,
+            inv=1,
+            part=['mag', Query.NONE],
+            suffix='MP2RAGE',
+            extension=['.nii', '.nii.gz'],
+        )
+        for inv1_magnitude_file in inv1_magnitude_files:
+            entities = inv1_magnitude_file.get_entities()
+            entities.pop('inv')
+            if 'part' in entities:
+                entities.pop('part')
 
-            report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
-            robj = Report(
-                report_dir,
-                run_uuid=None,
-                bootstrap_file=bootstrap_file,
-                out_filename=f'sub-{subject}_ses-{session}.html',
-                reportlets_dir=out_dir,
-                plugins=None,
-                plugin_meta=None,
-                subject=subject,
-                session=session,
-            )
-            robj.generate_report()
+            try:
+                run_data = collect_run_data(layout, entities)
+            except ValueError as e:
+                print(f'Failed {inv1_magnitude_file}')
+                print(e)
+                continue
+            process_run(layout, run_data, out_dir, temp_dir)
+
+        report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
+        robj = Report(
+            report_dir,
+            run_uuid=None,
+            bootstrap_file=bootstrap_file,
+            out_filename=f'sub-{subject_id}_ses-{session}.html',
+            reportlets_dir=out_dir,
+            plugins=None,
+            plugin_meta=None,
+            subject=subject_id,
+            session=session,
+        )
+        robj.generate_report()
+
+    # Write out dataset_description.json
+    dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
+    if not os.path.isfile(dataset_description_file):
+        dataset_description = {
+            'Name': 'NIBS MP2RAGE Derivatives',
+            'BIDSVersion': '1.10.0',
+            'DatasetType': 'derivative',
+            'DatasetLinks': {
+                'raw': in_dir,
+                'smriprep': smriprep_dir,
+            },
+            'GeneratedBy': [
+                {
+                    'Name': 'Custom code',
+                    'Description': 'Custom Python code combining ANTsPy and pymp2rage.',
+                    'CodeURL': 'https://github.com/PennLINC/nibs',
+                }
+            ],
+        }
+        with open(dataset_description_file, 'w') as fobj:
+            json.dump(dataset_description, fobj, sort_keys=True, indent=4)
 
     print('DONE!')
+
+
+if __name__ == '__main__':
+    _main()

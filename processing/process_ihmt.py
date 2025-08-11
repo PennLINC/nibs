@@ -17,6 +17,7 @@ Notes:
 - This must be run after sMRIPrep and process_mp2rage.py.
 """
 
+import argparse
 import json
 import os
 import shutil
@@ -575,8 +576,24 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     return template_file, transforms
 
 
-if __name__ == '__main__':
-    code_dir = '/cbica/projects/nibs/code'
+def _get_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--subject-id',
+        type=lambda label: label.removeprefix('sub-'),
+        required=True,
+    )
+    return parser
+
+
+def _main(argv=None):
+    """Run the process_mese workflow."""
+    options = _get_parser().parse_args(argv)
+    kwargs = vars(options)
+    main(**kwargs)
+
+
+def main(subject_id):
     in_dir = '/cbica/projects/nibs/dset'
     mp2rage_dir = '/cbica/projects/nibs/derivatives/pymp2rage'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
@@ -585,28 +602,8 @@ if __name__ == '__main__':
     temp_dir = '/cbica/projects/nibs/work/ihmt'
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_ihmt.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_ihmt.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
-
-    dataset_description = {
-        'Name': 'NIBS',
-        'BIDSVersion': '1.10.0',
-        'DatasetType': 'derivative',
-        'DatasetLinks': {
-            'raw': in_dir,
-            'mp2rage': mp2rage_dir,
-            'smriprep': smriprep_dir,
-        },
-        'GeneratedBy': [
-            {
-                'Name': 'Custom code',
-                'Description': 'Custom Python code to calculate ihMTw and MTR.',
-                'CodeURL': 'https://github.com/PennLINC/nibs',
-            }
-        ],
-    }
-    with open(os.path.join(out_dir, 'dataset_description.json'), 'w') as f:
-        json.dump(dataset_description, f, sort_keys=True, indent=4)
 
     layout = BIDSLayout(
         in_dir,
@@ -614,44 +611,72 @@ if __name__ == '__main__':
         validate=False,
         derivatives=[mp2rage_dir, smriprep_dir],
     )
-    subjects = layout.get_subjects(suffix='ihMTRAGE')
-    for subject in subjects:
-        print(f'Processing subject {subject}')
-        sessions = layout.get_sessions(subject=subject, suffix='ihMTRAGE')
-        for session in sessions:
-            print(f'Processing session {session}')
-            m0_files = layout.get(
-                subject=subject,
-                session=session,
-                acquisition='nosat',
-                mt='off',
-                suffix='ihMTRAGE',
-                extension=['.nii', '.nii.gz'],
-            )
-            for m0_file in m0_files:
-                entities = m0_file.get_entities()
-                entities.pop('acquisition')
-                entities.pop('mt')
-                try:
-                    run_data = collect_run_data(layout, entities)
-                except ValueError as e:
-                    print(f'Failed {m0_file}')
-                    print(e)
-                    continue
-                process_run(layout, run_data, out_dir, temp_dir)
 
-            report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
-            robj = Report(
-                report_dir,
-                run_uuid=None,
-                bootstrap_file=bootstrap_file,
-                out_filename=f'sub-{subject}_ses-{session}.html',
-                reportlets_dir=out_dir,
-                plugins=None,
-                plugin_meta=None,
-                subject=subject,
-                session=session,
-            )
-            robj.generate_report()
+    print(f'Processing subject {subject_id}')
+    sessions = layout.get_sessions(subject=subject_id, suffix='ihMTRAGE')
+    for session in sessions:
+        print(f'Processing session {session}')
+        m0_files = layout.get(
+            subject=subject_id,
+            session=session,
+            acquisition='nosat',
+            mt='off',
+            suffix='ihMTRAGE',
+            extension=['.nii', '.nii.gz'],
+        )
+        for m0_file in m0_files:
+            entities = m0_file.get_entities()
+            entities.pop('acquisition')
+            entities.pop('mt')
+            try:
+                run_data = collect_run_data(layout, entities)
+            except ValueError as e:
+                print(f'Failed {m0_file}')
+                print(e)
+                continue
+            run_temp_dir = os.path.join(temp_dir, os.path.basename(m0_file.path).split('.')[0])
+            os.makedirs(run_temp_dir, exist_ok=True)
+            process_run(layout, run_data, out_dir, run_temp_dir)
+
+        report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
+        robj = Report(
+            report_dir,
+            run_uuid=None,
+            bootstrap_file=bootstrap_file,
+            out_filename=f'sub-{subject_id}_ses-{session}.html',
+            reportlets_dir=out_dir,
+            plugins=None,
+            plugin_meta=None,
+            subject=subject_id,
+            session=session,
+        )
+        robj.generate_report()
+
+    # Write out dataset_description.json
+    dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
+    if not os.path.isfile(dataset_description_file):
+        dataset_description = {
+            'Name': 'NIBS ihMT Derivatives',
+            'BIDSVersion': '1.10.0',
+            'DatasetType': 'derivative',
+            'DatasetLinks': {
+                'raw': in_dir,
+                'mp2rage': mp2rage_dir,
+                'smriprep': smriprep_dir,
+            },
+            'GeneratedBy': [
+                {
+                    'Name': 'Custom code',
+                    'Description': 'Custom Python code to calculate ihMTw and MTR.',
+                    'CodeURL': 'https://github.com/PennLINC/nibs',
+                }
+            ],
+        }
+        with open(dataset_description_file, 'w') as fobj:
+            json.dump(dataset_description, fobj, sort_keys=True, indent=4)
 
     print('DONE!')
+
+
+if __name__ == "__main__":
+    _main()
