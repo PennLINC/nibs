@@ -336,12 +336,12 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
             '1x0mm',
         ]
         ants.registration(args, None)
-        mese_to_smriprep_warp_xfm = f'{xfm_prefix}0GenericAffine.mat'
-        mese_to_smriprep_affine_xfm = f'{xfm_prefix}1Warp.nii.gz'
-        assert os.path.isfile(mese_to_smriprep_warp_xfm), f'{mese_to_smriprep_warp_xfm} not found'
-        assert os.path.isfile(mese_to_smriprep_affine_xfm), f'{mese_to_smriprep_affine_xfm} not found'
-        shutil.copyfile(mese_to_smriprep_warp_xfm, mese_to_smriprep_warp_xfm)
-        shutil.copyfile(mese_to_smriprep_affine_xfm, mese_to_smriprep_affine_xfm)
+        in_mese_to_smriprep_warp_xfm = f'{xfm_prefix}0GenericAffine.mat'
+        in_mese_to_smriprep_affine_xfm = f'{xfm_prefix}1Warp.nii.gz'
+        assert os.path.isfile(in_mese_to_smriprep_warp_xfm), f'{in_mese_to_smriprep_warp_xfm} not found'
+        assert os.path.isfile(in_mese_to_smriprep_affine_xfm), f'{in_mese_to_smriprep_affine_xfm} not found'
+        shutil.copyfile(in_mese_to_smriprep_warp_xfm, mese_to_smriprep_warp_xfm)
+        shutil.copyfile(in_mese_to_smriprep_affine_xfm, mese_to_smriprep_affine_xfm)
 
         mese_mag_ap_echo1_t1_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
@@ -672,7 +672,8 @@ if __name__ == '__main__':
                     print(f'Failed {mese_file}')
                     print(e)
                     continue
-                process_run(layout, run_data, out_dir, temp_dir, method='ants')
+                run_temp_dir = os.path.join(temp_dir, os.path.basename(mese_file.path).split('.')[0])
+                process_run(layout, run_data, out_dir, run_temp_dir, method='ants')
 
             report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
             robj = Report(
