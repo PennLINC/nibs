@@ -133,6 +133,16 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'dseg',
             'extension': ['.nii', '.nii.gz'],
         },
+        'fsnative2t1w_xfm': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'from': 'fsnative',
+            'to': 'T1w',
+            'mode': 'image',
+            'suffix': 'xfm',
+            'extension': '.txt',
+        },
     }
 
     run_data = {}
@@ -242,25 +252,22 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
             source_file=mese_mag_ap_echo1,
             contrast_type='t2',
             subject_id=subject_id,
-            init='coreg',
             out_reg_file=mese_to_smriprep_xfm,
-            registered_file=mese_mag_ap_echo1_t1_file,
         )
         bb_reg.run()
-    else:
-        mese_mag_ap_echo1_img = ants.image_read(mese_mag_ap_echo1)
-        mask_img = ants.image_read(brain_mask)
+        mese_to_smriprep = [mese_to_smriprep_xfm]
 
-        t1w_img = ants.image_read(run_data['t1w'])
-        t1w_mask_img = ants.image_read(run_data['t1w_mask'])
-        # Coregister AP echo-1 data to preprocessed T1w
-        reg_dict = ants.registration(
-            fixed=t1w_img,
-            moving=mese_mag_ap_echo1_img,
-            type_of_transform='SyN',
-            mask=t1w_mask_img,
-            moving_mask=mask_img,
+        mese_mag_ap_echo1_t1_img = ants.apply_transforms(
+            fixed=ants.image_read(run_data['t1w']),
+            moving=ants.image_read(mese_mag_ap_echo1),
+            transformlist=[mese_to_smriprep_xfm],
+            interpolator='lanczosWindowedSinc',
         )
+        ants.image_write(mese_mag_ap_echo1_t1_img, mese_mag_ap_echo1_t1_file)
+    else:
+        t1w_img = ants.image_read(run_data['t1w'])
+
+        # Coregister AP echo-1 data to preprocessed T1w
         mese_to_smriprep_warp_xfm = get_filename(
             name_source=name_source,
             layout=layout,
@@ -274,7 +281,6 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
             },
             dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
         )
-        shutil.copyfile(reg_dict['fwdtransforms'][0], mese_to_smriprep_warp_xfm)
         mese_to_smriprep_affine_xfm = get_filename(
             name_source=name_source,
             layout=layout,
@@ -288,7 +294,54 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
             },
             dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
         )
-        shutil.copyfile(reg_dict['fwdtransforms'][1], mese_to_smriprep_affine_xfm)
+
+        xfm_prefix = os.path.join(temp_dir, 'mese_to_t1_syn_')
+
+        args = [
+            '--verbose',
+            '1',
+            '--dimensionality',
+            '3',
+            '--float',
+            '0',
+            '--output',
+            f'[ {xfm_prefix} ]',
+            '--interpolation',
+            'LanczosWindowedSinc',
+            '--winsorize-image-intensities',
+            '[ 0.005,0.995 ]',
+            '--initial-moving-transform',
+            f'[ {run_data["t1w_mask"]}, {brain_mask}, 1 ]',
+            '--masks',
+            f'[ {run_data["t1w_mask"]}, NONE ]',
+            '--transform',
+            'Rigid[ 0.1 ]',
+            '--metric',
+            f'Mattes[ {run_data["t1w"]},{mese_mag_ap_echo1}, 1, 32 ]',
+            '--convergence',
+            '[ 50x50x50,1e-8,10 ]',
+            '--shrink-factors',
+            '3x2x1',
+            '--smoothing-sigmas',
+            '1x1x0mm',
+            '--transform',
+            'SyN[ 0.2, 3, 0.5 ]',
+            '--metric',
+            f'CC[ {run_data["t1w"]},{mese_mag_ap_echo1}, 1, 2 ]',
+            '--convergence',
+            '[ 20x10,1e-6,10 ]',
+            '--shrink-factors',
+            '2x1',
+            '--smoothing-sigmas',
+            '1x0mm',
+        ]
+        ants.registration(args, None)
+        mese_to_smriprep_warp_xfm = f'{xfm_prefix}0GenericAffine.mat'
+        mese_to_smriprep_affine_xfm = f'{xfm_prefix}1Warp.nii.gz'
+        assert os.path.isfile(mese_to_smriprep_warp_xfm), f'{mese_to_smriprep_warp_xfm} not found'
+        assert os.path.isfile(mese_to_smriprep_affine_xfm), f'{mese_to_smriprep_affine_xfm} not found'
+        shutil.copyfile(mese_to_smriprep_warp_xfm, mese_to_smriprep_warp_xfm)
+        shutil.copyfile(mese_to_smriprep_affine_xfm, mese_to_smriprep_affine_xfm)
 
         mese_mag_ap_echo1_t1_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
@@ -297,6 +350,8 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
             interpolator='lanczosWindowedSinc',
         )
         ants.image_write(mese_mag_ap_echo1_t1_img, mese_mag_ap_echo1_t1_file)
+
+        mese_to_smriprep = [mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm]
 
     plot_coregistration(
         name_source=mese_mag_ap_echo1_t1_file,
@@ -318,7 +373,7 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
     mese_mag_ap_echo1_mni_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(mese_mag_ap_echo1_t1_file),
-        transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
+        transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
         interpolator='lanczosWindowedSinc',
     )
     ants.image_write(mese_mag_ap_echo1_mni_img, mese_mag_ap_echo1_mni_file)
@@ -369,7 +424,7 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
         t1w_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
-            transformlist=[mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
+            transformlist=mese_to_smriprep,
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -383,7 +438,7 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
         mni_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
+            transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
         )
         ants.image_write(mni_img, mni_file)
 
@@ -447,7 +502,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_files[0])}')
     cmd = (
         'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
-        f'-i {in_files[0]} -o {skullstripped_file} -m {brain_mask} --no-csf'
+        f'-i {in_files[0]} -o {skullstripped_file} -m {brain_mask}'
     )
     run_command(cmd)
 
