@@ -673,6 +673,7 @@ if __name__ == '__main__':
                     print(e)
                     continue
                 run_temp_dir = os.path.join(temp_dir, os.path.basename(mese_file.path).split('.')[0])
+                os.makedirs(run_temp_dir, exist_ok=True)
                 process_run(layout, run_data, out_dir, run_temp_dir, method='ants')
 
             report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
