@@ -212,15 +212,21 @@ def fit_monoexponential(in_files, echo_times):
     masksum = mask * len(echo_times)
 
     echo_times_ms = [te * 1000 for te in echo_times]
-    t2s_limited, s0_limited, _, _ = decay.fit_loglinear(
+    t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
         data_cat=data_cat,
         echo_times=echo_times_ms,
         adaptive_mask=masksum,
         report=False,
     )
-    # Limit infinite values to 0.5 seconds (500 ms)
-    t2s_limited[np.isinf(t2s_limited)] = 500
-    s0_limited[np.isinf(s0_limited)] = 0
+    # Limit positive infinite values to maximum finite value
+    t2s_limited[np.isinf(t2s_limited) & (t2s_limited > 0)] = np.nanmax(t2s_limited[np.isfinite(t2s_limited)])
+    s0_limited[np.isinf(s0_limited) & (s0_limited > 0)] = np.nanmax(s0_limited[np.isfinite(s0_limited)])
+    # Set negative infinite values to minimum finite value
+    t2s_limited[np.isinf(t2s_limited) & (t2s_limited < 0)] = np.nanmin(t2s_limited[np.isfinite(t2s_limited)])
+    s0_limited[np.isinf(s0_limited) & (s0_limited < 0)] = np.nanmin(s0_limited[np.isfinite(s0_limited)])
+    # Set nan values to 0
+    t2s_limited[np.isnan(t2s_limited)] = 0
+    s0_limited[np.isnan(s0_limited)] = 0
 
     r_squared = calculate_r_squared(np.squeeze(data_cat), echo_times_ms, s0_limited, t2s_limited)
 
