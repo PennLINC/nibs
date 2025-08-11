@@ -336,8 +336,8 @@ def process_run(layout, run_data, out_dir, temp_dir, method='bbreg'):
             '1x0mm',
         ]
         ants.registration(args, None)
-        in_mese_to_smriprep_warp_xfm = f'{xfm_prefix}0GenericAffine.mat'
-        in_mese_to_smriprep_affine_xfm = f'{xfm_prefix}1Warp.nii.gz'
+        in_mese_to_smriprep_affine_xfm = f'{xfm_prefix}0GenericAffine.mat'
+        in_mese_to_smriprep_warp_xfm = f'{xfm_prefix}1Warp.nii.gz'
         assert os.path.isfile(in_mese_to_smriprep_warp_xfm), f'{in_mese_to_smriprep_warp_xfm} not found'
         assert os.path.isfile(in_mese_to_smriprep_affine_xfm), f'{in_mese_to_smriprep_affine_xfm} not found'
         shutil.copyfile(in_mese_to_smriprep_warp_xfm, mese_to_smriprep_warp_xfm)
