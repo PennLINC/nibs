@@ -672,7 +672,7 @@ if __name__ == '__main__':
                     print(f'Failed {mese_file}')
                     print(e)
                     continue
-                process_run(layout, run_data, out_dir, temp_dir, method='bbreg')
+                process_run(layout, run_data, out_dir, temp_dir, method='ants')
 
             report_dir = os.path.join(out_dir, f'sub-{subject}', f'ses-{session}')
             robj = Report(
