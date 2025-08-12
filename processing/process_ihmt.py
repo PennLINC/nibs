@@ -439,7 +439,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
                 name_source=out_file,
                 layout=layout,
                 in_file=out_file,
-                t1_file=run_data['t1w'],
+                t1_file=run_data['t1w_mni'],
                 out_dir=out_dir,
                 source_space='ihMTRAGEref',
                 target_space='MNI152NLin2009cAsym',
