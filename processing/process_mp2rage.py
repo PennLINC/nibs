@@ -30,8 +30,9 @@ import shutil
 
 import ants
 import nibabel as nb
+import numpy as np
 from bids.layout import BIDSLayout, Query
-from nilearn import image
+from nilearn import image, masking
 from nireports.assembler.report import Report
 from pymp2rage import MP2RAGE
 
@@ -474,6 +475,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
         if desc:
             scalar_desc = f'{desc}{scalar_desc}'
 
+        data = masking.apply_mask(mni_file, run_data['mni_mask'])
+        vmin = np.percentile(data, 2)
+        vmin = np.minimum(vmin, 0)
+        vmax = np.percentile(data, 98)
+
         scalar_report = get_filename(
             name_source=mni_file,
             layout=layout,
@@ -486,6 +492,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
             mask=run_data['mni_mask'],
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
+            vmin=vmin,
+            vmax=vmax,
         )
 
     suffixes = ['B1anat', 'TB1map']

@@ -20,7 +20,9 @@ import shutil
 
 import ants
 import nibabel as nb
+import numpy as np
 from bids.layout import BIDSLayout, Query
+from nilearn import masking
 from nireports.assembler.report import Report
 
 from utils import get_filename, plot_coregistration, plot_scalar_map
@@ -397,7 +399,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # using normalization transform from sMRIPrep.
     files = [t1w_space_ratio_file, t1w_mprage_ratio_file]
     descs = ['SPACE', 'MPRAGE']
-    vmaxes = [3, 2]
     for i_file, file_ in enumerate(files):
         desc = descs[i_file]
         mni_file = get_filename(
@@ -419,6 +420,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
         if desc:
             scalar_desc = f'{desc}{scalar_desc}'
 
+        data = masking.apply_mask(mni_file, run_data['mni_mask'])
+        vmin = np.percentile(data, 2)
+        vmin = np.minimum(vmin, 0)
+        vmax = np.percentile(data, 98)
+
         scalar_report = get_filename(
             name_source=mni_file,
             layout=layout,
@@ -431,8 +437,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
             mask=run_data['mni_mask'],
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
-            vmin=0,
-            vmax=vmaxes[i_file],
+            vmin=vmin,
+            vmax=vmax,
         )
 
 

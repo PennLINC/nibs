@@ -25,14 +25,14 @@ import shutil
 import ants
 import antspynet
 import nibabel as nb
+import numpy as np
 from bids.layout import BIDSLayout, Query
 from ihmt_proc import cli
-from nilearn import image
+from nilearn import image, masking
 from nireports.assembler.report import Report
 
 from utils import coregister_to_t1, get_filename, plot_coregistration, plot_scalar_map, run_command
 
-# CODE_DIR = '/Users/taylor/Documents/linc/nibs'
 CODE_DIR = '/cbica/projects/nibs/code'
 
 
@@ -397,10 +397,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ]:
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
         out_file = get_filename(
-            name_source=run_data['m0'],
+            name_source=file_,
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
+            entities={'space': 'MNI152NLin2009cAsym'},
         )
         reg_img = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w_mni']),
@@ -409,6 +409,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
             interpolator='lanczosWindowedSinc',
         )
         ants.image_write(reg_img, out_file)
+
+        # Get vmin (2nd percentile) and vmax (98th percentile) from image
+        reg_data = masking.apply_mask(reg_img, run_data['mni_mask'])
+        vmin = np.percentile(reg_data, 2)
+        vmin = np.minimum(vmin, 0)
+        vmax = np.percentile(reg_data, 98)
 
         scalar_report = get_filename(
             name_source=out_file,
@@ -422,6 +428,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
             mask=run_data['mni_mask'],
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
+            vmin=vmin,
+            vmax=vmax,
         )
 
         if suffix == 'ihMTw':

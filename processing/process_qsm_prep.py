@@ -24,7 +24,7 @@ import ants
 import nibabel as nb
 import numpy as np
 from bids.layout import BIDSLayout, Query
-from nilearn import image
+from nilearn import image, masking
 
 from utils import (
     coregister_to_t1,
@@ -420,16 +420,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
         )
-        if suffix == 'T2starmap':
-            kwargs = {'vmin': 0, 'vmax': 0.08}
-        elif suffix == 'R2starmap':
+        if suffix == 'R2starmap':
             kwargs = {'vmin': 0, 'vmax': 50}
-        elif suffix == 'S0map':
-            kwargs = {}
         elif suffix == 'Rsquaredmap':
             kwargs = {'vmin': 0, 'vmax': 1}
-        elif suffix == 'R2primemap':
-            kwargs = {'vmin': 0, 'vmax': 30}
+        else:
+            data = masking.apply_mask(mni_file, run_data['mni_mask'])
+            vmin = np.percentile(data, 2)
+            vmin = np.minimum(vmin, 0)
+            vmax = np.percentile(data, 98)
+            kwargs = {'vmin': vmin, 'vmax': vmax}
 
         plot_scalar_map(
             underlay=run_data['t1w_mni'],

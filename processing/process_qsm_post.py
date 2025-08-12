@@ -17,7 +17,9 @@ import os
 from pprint import pprint
 
 import ants
+import numpy as np
 from bids.layout import BIDSLayout, Query
+from nilearn import masking
 from nireports.assembler.report import Report
 
 from utils import (
@@ -25,6 +27,8 @@ from utils import (
     plot_coregistration,
     plot_scalar_map,
 )
+
+CODE_DIR = '/cbica/projects/nibs/code'
 
 
 def collect_run_data(layout, bids_filters):
@@ -230,14 +234,18 @@ def process_run(layout, run_data, out_dir):
             out_dir=out_dir,
             entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
         )
-        kwargs = {}
+        data = masking.apply_mask(mni_file, run_data['mni_mask'])
+        vmin = np.percentile(data, 2)
+        vmin = np.minimum(vmin, 0)
+        vmax = np.percentile(data, 98)
         plot_scalar_map(
             underlay=run_data['t1w_mni'],
             overlay=mni_file,
             mask=run_data['mni_mask'],
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
-            **kwargs,
+            vmin=vmin,
+            vmax=vmax,
         )
 
 
@@ -259,7 +267,6 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    code_dir = '/cbica/projects/nibs/code'
     in_dir = '/cbica/projects/nibs/dset'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
     mese_dir = '/cbica/projects/nibs/derivatives/mese'
@@ -268,12 +275,12 @@ def main(subject_id):
     temp_dir = '/cbica/projects/nibs/work/qsm'
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_qsm.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_qsm.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(code_dir, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir, mese_dir, out_dir],
     )
