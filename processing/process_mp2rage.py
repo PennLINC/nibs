@@ -525,7 +525,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm, b1_to_mp2rage_xfm],
-            interpolator='gaussian' if suffix == 'B1anat' else 'lanczosWindowedSinc',
+            interpolator='gaussian' if suffix == 'TB1map' else 'lanczosWindowedSinc',
         )
         ants.image_write(mni_img, mni_file)
 
