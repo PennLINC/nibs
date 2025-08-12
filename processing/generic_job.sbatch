@@ -2,7 +2,7 @@
 #SBATCH --job-name=nibs
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-14
+#SBATCH --array=5-14
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=20gb
 #SBATCH --time=24:00:00
