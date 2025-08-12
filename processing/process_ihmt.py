@@ -396,7 +396,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         mtssatb1sq_file,
     ]:
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
-        out_file = get_filename(
+        mni_file = get_filename(
             name_source=file_,
             layout=layout,
             out_dir=out_dir,
@@ -408,23 +408,23 @@ def process_run(layout, run_data, out_dir, temp_dir):
             transformlist=[run_data['t1w2mni_xfm']],
             interpolator='lanczosWindowedSinc',
         )
-        ants.image_write(reg_img, out_file)
+        ants.image_write(reg_img, mni_file)
 
         # Get vmin (2nd percentile) and vmax (98th percentile) from image
-        reg_data = masking.apply_mask(reg_img, run_data['mni_mask'])
+        reg_data = masking.apply_mask(mni_file, run_data['mni_mask'])
         vmin = np.percentile(reg_data, 2)
         vmin = np.minimum(vmin, 0)
         vmax = np.percentile(reg_data, 98)
 
         scalar_report = get_filename(
-            name_source=out_file,
+            name_source=mni_file,
             layout=layout,
             out_dir=out_dir,
             entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
         )
         plot_scalar_map(
             underlay=run_data['t1w_mni'],
-            overlay=out_file,
+            overlay=mni_file,
             mask=run_data['mni_mask'],
             dseg=run_data['dseg_mni'],
             out_file=scalar_report,
@@ -444,9 +444,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
                 wm_seg=wm_seg_t1w_file,
             )
             plot_coregistration(
-                name_source=out_file,
+                name_source=mni_file,
                 layout=layout,
-                in_file=out_file,
+                in_file=mni_file,
                 t1_file=run_data['t1w_mni'],
                 out_dir=out_dir,
                 source_space='ihMTRAGEref',
