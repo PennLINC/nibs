@@ -345,7 +345,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # nosat_mt-off, singlepos_mt-on, dual1_mt-on, singleneg_mt-on, dual2_mt-on
     concat_ihmt_t1space = os.path.join(temp_dir, f'concat_t1space_{name_base}')
     concat_ihmt_img = image.concat_imgs(ihmt_files_t1space)
-    concat_ihmt_img = image.math_img('img * mask', img=concat_ihmt_img, mask=brain_mask_t1space)
+    concat_ihmt_img = image.math_img(
+        'img * mask[..., None]',
+        img=concat_ihmt_img,
+        mask=brain_mask_t1space,
+    )
     concat_ihmt_img.to_filename(concat_ihmt_t1space)
 
     # Run ihmt_proc to calculate T1w-space ihMT derivatives
