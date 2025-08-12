@@ -500,6 +500,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         if i_file == 0:
             continue
 
+        skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_file)}')
         cmd = (
             'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
             f'-i {in_file} -o {skullstripped_file}'

@@ -233,7 +233,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         denoised_ihmt_files.append(denoised_ihmt_file)
 
     # Motion correct ihMTRAGE files
-    ihmt_template, hmc_transforms = iterative_motion_correction(
+    ihmt_template, hmc_transforms, brain_mask = iterative_motion_correction(
         name_sources=in_files,
         layout=layout,
         in_files=denoised_ihmt_files,
@@ -293,7 +293,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ihmtw_img.to_filename(ihmtw_file)
 
     # Calculate ihMTR
-    ihmtr_img = image.math_img('ihmt / m0', ihmt=ihmtw_img, m0=ihmt_files_t1space[0])
+    ihmtr_img = image.math_img(
+        '(ihmt / m0) * mask',
+        ihmt=ihmtw_img,
+        m0=ihmt_files_t1space[0],
+        mask=brain_mask,
+    )
     ihmtr_file = get_filename(
         name_source=run_data['m0'],
         layout=layout,
@@ -305,9 +310,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Calculate MTR
     mtr_img = image.math_img(
-        '1 - mtplus / m0',
+        '(1 - mtplus / m0) * mask',
         mtplus=ihmt_files_t1space[1],
         m0=ihmt_files_t1space[0],
+        mask=brain_mask,
     )
     mtr_file = get_filename(
         name_source=run_data['m0'],
@@ -322,6 +328,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # nosat_mt-off, singlepos_mt-on, dual1_mt-on, singleneg_mt-on, dual2_mt-on
     concat_ihmt_t1space = os.path.join(temp_dir, f'concat_t1space_{name_base}')
     concat_ihmt_img = image.concat_imgs(ihmt_files_t1space)
+    concat_ihmt_img = image.math_img('img * mask', img=concat_ihmt_img, mask=brain_mask)
     concat_ihmt_img.to_filename(concat_ihmt_t1space)
 
     # Run ihmt_proc to calculate T1w-space ihMT derivatives
@@ -482,34 +489,37 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     transforms : list of str
         List of transform files.
     """
-    # Step 1: Apply N4 bias field correction and skull-stripping to each image.
-    brain_n4_files = []
+    # Step 2: Skull-strip each image.
+    skullstripped_files = []
+    brain_masks = []
     for i_file, in_file in enumerate(in_files):
-        in_img = ants.image_read(in_file)
         # Bias field correction
+        in_img = ants.image_read(in_file)
         n4_img = ants.n4_bias_field_correction(in_img)
+        n4_file = os.path.join(temp_dir, f'n4_{os.path.basename(in_file)}')
+        ants.image_write(n4_img, n4_file)
 
-        # Skull-stripping
-        dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
-        dseg_img = dseg_img['segmentation_image']
-        mask_img = ants.threshold_image(
-            dseg_img,
-            low_thresh=1,
-            high_thresh=1,
-            inval=1,
-            outval=0,
-            binary=True,
+        # Step 1: Create a brain mask from the first image with SynthStrip.
+        brain_mask = get_filename(
+            name_source=in_file,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'desc': 'brain', 'suffix': 'mask'},
         )
-        n4_img_masked = n4_img * mask_img
-        name_base = os.path.basename(name_sources[i_file])
-        brain_n4_file = os.path.join(temp_dir, f'brain_n4_{i_file}_{name_base}')
-        ants.image_write(n4_img_masked, brain_n4_file)
-        brain_n4_files.append(brain_n4_file)
+        skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_file)}')
+        cmd = (
+            'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
+            f'-i {n4_file} -o {skullstripped_file} -m {brain_mask}'
+        )
+        run_command(cmd)
+
+        skullstripped_files.append(skullstripped_file)
+        brain_masks.append(brain_mask)
 
     # Step 2: Define template image, then register each image to the template.
     # Update the template image with the registered images.
     transforms = []
-    for i_file, brain_n4_file in enumerate(brain_n4_files):
+    for i_file, brain_n4_file in enumerate(skullstripped_files):
         in_file = in_files[i_file]
         filetype = filetypes[i_file]
         if i_file == 0:
@@ -581,7 +591,49 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
             target_space='ihMTRAGEref',
         )
 
-    return template_file, transforms
+        # Also apply transform to brain masks
+        brain_mask = brain_masks[i_file]
+        out_brain_mask = get_filename(
+            name_source=name_sources[i_file],
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'ihMTRAGEref', 'desc': 'brain', 'suffix': 'mask'},
+        )
+        reg_img = ants.apply_transforms(
+            fixed=ants.image_read(template_file),
+            moving=ants.image_read(brain_mask),
+            transformlist=[transform_file],
+            interpolator='nearestNeighbor',
+        )
+        ants.image_write(reg_img, out_brain_mask)
+
+        if i_file == 0:
+            sum_mask_img = reg_img
+        else:
+            sum_mask_img = sum_mask_img + reg_img
+
+    # Step 6: Create sum image
+    sum_mask = get_filename(
+        name_source=name_sources[0],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'ihMTRAGEref', 'desc': 'sum', 'suffix': 'mask'},
+        dismiss_entities=['acquisition', 'mt'],
+    )
+    ants.image_write(sum_mask_img, sum_mask)
+
+    # Step 7: Create mask from sum image
+    brain_mask_img = (sum_mask_img > 4)
+    brain_mask_file = get_filename(
+        name_source=name_sources[0],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'ihMTRAGEref', 'desc': 'brain', 'suffix': 'mask'},
+        dismiss_entities=['acquisition', 'mt'],
+    )
+    ants.image_write(brain_mask_img, brain_mask_file)
+
+    return template_file, transforms, brain_mask_file
 
 
 def _get_parser():
