@@ -221,14 +221,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
     concat_ihmt_file = os.path.join(temp_dir, f'concat_{name_base}')
     concat_ihmt_img.to_filename(concat_ihmt_file)
 
-    denoised_ihmt_file = os.path.join(temp_dir, f'dwidenoise_{name_base}')
+    os.makedirs(os.path.join(temp_dir, 'dwidenoise'), exist_ok=True)
+    denoised_ihmt_file = os.path.join(temp_dir, 'dwidenoise', 'concat_ihmt.nii.gz')
     cmd = f'dwidenoise {concat_ihmt_file} {denoised_ihmt_file} -force --extent 3,3,3'
     run_command(cmd)
 
     denoised_ihmt_imgs = list(image.iter_img(denoised_ihmt_file))
     denoised_ihmt_files = []
     for i_img, img in enumerate(denoised_ihmt_imgs):
-        denoised_ihmt_file = os.path.join(temp_dir, f'dwidenoise_{i_img}_{name_base}')
+        base_filename = os.path.basename(in_files[i_img])
+        denoised_ihmt_file = os.path.join(temp_dir, 'dwidenoise', base_filename)
         img.to_filename(denoised_ihmt_file)
         denoised_ihmt_files.append(denoised_ihmt_file)
 
@@ -275,6 +277,21 @@ def process_run(layout, run_data, out_dir, temp_dir):
         ants.image_write(ihmt_img_t1space, ihmt_file_t1space)
         ihmt_files_t1space.append(ihmt_file_t1space)
 
+    # Create brain mask in T1w space
+    brain_mask_t1space = get_filename(
+        name_source=brain_mask,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'brain', 'suffix': 'mask'},
+    )
+    brain_mask_t1w_img = ants.apply_transforms(
+        fixed=ants.image_read(run_data['t1w']),
+        moving=ants.image_read(brain_mask),
+        transformlist=[ihmtrage_to_smriprep_xfm],
+        interpolator='nearestNeighbor',
+    )
+    ants.image_write(brain_mask_t1w_img, brain_mask_t1space)
+
     # Calculate ihMTw
     ihmtw_img = image.math_img(
         'mtplus + mtminus - (mtdual1 + mtdual2)',
@@ -297,7 +314,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         '(ihmt / m0) * mask',
         ihmt=ihmtw_img,
         m0=ihmt_files_t1space[0],
-        mask=brain_mask,
+        mask=brain_mask_t1space,
     )
     ihmtr_file = get_filename(
         name_source=run_data['m0'],
@@ -313,7 +330,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         '(1 - mtplus / m0) * mask',
         mtplus=ihmt_files_t1space[1],
         m0=ihmt_files_t1space[0],
-        mask=brain_mask,
+        mask=brain_mask_t1space,
     )
     mtr_file = get_filename(
         name_source=run_data['m0'],
@@ -328,7 +345,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # nosat_mt-off, singlepos_mt-on, dual1_mt-on, singleneg_mt-on, dual2_mt-on
     concat_ihmt_t1space = os.path.join(temp_dir, f'concat_t1space_{name_base}')
     concat_ihmt_img = image.concat_imgs(ihmt_files_t1space)
-    concat_ihmt_img = image.math_img('img * mask', img=concat_ihmt_img, mask=brain_mask)
+    concat_ihmt_img = image.math_img('img * mask', img=concat_ihmt_img, mask=brain_mask_t1space)
     concat_ihmt_img.to_filename(concat_ihmt_t1space)
 
     # Run ihmt_proc to calculate T1w-space ihMT derivatives
@@ -492,11 +509,15 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     # Step 2: Skull-strip each image.
     skullstripped_files = []
     brain_masks = []
+    n4_dir = os.path.join(temp_dir, 'n4')
+    os.makedirs(n4_dir, exist_ok=True)
+    skullstripped_dir = os.path.join(temp_dir, 'skullstripped')
+    os.makedirs(skullstripped_dir, exist_ok=True)
     for i_file, in_file in enumerate(in_files):
         # Bias field correction
         in_img = ants.image_read(in_file)
         n4_img = ants.n4_bias_field_correction(in_img)
-        n4_file = os.path.join(temp_dir, f'n4_{os.path.basename(in_file)}')
+        n4_file = os.path.join(n4_dir, os.path.basename(in_file))
         ants.image_write(n4_img, n4_file)
 
         # Step 1: Create a brain mask from the first image with SynthStrip.
@@ -506,7 +527,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
             out_dir=out_dir,
             entities={'desc': 'brain', 'suffix': 'mask'},
         )
-        skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_file)}')
+        skullstripped_file = os.path.join(skullstripped_dir, os.path.basename(in_file))
         cmd = (
             'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
             f'-i {n4_file} -o {skullstripped_file} -m {brain_mask}'

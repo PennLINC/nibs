@@ -217,10 +217,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Register b1_famp to inv1_magnitude using b1_anat with ANTs
     fixed_img = ants.image_read(run_data['inv1_magnitude'])
-    moving_img = ants.image_read(run_data['b1_anat'])
     reg_output = ants.registration(
         fixed=fixed_img,
-        moving=moving_img,
+        moving=ants.image_read(run_data['b1_anat']),
         type_of_transform='Rigid',
     )
     if len(reg_output['fwdtransforms']) != 1:
@@ -288,7 +287,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=b1_anat_img,
         transformlist=b1_to_mp2rage_xfm,
-        interpolator='gaussian',
+        interpolator='lanczosWindowedSinc',
     )
     b1_anat_reg_file = get_filename(
         name_source=name_source,
@@ -511,7 +510,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=[mp2rage_to_smriprep_xfm, b1_to_mp2rage_xfm],
-            interpolator='gaussian',
+            interpolator='gaussian' if suffix == 'TB1map' else 'lanczosWindowedSinc',
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -526,7 +525,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm, b1_to_mp2rage_xfm],
-            interpolator='gaussian',
+            interpolator='gaussian' if suffix == 'B1anat' else 'lanczosWindowedSinc',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -571,6 +570,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
                 dseg=run_data['dseg_mni'],
                 out_file=scalar_report,
             )
+
 
 def _get_parser():
     parser = argparse.ArgumentParser()
