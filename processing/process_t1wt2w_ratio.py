@@ -499,10 +499,8 @@ def main(subject_id):
                 print(e)
                 continue
 
-            run_temp_dir = os.path.join(
-                temp_dir,
-                os.path.basename(space_t2w_file).replace('.', '_'),
-            )
+            fname = os.path.basename(space_t2w_file.path).split('.')[0]
+            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
             os.makedirs(run_temp_dir, exist_ok=True)
             process_run(layout, run_data, out_dir, run_temp_dir)
 

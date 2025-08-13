@@ -632,7 +632,10 @@ def main(subject_id):
                 print(f'Failed {inv1_magnitude_file}')
                 print(e)
                 continue
-            process_run(layout, run_data, out_dir, temp_dir)
+            fname = os.path.basename(inv1_magnitude_file.path).split('.')[0]
+            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+            os.makedirs(run_temp_dir, exist_ok=True)
+            process_run(layout, run_data, out_dir, run_temp_dir)
 
         report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
         robj = Report(

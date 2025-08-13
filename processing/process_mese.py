@@ -657,7 +657,8 @@ def main(subject_id):
                 print(f'Failed {mese_file}')
                 print(e)
                 continue
-            run_temp_dir = os.path.join(temp_dir, os.path.basename(mese_file.path).split('.')[0])
+            fname = os.path.basename(mese_file.path).split('.')[0]
+            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
             os.makedirs(run_temp_dir, exist_ok=True)
             process_run(layout, run_data, out_dir, run_temp_dir)
 
