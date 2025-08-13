@@ -260,12 +260,20 @@ def process_run(layout, run_data, out_dir, temp_dir):
     for i_file, ihmt_file in enumerate(denoised_ihmt_files):
         in_file = in_files[i_file]
         ihmt_file = denoised_ihmt_files[i_file]
-        hmc_transform = hmc_transforms[i_file]
+        if i_file == 0:
+            transform_list = [ihmtrage_to_smriprep_xfm]
+        else:
+            hmc_transform = hmc_transforms[i_file]
+            transform_list = [ihmtrage_to_smriprep_xfm, hmc_transform]
+        print(
+            f'Warping {ihmt_file} to T1w space with transforms '
+            f'{ihmtrage_to_smriprep_xfm} and {hmc_transform}.'
+        )
         ihmt_img = ants.image_read(ihmt_file)
         ihmt_img_t1space = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
             moving=ihmt_img,
-            transformlist=[ihmtrage_to_smriprep_xfm, hmc_transform],
+            transformlist=transform_list,
             interpolator='lanczosWindowedSinc',
         )
         ihmt_file_t1space = get_filename(
