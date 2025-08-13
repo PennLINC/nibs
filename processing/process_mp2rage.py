@@ -349,6 +349,17 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     t1map.to_filename(t1map_file)
 
+    r1map_arr = 1 / t1map_arr
+    r1map = nb.Nifti1Image(r1map_arr, t1map.affine, t1map.header)
+    r1map_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'suffix': 'R1map'},
+        dismiss_entities=['inv', 'part'],
+    )
+    r1map.to_filename(r1map_file)
+
     t1w_uni_file = get_filename(
         name_source=name_source,
         layout=layout,
@@ -373,6 +384,18 @@ def process_run(layout, run_data, out_dir, temp_dir):
         dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     t1map.to_filename(t1map_b1_corrected_file)
+
+    r1map_arr = 1 / t1map_arr
+    r1map = nb.Nifti1Image(r1map_arr, t1map.affine, t1map.header)
+    r1map_b1_corrected_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'suffix': 'R1map', 'desc': 'B1corrected'},
+        dismiss_entities=['inv', 'part', 'reconstruction'],
+    )
+    r1map.to_filename(r1map_b1_corrected_file)
+
     t1w_uni_b1_corrected_file = get_filename(
         name_source=name_source,
         layout=layout,
@@ -446,11 +469,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
-    files = [t1map_file, t1map_b1_corrected_file]
-    descs = [None, 'B1corrected']
+    files = [t1map_file, t1map_b1_corrected_file, r1map_file, r1map_b1_corrected_file]
+    descs = [None, 'B1corrected', None, 'B1corrected']
+    suffixes = ['T1map', 'T1map', 'R1map', 'R1map']
     for i_file, file_ in enumerate(files):
         desc = descs[i_file]
-        suffix = 'T1map'
+        suffix = suffixes[i_file]
 
         t1w_file = get_filename(
             name_source=name_source,

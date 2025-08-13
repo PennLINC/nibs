@@ -36,14 +36,14 @@ queries:
             datatype: anat
             suffix: MTssatB1sq
         # MP2RAGE
-        T1map:
+        R1map:
             datatype: anat
             desc: None
-            suffix: T1map
-        T1map_B1corrected:
+            suffix: R1map
+        R1map_B1corrected:
             datatype: anat
             desc: B1corrected
-            suffix: T1map
+            suffix: R1map
         # dMRI
         FA:
             datatype: dwi

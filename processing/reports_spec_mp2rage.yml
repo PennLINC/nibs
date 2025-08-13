@@ -9,6 +9,6 @@ sections:
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [coreg, B1correctedcoreg], suffix: [TB1map, B1anat, T1w, T1map]}
     subtitle: Alignment of data to MNI152NLin2009cAsym space
     static: false
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [scalar, B1correctedscalar], suffix: [T1w, T1map]}
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [scalar, B1correctedscalar], suffix: [R1map, T1map]}
     subtitle: Scalar map of MP2RAGE data in MNI152NLin2009cAsym space
     static: true
