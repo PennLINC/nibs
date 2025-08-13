@@ -27,6 +27,8 @@ from nireports.assembler.report import Report
 
 from utils import get_filename, plot_coregistration, plot_scalar_map
 
+CODE_DIR = '/cbica/projects/nibs/code'
+
 
 def collect_run_data(layout, bids_filters):
     queries = {
@@ -133,7 +135,11 @@ def collect_run_data(layout, bids_filters):
     for key, query in queries.items():
         query = {**bids_filters, **query}
         files = layout.get(**query)
-        if len(files) != 1:
+        if key == 'mprage2t1w_xfm' and len(files) == 0:
+            print(f'No MPRAGE T1w coregistration transform found for {query}. Using identity transform.')
+            run_data[key] = None
+            continue
+        elif len(files) != 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)}: {query}')
 
         file = files[0]
@@ -321,13 +327,17 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Apply the sMRIPrep coregistration transform to MPRAGE T1w
     mprage_t1w_img = ants.image_read(run_data['mprage_t1w'])
-    fwd_transform = run_data['mprage2t1w_xfm']
-    t1w_mprage_t1w_img = ants.apply_transforms(
-        fixed=fixed_img,
-        moving=mprage_t1w_img,
-        transformlist=fwd_transform,
-        interpolator='gaussian',
-    )
+    if run_data['mprage2t1w_xfm'] is None:
+        t1w_mprage_t1w_img = mprage_t1w_img
+    else:
+        fwd_transform = run_data['mprage2t1w_xfm']
+        t1w_mprage_t1w_img = ants.apply_transforms(
+            fixed=fixed_img,
+            moving=mprage_t1w_img,
+            transformlist=fwd_transform,
+            interpolator='gaussian',
+        )
+
     t1w_mprage_t1w_file = get_filename(
         name_source=run_data['mprage_t1w'],
         layout=layout,
@@ -467,7 +477,6 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    code_dir = '/cbica/projects/nibs/code'
     in_dir = '/cbica/projects/nibs/dset'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
     out_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
@@ -475,12 +484,12 @@ def main(subject_id):
     temp_dir = '/cbica/projects/nibs/work/t1wt2w_ratio'
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_t1wt2w_ratio.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_t1wt2w_ratio.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(code_dir, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir],
     )
