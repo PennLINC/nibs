@@ -75,9 +75,10 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
-        # Coregistration transform from MPRAGE T1w to sMRIPrep T1w
+        # Coregistration transform for MPRAGE, from sMRIPrep
         'mprage2t1w_xfm': {
             'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'from': 'orig',
             'to': 'T1w',
