@@ -45,24 +45,32 @@ def collect_run_data(layout, bids_filters):
         'inv1_magnitude': {
             'part': ['mag', Query.NONE],
             'inv': 1,
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'MP2RAGE',
             'extension': ['.nii', '.nii.gz'],
         },
         'inv1_phase': {
             'part': 'phase',
             'inv': 1,
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'MP2RAGE',
             'extension': ['.nii', '.nii.gz'],
         },
         'inv2_magnitude': {
             'part': ['mag', Query.NONE],
             'inv': 2,
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'MP2RAGE',
             'extension': ['.nii', '.nii.gz'],
         },
         'inv2_phase': {
             'part': 'phase',
             'inv': 2,
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'MP2RAGE',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -71,6 +79,8 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'fmap',
             'acquisition': 'famp',
             'reconstruction': Query.NONE,
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'TB1TFL',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -78,6 +88,8 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'fmap',
             'acquisition': 'anat',
             'reconstruction': Query.NONE,
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'TB1TFL',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -620,6 +632,10 @@ def main(subject_id):
             suffix='MP2RAGE',
             extension=['.nii', '.nii.gz'],
         )
+        if not inv1_magnitude_files:
+            print(f'No inv1 magnitude files found for subject {subject_id} and session {session}')
+            continue
+
         for inv1_magnitude_file in inv1_magnitude_files:
             entities = inv1_magnitude_file.get_entities()
             entities.pop('inv')

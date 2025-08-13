@@ -23,7 +23,6 @@ import os
 import shutil
 
 import ants
-import antspynet
 import nibabel as nb
 import numpy as np
 from bids.layout import BIDSLayout, Query
@@ -43,6 +42,8 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'nosat',
             'mt': 'off',
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -50,6 +51,8 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'singlepos',
             'mt': 'on',
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -57,6 +60,8 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'singleneg',
             'mt': 'on',
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -64,6 +69,8 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'dual1',
             'mt': 'on',
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -71,6 +78,8 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'dual2',
             'mt': 'on',
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -261,6 +270,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
         in_file = in_files[i_file]
         ihmt_file = denoised_ihmt_files[i_file]
         if i_file == 0:
+            # XXX: For some reason, including the identity transform here
+            # led to misregistration, so we're not using it.
             transform_list = [ihmtrage_to_smriprep_xfm]
         else:
             hmc_transform = hmc_transforms[i_file]
@@ -717,6 +728,10 @@ def main(subject_id):
             suffix='ihMTRAGE',
             extension=['.nii', '.nii.gz'],
         )
+        if not m0_files:
+            print(f'No m0 files found for subject {subject_id} and session {session}')
+            continue
+
         for m0_file in m0_files:
             entities = m0_file.get_entities()
             entities.pop('acquisition')

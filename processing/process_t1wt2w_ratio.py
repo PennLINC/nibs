@@ -33,18 +33,24 @@ def collect_run_data(layout, bids_filters):
         'space_t1w': {
             'part': Query.NONE,
             'acquisition': 'SPACE',
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
         'space_t2w': {
             'part': Query.NONE,
             'acquisition': 'SPACE',
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'T2w',
             'extension': ['.nii', '.nii.gz'],
         },
         'mprage_t1w': {
             'part': Query.NONE,
             'acquisition': 'MPRAGE',
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -489,6 +495,10 @@ def main(subject_id):
             suffix='T2w',
             extension=['.nii', '.nii.gz'],
         )
+        if not space_t2w_files:
+            print(f'No SPACE T2w files found for subject {subject_id} and session {session}')
+            continue
+
         for space_t2w_file in space_t2w_files:
             entities = space_t2w_file.get_entities()
             entities.pop('acquisition')

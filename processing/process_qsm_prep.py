@@ -43,6 +43,8 @@ def collect_run_data(layout, bids_filters):
             'acquisition': 'QSM',
             'part': 'mag',
             'echo': Query.ANY,
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'MEGRE',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -51,6 +53,8 @@ def collect_run_data(layout, bids_filters):
             'acquisition': 'QSM',
             'part': 'phase',
             'echo': Query.ANY,
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'MEGRE',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -58,6 +62,7 @@ def collect_run_data(layout, bids_filters):
         'r2_map': {
             'datatype': 'anat',
             'space': 'T1w',
+            'desc': 'MESE',
             'suffix': 'R2map',
             'extension': '.nii.gz',
         },
@@ -220,6 +225,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         entities={
             'datatype': 'anat',
             'space': 'MEGRE',
+            'desc': 'MEGRE',
             'suffix': 'T2starmap',
             'extension': '.nii.gz',
         },
@@ -234,6 +240,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         entities={
             'datatype': 'anat',
             'space': 'MEGRE',
+            'desc': 'MEGRE',
             'suffix': 'R2starmap',
             'extension': '.nii.gz',
         },
@@ -249,6 +256,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         entities={
             'datatype': 'anat',
             'space': 'MEGRE',
+            'desc': 'MEGRE',
             'suffix': 'S0map',
             'extension': '.nii.gz',
         },
@@ -260,7 +268,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MEGRE', 'suffix': 'Rsquaredmap'},
+        entities={
+            'datatype': 'anat',
+            'space': 'MEGRE',
+            'desc': 'MEGRE',
+            'suffix': 'Rsquaredmap',
+        },
         dismiss_entities=['echo', 'part'],
     )
     rsquared_img.to_filename(rsquared_filename)
@@ -339,10 +352,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # Warp R2 map from T1w space to MEGRE space
     r2_qsm_filename = get_filename(
-        name_source=name_source,
+        name_source=run_data['r2_map'],
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MEGRE', 'suffix': 'R2map'},
+        entities={'space': 'MEGRE'},
         dismiss_entities=['echo', 'part'],
     )
     r2_qsm_img = ants.apply_transforms(

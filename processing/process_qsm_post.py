@@ -298,6 +298,10 @@ def main(subject_id):
             suffix='MEGRE',
             extension=['.nii', '.nii.gz'],
         )
+        if not megre_files:
+            print(f'No MEGRE files found for subject {subject_id} and session {session}')
+            continue
+
         for megre_file in megre_files:
             entities = megre_file.get_entities()
             entities.pop('echo')

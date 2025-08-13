@@ -60,6 +60,8 @@ def collect_run_data(layout, bids_filters):
             'part': ['mag', Query.NONE],
             'echo': Query.ANY,
             'direction': 'AP',
+            'space': Query.NONE,
+            'desc': Query.NONE,
             'suffix': 'MESE',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -393,6 +395,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             entities={
                 'datatype': 'anat',
                 'space': 'MESEref',
+                'desc': 'MESE',
                 'suffix': suffix,
                 'extension': '.nii.gz',
             },
@@ -643,6 +646,10 @@ def main(subject_id):
             suffix='MESE',
             extension=['.nii', '.nii.gz'],
         )
+        if not mese_files:
+            print(f'No MESE files found for subject {subject_id} and session {session}')
+            continue
+
         for mese_file in mese_files:
             print(f'Processing MESE file {mese_file.path}')
             entities = mese_file.get_entities()
