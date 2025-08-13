@@ -438,9 +438,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             out_dir=out_dir,
             entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
         )
-        if image_types[i_file] == 'R2map':
-            kwargs = {'vmin': 0, 'vmax': 20}
-        elif image_types[i_file] == 'Rsquaredmap':
+        if image_types[i_file] == 'Rsquaredmap':
             kwargs = {'vmin': 0, 'vmax': 1}
         else:
             data = masking.apply_mask(mni_file, run_data['mni_mask'])
