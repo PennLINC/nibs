@@ -265,10 +265,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         else:
             hmc_transform = hmc_transforms[i_file]
             transform_list = [ihmtrage_to_smriprep_xfm, hmc_transform]
-        print(
-            f'Warping {ihmt_file} to T1w space with transforms '
-            f'{ihmtrage_to_smriprep_xfm} and {hmc_transform}.'
-        )
+
         ihmt_img = ants.image_read(ihmt_file)
         ihmt_img_t1space = ants.apply_transforms(
             fixed=ants.image_read(run_data['t1w']),
