@@ -398,6 +398,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     cli.main(
         ihmt=concat_ihmt_t1space,
+        mask=brain_mask_t1space,
         t1=run_data['t1map'],
         ihmtparx=ihmt_params,
         tflparx=tfl_params,
