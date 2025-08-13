@@ -527,6 +527,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     skullstripped_dir = os.path.join(temp_dir, 'skullstripped')
     os.makedirs(skullstripped_dir, exist_ok=True)
     for i_file, in_file in enumerate(in_files):
+        print(f'Skull-stripping {in_file}')
         # Bias field correction
         in_img = ants.image_read(in_file)
         n4_img = ants.n4_bias_field_correction(in_img)
@@ -540,6 +541,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
             out_dir=out_dir,
             entities={'desc': 'brain', 'suffix': 'mask'},
         )
+        print(f'Creating brain mask: {brain_mask}')
         skullstripped_file = os.path.join(skullstripped_dir, os.path.basename(in_file))
         cmd = (
             'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
