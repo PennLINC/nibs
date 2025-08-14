@@ -34,8 +34,17 @@ def collect_run_data(layout, bids_filters):
             else:
                 query[k] = QUERY_LOOKUP.get(v, v)
 
+        # I have no clue why, but BIDSLayout refuses to index 'param'
+        param = None
+        if 'param' in query:
+            param = query.pop('param')
+
         query = {**bids_filters, **query}
         files = layout.get(**query)
+        if param is not None:
+            files = [f for f in files if f'_param-{param}' in f.filename]
+            query['param'] = param
+
         if len(files) != 1:
             print(f'Expected 1 file for {key}, got {len(files)}: {query}')
             run_data[key] = None
