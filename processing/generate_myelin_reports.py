@@ -173,7 +173,15 @@ def main(subject_id):
     for session in sessions:
         print(f'Processing session {session}')
         try:
-            run_data = collect_run_data(layout, {'subject': subject_id, 'session': session, 'space': 'MNI152NLin2009cAsym'})
+            run_data = collect_run_data(
+                layout,
+                {
+                    'subject': subject_id,
+                    'session': session,
+                    'space': 'MNI152NLin2009cAsym',
+                    'extension': '.nii.gz',
+                },
+            )
         except ValueError as e:
             print(e)
             continue
