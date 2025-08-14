@@ -247,7 +247,7 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
     import pandas as pd
     import seaborn as sns
     from matplotlib import cm
-    from nilearn import image, masking, plotting
+    from nilearn import image, maskers, masking, plotting
     from nireports.reportlets.utils import cuts_from_bbox
 
     if not os.path.isdir(os.path.dirname(out_file)):
@@ -255,7 +255,8 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
 
     cuts = cuts_from_bbox(nb.load(underlay), cuts=6)
     z_cuts = cuts['z']
-    overlay_masked = masking.unmask(masking.apply_mask(overlay, mask), mask)
+    masker = maskers.NiftiMasker(mask_img=mask)
+    overlay_masked = masker.inverse_transform(masker.fit_transform(overlay))
     underlay_masked = masking.unmask(masking.apply_mask(underlay, mask), mask)
 
     if dseg is not None:
