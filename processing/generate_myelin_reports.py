@@ -42,7 +42,10 @@ def collect_run_data(layout, bids_filters):
         query = {**bids_filters, **query}
         files = layout.get(**query)
         if param is not None:
-            files = [f for f in files if f'_param-{param}' in f.filename]
+            files = [f for f in files if f'_param-{param}_' in f.filename]
+            if param == 'fa':
+                # Both DIPYDKI and DSIStudio have 'fa' as a param. Use DIPYDKI.
+                files = [f for f in files if 'qsirecon-DIPYDKI' in f.path]
             query['param'] = param
 
         if len(files) != 1:
