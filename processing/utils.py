@@ -279,7 +279,8 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
             f'(img == {tissue_type_val}).astype(np.int32)',
             img=dseg,
         )
-        tissue_type_vals = masking.apply_mask(overlay, mask_img)
+        masker = maskers.NiftiMasker(mask_img=mask_img)
+        tissue_type_vals = masker.fit_transform(overlay)
         df = pd.DataFrame(
             columns=['Data', 'Tissue Type'],
             data=list(map(list, zip(*[tissue_type_vals, [tissue_type] * tissue_type_vals.size]))),
