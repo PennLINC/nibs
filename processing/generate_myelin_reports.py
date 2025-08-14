@@ -89,8 +89,9 @@ def process_run(layout, run_data, out_dir):
         Directory to write output files.
     """
     mask_img = nb.load(run_data['brainmask'])
-    # downsize to int32
     mask_img.header.set_data_dtype(np.int32)
+    dseg_img = nb.load(run_data['dseg'])
+    dseg_img.header.set_data_dtype(np.int32)
 
     for name, file_ in run_data.items():
         if name in ['t1w', 'brainmask', 'dseg']:
@@ -122,7 +123,7 @@ def process_run(layout, run_data, out_dir):
             underlay=run_data['t1w'],
             overlay=file_,
             mask=mask_img,
-            dseg=run_data['dseg'],
+            dseg=dseg_img,
             out_file=scalar_report,
             vmin=vmin,
             vmax=vmax,

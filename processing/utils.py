@@ -275,7 +275,7 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
     for i_tissue_type, tissue_type in enumerate(tissue_types):
         tissue_type_val = tissue_values[i_tissue_type]
         mask_img = image.math_img(
-            f'(img == {tissue_type_val}).astype(int)',
+            f'(img == {tissue_type_val}).astype(np.int32)',
             img=dseg,
         )
         tissue_type_vals = masking.apply_mask(overlay, mask_img)
