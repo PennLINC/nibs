@@ -56,7 +56,7 @@ queries:
         # MP2RAGE
         R1map:
             datatype: anat
-            desc: None
+            desc: Query.NONE
             suffix: R1map
         R1mapB1corrected:
             datatype: anat
@@ -118,11 +118,11 @@ queries:
             suffix: Chimap
         CHISEPMyelin:
             datatype: anat
-            desc: None
+            desc: Query.NONE
             suffix: myelinmap
         CHISEPIron:
             datatype: anat
-            desc: None
+            desc: Query.NONE
             suffix: Chimap
         # T1w/T2w Ratio
         SPACET1wT2wRatio:
