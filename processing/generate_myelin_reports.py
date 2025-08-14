@@ -26,18 +26,13 @@ def collect_run_data(layout, bids_filters):
     run_data = {}
     for key, query in queries['myelin'].items():
         for k, v in query.items():
-            print(k, v)
             if isinstance(v, list):
                 new_v = []
                 for item in v:
                     new_v.append(QUERY_LOOKUP.get(item, item))
                 query[k] = new_v
-                print(k, query[k])
             else:
                 query[k] = QUERY_LOOKUP.get(v, v)
-
-            print(k, query[k])
-            print()
 
         query = {**bids_filters, **query}
         files = layout.get(**query)
@@ -51,6 +46,15 @@ def collect_run_data(layout, bids_filters):
 
     for key, query in queries['other'].items():
         query = {**bids_filters, **query}
+        for k, v in query.items():
+            if isinstance(v, list):
+                new_v = []
+                for item in v:
+                    new_v.append(QUERY_LOOKUP.get(item, item))
+                query[k] = new_v
+            else:
+                query[k] = QUERY_LOOKUP.get(v, v)
+
         files = layout.get(**query)
         if len(files) != 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)}: {query}')
