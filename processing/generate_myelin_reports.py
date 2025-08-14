@@ -26,8 +26,8 @@ def collect_run_data(layout, bids_filters):
     run_data = {}
     for key, query in queries['myelin'].items():
         for k, v in query.items():
+            print(k, v)
             if isinstance(v, list):
-                print(k, v)
                 new_v = []
                 for item in v:
                     new_v.append(QUERY_LOOKUP.get(item, item))
@@ -35,6 +35,9 @@ def collect_run_data(layout, bids_filters):
                 print(k, query[k])
             else:
                 query[k] = QUERY_LOOKUP.get(v, v)
+
+            print(k, query[k])
+            print()
 
         query = {**bids_filters, **query}
         files = layout.get(**query)
