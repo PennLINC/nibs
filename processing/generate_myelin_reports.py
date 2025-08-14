@@ -6,13 +6,17 @@ import os
 
 import numpy as np
 import yaml
-from bids.layout import BIDSLayout
+from bids.layout import BIDSLayout, Query
 from nilearn import masking
 from nireports.assembler.report import Report
 
 from utils import get_filename, plot_scalar_map
 
 CODE_DIR = '/cbica/projects/nibs/code'
+QUERY_LOOKUP = {
+    'Query.NONE': Query.NONE,
+    'Query.ANY': Query.ANY,
+}
 
 
 def collect_run_data(layout, bids_filters):
@@ -21,6 +25,15 @@ def collect_run_data(layout, bids_filters):
 
     run_data = {}
     for key, query in queries['myelin'].items():
+        for k, v in query.items():
+            if isinstance(v, list):
+                new_v = []
+                for item in v:
+                    new_v.append(QUERY_LOOKUP.get(item, item))
+                query[k] = new_v
+            else:
+                query[k] = QUERY_LOOKUP.get(v, v)
+
         query = {**bids_filters, **query}
         files = layout.get(**query)
         if len(files) != 1:
