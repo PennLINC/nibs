@@ -95,6 +95,7 @@ def process_run(layout, run_data, out_dir):
             print(f'No {name} file found for {run_data["t1w"]}')
             continue
 
+        print(f'Processing {name}: {file_}')
         data = masking.apply_mask(file_, run_data['brainmask'])
         vmin = np.percentile(data, 2)
         vmin = np.minimum(vmin, 0)
