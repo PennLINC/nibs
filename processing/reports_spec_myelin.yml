@@ -1,0 +1,27 @@
+package: Myelin Derivatives
+sections:
+- name: dMRI
+  ordering: session
+  reportlets:
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [FA, AD, AWF, MD, MK, RD, RDe, RK], suffix: scalar}
+    static: true
+- name: MP2RAGE
+  ordering: session
+  reportlets:
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [R1map, R1mapB1corrected], suffix: scalar}
+    static: true
+- name: ihMT
+  ordering: session
+  reportlets:
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [ihMTw, ihMTR, MTRmap, ihMTsat, ihMTsatB1sq, MTdsat, MTdsatB1sq, MTssat, MTssatB1sq], suffix: scalar}
+    static: true
+- name: T1w/T2w Ratio
+  ordering: session
+  reportlets:
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [SPACET1wT2wRatio, MPRAGET1wT2wRatio], suffix: scalar}
+    static: true
+- name: QSM
+  ordering: session
+  reportlets:
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [SEPIA, CHISEPR2correctedMyelin, CHISEPR2correctedIron, CHISEPMyelin, CHISEPIron], suffix: scalar}
+    static: true

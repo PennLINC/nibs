@@ -1,10 +1,28 @@
 queries:
     other:
+        # MNI-space T1w image from sMRIPrep
+        t1w:
+            datatype: anat
+            session: [Query.NONE, Query.ANY]
+            run: [Query.NONE, Query.ANY]
+            desc: preproc
+            suffix: T1w
+            extension: ['.nii', '.nii.gz']
         # Brain mask
         brainmask:
             datatype: anat
+            session: [Query.NONE, Query.ANY]
+            run: [Query.NONE, Query.ANY]
             desc: brain
             suffix: mask
+            extension: ['.nii', '.nii.gz']
+        # dseg
+        dseg:
+            datatype: anat
+            session: [Query.NONE, Query.ANY]
+            run: [Query.NONE, Query.ANY]
+            suffix: dseg
+            extension: ['.nii', '.nii.gz']
     # Myelin measures
     myelin:
         # ihMTRAGE
@@ -40,7 +58,7 @@ queries:
             datatype: anat
             desc: None
             suffix: R1map
-        R1map_B1corrected:
+        R1mapB1corrected:
             datatype: anat
             desc: B1corrected
             suffix: R1map
@@ -90,19 +108,28 @@ queries:
             datatype: anat
             desc: SEPIA
             suffix: Chimap
-        CHISEP_R2corrected_myelin:
+        CHISEPR2correctedMyelin:
             datatype: anat
             desc: R2corrected
             suffix: myelinmap
-        CHISEP_R2corrected_iron:
+        CHISEPR2correctedIron:
             datatype: anat
             desc: R2corrected
             suffix: Chimap
-        CHISEP_myelin:
+        CHISEPMyelin:
             datatype: anat
             desc: None
             suffix: myelinmap
-        CHISEP_iron:
+        CHISEPIron:
             datatype: anat
             desc: None
             suffix: Chimap
+        # T1w/T2w Ratio
+        SPACET1wT2wRatio:
+            datatype: anat
+            desc: SPACE
+            suffix: myelinw
+        MPRAGET1wT2wRatio:
+            datatype: anat
+            desc: MPRAGE
+            suffix: myelinw
