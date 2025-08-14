@@ -25,43 +25,6 @@ queries:
             extension: ['.nii', '.nii.gz']
     # Myelin measures
     myelin:
-        # ihMTRAGE
-        ihMTw:
-            datatype: anat
-            suffix: ihMTw
-        ihMTR:
-            datatype: anat
-            suffix: ihMTR
-        MTRmap:
-            datatype: anat
-            suffix: MTRmap
-        ihMTsat:
-            datatype: anat
-            suffix: ihMTsat
-        MTdsat:
-            datatype: anat
-            suffix: MTdsat
-        MTssat:
-            datatype: anat
-            suffix: MTssat
-        ihMTsatB1sq:
-            datatype: anat
-            suffix: ihMTsatB1sq
-        MTdsatB1sq:
-            datatype: anat
-            suffix: MTdsatB1sq
-        MTssatB1sq:
-            datatype: anat
-            suffix: MTssatB1sq
-        # MP2RAGE
-        R1map:
-            datatype: anat
-            desc: Query.NONE
-            suffix: R1map
-        R1mapB1corrected:
-            datatype: anat
-            desc: B1corrected
-            suffix: R1map
         # dMRI
         FA:
             datatype: dwi
@@ -103,6 +66,43 @@ queries:
             model: dki
             param: rk
             suffix: dwimap
+        # ihMTRAGE
+        ihMTw:
+            datatype: anat
+            suffix: ihMTw
+        ihMTR:
+            datatype: anat
+            suffix: ihMTR
+        MTRmap:
+            datatype: anat
+            suffix: MTRmap
+        ihMTsat:
+            datatype: anat
+            suffix: ihMTsat
+        MTdsat:
+            datatype: anat
+            suffix: MTdsat
+        MTssat:
+            datatype: anat
+            suffix: MTssat
+        ihMTsatB1sq:
+            datatype: anat
+            suffix: ihMTsatB1sq
+        MTdsatB1sq:
+            datatype: anat
+            suffix: MTdsatB1sq
+        MTssatB1sq:
+            datatype: anat
+            suffix: MTssatB1sq
+        # MP2RAGE
+        R1map:
+            datatype: anat
+            desc: Query.NONE
+            suffix: R1map
+        R1mapB1corrected:
+            datatype: anat
+            desc: B1corrected
+            suffix: R1map
         # QSM
         SEPIA:
             datatype: anat
