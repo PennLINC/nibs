@@ -244,6 +244,7 @@ def fit_monoexponential(in_files, echo_times):
 def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vmax=None, cmap='Reds'):
     import matplotlib.pyplot as plt
     import nibabel as nb
+    import numpy as np
     import pandas as pd
     import seaborn as sns
     from matplotlib import cm
@@ -280,7 +281,7 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
             img=dseg,
         )
         masker = maskers.NiftiMasker(mask_img=mask_img)
-        tissue_type_vals = masker.fit_transform(overlay)
+        tissue_type_vals = np.squeeze(masker.fit_transform(overlay))
         df = pd.DataFrame(
             columns=['Data', 'Tissue Type'],
             data=list(map(list, zip(*[tissue_type_vals, [tissue_type] * tissue_type_vals.size]))),
