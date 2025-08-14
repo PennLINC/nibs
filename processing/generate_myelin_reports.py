@@ -118,7 +118,7 @@ def process_run(layout, run_data, out_dir):
                 'suffix': 'scalar',
                 'extension': '.svg',
             },
-            dismiss_entities=['model', 'param']
+            dismiss_entities=['model', 'param'],
         )
         plot_scalar_map(
             underlay=run_data['t1w'],
