@@ -4,10 +4,11 @@ import argparse
 import json
 import os
 
+import nibabel as nb
 import numpy as np
 import yaml
 from bids.layout import BIDSLayout, Query
-from nilearn import masking
+from nilearn import maskers
 from nireports.assembler.report import Report
 
 from utils import get_filename, plot_scalar_map
@@ -87,6 +88,10 @@ def process_run(layout, run_data, out_dir):
     out_dir : str
         Directory to write output files.
     """
+    mask_img = nb.load(run_data['brainmask'])
+    # downsize to int32
+    mask_img = mask_img.astype(np.int32)
+
     for name, file_ in run_data.items():
         if name in ['t1w', 'brainmask', 'dseg']:
             continue
@@ -96,7 +101,8 @@ def process_run(layout, run_data, out_dir):
             continue
 
         print(f'Processing {name}: {file_}')
-        data = masking.apply_mask(file_, run_data['brainmask'])
+        masker = maskers.NiftiMasker(mask_img=mask_img)
+        data = masker.fit_transform(file_)
         vmin = np.percentile(data, 2)
         vmin = np.minimum(vmin, 0)
         vmax = np.percentile(data, 98)
@@ -115,7 +121,7 @@ def process_run(layout, run_data, out_dir):
         plot_scalar_map(
             underlay=run_data['t1w'],
             overlay=file_,
-            mask=run_data['brainmask'],
+            mask=mask_img,
             dseg=run_data['dseg'],
             out_file=scalar_report,
             vmin=vmin,
