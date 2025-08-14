@@ -90,7 +90,7 @@ def process_run(layout, run_data, out_dir):
     """
     mask_img = nb.load(run_data['brainmask'])
     # downsize to int32
-    mask_img = mask_img.astype(np.int32)
+    mask_img.header.set_data_dtype(np.int32)
 
     for name, file_ in run_data.items():
         if name in ['t1w', 'brainmask', 'dseg']:
