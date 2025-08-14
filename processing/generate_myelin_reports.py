@@ -121,9 +121,10 @@ def main(subject_id):
     bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_myelin.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
+    config = os.path.join(CODE_DIR, 'nibs_bids_config.json')
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
+        config=[config],
         validate=False,
         derivatives=[
             smriprep_dir,

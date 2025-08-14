@@ -158,7 +158,7 @@
             "pattern": "(?:^|_)bundles-([a-zA-Z0-9]+)"
         },
         {
-            "name": "param",
+            "name": "parameter",
             "pattern": "(?:^|_)param-([a-zA-Z0-9]+)"
         },
         {
