@@ -150,12 +150,24 @@
             "pattern": "den-([a-zA-Z0-9+]+)"
         },
         {
-            "name": "param",
-            "pattern": "param-([a-zA-Z0-9+]+)"
+            "name": "model",
+            "pattern": "(?:^|_)model-([a-zA-Z0-9]+)"
         },
         {
-            "name": "model",
-            "pattern": "model-([a-zA-Z0-9+]+)"
+            "name": "bundles",
+            "pattern": "(?:^|_)bundles-([a-zA-Z0-9]+)"
+        },
+        {
+            "name": "param",
+            "pattern": "(?:^|_)param-([a-zA-Z0-9]+)"
+        },
+        {
+            "name": "bundle",
+            "pattern": "(?:^|_)bundle-([a-zA-Z0-9]+)"
+        },
+        {
+            "name": "label",
+            "pattern": "(?:^|_)label-([a-zA-Z0-9]+)"
         }
     ],
     "default_path_patterns": [
