@@ -149,7 +149,11 @@ def collect_run_data(layout, bids_filters):
     for key, query in queries.items():
         query = {**bids_filters, **query}
         files = layout.get(**query)
-        if len(files) != 1:
+        if key.startswith('chisep_') and len(files) == 0:
+            print(f'No files found for {key} with query {query}')
+            run_data[key] = None
+            continue
+        elif len(files) != 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)} with query {query}')
 
         file = files[0]
@@ -184,6 +188,9 @@ def process_run(layout, run_data, out_dir):
         run_data['chisep_iron_wo_r2p'],
         run_data['chisep_myelin_wo_r2p'],
     ]:
+        if file_ is None:
+            continue
+
         suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
 
         # Coregister to T1w
