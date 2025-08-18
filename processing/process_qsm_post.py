@@ -321,9 +321,7 @@ def main(subject_id):
                 print(e)
                 continue
             fname = os.path.basename(megre_file.path).split('.')[0]
-            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-            os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir)
+            process_run(layout, run_data, out_dir)
 
         report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
         robj = Report(
