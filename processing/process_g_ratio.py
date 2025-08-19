@@ -25,6 +25,7 @@ from nireports.assembler.report import Report
 from utils import get_filename, plot_scalar_map
 
 CODE_DIR = '/cbica/projects/nibs/code'
+# Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
 ALPHA_MTR = 1
 ALPHA_MTSAT = 1
 
