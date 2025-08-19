@@ -5,7 +5,7 @@ Steps:
 1.  Coregister SPACE T1w, SPACE T2w, and MPRAGE to sMRIPrep's preprocessed T1w image.
 2.  Calculate SPACE T1w/SPACE T2w ratio map.
 3.  Calculate MPRAGE T1w/SPACE T2w ratio map.
-3.  Warp T1w/T2w ratio maps to MNI152NLin2009cAsym using normalization transform from sMRIPrep.
+4.  Warp T1w/T2w ratio maps to MNI152NLin2009cAsym using normalization transform from sMRIPrep.
 
 Notes:
 
@@ -191,6 +191,28 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
+    # Create n4-corrected and scaled versions of the original T1w and T2w images
+    space_t1w_img = ants.image_read(run_data['space_t1w'])
+    space_t2w_img = ants.image_read(run_data['space_t2w'])
+    mprage_t1w_img = ants.image_read(run_data['mprage_t1w'])
+    # N4-correct the images
+    n4_space_t1w_img = ants.n4_bias_field_correction(space_t1w_img)
+    n4_space_t2w_img = ants.n4_bias_field_correction(space_t2w_img)
+    n4_mprage_t1w_img = ants.n4_bias_field_correction(mprage_t1w_img)
+    n4_space_t1w_data = n4_space_t1w_img.numpy()
+    n4_space_t2w_data = n4_space_t2w_img.numpy()
+    n4_mprage_t1w_data = n4_mprage_t1w_img.numpy()
+    # Scale the images to 0 - 100
+    scaled_space_t1w_data = n4_space_t1w_data - n4_space_t1w_data.min()
+    scaled_space_t1w_data = 100 * (scaled_space_t1w_data / scaled_space_t1w_data.max())
+    scaled_space_t2w_data = n4_space_t2w_data - n4_space_t2w_data.min()
+    scaled_space_t2w_data = 100 * (scaled_space_t2w_data / scaled_space_t2w_data.max())
+    scaled_mprage_t1w_data = n4_mprage_t1w_data - n4_mprage_t1w_data.min()
+    scaled_mprage_t1w_data = 100 * (scaled_mprage_t1w_data / scaled_mprage_t1w_data.max())
+    scaled_space_t1w_img = n4_space_t1w_img.new_image_like(scaled_space_t1w_data)
+    scaled_space_t2w_img = n4_space_t2w_img.new_image_like(scaled_space_t2w_data)
+    scaled_mprage_t1w_img = n4_mprage_t1w_img.new_image_like(scaled_mprage_t1w_data)
+
     # Register SPACE T1w to sMRIPrep T1w with ANTs
     fixed_img = ants.image_read(run_data['t1w'])
     moving_img = ants.image_read(run_data['space_t1w'])
@@ -247,7 +269,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=space_t1w_img,
         transformlist=fwd_transform,
-        interpolator='gaussian',
+        interpolator='lanczosWindowedSinc',
     )
     t1w_space_t1w_file = get_filename(
         name_source=run_data['space_t1w'],
@@ -257,7 +279,23 @@ def process_run(layout, run_data, out_dir, temp_dir):
         dismiss_entities=['reconstruction'],
     )
     ants.image_write(t1w_space_t1w_img, t1w_space_t1w_file)
-    del space_t1w_img
+
+    # Apply the transform to scaled SPACE T1w
+    t1w_scaled_space_t1w_img = ants.apply_transforms(
+        fixed=fixed_img,
+        moving=scaled_space_t1w_img,
+        transformlist=fwd_transform,
+        interpolator='lanczosWindowedSinc',
+    )
+    t1w_scaled_space_t1w_file = get_filename(
+        name_source=run_data['space_t1w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'SPACEscaled', 'suffix': 'T1w'},
+        dismiss_entities=['reconstruction'],
+    )
+    ants.image_write(t1w_scaled_space_t1w_img, t1w_scaled_space_t1w_file)
+    del scaled_space_t1w_img
 
     # Register SPACE T2w to sMRIPrep T1w with ANTs
     moving_img = ants.image_read(run_data['space_t2w'])
@@ -308,12 +346,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
     del fwd_transform_file, inv_transform_file
 
     # Apply the transform to SPACE T2w
-    space_t2w_img = ants.image_read(run_data['space_t2w'])
     t1w_space_t2w_img = ants.apply_transforms(
         fixed=fixed_img,
         moving=space_t2w_img,
         transformlist=fwd_transform,
-        interpolator='gaussian',
+        interpolator='lanczosWindowedSinc',
     )
     t1w_space_t2w_file = get_filename(
         name_source=run_data['space_t2w'],
@@ -325,17 +362,41 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.image_write(t1w_space_t2w_img, t1w_space_t2w_file)
     del space_t2w_img
 
+    # Apply the transform to scaled SPACE T2w
+    t1w_scaled_space_t2w_img = ants.apply_transforms(
+        fixed=fixed_img,
+        moving=scaled_space_t2w_img,
+        transformlist=fwd_transform,
+        interpolator='lanczosWindowedSinc',
+    )
+    t1w_scaled_space_t2w_file = get_filename(
+        name_source=run_data['space_t2w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'SPACEscaled', 'suffix': 'T2w'},
+        dismiss_entities=['reconstruction'],
+    )
+    ants.image_write(t1w_scaled_space_t2w_img, t1w_scaled_space_t2w_file)
+    del scaled_space_t2w_img
+
     # Apply the sMRIPrep coregistration transform to MPRAGE T1w
     mprage_t1w_img = ants.image_read(run_data['mprage_t1w'])
     if run_data['mprage2t1w_xfm'] is None:
         t1w_mprage_t1w_img = mprage_t1w_img
+        t1w_scaled_mprage_t1w_img = scaled_mprage_t1w_img
     else:
         fwd_transform = run_data['mprage2t1w_xfm']
         t1w_mprage_t1w_img = ants.apply_transforms(
             fixed=fixed_img,
             moving=mprage_t1w_img,
             transformlist=fwd_transform,
-            interpolator='gaussian',
+            interpolator='lanczosWindowedSinc',
+        )
+        t1w_scaled_mprage_t1w_img = ants.apply_transforms(
+            fixed=fixed_img,
+            moving=scaled_mprage_t1w_img,
+            transformlist=fwd_transform,
+            interpolator='lanczosWindowedSinc',
         )
 
     t1w_mprage_t1w_file = get_filename(
@@ -346,6 +407,63 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     ants.image_write(t1w_mprage_t1w_img, t1w_mprage_t1w_file)
     del mprage_t1w_img
+
+    t1w_scaled_mprage_t1w_file = get_filename(
+        name_source=run_data['mprage_t1w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'MPRAGEscaled', 'suffix': 'T1w'},
+    )
+    ants.image_write(t1w_scaled_mprage_t1w_img, t1w_scaled_mprage_t1w_file)
+    del scaled_mprage_t1w_img
+
+    # Calculate SPACE T1w/SPACE T2w ratio map for unscaled images
+    t1w_unscaled_space_ratio_file = get_filename(
+        name_source=run_data['space_t1w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'SPACEunscaled', 'suffix': 'myelinw'},
+        dismiss_entities=['reconstruction', 'acquisition'],
+    )
+    t1w_unscaled_space_ratio_img = t1w_space_t1w_img / t1w_space_t2w_img
+    ants.image_write(t1w_unscaled_space_ratio_img, t1w_unscaled_space_ratio_file)
+    del t1w_space_t1w_img, t1w_unscaled_space_ratio_img
+
+    # Calculate SPACE T1w/SPACE T2w ratio map for scaled images
+    t1w_scaled_space_ratio_file = get_filename(
+        name_source=run_data['space_t1w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'SPACEscaled', 'suffix': 'myelinw'},
+        dismiss_entities=['reconstruction', 'acquisition'],
+    )
+    t1w_scaled_space_ratio_img = t1w_scaled_space_t1w_img / t1w_scaled_space_t2w_img
+    ants.image_write(t1w_scaled_space_ratio_img, t1w_scaled_space_ratio_file)
+    del t1w_scaled_space_t1w_img, t1w_scaled_space_ratio_img
+
+    # Calculate MPRAGE T1w/SPACE T2w ratio map for unscaled images
+    t1w_unscaled_mprage_ratio_file = get_filename(
+        name_source=run_data['mprage_t1w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'MPRAGEunscaled', 'suffix': 'myelinw'},
+        dismiss_entities=['reconstruction', 'acquisition'],
+    )
+    t1w_unscaled_mprage_ratio_img = t1w_mprage_t1w_img / t1w_space_t2w_img
+    ants.image_write(t1w_unscaled_mprage_ratio_img, t1w_unscaled_mprage_ratio_file)
+    del t1w_mprage_t1w_img, t1w_space_t2w_img, t1w_unscaled_mprage_ratio_img
+
+    # Calculate MPRAGE T1w/SPACE T2w ratio map for scaled images
+    t1w_scaled_mprage_ratio_file = get_filename(
+        name_source=run_data['mprage_t1w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'desc': 'MPRAGEscaled', 'suffix': 'myelinw'},
+        dismiss_entities=['reconstruction', 'acquisition'],
+    )
+    t1w_scaled_mprage_ratio_img = t1w_scaled_mprage_t1w_img / t1w_scaled_space_t2w_img
+    ants.image_write(t1w_scaled_mprage_ratio_img, t1w_scaled_mprage_ratio_file)
+    del t1w_scaled_mprage_t1w_img, t1w_scaled_space_t2w_img, t1w_scaled_mprage_ratio_img
 
     # Plot coregistration of SPACE and MPRAGE files to sMRIPrep T1w
     descs = ['SPACE', 'MPRAGE', 'SPACE']
@@ -390,32 +508,15 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     del t1w_space_t1w_file, t1w_mprage_t1w_file, t1w_space_t2w_file
 
-    # Calculate SPACE T1w/SPACE T2w ratio map
-    t1w_space_ratio_file = get_filename(
-        name_source=run_data['space_t1w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'SPACE', 'suffix': 'myelinw'},
-        dismiss_entities=['reconstruction', 'acquisition'],
-    )
-    t1w_space_ratio_img = t1w_space_t1w_img / t1w_space_t2w_img
-    ants.image_write(t1w_space_ratio_img, t1w_space_ratio_file)
-
-    # Calculate MPRAGE T1w/SPACE T2w ratio map
-    t1w_mprage_ratio_file = get_filename(
-        name_source=run_data['mprage_t1w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'MPRAGE', 'suffix': 'myelinw'},
-        dismiss_entities=['reconstruction', 'acquisition'],
-    )
-    t1w_mprage_ratio_img = t1w_mprage_t1w_img / t1w_space_t2w_img
-    ants.image_write(t1w_mprage_ratio_img, t1w_mprage_ratio_file)
-
     # Warp T1w-space SPACE T1w/SPACE T2w and MPRAGE T1w/SPACE T2w ratio maps to MNI152NLin2009cAsym
     # using normalization transform from sMRIPrep.
-    files = [t1w_space_ratio_file, t1w_mprage_ratio_file]
-    descs = ['SPACE', 'MPRAGE']
+    files = [
+        t1w_unscaled_space_ratio_file,
+        t1w_unscaled_mprage_ratio_file,
+        t1w_scaled_space_ratio_file,
+        t1w_scaled_mprage_ratio_file,
+    ]
+    descs = ['SPACEunscaled', 'MPRAGEunscaled', 'SPACEscaled', 'MPRAGEscaled']
     for i_file, file_ in enumerate(files):
         desc = descs[i_file]
         mni_file = get_filename(
@@ -433,6 +534,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         ants.image_write(mni_img, mni_file)
 
+        # Plot the ratio maps
         scalar_desc = 'scalar'
         if desc:
             scalar_desc = f'{desc}{scalar_desc}'

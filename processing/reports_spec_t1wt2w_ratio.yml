@@ -12,9 +12,15 @@ sections:
 - name: Myelin Derivatives
   ordering: session,task,acquisition,ceagent,direction,run,echo,suffix
   reportlets:
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: SPACEscalar, suffix: myelinw}
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: SPACEunscaledscalar, suffix: myelinw}
     subtitle: Scalar map of SPACE T1w/SPACE T2w ratio data in MNI152NLin2009cAsym space
     static: true
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: MPRAGEscalar, suffix: myelinw}
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: MPRAGEunscaledscalar, suffix: myelinw}
     subtitle: Scalar map of MPRAGE T1w/SPACE T2w ratio data in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: SPACEscaledscalar, suffix: myelinw}
+    subtitle: Scalar map of scaled SPACE T1w/SPACE T2w ratio data in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: MPRAGEscaledscalar, suffix: myelinw}
+    subtitle: Scalar map of scaled MPRAGE T1w/SPACE T2w ratio data in MNI152NLin2009cAsym space
     static: true
