@@ -37,71 +37,21 @@ scaling_factor = (FVF * 0.51) / (0.49 * MVF)
 # MTsat+ISOVF/ICVF, MTsat+AWF, ihMTR+ISOVF/ICVF, and ihMTR+AWF.
 """
 
-import argparse
-import json
 import os
 
 import ants
-import nibabel as nb
 import numpy as np
+import pandas as pd
 from bids.layout import BIDSLayout, Query
-from nilearn import masking
+from nilearn import masking, plotting
 
 from utils import get_filename
 
 CODE_DIR = '/cbica/projects/nibs/code'
-# Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
-ALPHA_MTR = 1
-ALPHA_MTSAT = 1
 
 
-def collect_run_data(layout, bids_filters):
+def collect_run_data(layout, bids_filters, smriprep_dir):
     queries = {
-        'space_t1w': {
-            'part': Query.NONE,
-            'acquisition': 'SPACE',
-            'space': Query.NONE,
-            'desc': Query.NONE,
-            'suffix': 'T1w',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        'space_t2w': {
-            'part': Query.NONE,
-            'acquisition': 'SPACE',
-            'space': Query.NONE,
-            'desc': Query.NONE,
-            'suffix': 'T2w',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        'mprage_t1w': {
-            'part': Query.NONE,
-            'acquisition': 'MPRAGE',
-            'space': Query.NONE,
-            'desc': Query.NONE,
-            'suffix': 'T1w',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        # T1w-space T1w image from sMRIPrep
-        't1w': {
-            'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
-            'run': [Query.NONE, Query.ANY],
-            'space': Query.NONE,
-            'res': Query.NONE,
-            'desc': 'preproc',
-            'suffix': 'T1w',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        # MNI-space T1w image from sMRIPrep
-        't1w_mni': {
-            'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
-            'run': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
-            'desc': 'preproc',
-            'suffix': 'T1w',
-            'extension': ['.nii', '.nii.gz'],
-        },
         # MNI-space ISOVF and ICVF maps from QSIRecon
         'isovf_mni': {
             'datatype': 'dwi',
@@ -128,29 +78,40 @@ def collect_run_data(layout, bids_filters):
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
-            'model': 'noddi',
+            'model': 'dkimicro',
             'param': 'awf',
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
-        # MNI-space MTsat and ihMTR maps from process_ihmt.py
-        'mtsat_mni': {
+        # sMRIPrep T1w-space MTsat and ihMTR maps from process_ihmt.py
+        'mtsat_t1w': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
+            'space': 'T1w',
             'suffix': 'MTsat',
             'extension': ['.nii', '.nii.gz'],
         },
-        'ihmtr_mni': {
+        'ihmtr_t1w': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
+            'space': 'T1w',
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
         },
-        # Coregistration transform for MPRAGE, from sMRIPrep
+        # Transform from MNI to sMRIPrep T1w space
+        'mni2t1w_xfm': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'from': 'MNI152NLin2009cAsym',
+            'to': 'T1w',
+            'mode': 'image',
+            'suffix': 'xfm',
+            'extension': '.h5',
+        },
+        # Transform from sMRIPrep T1w to Freesurfer space
         't1w2fs_xfm': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
@@ -161,46 +122,48 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'xfm',
             'extension': '.txt',
         },
-        # T1w-space aseg dseg from sMRIPrep
-        'aseg_t1w': {
-            'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
-            'run': [Query.NONE, Query.ANY],
-            'space': 'T1w',
-            'desc': 'aseg',
-            'suffix': 'dseg',
-            'extension': ['.nii', '.nii.gz'],
-        },
     }
 
     run_data = {}
     for key, query in queries.items():
         query = {**bids_filters, **query}
         files = layout.get(**query)
-        if key == 'mprage2t1w_xfm' and len(files) == 0:
-            print(f'No MPRAGE T1w coregistration transform found for {query}. Using identity transform.')
-            run_data[key] = None
-            continue
-        elif len(files) != 1:
+        if len(files) != 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)}: {query}')
 
         file = files[0]
         run_data[key] = file.path
 
+    run_data['aseg_fsnative'] = os.path.join(
+        smriprep_dir,
+        'sourcedata',
+        'freesurfer',
+        f'sub-{bids_filters["subject"]}',
+        'mri',
+        'aseg.mgz',
+    )
+    assert os.path.isfile(run_data['aseg_fsnative']), f'Aseg file {run_data["aseg_fsnative"]} not found'
+
+    run_data['brain_fsnative'] = os.path.join(
+        smriprep_dir,
+        'sourcedata',
+        'freesurfer',
+        f'sub-{bids_filters["subject"]}',
+        'mri',
+        'brain.mgz',
+    )
+    assert os.path.isfile(run_data['brain_fsnative']), f'Brain file {run_data["brain_fsnative"]} not found'
+
     return run_data
 
 
-def process_run(layout, run_data, out_dir, temp_dir):
+def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     """Process a single MP2RAGE run.
 
     Parameters
     ----------
-    layout : BIDSLayout
-        BIDSLayout object.
     run_data : dict
         Dictionary of run data.
-    out_dir : str
-        Directory to write output files.
     temp_dir : str
         Directory to write temporary files.
 
@@ -210,148 +173,192 @@ def process_run(layout, run_data, out_dir, temp_dir):
         Array of g-ratios in the splenium.
     """
     # MVF measures: MPRAGE T1w/T2w ratio, SPACE T1w/T2w ratio, MTsat, ihMTR
-    mtsat_mvf = ants.image_read(run_data['mtsat_mni'])
-    ihmtr_mvf = ants.image_read(run_data['ihmtr_mni'])
+    mtsat_mvf = ants.image_read(run_data['mtsat_t1w'])
+    ihmtr_mvf = ants.image_read(run_data['ihmtr_t1w'])
 
     # FVF/AVF measures: ISOVF, ICVF, AWF
     isovf = ants.image_read(run_data['isovf_mni'])
     icvf = ants.image_read(run_data['icvf_mni'])
     awf = ants.image_read(run_data['awf_mni'])
 
-    mtsat_isovf_icvf_fvf = mtsat_mvf * (1 - isovf) * icvf
-    ihmtr_isovf_icvf_fvf = ihmtr_mvf * (1 - isovf) * icvf
-
     # Warp each image to Freesurfer space
     mtsat_mvf_fs = ants.apply_transforms(
-        fixed=ants.image_read(run_data['t1w']),
+        fixed=ants.image_read(run_data['aseg_fsnative']),
         moving=mtsat_mvf,
+        transformlist=[run_data['t1w2fs_xfm']],
+        interpolator='lanczosWindowedSinc',
+    )
+    ihmtr_mvf_fs = ants.apply_transforms(
+        fixed=ants.image_read(run_data['aseg_fsnative']),
+        moving=ihmtr_mvf,
+        transformlist=[run_data['t1w2fs_xfm']],
+        interpolator='lanczosWindowedSinc',
+    )
+    isovf_fs = ants.apply_transforms(
+        fixed=ants.image_read(run_data['aseg_fsnative']),
+        moving=isovf,
+        transformlist=[run_data['t1w2fs_xfm'], run_data['mni2t1w_xfm']],
+        interpolator='lanczosWindowedSinc',
+    )
+    icvf_fs = ants.apply_transforms(
+        fixed=ants.image_read(run_data['aseg_fsnative']),
+        moving=icvf,
+        transformlist=[run_data['t1w2fs_xfm'], run_data['mni2t1w_xfm']],
+        interpolator='lanczosWindowedSinc',
+    )
+    awf_fs = ants.apply_transforms(
+        fixed=ants.image_read(run_data['aseg_fsnative']),
+        moving=awf,
         transformlist=[run_data['t1w2fs_xfm'], run_data['mni2t1w_xfm']],
         interpolator='lanczosWindowedSinc',
     )
 
-    # G = sqrt(FVF / (FVF + MVF))
-    imgs = {}
-    imgs['MTsat+ISOVF+ICVF'] = np.sqrt(mtsat_isovf_icvf_fvf / (mtsat_isovf_icvf_fvf + mtsat_mvf))
-    imgs['ihMTR+ISOVF+ICVF'] = np.sqrt(ihmtr_isovf_icvf_fvf / (ihmtr_isovf_icvf_fvf + ihmtr_mvf))
-    imgs['MTsat+AWF'] = np.sqrt(awf / (awf + mtsat_mvf))
-    imgs['ihMTR+AWF'] = np.sqrt(awf / (awf + ihmtr_mvf))
+    mtsat_isovf_icvf_fvf = mtsat_mvf_fs * (1 - isovf_fs) * icvf_fs
+    ihmtr_isovf_icvf_fvf = ihmtr_mvf_fs * (1 - isovf_fs) * icvf_fs
 
-    for i_img, (_, img) in enumerate(imgs.items()):
-        data = masking.apply_mask(img, run_data['splenium_mask'])
-        if i_img == 0:
-            n_voxels = data.shape[0]
-            splenium_fvfs = np.zeros((4, n_voxels))
-            splenium_mvfs = np.zeros((4, n_voxels))
+    # Write out these images so I can just use NiftiMasker to get the splenium data
+    ants.image_write(mtsat_isovf_icvf_fvf, os.path.join(temp_dir, 'mtsat_isovf_icvf_fvf.nii.gz'))
+    ants.image_write(ihmtr_isovf_icvf_fvf, os.path.join(temp_dir, 'ihmtr_isovf_icvf_fvf.nii.gz'))
+    ants.image_write(awf_fs, os.path.join(temp_dir, 'awf_fs.nii.gz'))
+    ants.image_write(mtsat_mvf_fs, os.path.join(temp_dir, 'mtsat_mvf_fs.nii.gz'))
+    ants.image_write(ihmtr_mvf_fs, os.path.join(temp_dir, 'ihmtr_mvf_fs.nii.gz'))
 
-        splenium_fvfs[i_img, :] = data
-        splenium_mvfs[i_img, :] = data
+    # Select only the splenium voxels
+    splenium_mask = ants.image_read(run_data['aseg_fsnative']) == 251
+    ants.image_write(splenium_mask, os.path.join(temp_dir, 'splenium_mask.nii.gz'))
 
-    return splenium_fvfs, splenium_mvfs
+    # Plot the splenium mask on top of the brain
+    brain_img = ants.image_read(run_data['brain_fsnative'])
+    ants.image_write(brain_img, os.path.join(temp_dir, 'brain.nii.gz'))
 
-
-def _get_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--subject-id',
-        type=lambda label: label.removeprefix('sub-'),
-        required=True,
+    splenium_plot = get_filename(
+        name_source=run_data['mtsat_t1w'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'fsnative', 'desc': 'splenium', 'suffix': 'mask', 'extension': '.svg'},
     )
-    return parser
+    plotting.plot_roi(
+        'splenium_mask.nii.gz',
+        bg_img='brain.nii.gz',
+        output_file=splenium_plot,
+        display_mode='mosaic',
+    )
+
+    # Get the splenium data
+    mtsat_isovf_icvf_fvf_splenium = masking.apply_mask(
+        os.path.join(temp_dir, 'mtsat_isovf_icvf_fvf.nii.gz'),
+        splenium_mask,
+    )
+    ihmtr_isovf_icvf_fvf_splenium = masking.apply_mask(
+        os.path.join(temp_dir, 'ihmtr_isovf_icvf_fvf.nii.gz'),
+        splenium_mask,
+    )
+    awf_fvf_splenium = masking.apply_mask(os.path.join(temp_dir, 'awf_fs.nii.gz'), splenium_mask)
+    mtsat_mvf_splenium = masking.apply_mask(
+        os.path.join(temp_dir, 'mtsat_mvf_fs.nii.gz'),
+        splenium_mask,
+    )
+    ihmtr_mvf_splenium = masking.apply_mask(
+        os.path.join(temp_dir, 'ihmtr_mvf_fs.nii.gz'),
+        splenium_mask,
+    )
+
+    # Calculate the mean values in the splenium
+    # MTsat+ISOVF+ICVF FVF, ihMTR+ISOVF+ICVF FVF, AWF FVF, MTsat MVF, ihMTR MVF
+    splenium_values = pd.Series(
+        data={
+            'subject_id': bids_filters['subject'],
+            'session_id': bids_filters['session'],
+            'run': bids_filters['run'],
+            'MTsat_FVF': np.mean(mtsat_isovf_icvf_fvf_splenium),
+            'ihMTR_FVF': np.mean(ihmtr_isovf_icvf_fvf_splenium),
+            'AWF_FVF': np.mean(awf_fvf_splenium),
+            'MTsat_MVF': np.mean(mtsat_mvf_splenium),
+            'ihMTR_MVF': np.mean(ihmtr_mvf_splenium),
+        },
+    )
+
+    return splenium_values
 
 
-def _main(argv=None):
-    """Run the process_mese workflow."""
-    options = _get_parser().parse_args(argv)
-    kwargs = vars(options)
-    main(**kwargs)
-
-
-def main(subject_id):
+def main():
     in_dir = '/cbica/projects/nibs/dset'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    out_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
+    dipydki_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DIPYDKI'
+    noddi_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-NODDI'
+    ihmt_dir = '/cbica/projects/nibs/derivatives/ihmt'
+    out_dir = '/cbica/projects/nibs/derivatives/g_ratio'
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/t1wt2w_ratio'
+    temp_dir = '/cbica/projects/nibs/work/g_ratio'
     os.makedirs(temp_dir, exist_ok=True)
-
-    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_t1wt2w_ratio.yml')
-    assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     layout = BIDSLayout(
         in_dir,
         config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
         validate=False,
-        derivatives=[smriprep_dir],
+        derivatives=[smriprep_dir, dipydki_dir, noddi_dir, ihmt_dir],
     )
 
-    print(f'Processing subject {subject_id}')
-    sessions = layout.get_sessions(subject=subject_id, acquisition='SPACE', suffix='T2w')
-    for session in sessions:
-        print(f'Processing session {session}')
-        space_t2w_files = layout.get(
-            subject=subject_id,
-            session=session,
-            acquisition='SPACE',
-            suffix='T2w',
-            extension=['.nii', '.nii.gz'],
-        )
-        if not space_t2w_files:
-            print(f'No SPACE T2w files found for subject {subject_id} and session {session}')
-            continue
-
-        for space_t2w_file in space_t2w_files:
-            entities = space_t2w_file.get_entities()
-            entities.pop('acquisition')
-            try:
-                run_data = collect_run_data(layout, entities)
-            except ValueError as e:
-                print(f'Failed {space_t2w_file}')
-                print(e)
+    base_query = {
+        'space': 'T1w',
+        'suffix': 'ihMTR',
+        'extension': ['.nii', '.nii.gz'],
+    }
+    subject_ids = layout.get_subjects(**base_query)
+    print(f'Found {len(subject_ids)} subjects')
+    splenium_df = []
+    for subject_id in subject_ids:
+        print(f'Processing subject {subject_id}')
+        sessions = layout.get_sessions(subject=subject_id, **base_query)
+        for session in sessions:
+            print(f'Processing session {session}')
+            base_files = layout.get(
+                subject=subject_id,
+                session=session,
+                **base_query,
+            )
+            if not base_files:
+                print(f'No T1w/T2w files found for subject {subject_id} and session {session}')
                 continue
 
-            fname = os.path.basename(space_t2w_file.path).split('.')[0]
-            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-            os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir)
+            for base_file in base_files:
+                entities = base_file.get_entities()
+                entities.pop('acquisition')
+                entities.pop('desc')
+                entities.pop('suffix')
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {base_file}')
+                    print(e)
+                    continue
 
-        report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
-        robj = Report(
-            report_dir,
-            run_uuid=None,
-            bootstrap_file=bootstrap_file,
-            out_filename=f'sub-{subject_id}_ses-{session}.html',
-            reportlets_dir=out_dir,
-            plugins=None,
-            plugin_meta=None,
-            subject=subject_id,
-            session=session,
-        )
-        robj.generate_report()
+                fname = os.path.basename(base_file.path).split('.')[0]
+                run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+                os.makedirs(run_temp_dir, exist_ok=True)
+                splenium_values = process_run(layout, run_data, out_dir, run_temp_dir, entities)
+                splenium_df.append(splenium_values)
 
-    # Write out dataset_description.json
-    dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
-    if not os.path.isfile(dataset_description_file):
-        dataset_description = {
-            'Name': 'NIBS T1w/T2w Ratio Derivatives',
-            'BIDSVersion': '1.10.0',
-            'DatasetType': 'derivative',
-            'DatasetLinks': {
-                'raw': in_dir,
-                'smriprep': smriprep_dir,
-            },
-            'GeneratedBy': [
-                {
-                    'Name': 'Custom code',
-                    'Description': 'Custom Python code combining ANTsPy and pymp2rage.',
-                    'CodeURL': 'https://github.com/PennLINC/nibs',
-                }
-            ],
-        }
-        with open(dataset_description_file, 'w') as fobj:
-            json.dump(dataset_description, fobj, sort_keys=True, indent=4)
+    splenium_df = pd.concat(splenium_df, axis=1)
+    splenium_df.to_csv(os.path.join(CODE_DIR, 'data/splenium_values.tsv'), sep='\t', index=False)
+
+    # Calculate the scaling factors
+    MTsat_ISOVF_ICVF_scalar = np.mean(
+        (splenium_df['MTsat_FVF'] * 0.51) / (splenium_df['MTsat_MVF'] * 0.49)
+    )
+    ihMTR_ISOVF_ICVF_scalar = np.mean(
+        (splenium_df['ihMTR_FVF'] * 0.51) / (splenium_df['ihMTR_MVF'] * 0.49)
+    )
+    AWF_MTsat_scalar = np.mean((splenium_df['AWF_FVF'] * 0.51) / (splenium_df['MTsat_MVF'] * 0.49))
+    AWF_ihMTR_scalar = np.mean((splenium_df['AWF_FVF'] * 0.51) / (splenium_df['ihMTR_MVF'] * 0.49))
+
+    print(f'MTsat_ISOVF_ICVF_scalar: {MTsat_ISOVF_ICVF_scalar}')
+    print(f'ihMTR_ISOVF_ICVF_scalar: {ihMTR_ISOVF_ICVF_scalar}')
+    print(f'AWF_MTsat_scalar: {AWF_MTsat_scalar}')
+    print(f'AWF_ihMTR_scalar: {AWF_ihMTR_scalar}')
 
     print('DONE!')
 
 
 if __name__ == '__main__':
-    _main()
+    main()
