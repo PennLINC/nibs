@@ -97,7 +97,7 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'myelinw',
             'extension': ['.nii', '.nii.gz'],
         },
-        # MNI-space ISOVF and ICVF maps from QSIRecon
+        # MNI-space ISOVF, ICVF, and AWF maps from QSIRecon
         'isovf_mni': {
             'datatype': 'dwi',
             'session': [Query.NONE, Query.ANY],
@@ -115,6 +115,16 @@ def collect_run_data(layout, bids_filters):
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'icvf',
+            'suffix': 'dwimap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'awf_mni': {
+            'datatype': 'dwi',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MNI152NLin2009cAsym',
+            'model': 'noddi',
+            'param': 'awf',
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -266,35 +276,25 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ihmtr_isovf_icvf_fvf = ihmtr_mvf * (1 - isovf) * icvf
 
     # G = sqrt(FVF / (FVF + MVF))
-    mprage_t1wt2w_isovf_icvf_g = np.sqrt(mprage_t1wt2w_isovf_icvf_fvf / (mprage_t1wt2w_isovf_icvf_fvf + mprage_t1wt2w_mvf))
-    space_t1wt2w_isovf_icvf_g = np.sqrt(space_t1wt2w_isovf_icvf_fvf / (space_t1wt2w_isovf_icvf_fvf + space_t1wt2w_mvf))
-    mtsat_isovf_icvf_g = np.sqrt(mtsat_isovf_icvf_fvf / (mtsat_isovf_icvf_fvf + mtsat_mvf))
-    ihmtr_isovf_icvf_g = np.sqrt(ihmtr_isovf_icvf_fvf / (ihmtr_isovf_icvf_fvf + ihmtr_mvf))
-    mprage_t1wt2w_awf_g = np.sqrt(awf / (awf + mprage_t1wt2w_mvf))
-    space_t1wt2w_awf_g = np.sqrt(awf / (awf + space_t1wt2w_mvf))
-    mtsat_awf_g = np.sqrt(awf / (awf + mtsat_mvf))
-    ihmtr_awf_g = np.sqrt(awf / (awf + ihmtr_mvf))
+    imgs = {}
+    imgs['MPRAGET1wT2w+ISOVF+ICVF'] = np.sqrt(mprage_t1wt2w_isovf_icvf_fvf / (mprage_t1wt2w_isovf_icvf_fvf + mprage_t1wt2w_mvf))
+    imgs['SPACET1wT2w+ISOVF+ICVF'] = np.sqrt(space_t1wt2w_isovf_icvf_fvf / (space_t1wt2w_isovf_icvf_fvf + space_t1wt2w_mvf))
+    imgs['MTsat+ISOVF+ICVF'] = np.sqrt(mtsat_isovf_icvf_fvf / (mtsat_isovf_icvf_fvf + mtsat_mvf))
+    imgs['ihMTR+ISOVF+ICVF'] = np.sqrt(ihmtr_isovf_icvf_fvf / (ihmtr_isovf_icvf_fvf + ihmtr_mvf))
+    imgs['MPRAGET1wT2w+AWF'] = np.sqrt(awf / (awf + mprage_t1wt2w_mvf))
+    imgs['SPACET1wT2w+AWF'] = np.sqrt(awf / (awf + space_t1wt2w_mvf))
+    imgs['MTsat+AWF'] = np.sqrt(awf / (awf + mtsat_mvf))
+    imgs['ihMTR+AWF'] = np.sqrt(awf / (awf + ihmtr_mvf))
 
-    # Warp T1w-space SPACE T1w/SPACE T2w and MPRAGE T1w/SPACE T2w ratio maps to MNI152NLin2009cAsym
-    # using normalization transform from sMRIPrep.
-    files = [t1w_space_ratio_file, t1w_mprage_ratio_file]
-    descs = ['SPACE', 'MPRAGE']
-    for i_file, file_ in enumerate(files):
-        desc = descs[i_file]
+    for desc, img in imgs.items():
         mni_file = get_filename(
-            name_source=file_,
+            name_source=img,
             layout=layout,
             out_dir=out_dir,
-            entities={'space': 'MNI152NLin2009cAsym'},
+            entities={'space': 'MNI152NLin2009cAsym', 'desc': desc, 'suffix': 'gratio'},
             dismiss_entities=['reconstruction', 'acquisition'],
         )
-        mni_img = ants.apply_transforms(
-            fixed=ants.image_read(run_data['t1w_mni']),
-            moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm']],
-            interpolator='lanczosWindowedSinc',
-        )
-        ants.image_write(mni_img, mni_file)
+        ants.image_write(img, mni_file)
 
         scalar_desc = 'scalar'
         if desc:
