@@ -26,36 +26,14 @@ from utils import get_filename, plot_scalar_map
 
 CODE_DIR = '/cbica/projects/nibs/code'
 # Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
-ALPHA_MTR = 1
-ALPHA_MTSAT = 1
+MTsat_ISOVF_ICVF_scalar = 1
+ihMTR_ISOVF_ICVF_scalar = 1
+AWF_MTsat_scalar = 1
+AWF_ihMTR_scalar = 1
 
 
 def collect_run_data(layout, bids_filters):
     queries = {
-        'space_t1w': {
-            'part': Query.NONE,
-            'acquisition': 'SPACE',
-            'space': Query.NONE,
-            'desc': Query.NONE,
-            'suffix': 'T1w',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        'space_t2w': {
-            'part': Query.NONE,
-            'acquisition': 'SPACE',
-            'space': Query.NONE,
-            'desc': Query.NONE,
-            'suffix': 'T2w',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        'mprage_t1w': {
-            'part': Query.NONE,
-            'acquisition': 'MPRAGE',
-            'space': Query.NONE,
-            'desc': Query.NONE,
-            'suffix': 'T1w',
-            'extension': ['.nii', '.nii.gz'],
-        },
         # T1w-space T1w image from sMRIPrep
         't1w': {
             'datatype': 'anat',
@@ -157,17 +135,6 @@ def collect_run_data(layout, bids_filters):
             'extension': '.txt',
         },
         # Normalization transform from sMRIPrep
-        't1w2mni_xfm': {
-            'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
-            'run': [Query.NONE, Query.ANY],
-            'from': 'T1w',
-            'to': 'MNI152NLin2009cAsym',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.h5',
-        },
-        # Normalization transform from sMRIPrep
         'mni2t1w_xfm': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
@@ -230,45 +197,25 @@ def process_run(layout, run_data, out_dir, temp_dir):
     temp_dir : str
         Directory to write temporary files.
     """
-    # Get WM segmentation from sMRIPrep
-    wm_seg_img = nb.load(run_data['dseg_mni'])
-    wm_seg = wm_seg_img.get_fdata()
-    wm_seg = (wm_seg == 2).astype(int)
-    wm_seg_file = get_filename(
-        name_source=run_data['dseg_mni'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
-    )
-    wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
-    wm_seg_img.to_filename(wm_seg_file)
-
-    # Warp WM segmentation to T1w space
-    wm_seg_img = ants.image_read(wm_seg_file)
-    wm_seg_t1w_img = ants.apply_transforms(
-        fixed=ants.image_read(run_data['t1w']),
-        moving=wm_seg_img,
-        transformlist=[run_data['mni2t1w_xfm']],
-    )
-    wm_seg_t1w_file = get_filename(
-        name_source=wm_seg_file,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
-    )
-    ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
-    del wm_seg_img, wm_seg_t1w_img, wm_seg
-
     # MVF measures: MPRAGE T1w/T2w ratio, SPACE T1w/T2w ratio, MTsat, ihMTR
     mprage_t1wt2w_mvf = ants.image_read(run_data['mprage_t1w_t2w_ratio_mni'])
     space_t1wt2w_mvf = ants.image_read(run_data['space_t1w_t2w_ratio_mni'])
-    mtsat_mvf = ants.image_read(run_data['mtsat_mni']) * ALPHA_MTSAT
-    ihmtr_mvf = ants.image_read(run_data['ihmtr_mni']) * ALPHA_MTR
+    mtsat_mvf = ants.image_read(run_data['mtsat_mni'])
+    ihmtr_mvf = ants.image_read(run_data['ihmtr_mni'])
 
     # FVF/AVF measures: ISOVF, ICVF, AWF
-    isovf = ants.image_read(run_data['isovf_mni'])
-    icvf = ants.image_read(run_data['icvf_mni'])
-    awf = ants.image_read(run_data['awf_mni'])
+    isovf = ants.image_read(run_data['isovf_mni']).resample_to_target(
+        mtsat_mvf,
+        interp_type='lanczosWindowedSinc',
+    )
+    icvf = ants.image_read(run_data['icvf_mni']).resample_to_target(
+        mtsat_mvf,
+        interp_type='lanczosWindowedSinc',
+    )
+    awf = ants.image_read(run_data['awf_mni']).resample_to_target(
+        mtsat_mvf,
+        interp_type='lanczosWindowedSinc',
+    )
 
     mprage_t1wt2w_isovf_icvf_fvf = (1 - mprage_t1wt2w_mvf) * (1 - isovf) * icvf
     space_t1wt2w_isovf_icvf_fvf = (1 - space_t1wt2w_mvf) * (1 - isovf) * icvf
@@ -279,12 +226,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
     imgs = {}
     imgs['MPRAGET1wT2w+ISOVF+ICVF'] = np.sqrt(mprage_t1wt2w_isovf_icvf_fvf / (mprage_t1wt2w_isovf_icvf_fvf + mprage_t1wt2w_mvf))
     imgs['SPACET1wT2w+ISOVF+ICVF'] = np.sqrt(space_t1wt2w_isovf_icvf_fvf / (space_t1wt2w_isovf_icvf_fvf + space_t1wt2w_mvf))
-    imgs['MTsat+ISOVF+ICVF'] = np.sqrt(mtsat_isovf_icvf_fvf / (mtsat_isovf_icvf_fvf + mtsat_mvf))
-    imgs['ihMTR+ISOVF+ICVF'] = np.sqrt(ihmtr_isovf_icvf_fvf / (ihmtr_isovf_icvf_fvf + ihmtr_mvf))
+    imgs['MTsat+ISOVF+ICVF'] = np.sqrt(mtsat_isovf_icvf_fvf / (mtsat_isovf_icvf_fvf + (mtsat_mvf * MTsat_ISOVF_ICVF_scalar)))
+    imgs['ihMTR+ISOVF+ICVF'] = np.sqrt(ihmtr_isovf_icvf_fvf / (ihmtr_isovf_icvf_fvf + (ihmtr_mvf * ihMTR_ISOVF_ICVF_scalar)))
     imgs['MPRAGET1wT2w+AWF'] = np.sqrt(awf / (awf + mprage_t1wt2w_mvf))
     imgs['SPACET1wT2w+AWF'] = np.sqrt(awf / (awf + space_t1wt2w_mvf))
-    imgs['MTsat+AWF'] = np.sqrt(awf / (awf + mtsat_mvf))
-    imgs['ihMTR+AWF'] = np.sqrt(awf / (awf + ihmtr_mvf))
+    imgs['MTsat+AWF'] = np.sqrt(awf / (awf + (mtsat_mvf * AWF_MTsat_scalar)))
+    imgs['ihMTR+AWF'] = np.sqrt(awf / (awf + (ihmtr_mvf * AWF_ihMTR_scalar)))
 
     for desc, img in imgs.items():
         mni_file = get_filename(
@@ -342,47 +289,53 @@ def _main(argv=None):
 def main(subject_id):
     in_dir = '/cbica/projects/nibs/dset'
     smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    out_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
+    dipydki_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DIPYDKI'
+    noddi_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-NODDI'
+    ihmt_dir = '/cbica/projects/nibs/derivatives/ihmt'
+    out_dir = '/cbica/projects/nibs/derivatives/g_ratio'
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/t1wt2w_ratio'
+    temp_dir = '/cbica/projects/nibs/work/g_ratio'
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_t1wt2w_ratio.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_g_ratio.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     layout = BIDSLayout(
         in_dir,
         config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
         validate=False,
-        derivatives=[smriprep_dir],
+        derivatives=[smriprep_dir, dipydki_dir, noddi_dir, ihmt_dir],
     )
 
+    base_query = {
+        'space': 'MNI152NLin2009cAsym',
+        'suffix': 'ihMTR',
+        'extension': ['.nii', '.nii.gz'],
+    }
+
     print(f'Processing subject {subject_id}')
-    sessions = layout.get_sessions(subject=subject_id, acquisition='SPACE', suffix='T2w')
+    sessions = layout.get_sessions(subject=subject_id, **base_query)
     for session in sessions:
         print(f'Processing session {session}')
-        space_t2w_files = layout.get(
+        base_files = layout.get(
             subject=subject_id,
             session=session,
-            acquisition='SPACE',
-            suffix='T2w',
-            extension=['.nii', '.nii.gz'],
+            **base_query,
         )
-        if not space_t2w_files:
-            print(f'No SPACE T2w files found for subject {subject_id} and session {session}')
+        if not base_files:
+            print(f'No base files found for subject {subject_id} and session {session}')
             continue
 
-        for space_t2w_file in space_t2w_files:
-            entities = space_t2w_file.get_entities()
-            entities.pop('acquisition')
+        for base_file in base_files:
+            entities = base_file.get_entities()
             try:
                 run_data = collect_run_data(layout, entities)
             except ValueError as e:
-                print(f'Failed {space_t2w_file}')
+                print(f'Failed {base_file}')
                 print(e)
                 continue
 
-            fname = os.path.basename(space_t2w_file.path).split('.')[0]
+            fname = os.path.basename(base_file.path).split('.')[0]
             run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
             os.makedirs(run_temp_dir, exist_ok=True)
             process_run(layout, run_data, out_dir, run_temp_dir)
@@ -405,17 +358,20 @@ def main(subject_id):
     dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
     if not os.path.isfile(dataset_description_file):
         dataset_description = {
-            'Name': 'NIBS T1w/T2w Ratio Derivatives',
+            'Name': 'NIBS G-Ratio Derivatives',
             'BIDSVersion': '1.10.0',
             'DatasetType': 'derivative',
             'DatasetLinks': {
                 'raw': in_dir,
                 'smriprep': smriprep_dir,
+                'dipydki': dipydki_dir,
+                'noddi': noddi_dir,
+                'ihmt': ihmt_dir,
             },
             'GeneratedBy': [
                 {
                     'Name': 'Custom code',
-                    'Description': 'Custom Python code combining ANTsPy and pymp2rage.',
+                    'Description': 'Custom Python code.',
                     'CodeURL': 'https://github.com/PennLINC/nibs',
                 }
             ],
