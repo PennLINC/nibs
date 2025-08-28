@@ -5,7 +5,8 @@
 #SBATCH --array=5-14
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=20gb
-#SBATCH --time=24:00:00
+#SBATCH --time=01:00:00
+#SBATCH --partition=short
 # Outputs ----------------------------------
 #SBATCH --output=/cbica/projects/nibs/code/processing/jobs/job_%A-%a.out
 #SBATCH --error=/cbica/projects/nibs/code/processing/jobs/job_%A-%a.err
@@ -20,11 +21,11 @@ subject=$( sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" ${BI
 
 #python process_mp2rage.py --subject-id ${subject}
 #python process_ihmt.py --subject-id ${subject}
-#python process_t1wt2w_ratio.py --subject-id ${subject}
+python process_t1wt2w_ratio.py --subject-id ${subject}
 #python process_mese.py --subject-id ${subject}
 #python process_qsm_prep.py --subject-id ${subject}
 # Make sure to Load matlab/R2020B for this!!!
 #python process_qsm_sepia.py --subject-id ${subject}
 # Won't work on CUBIC
 #python process_qsm_chisep.py --subject-id ${subject}
-python process_qsm_post.py --subject-id ${subject}
+#python process_qsm_post.py --subject-id ${subject}
