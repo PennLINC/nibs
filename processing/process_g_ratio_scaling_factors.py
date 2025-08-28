@@ -55,27 +55,26 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         # MNI-space ISOVF and ICVF maps from QSIRecon
         'isovf_mni': {
             'datatype': 'dwi',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'isovf',
+            'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
         'icvf_mni': {
             'datatype': 'dwi',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'icvf',
+            'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
         'awf_mni': {
             'datatype': 'dwi',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'dkimicro',
@@ -86,15 +85,13 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         # sMRIPrep T1w-space MTsat and ihMTR maps from process_ihmt.py
         'mtsat_t1w': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'T1w',
-            'suffix': 'MTsat',
+            'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
         },
         'ihmtr_t1w': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'T1w',
             'suffix': 'ihMTR',
@@ -104,6 +101,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'mni2t1w_xfm': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'from': 'MNI152NLin2009cAsym',
             'to': 'T1w',
@@ -115,6 +113,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         't1w2fs_xfm': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'fsnative',
@@ -126,8 +125,20 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
 
     run_data = {}
     for key, query in queries.items():
+        # I have no clue why, but BIDSLayout refuses to index 'param'
+        param = None
+        if 'param' in query:
+            param = query.pop('param')
+
         query = {**bids_filters, **query}
         files = layout.get(**query)
+        if param is not None:
+            files = [f for f in files if f'_param-{param}_' in f.filename]
+            if param == 'fa':
+                # Both DIPYDKI and DSIStudio have 'fa' as a param. Use DIPYDKI.
+                files = [f for f in files if 'qsirecon-DIPYDKI' in f.path]
+            query['param'] = param
+
         if len(files) != 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)}: {query}')
 
@@ -323,11 +334,8 @@ def main():
 
             for base_file in base_files:
                 entities = base_file.get_entities()
-                entities.pop('acquisition')
-                entities.pop('desc')
-                entities.pop('suffix')
                 try:
-                    run_data = collect_run_data(layout, entities)
+                    run_data = collect_run_data(layout, entities, smriprep_dir=smriprep_dir)
                 except ValueError as e:
                     print(f'Failed {base_file}')
                     print(e)
