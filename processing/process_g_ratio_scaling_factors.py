@@ -246,11 +246,11 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         name_source=run_data['mtsat_t1w'],
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'fsnative', 'desc': 'splenium', 'suffix': 'mask', 'extension': '.svg'},
+        entities={'datatype': 'figures', 'space': 'fsnative', 'desc': 'splenium', 'suffix': 'mask', 'extension': '.svg'},
     )
     plotting.plot_roi(
-        'splenium_mask.nii.gz',
-        bg_img='brain.nii.gz',
+        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
+        bg_img=os.path.join(temp_dir, 'brain.nii.gz'),
         output_file=splenium_plot,
         display_mode='mosaic',
     )
@@ -258,20 +258,23 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     # Get the splenium data
     mtsat_isovf_icvf_fvf_splenium = masking.apply_mask(
         os.path.join(temp_dir, 'mtsat_isovf_icvf_fvf.nii.gz'),
-        splenium_mask,
+        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
     )
     ihmtr_isovf_icvf_fvf_splenium = masking.apply_mask(
         os.path.join(temp_dir, 'ihmtr_isovf_icvf_fvf.nii.gz'),
-        splenium_mask,
+        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
     )
-    awf_fvf_splenium = masking.apply_mask(os.path.join(temp_dir, 'awf_fs.nii.gz'), splenium_mask)
+    awf_fvf_splenium = masking.apply_mask(
+        os.path.join(temp_dir, 'awf_fs.nii.gz'),
+        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
+    )
     mtsat_mvf_splenium = masking.apply_mask(
         os.path.join(temp_dir, 'mtsat_mvf_fs.nii.gz'),
-        splenium_mask,
+        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
     )
     ihmtr_mvf_splenium = masking.apply_mask(
         os.path.join(temp_dir, 'ihmtr_mvf_fs.nii.gz'),
-        splenium_mask,
+        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
     )
 
     # Calculate the mean values in the splenium
@@ -316,20 +319,20 @@ def main():
         'extension': ['.nii', '.nii.gz'],
     }
     subject_ids = layout.get_subjects(**base_query)
-    print(f'Found {len(subject_ids)} subjects')
+    print(f'Found {len(subject_ids)} subjects', flush=True)
     splenium_df = []
     for subject_id in subject_ids:
-        print(f'Processing subject {subject_id}')
+        print(f'Processing subject {subject_id}', flush=True)
         sessions = layout.get_sessions(subject=subject_id, **base_query)
         for session in sessions:
-            print(f'Processing session {session}')
+            print(f'Processing session {session}', flush=True)
             base_files = layout.get(
                 subject=subject_id,
                 session=session,
                 **base_query,
             )
             if not base_files:
-                print(f'No T1w/T2w files found for subject {subject_id} and session {session}')
+                print(f'No T1w/T2w files found for subject {subject_id} and session {session}', flush=True)
                 continue
 
             for base_file in base_files:
@@ -337,8 +340,8 @@ def main():
                 try:
                     run_data = collect_run_data(layout, entities, smriprep_dir=smriprep_dir)
                 except ValueError as e:
-                    print(f'Failed {base_file}')
-                    print(e)
+                    print(f'Failed {base_file}, flush=True')
+                    print(e, flush=True)
                     continue
 
                 fname = os.path.basename(base_file.path).split('.')[0]
@@ -360,12 +363,12 @@ def main():
     AWF_MTsat_scalar = np.mean((splenium_df['AWF_FVF'] * 0.51) / (splenium_df['MTsat_MVF'] * 0.49))
     AWF_ihMTR_scalar = np.mean((splenium_df['AWF_FVF'] * 0.51) / (splenium_df['ihMTR_MVF'] * 0.49))
 
-    print(f'MTsat_ISOVF_ICVF_scalar: {MTsat_ISOVF_ICVF_scalar}')
-    print(f'ihMTR_ISOVF_ICVF_scalar: {ihMTR_ISOVF_ICVF_scalar}')
-    print(f'AWF_MTsat_scalar: {AWF_MTsat_scalar}')
-    print(f'AWF_ihMTR_scalar: {AWF_ihMTR_scalar}')
+    print(f'MTsat_ISOVF_ICVF_scalar: {MTsat_ISOVF_ICVF_scalar}', flush=True)
+    print(f'ihMTR_ISOVF_ICVF_scalar: {ihMTR_ISOVF_ICVF_scalar}', flush=True)
+    print(f'AWF_MTsat_scalar: {AWF_MTsat_scalar}', flush=True)
+    print(f'AWF_ihMTR_scalar: {AWF_ihMTR_scalar}', flush=True)
 
-    print('DONE!')
+    print('DONE!', flush=True)
 
 
 if __name__ == '__main__':

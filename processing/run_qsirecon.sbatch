@@ -2,7 +2,7 @@
 #SBATCH --job-name=qsirecon
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-14
+#SBATCH --array=5-14
 #SBATCH --cpus-per-task=20
 #SBATCH --mem-per-cpu=4gb
 #SBATCH --time=36:00:00
@@ -33,7 +33,7 @@ cmd="apptainer run --cleanenv \
       -B ${DERIV_DIR}:/data \
       -B ${SCRATCH_DIR}:/work \
       -B ${FS_LICENSE}:/license.txt \
-      /cbica/projects/nibs/apptainer/qsirecon-1.1.0.sif \
+      /cbica/projects/nibs/apptainer/qsirecon-1.1.1.sif \
       /data/qsiprep \
       /data/qsirecon \
       participant \
