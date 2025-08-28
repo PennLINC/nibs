@@ -80,7 +80,6 @@ def collect_run_data(layout, bids_filters):
         # Coregistration transform for MPRAGE, from sMRIPrep
         'mprage2t1w_xfm': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'from': 'orig',
             'to': 'T1w',

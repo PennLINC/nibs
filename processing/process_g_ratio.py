@@ -37,7 +37,6 @@ def collect_run_data(layout, bids_filters):
         # T1w-space T1w image from sMRIPrep
         't1w': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
@@ -48,7 +47,6 @@ def collect_run_data(layout, bids_filters):
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
@@ -58,7 +56,6 @@ def collect_run_data(layout, bids_filters):
         # MNI-space MPRAGE T1w/T2w ratio map from process_t1wt2w_ratio.py
         'mprage_t1w_t2w_ratio_mni': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'MPRAGEscaled',
@@ -68,7 +65,6 @@ def collect_run_data(layout, bids_filters):
         # MNI-space SPACE T1w/T2w ratio map from process_t1wt2w_ratio.py
         'space_t1w_t2w_ratio_mni': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'SPACEscaled',
@@ -78,7 +74,6 @@ def collect_run_data(layout, bids_filters):
         # MNI-space ISOVF, ICVF, and AWF maps from QSIRecon
         'isovf_mni': {
             'datatype': 'dwi',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
@@ -88,7 +83,6 @@ def collect_run_data(layout, bids_filters):
         },
         'icvf_mni': {
             'datatype': 'dwi',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
@@ -98,7 +92,6 @@ def collect_run_data(layout, bids_filters):
         },
         'awf_mni': {
             'datatype': 'dwi',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
@@ -109,7 +102,6 @@ def collect_run_data(layout, bids_filters):
         # MNI-space MTsat and ihMTR maps from process_ihmt.py
         'mtsat_mni': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'MTsat',
@@ -117,7 +109,6 @@ def collect_run_data(layout, bids_filters):
         },
         'ihmtr_mni': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTR',
@@ -126,7 +117,6 @@ def collect_run_data(layout, bids_filters):
         # Coregistration transform for MPRAGE, from sMRIPrep
         'mprage2t1w_xfm': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'from': 'orig',
             'to': 'T1w',
