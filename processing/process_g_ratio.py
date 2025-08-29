@@ -26,10 +26,10 @@ from utils import get_filename, plot_scalar_map
 
 CODE_DIR = '/cbica/projects/nibs/code'
 # Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
-MTsat_ISOVF_ICVF_scalar = 1
-ihMTR_ISOVF_ICVF_scalar = 1
-AWF_MTsat_scalar = 1
-AWF_ihMTR_scalar = 1
+MTsat_ISOVF_ICVF_scalar = 0.5976920127868652
+ihMTR_ISOVF_ICVF_scalar = 0.5878046154975891
+AWF_MTsat_scalar = 0.1128728911280632
+AWF_ihMTR_scalar = 2.733146905899048
 
 
 def collect_run_data(layout, bids_filters):
