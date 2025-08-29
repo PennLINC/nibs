@@ -37,6 +37,7 @@ def collect_run_data(layout, bids_filters):
         # T1w-space T1w image from sMRIPrep
         't1w': {
             'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
@@ -47,6 +48,7 @@ def collect_run_data(layout, bids_filters):
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
@@ -78,6 +80,7 @@ def collect_run_data(layout, bids_filters):
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'isovf',
+            'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -87,6 +90,7 @@ def collect_run_data(layout, bids_filters):
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'icvf',
+            'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -94,8 +98,9 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
-            'model': 'noddi',
+            'model': 'dkimicro',
             'param': 'awf',
+            'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -104,7 +109,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
-            'suffix': 'MTsat',
+            'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
         },
         'ihmtr_mni': {
@@ -117,6 +122,7 @@ def collect_run_data(layout, bids_filters):
         # Coregistration transform for MPRAGE, from sMRIPrep
         'mprage2t1w_xfm': {
             'datatype': 'anat',
+            'space': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'from': 'orig',
             'to': 'T1w',
@@ -128,6 +134,7 @@ def collect_run_data(layout, bids_filters):
         'mni2t1w_xfm': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'from': 'MNI152NLin2009cAsym',
             'to': 'T1w',
@@ -158,8 +165,20 @@ def collect_run_data(layout, bids_filters):
 
     run_data = {}
     for key, query in queries.items():
+        # I have no clue why, but BIDSLayout refuses to index 'param'
+        param = None
+        if 'param' in query:
+            param = query.pop('param')
+
         query = {**bids_filters, **query}
         files = layout.get(**query)
+        if param is not None:
+            files = [f for f in files if f'_param-{param}_' in f.filename]
+            if param == 'fa':
+                # Both DIPYDKI and DSIStudio have 'fa' as a param. Use DIPYDKI.
+                files = [f for f in files if 'qsirecon-DIPYDKI' in f.path]
+            query['param'] = param
+
         if key == 'mprage2t1w_xfm' and len(files) == 0:
             print(f'No MPRAGE T1w coregistration transform found for {query}. Using identity transform.')
             run_data[key] = None
@@ -194,15 +213,15 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ihmtr_mvf = ants.image_read(run_data['ihmtr_mni'])
 
     # FVF/AVF measures: ISOVF, ICVF, AWF
-    isovf = ants.image_read(run_data['isovf_mni']).resample_to_target(
+    isovf = ants.image_read(run_data['isovf_mni']).resample_image_to_target(
         mtsat_mvf,
         interp_type='lanczosWindowedSinc',
     )
-    icvf = ants.image_read(run_data['icvf_mni']).resample_to_target(
+    icvf = ants.image_read(run_data['icvf_mni']).resample_image_to_target(
         mtsat_mvf,
         interp_type='lanczosWindowedSinc',
     )
-    awf = ants.image_read(run_data['awf_mni']).resample_to_target(
+    awf = ants.image_read(run_data['awf_mni']).resample_image_to_target(
         mtsat_mvf,
         interp_type='lanczosWindowedSinc',
     )
@@ -214,18 +233,18 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     # G = sqrt(FVF / (FVF + MVF))
     imgs = {}
-    imgs['MPRAGET1wT2w+ISOVF+ICVF'] = np.sqrt(mprage_t1wt2w_isovf_icvf_fvf / (mprage_t1wt2w_isovf_icvf_fvf + mprage_t1wt2w_mvf))
-    imgs['SPACET1wT2w+ISOVF+ICVF'] = np.sqrt(space_t1wt2w_isovf_icvf_fvf / (space_t1wt2w_isovf_icvf_fvf + space_t1wt2w_mvf))
-    imgs['MTsat+ISOVF+ICVF'] = np.sqrt(mtsat_isovf_icvf_fvf / (mtsat_isovf_icvf_fvf + (mtsat_mvf * MTsat_ISOVF_ICVF_scalar)))
-    imgs['ihMTR+ISOVF+ICVF'] = np.sqrt(ihmtr_isovf_icvf_fvf / (ihmtr_isovf_icvf_fvf + (ihmtr_mvf * ihMTR_ISOVF_ICVF_scalar)))
-    imgs['MPRAGET1wT2w+AWF'] = np.sqrt(awf / (awf + mprage_t1wt2w_mvf))
-    imgs['SPACET1wT2w+AWF'] = np.sqrt(awf / (awf + space_t1wt2w_mvf))
-    imgs['MTsat+AWF'] = np.sqrt(awf / (awf + (mtsat_mvf * AWF_MTsat_scalar)))
-    imgs['ihMTR+AWF'] = np.sqrt(awf / (awf + (ihmtr_mvf * AWF_ihMTR_scalar)))
+    imgs['MPRAGET1wT2w+ISOVF+ICVF'] = (mprage_t1wt2w_isovf_icvf_fvf / (mprage_t1wt2w_isovf_icvf_fvf + mprage_t1wt2w_mvf)) ** 0.5
+    imgs['SPACET1wT2w+ISOVF+ICVF'] = (space_t1wt2w_isovf_icvf_fvf / (space_t1wt2w_isovf_icvf_fvf + space_t1wt2w_mvf)) ** 0.5
+    imgs['MTsat+ISOVF+ICVF'] = (mtsat_isovf_icvf_fvf / (mtsat_isovf_icvf_fvf + (mtsat_mvf * MTsat_ISOVF_ICVF_scalar))) ** 0.5
+    imgs['ihMTR+ISOVF+ICVF'] = (ihmtr_isovf_icvf_fvf / (ihmtr_isovf_icvf_fvf + (ihmtr_mvf * ihMTR_ISOVF_ICVF_scalar))) ** 0.5
+    imgs['MPRAGET1wT2w+AWF'] = (awf / (awf + mprage_t1wt2w_mvf)) ** 0.5
+    imgs['SPACET1wT2w+AWF'] = (awf / (awf + space_t1wt2w_mvf)) ** 0.5
+    imgs['MTsat+AWF'] = (awf / (awf + (mtsat_mvf * AWF_MTsat_scalar))) ** 0.5
+    imgs['ihMTR+AWF'] = (awf / (awf + (ihmtr_mvf * AWF_ihMTR_scalar))) ** 0.5
 
     for desc, img in imgs.items():
         mni_file = get_filename(
-            name_source=img,
+            name_source=run_data['mprage_t1w_t2w_ratio_mni'],
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MNI152NLin2009cAsym', 'desc': desc, 'suffix': 'gratio'},
@@ -282,6 +301,7 @@ def main(subject_id):
     dipydki_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DIPYDKI'
     noddi_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-NODDI'
     ihmt_dir = '/cbica/projects/nibs/derivatives/ihmt'
+    t1wt2w_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
     out_dir = '/cbica/projects/nibs/derivatives/g_ratio'
     os.makedirs(out_dir, exist_ok=True)
     temp_dir = '/cbica/projects/nibs/work/g_ratio'
@@ -294,7 +314,7 @@ def main(subject_id):
         in_dir,
         config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
         validate=False,
-        derivatives=[smriprep_dir, dipydki_dir, noddi_dir, ihmt_dir],
+        derivatives=[smriprep_dir, dipydki_dir, noddi_dir, ihmt_dir, t1wt2w_dir],
     )
 
     base_query = {
