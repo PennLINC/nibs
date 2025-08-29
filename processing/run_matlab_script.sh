@@ -1,6 +1,7 @@
 #!/bin/bash
 # Unload and load correct MATLAB versions
 #module unload matlab/2022a
+# XXX: I only see matlab/2023a, not 2025a
 module load matlab/2025a
 module load spm/12
 
@@ -14,14 +15,14 @@ subjectID=$1
 sessionID=$2
 
 # Define the directories for input and output
-input_folder="/project/ftdc_volumetric/fw_bids/sub-${subjectID}/ses-${sessionID}/anat"
-baseoutput_folder="/project/ftdc_pipeline/data/qsmxt_3t/QSM_sepia/sepia_results_noref/sub-${subjectID}/ses-${sessionID}"
+input_folder="/home/tsalo/nibs/dset/sub-${subjectID}/ses-${sessionID}/anat"
+baseoutput_folder="/home/tsalo/nibs/derivatives/qsm/sub-${subjectID}/ses-${sessionID}"
 
 # Create the output directory if it doesn't exist
-mkdir -p "$baseoutput_folder/output"
-output_folder="/project/ftdc_pipeline/data/qsmxt_3t/QSM_sepia/sepia_results_noref/sub-${subjectID}/ses-${sessionID}/output/Sepia"
+mkdir -p "${baseoutput_folder}"
+output_folder="${baseoutput_folder}/output/Sepia"
 # Specify the directory where the MATLAB function is located
-MATLAB_SCRIPT_DIR="/project/ftdc_misc/spandey/sepia"
+MATLAB_SCRIPT_DIR="/home/tsalo/nibs/sepia"
 # Run the MATLAB script
 matlab -nodisplay -nosplash -r "addpath(genpath('$MATLAB_SCRIPT_DIR')); try; updated2sepiaIO('$input_folder', '$output_folder'); catch e; disp(e.message); end; exit;"
 

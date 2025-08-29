@@ -2,7 +2,7 @@
 %
 % Input
 % --------------
-% input         :   input directory contains NIfTI files or structure containing filenames  
+% input         :   input directory contains NIfTI files or structure containing filenames
 % output        :   output directory that stores the output
 % maskFullName  :   mask filename
 % algorParam    :   structure contains method and method specific parameters
@@ -21,7 +21,7 @@ input
 % input = '/project/ftdc_volumetric/fw_bids/sub-129897/ses-20240709x1717/anat'
 % output = '/project/ftdc_misc/spandey/sepia_results/sub-129897/output/Sepia'
 % addpath(genpath('/project/ftdc_misc/spandey/sepia/sepia-1.2.2.6'))
-% folderName = 'anat'; 
+% folderName = 'anat';
 % foundFolders = searchForFolder(input, folderName);
 % input = foundFolders{1};
 % disp(input)
@@ -86,12 +86,12 @@ check_and_create_sepia_config(input,output,maskFullName,algorParam,identifier);
 
 % display the parent script
 fn = dbstack('-completenames');
-if length(fn) >=2 
+if length(fn) >=2
     fprintf('Running script: %s\n',fn(2).file);
 end
 
 %%% Step 2 %%%
-try 
+try
 % check if the input algorithm parameters contain any specific tasks
 isUnwrapParam   =  isfield(algorParam,'unwrap');
 isBRFParam      =  isfield(algorParam,'bfr');
@@ -144,15 +144,15 @@ end
 diary off
 % move back to original directory
 cd(currDir)
-    
+
 catch ME
-    
+
     % close log file
     disp('There was an error! Please check the command window/error message file for more information.');
     diary off
     % move back to original directory
     cd(currDir)
-    
+
     % open a new text file for error message
     errorMessageFilename = fullfile(outputDir, ['run_sepia.error' identifier]);
     fid = fopen(errorMessageFilename,'w');
@@ -161,7 +161,7 @@ catch ME
     msgString = getReport(ME,'extended','hyperlinks','off');
     fprintf(fid,'%s',msgString);
     fclose(fid);
-    
+
     % rethrow the error message to command window
     rethrow(ME);
 end
@@ -173,7 +173,7 @@ sepia_universal_variables;
 
 isConfigFileExist = false;
 
-%%%%%%%%%%%% Step 1: Check if config file exists in the output dir %%%%%%%%%%%% 
+%%%%%%%%%%%% Step 1: Check if config file exists in the output dir %%%%%%%%%%%%
 output_index    = strfind(output, filesep);
 outputDir       = output(1:output_index(end));
 
@@ -182,11 +182,11 @@ configFileList    = dir(fullfile(outputDir,'*sepia_config*.m*'));
 if ~isempty(configFileList)
     isConfigFileExist = true;
     disp('SEPIA configuration file already exists in the output directory.')
-else   
+else
     configFilename = fullfile(outputDir, ['sepia_config' identifier '.m']);
 end
 
-%%%%%%%%%%%% Step 2: Write config file %%%%%%%%%%%% 
+%%%%%%%%%%%% Step 2: Write config file %%%%%%%%%%%%
 if ~isConfigFileExist
 
 fid = fopen(configFilename,'w');
@@ -230,14 +230,14 @@ for k = 1:length(task_field)
         case 'qsm'
             fprintf(fid,'%% QSM algorithm parameters\n');
     end
-        
+
     curr_task_field = algorParam.(task_field{k});
-    
+
     method_field = fieldnames(curr_task_field);
     % loop all method parameters
     for kk = 1:length(method_field)
         curr_method_value = curr_task_field.(method_field{kk});
-        
+
         if ischar(curr_method_value)
             curr_method_value = sprintf('''%s''',curr_method_value);
         elseif ~isscalar(curr_method_value)
@@ -245,7 +245,7 @@ for k = 1:length(task_field)
         elseif isnumeric(curr_method_value)
             curr_method_value = num2str(curr_method_value);
         end
-        
+
         % export to config file
         fprintf(fid,'%s.%s.%s = %s;\n','algorParam',task_field{k},method_field{kk},curr_method_value);
     end

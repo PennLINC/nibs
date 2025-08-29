@@ -320,7 +320,7 @@ def main():
     }
     subject_ids = layout.get_subjects(**base_query)
     print(f'Found {len(subject_ids)} subjects', flush=True)
-    splenium_df = []
+    splenium_dfs = []
     for subject_id in subject_ids:
         print(f'Processing subject {subject_id}', flush=True)
         sessions = layout.get_sessions(subject=subject_id, **base_query)
@@ -348,9 +348,9 @@ def main():
                 run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
                 os.makedirs(run_temp_dir, exist_ok=True)
                 splenium_values = process_run(layout, run_data, out_dir, run_temp_dir, entities)
-                splenium_df.append(splenium_values)
+                splenium_dfs.append(splenium_values)
 
-    splenium_df = pd.concat(splenium_df, axis=1)
+    splenium_df = pd.DataFrame(splenium_dfs)
     splenium_df.to_csv(os.path.join(CODE_DIR, 'data/splenium_values.tsv'), sep='\t', index=False)
 
     # Calculate the scaling factors
