@@ -91,31 +91,14 @@ def process_run(layout, run_data, out_dir, temp_dir):
     name_source = run_data['megre_mag'][0]
 
     # Collect MATLAB-compatible NIfTIs for QSM
-    matlab_mask_filename = os.path.join(temp_dir, 'python_mask.nii')
-    matlab_mag_filename = os.path.join(temp_dir, 'python_mag.nii')
-    matlab_phase_filename = os.path.join(temp_dir, 'python_phase.nii')
-    matlab_r2s_filename = os.path.join(temp_dir, 'python_r2s.nii')
-    matlab_r2p_filename = os.path.join(temp_dir, 'python_r2p.nii')
+    mag = os.path.join(temp_dir, 'python_mag.nii')
+    pha = os.path.join(temp_dir, 'python_phase.nii')
+    r2 = os.path.join(temp_dir, 'python_r2.nii')
+    sepia_head = os.path.join(temp_dir, 'python_sepia_header.mat')
 
     # Now run the chi-separation QSM estimation with R2' map
     chisep_r2p_dir = os.path.join(temp_dir, 'chisep_r2p', 'chisep_output')
     os.makedirs(chisep_r2p_dir, exist_ok=True)
-    chisep_script = os.path.join(CODE_DIR, 'processing', 'process_qsm_chisep.m')
-    with open(chisep_script, 'r') as fobj:
-        base_chisep_script = fobj.read()
-
-    modified_chisep_script = (
-        base_chisep_script.replace("{{ mag_file }}", matlab_mag_filename)
-        .replace("{{ phase_file }}", matlab_phase_filename)
-        .replace("{{ mask_file }}", matlab_mask_filename)
-        .replace("{{ r2s_file }}", matlab_r2s_filename)
-        .replace("{{ r2p_file }}", matlab_r2p_filename)
-        .replace("{{ output_dir }}", os.path.join(temp_dir, 'chisep_r2p'))
-    )
-
-    out_chisep_script = os.path.join(temp_dir, 'process_qsm_chisep_r2p.m')
-    with open(out_chisep_script, "w") as fobj:
-        fobj.write(modified_chisep_script)
 
     subprocess.run(
         [
@@ -124,10 +107,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
             "-nosplash",
             "-nodesktop",
             "-r",
-            f"run('{out_chisep_script}'); exit;",
+            "addpath(genpath('$MATLAB_SCRIPT_DIR'));",
+            "try;",
+            f"run_chisep_script({mag}, {pha}, {sepia_head}, {chisep_r2p_dir}, {r2});",
+            "catch e;",
+            "disp(e.message);",
+            "end;",
+            "exit;",
         ],
     )
-    chisep_r2p_iron_file = os.path.join(chisep_r2p_dir, 'iron.nii.gz')
+    chisep_r2p_iron_file = os.path.join(chisep_r2p_dir, 'Paramagnetic.nii.gz')
     if not os.path.isfile(chisep_r2p_iron_file):
         raise FileNotFoundError(f'chi-separation QSM output file {chisep_r2p_iron_file} not found')
 
@@ -141,7 +130,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     chisep_r2p_iron_img.to_filename(chisep_r2p_iron_filename)
 
-    chisep_r2p_myelin_file = os.path.join(chisep_r2p_dir, 'myelin.nii.gz')
+    chisep_r2p_myelin_file = os.path.join(chisep_r2p_dir, 'Diamagnetic.nii.gz')
     if not os.path.isfile(chisep_r2p_myelin_file):
         raise FileNotFoundError(f'chi-separation QSM output file {chisep_r2p_myelin_file} not found')
 
@@ -158,22 +147,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Run X-separation QSM estimation without R2' map
     chisep_no_r_dir = os.path.join(temp_dir, 'chisep_no_r2p', 'chisep_output')
     os.makedirs(chisep_no_r_dir, exist_ok=True)
-    chisep_script = os.path.join(CODE_DIR, 'processing', 'process_qsm_chisep.m')
-    with open(chisep_script, 'r') as fobj:
-        base_chisep_script = fobj.read()
-
-    modified_chisep_script = (
-        base_chisep_script.replace("{{ mag_file }}", matlab_mag_filename)
-        .replace("{{ phase_file }}", matlab_phase_filename)
-        .replace("{{ mask_file }}", matlab_mask_filename)
-        .replace("{{ r2s_file }}", matlab_r2s_filename)
-        .replace("{{ r2p_file }}", 'None')
-        .replace("{{ output_dir }}", os.path.join(temp_dir, 'chisep_no_r2p'))
-    )
-
-    out_chisep_script = os.path.join(temp_dir, 'process_qsm_chisep_no_r2p.m')
-    with open(out_chisep_script, "w") as fobj:
-        fobj.write(modified_chisep_script)
 
     subprocess.run(
         [
@@ -182,11 +155,17 @@ def process_run(layout, run_data, out_dir, temp_dir):
             "-nosplash",
             "-nodesktop",
             "-r",
-            f"run('{out_chisep_script}'); exit;",
+            f"addpath(genpath('{CODE_DIR}'));",
+            "try;",
+            f"run_chisep_script({mag}, {pha}, {sepia_head}, {chisep_no_r_dir});",
+            "catch e;",
+            "disp(e.message);",
+            "end;",
+            "exit;",
         ],
     )
 
-    chisep_no_r2p_iron_file = os.path.join(chisep_no_r_dir, 'iron.nii.gz')
+    chisep_no_r2p_iron_file = os.path.join(chisep_no_r_dir, 'Paramagnetic.nii.gz')
     if not os.path.isfile(chisep_no_r2p_iron_file):
         raise FileNotFoundError(f'chi-separation QSM output file {chisep_no_r2p_iron_file} not found')
 
@@ -200,7 +179,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     chisep_no_r2p_iron_img.to_filename(chisep_no_r2p_iron_filename)
 
-    chisep_no_r2p_myelin_file = os.path.join(chisep_no_r_dir, 'myelin.nii.gz')
+    chisep_no_r2p_myelin_file = os.path.join(chisep_no_r_dir, 'Diamagnetic.nii.gz')
     if not os.path.isfile(chisep_no_r2p_myelin_file):
         raise FileNotFoundError(f'chi-separation QSM output file {chisep_no_r2p_myelin_file} not found')
 

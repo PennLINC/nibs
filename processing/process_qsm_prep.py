@@ -210,74 +210,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
-    # Calculate T2*, R2*, and S0 maps
-    # NOTE: layout.get_metadata only works on full paths
-    megre_metadata = [layout.get_metadata(f) for f in run_data['megre_mag']]
-    echo_times = [m['EchoTime'] for m in megre_metadata]  # TEs in seconds
-    t2s_img, r2s_img, s0_img, rsquared_img = fit_monoexponential(
-        in_files=run_data['megre_mag'],
-        echo_times=echo_times,
-    )
-    t2s_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'anat',
-            'space': 'MEGRE',
-            'desc': 'MEGRE',
-            'suffix': 'T2starmap',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    t2s_img.to_filename(t2s_filename)
-
-    r2s_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'anat',
-            'space': 'MEGRE',
-            'desc': 'MEGRE',
-            'suffix': 'R2starmap',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    r2s_img.to_filename(r2s_filename)
-    r2s_img = ants.image_read(r2s_filename)
-
-    s0_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'anat',
-            'space': 'MEGRE',
-            'desc': 'MEGRE',
-            'suffix': 'S0map',
-            'extension': '.nii.gz',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    s0_img.to_filename(s0_filename)
-
-    rsquared_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'datatype': 'anat',
-            'space': 'MEGRE',
-            'desc': 'MEGRE',
-            'suffix': 'Rsquaredmap',
-        },
-        dismiss_entities=['echo', 'part'],
-    )
-    rsquared_img.to_filename(rsquared_filename)
-
     # Average the magnitude images, to use for coregistration
     mean_mag_img = image.mean_img(run_data['megre_mag'])
     mean_mag_filename = get_filename(
@@ -366,18 +298,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     ants.image_write(r2_qsm_img, r2_qsm_filename)
 
-    # Calculate R2' (R2 - R2*)
-    # R2' is used in chi-separation QSM estimation.
-    r2_prime_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MEGRE', 'suffix': 'R2primemap'},
-        dismiss_entities=['echo', 'part'],
-    )
-    r2_prime_img = r2s_img - r2_qsm_img
-    ants.image_write(r2_prime_img, r2_prime_filename)
-
     # Warp brain mask from T1w space to MEGRE space
     mask_qsm_filename = get_filename(
         name_source=name_source,
@@ -393,65 +313,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
         interpolator='nearestNeighbor',
     )
     ants.image_write(mask_qsm_img, mask_qsm_filename)
-
-    # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
-    # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
-    for file_ in [t2s_filename, r2s_filename, s0_filename, rsquared_filename, r2_prime_filename]:
-        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
-        t1w_file = get_filename(
-            name_source=name_source,
-            layout=layout,
-            out_dir=out_dir,
-            entities={'space': 'T1w', 'suffix': suffix},
-            dismiss_entities=['echo', 'part'],
-        )
-        t1w_img = ants.apply_transforms(
-            fixed=ants.image_read(run_data['t1w']),
-            moving=ants.image_read(file_),
-            transformlist=[coreg_transform],
-        )
-        ants.image_write(t1w_img, t1w_file)
-
-        mni_file = get_filename(
-            name_source=name_source,
-            layout=layout,
-            out_dir=out_dir,
-            entities={'space': 'MNI152NLin2009cAsym', 'suffix': suffix},
-            dismiss_entities=['echo', 'part'],
-        )
-        mni_img = ants.apply_transforms(
-            fixed=ants.image_read(run_data['t1w_mni']),
-            moving=ants.image_read(file_),
-            transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
-        )
-        ants.image_write(mni_img, mni_file)
-
-        # Plot scalar map
-        scalar_report = get_filename(
-            name_source=mni_file,
-            layout=layout,
-            out_dir=out_dir,
-            entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
-        )
-        if suffix == 'R2starmap':
-            kwargs = {'vmin': 0, 'vmax': 50}
-        elif suffix == 'Rsquaredmap':
-            kwargs = {'vmin': 0, 'vmax': 1}
-        else:
-            data = masking.apply_mask(mni_file, run_data['mni_mask'])
-            vmin = np.percentile(data, 2)
-            vmin = np.minimum(vmin, 0)
-            vmax = np.percentile(data, 98)
-            kwargs = {'vmin': vmin, 'vmax': vmax}
-
-        plot_scalar_map(
-            underlay=run_data['t1w_mni'],
-            overlay=mni_file,
-            mask=run_data['mni_mask'],
-            dseg=run_data['dseg_mni'],
-            out_file=scalar_report,
-            **kwargs,
-        )
 
     # Create MATLAB-compatible NIfTIs for QSM
     # We will explicitly set the slope and intercept to 1 and 0 to avoid issues with matlab nifti
@@ -475,17 +336,11 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mag_img.to_filename(matlab_mag_filename)
     phase_img.to_filename(matlab_phase_filename)
 
-    r2s_img = nb.load(r2s_filename)
-    r2s_img.header.set_slope_inter(1, 0)
-    r2s_img.set_data_dtype(np.float32)
-    matlab_r2s_filename = os.path.join(temp_dir, 'python_r2s.nii')
-    r2s_img.to_filename(matlab_r2s_filename)
-
-    r2p_img = nb.load(r2_prime_filename)
-    r2p_img.header.set_slope_inter(1, 0)
-    r2p_img.set_data_dtype(np.float32)
-    matlab_r2p_filename = os.path.join(temp_dir, 'python_r2p.nii')
-    r2p_img.to_filename(matlab_r2p_filename)
+    r2_img = nb.load(r2_qsm_filename)
+    r2_img.header.set_slope_inter(1, 0)
+    r2_img.set_data_dtype(np.float32)
+    matlab_r2_filename = os.path.join(temp_dir, 'python_r2.nii')
+    r2_img.to_filename(matlab_r2_filename)
 
 
 def _get_parser():

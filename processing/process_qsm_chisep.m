@@ -100,8 +100,10 @@ function run_chisep_script(magnitude_file, phase_file, sepia_header_file, out_di
 
     have_r2 = exist('r2', 'var');
     if have_r2
-        r2prime = r2 - r2star;
+        r2prime = r2star - r2;
         map = r2prime;
+        r2star_file = fullfile(out_dir, "r2star.nii");
+        niftiwrite(r2star, r2star_file, info);
         r2prime_file = fullfile(out_dir, "r2prime.nii");
         niftiwrite(r2prime, r2prime_file, info);
     else

@@ -187,6 +187,9 @@ def process_run(layout, run_data, out_dir):
         run_data['chisep_myelin_w_r2p'],
         run_data['chisep_iron_wo_r2p'],
         run_data['chisep_myelin_wo_r2p'],
+        run_data['r2_qsm'],
+        run_data['r2s_qsm'],
+        run_data['r2prime_qsm'],
     ]:
         if file_ is None:
             continue

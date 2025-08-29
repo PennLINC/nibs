@@ -1,14 +1,5 @@
 package: G-Ratio Derivatives
 sections:
-- name: Processing Summary
-  ordering: session,task,acquisition,ceagent,direction,run,echo,suffix
-  reportlets:
-  - bids: {datatype: figures, space: T1w, desc: coreg, suffix: [T1w, T2w]}
-    subtitle: Alignment of data to sMRIPrep T1w space
-    static: false
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: coreg, suffix: [T1w, T2w]}
-    subtitle: Alignment of data to MNI152NLin2009cAsym space
-    static: false
 - name: Myelin Derivatives
   ordering: session,task,acquisition,ceagent,direction,run,echo,suffix
   reportlets:
