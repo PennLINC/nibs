@@ -33,8 +33,10 @@ scaling_factor = (FVF * (1 - 0.49)) / (0.49 * MVF)
 
 scaling_factor = (FVF * 0.51) / (0.49 * MVF)
 
-# We need to do this for each MTsat- and ihMTR-derived g-ratio combination, namely
-# MTsat+ISOVF/ICVF, MTsat+AWF, ihMTR+ISOVF/ICVF, and ihMTR+AWF.
+We need to do this for each MTsat- and ihMTR-derived g-ratio combination, namely
+MTsat+ISOVF/ICVF, MTsat+AWF, ihMTR+ISOVF/ICVF, and ihMTR+AWF.
+
+See equations 3 and 4 in Berg et al. (2022).
 """
 
 import os
