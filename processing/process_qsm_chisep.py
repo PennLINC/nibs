@@ -39,6 +39,9 @@ def process_run(in_dir):
 
     subprocess.run(
         [
+            "module",
+            "load",
+            "matlab/2023a;",
             "matlab",
             "-nodisplay",
             "-nosplash",
@@ -67,6 +70,9 @@ def process_run(in_dir):
 
     subprocess.run(
         [
+            "module",
+       	    "load",
+       	    "matlab/2023a;",
             "matlab",
             "-nodisplay",
             "-nosplash",
