@@ -16,7 +16,6 @@ import json
 import os
 
 import ants
-import nibabel as nb
 import numpy as np
 from bids.layout import BIDSLayout, Query
 from nilearn import masking
@@ -28,8 +27,6 @@ CODE_DIR = '/cbica/projects/nibs/code'
 # Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
 MTsat_ISOVF_ICVF_scalar = 0.5976920127868652
 ihMTR_ISOVF_ICVF_scalar = 0.5878046154975891
-AWF_MTsat_scalar = 0.1128728911280632
-AWF_ihMTR_scalar = 2.733146905899048
 
 
 def collect_run_data(layout, bids_filters):
@@ -73,7 +70,7 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'myelinw',
             'extension': ['.nii', '.nii.gz'],
         },
-        # MNI-space ISOVF, ICVF, and AWF maps from QSIRecon
+        # MNI-space ISOVF and ICVF maps from QSIRecon
         'isovf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
@@ -90,16 +87,6 @@ def collect_run_data(layout, bids_filters):
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'icvf',
-            'desc': Query.NONE,
-            'suffix': 'dwimap',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        'awf_mni': {
-            'datatype': 'dwi',
-            'run': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
-            'model': 'dkimicro',
-            'param': 'awf',
             'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
@@ -212,16 +199,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mtsat_mvf = ants.image_read(run_data['mtsat_mni'])
     ihmtr_mvf = ants.image_read(run_data['ihmtr_mni'])
 
-    # FVF/AVF measures: ISOVF, ICVF, AWF
+    # FVF/AVF measures: ISOVF, ICVF
     isovf = ants.image_read(run_data['isovf_mni']).resample_image_to_target(
         mtsat_mvf,
         interp_type='lanczosWindowedSinc',
     )
     icvf = ants.image_read(run_data['icvf_mni']).resample_image_to_target(
-        mtsat_mvf,
-        interp_type='lanczosWindowedSinc',
-    )
-    awf = ants.image_read(run_data['awf_mni']).resample_image_to_target(
         mtsat_mvf,
         interp_type='lanczosWindowedSinc',
     )
@@ -237,10 +220,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
     imgs['SPACET1wT2w+ISOVF+ICVF'] = (space_t1wt2w_isovf_icvf_fvf / (space_t1wt2w_isovf_icvf_fvf + space_t1wt2w_mvf)) ** 0.5
     imgs['MTsat+ISOVF+ICVF'] = (mtsat_isovf_icvf_fvf / (mtsat_isovf_icvf_fvf + (mtsat_mvf * MTsat_ISOVF_ICVF_scalar))) ** 0.5
     imgs['ihMTR+ISOVF+ICVF'] = (ihmtr_isovf_icvf_fvf / (ihmtr_isovf_icvf_fvf + (ihmtr_mvf * ihMTR_ISOVF_ICVF_scalar))) ** 0.5
-    imgs['MPRAGET1wT2w+AWF'] = (awf / (awf + mprage_t1wt2w_mvf)) ** 0.5
-    imgs['SPACET1wT2w+AWF'] = (awf / (awf + space_t1wt2w_mvf)) ** 0.5
-    imgs['MTsat+AWF'] = (awf / (awf + (mtsat_mvf * AWF_MTsat_scalar))) ** 0.5
-    imgs['ihMTR+AWF'] = (awf / (awf + (ihmtr_mvf * AWF_ihMTR_scalar))) ** 0.5
 
     for desc, img in imgs.items():
         mni_file = get_filename(

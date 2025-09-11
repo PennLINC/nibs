@@ -34,7 +34,7 @@ scaling_factor = (FVF * (1 - 0.49)) / (0.49 * MVF)
 scaling_factor = (FVF * 0.51) / (0.49 * MVF)
 
 We need to do this for each MTsat- and ihMTR-derived g-ratio combination, namely
-MTsat+ISOVF/ICVF, MTsat+AWF, ihMTR+ISOVF/ICVF, and ihMTR+AWF.
+MTsat+ISOVF/ICVF and ihMTR+ISOVF/ICVF.
 
 See equations 3 and 4 in Berg et al. (2022).
 """
@@ -72,15 +72,6 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
             'model': 'noddi',
             'param': 'icvf',
             'desc': Query.NONE,
-            'suffix': 'dwimap',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        'awf_mni': {
-            'datatype': 'dwi',
-            'run': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
-            'model': 'dkimicro',
-            'param': 'awf',
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -189,98 +180,87 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     mtsat_mvf = ants.image_read(run_data['mtsat_t1w'])
     ihmtr_mvf = ants.image_read(run_data['ihmtr_t1w'])
 
-    # FVF/AVF measures: ISOVF, ICVF, AWF
+    # FVF/AVF measures: ISOVF and ICVF
     isovf = ants.image_read(run_data['isovf_mni'])
     icvf = ants.image_read(run_data['icvf_mni'])
-    awf = ants.image_read(run_data['awf_mni'])
 
     # Warp each image to Freesurfer space
-    mtsat_mvf_fs = ants.apply_transforms(
-        fixed=ants.image_read(run_data['aseg_fsnative']),
+    mtsat_mvf_dwires = ants.apply_transforms(
+        fixed=isovf,
         moving=mtsat_mvf,
-        transformlist=[run_data['t1w2fs_xfm']],
+        transformlist=[run_data['t1w2mni_xfm']],
         interpolator='lanczosWindowedSinc',
     )
-    ihmtr_mvf_fs = ants.apply_transforms(
-        fixed=ants.image_read(run_data['aseg_fsnative']),
+    ihmtr_mvf_dwires = ants.apply_transforms(
+        fixed=isovf,
         moving=ihmtr_mvf,
-        transformlist=[run_data['t1w2fs_xfm']],
-        interpolator='lanczosWindowedSinc',
-    )
-    isovf_fs = ants.apply_transforms(
-        fixed=ants.image_read(run_data['aseg_fsnative']),
-        moving=isovf,
-        transformlist=[run_data['t1w2fs_xfm'], run_data['mni2t1w_xfm']],
-        interpolator='lanczosWindowedSinc',
-    )
-    icvf_fs = ants.apply_transforms(
-        fixed=ants.image_read(run_data['aseg_fsnative']),
-        moving=icvf,
-        transformlist=[run_data['t1w2fs_xfm'], run_data['mni2t1w_xfm']],
-        interpolator='lanczosWindowedSinc',
-    )
-    awf_fs = ants.apply_transforms(
-        fixed=ants.image_read(run_data['aseg_fsnative']),
-        moving=awf,
-        transformlist=[run_data['t1w2fs_xfm'], run_data['mni2t1w_xfm']],
+        transformlist=[run_data['t1w2mni_xfm']],
         interpolator='lanczosWindowedSinc',
     )
 
-    mtsat_isovf_icvf_fvf = mtsat_mvf_fs * (1 - isovf_fs) * icvf_fs
-    ihmtr_isovf_icvf_fvf = ihmtr_mvf_fs * (1 - isovf_fs) * icvf_fs
+    mtsat_isovf_icvf_fvf = mtsat_mvf_dwires * (1 - isovf) * icvf
+    ihmtr_isovf_icvf_fvf = ihmtr_mvf_dwires * (1 - isovf) * icvf
 
     # Write out these images so I can just use NiftiMasker to get the splenium data
-    ants.image_write(mtsat_isovf_icvf_fvf, os.path.join(temp_dir, 'mtsat_isovf_icvf_fvf.nii.gz'))
-    ants.image_write(ihmtr_isovf_icvf_fvf, os.path.join(temp_dir, 'ihmtr_isovf_icvf_fvf.nii.gz'))
-    ants.image_write(awf_fs, os.path.join(temp_dir, 'awf_fs.nii.gz'))
-    ants.image_write(mtsat_mvf_fs, os.path.join(temp_dir, 'mtsat_mvf_fs.nii.gz'))
-    ants.image_write(ihmtr_mvf_fs, os.path.join(temp_dir, 'ihmtr_mvf_fs.nii.gz'))
+    ants.image_write(mtsat_isovf_icvf_fvf, os.path.join(temp_dir, 'mtsat_isovf_icvf_fvf_dwires.nii.gz'))
+    ants.image_write(ihmtr_isovf_icvf_fvf, os.path.join(temp_dir, 'ihmtr_isovf_icvf_fvf_dwires.nii.gz'))
+    ants.image_write(mtsat_mvf_dwires, os.path.join(temp_dir, 'mtsat_mvf_dwires.nii.gz'))
+    ants.image_write(ihmtr_mvf_dwires, os.path.join(temp_dir, 'ihmtr_mvf_dwires.nii.gz'))
 
     # Select only the splenium voxels
     splenium_mask = ants.image_read(run_data['aseg_fsnative']) == 251
-    ants.image_write(splenium_mask, os.path.join(temp_dir, 'splenium_mask.nii.gz'))
+    splenium_mask_dwires = ants.apply_transforms(
+        fixed=isovf,
+        moving=splenium_mask,
+        transformlist=[run_data['t1w2mni_xfm'],run_data['fs2t1w_xfm']],
+        interpolator='nearestNeighbor',
+    )
+    ants.image_write(splenium_mask_dwires, os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'))
 
     # Plot the splenium mask on top of the brain
     brain_img = ants.image_read(run_data['brain_fsnative'])
-    ants.image_write(brain_img, os.path.join(temp_dir, 'brain.nii.gz'))
+    brain_img_dwires = ants.apply_transforms(
+        fixed=isovf,
+        moving=brain_img,
+        transformlist=[run_data['t1w2mni_xfm'],run_data['fs2t1w_xfm']],
+        interpolator='lanczosWindowedSinc',
+    )
+    ants.image_write(brain_img_dwires, os.path.join(temp_dir, 'brain_mni_dwires.nii.gz'))
 
     splenium_plot = get_filename(
-        name_source=run_data['mtsat_t1w'],
+        name_source=run_data['isovf_mni'],
         layout=layout,
         out_dir=out_dir,
-        entities={'datatype': 'figures', 'space': 'fsnative', 'desc': 'splenium', 'suffix': 'mask', 'extension': '.svg'},
+        entities={'datatype': 'figures', 'desc': 'splenium', 'suffix': 'mask', 'extension': '.svg'},
+        dismiss_entities=['model', 'param'],
     )
     plotting.plot_roi(
-        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
-        bg_img=os.path.join(temp_dir, 'brain.nii.gz'),
+        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
+        bg_img=os.path.join(temp_dir, 'brain_mni_dwires.nii.gz'),
         output_file=splenium_plot,
         display_mode='mosaic',
     )
 
     # Get the splenium data
     mtsat_isovf_icvf_fvf_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'mtsat_isovf_icvf_fvf.nii.gz'),
-        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
+        os.path.join(temp_dir, 'mtsat_isovf_icvf_fvf_dwires.nii.gz'),
+        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
     )
     ihmtr_isovf_icvf_fvf_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'ihmtr_isovf_icvf_fvf.nii.gz'),
-        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
-    )
-    awf_fvf_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'awf_fs.nii.gz'),
-        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
+        os.path.join(temp_dir, 'ihmtr_isovf_icvf_fvf_dwires.nii.gz'),
+        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
     )
     mtsat_mvf_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'mtsat_mvf_fs.nii.gz'),
-        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
+        os.path.join(temp_dir, 'mtsat_mvf_dwires.nii.gz'),
+        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
     )
     ihmtr_mvf_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'ihmtr_mvf_fs.nii.gz'),
-        os.path.join(temp_dir, 'splenium_mask.nii.gz'),
+        os.path.join(temp_dir, 'ihmtr_mvf_dwires.nii.gz'),
+        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
     )
 
     # Calculate the mean values in the splenium
-    # MTsat+ISOVF+ICVF FVF, ihMTR+ISOVF+ICVF FVF, AWF FVF, MTsat MVF, ihMTR MVF
+    # MTsat+ISOVF+ICVF FVF, ihMTR+ISOVF+ICVF FVF, MTsat MVF, ihMTR MVF
     splenium_values = pd.Series(
         data={
             'subject_id': bids_filters['subject'],
@@ -288,7 +268,6 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
             'run': bids_filters['run'],
             'MTsat_FVF': np.mean(mtsat_isovf_icvf_fvf_splenium),
             'ihMTR_FVF': np.mean(ihmtr_isovf_icvf_fvf_splenium),
-            'AWF_FVF': np.mean(awf_fvf_splenium),
             'MTsat_MVF': np.mean(mtsat_mvf_splenium),
             'ihMTR_MVF': np.mean(ihmtr_mvf_splenium),
         },
@@ -362,13 +341,9 @@ def main():
     ihMTR_ISOVF_ICVF_scalar = np.mean(
         (splenium_df['ihMTR_FVF'] * 0.51) / (splenium_df['ihMTR_MVF'] * 0.49)
     )
-    AWF_MTsat_scalar = np.mean((splenium_df['AWF_FVF'] * 0.51) / (splenium_df['MTsat_MVF'] * 0.49))
-    AWF_ihMTR_scalar = np.mean((splenium_df['AWF_FVF'] * 0.51) / (splenium_df['ihMTR_MVF'] * 0.49))
 
     print(f'MTsat_ISOVF_ICVF_scalar: {MTsat_ISOVF_ICVF_scalar}', flush=True)
     print(f'ihMTR_ISOVF_ICVF_scalar: {ihMTR_ISOVF_ICVF_scalar}', flush=True)
-    print(f'AWF_MTsat_scalar: {AWF_MTsat_scalar}', flush=True)
-    print(f'AWF_ihMTR_scalar: {AWF_ihMTR_scalar}', flush=True)
 
     print('DONE!', flush=True)
 
