@@ -36,11 +36,6 @@ queries:
             model: dki
             param: ad
             suffix: dwimap
-        AWF:
-            datatype: dwi
-            model: dkimicro
-            param: awf
-            suffix: dwimap
         MD:
             datatype: dwi
             model: dki
@@ -55,11 +50,6 @@ queries:
             datatype: dwi
             model: dki
             param: rd
-            suffix: dwimap
-        RDe:
-            datatype: dwi
-            model: dkimicro
-            param: rde
             suffix: dwimap
         RK:
             datatype: dwi
