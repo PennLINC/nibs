@@ -165,7 +165,7 @@ def collect_run_data(layout, bids_filters):
     return run_data
 
 
-def process_run(layout, run_data, out_dir, temp_dir):
+def process_run(layout, run_data, out_dir):
     """Process a single run of QSM data.
 
     Parameters
@@ -180,6 +180,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
         Path to the temporary directory.
     """
     name_source = run_data['megre_mag'][0]
+
+    megre_metadata = [layout.get_metadata(f) for f in run_data['megre_mag']]
+    echo_times = [m['EchoTime'] for m in megre_metadata]  # TEs in seconds
 
     # Get WM segmentation from sMRIPrep
     wm_seg_img = nb.load(run_data['dseg_mni'])
@@ -295,8 +298,29 @@ def process_run(layout, run_data, out_dir, temp_dir):
         moving=ants.image_read(run_data['r2_map']),
         transformlist=[coreg_transform],
         whichtoinvert=[True],
+        interpolator='lanczosWindowedSinc',
     )
     ants.image_write(r2_qsm_img, r2_qsm_filename)
+
+    # Calculate R2* and R2' maps
+    _, r2s_hz_img, _, _ = fit_monoexponential(run_data['megre_mag'], echo_times)
+    r2s_hz_filename = get_filename(
+        name_source=r2_qsm_filename,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'desc': 'MEGRE', 'suffix': 'R2starmap'},
+    )
+    r2s_hz_img.to_filename(r2s_hz_filename)
+
+    r2prime_hz_filename = get_filename(
+        name_source=r2_qsm_filename,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'suffix': 'R2primemap'},
+    )
+    r2s_hz_img = ants.image_read(r2s_hz_filename)
+    r2prime_hz_img = r2s_hz_img - r2_qsm_img
+    ants.image_write(r2prime_hz_img, r2prime_hz_filename)
 
     # Warp brain mask from T1w space to MEGRE space
     mask_qsm_filename = get_filename(
@@ -313,34 +337,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
         interpolator='nearestNeighbor',
     )
     ants.image_write(mask_qsm_img, mask_qsm_filename)
-
-    # Create MATLAB-compatible NIfTIs for QSM
-    # We will explicitly set the slope and intercept to 1 and 0 to avoid issues with matlab nifti
-    # tools and write out uncompressed nifti files.
-    mask_qsm_img = nb.load(mask_qsm_filename)
-    mask_qsm_img.header.set_slope_inter(1, 0)
-    mask_qsm_img.set_data_dtype(np.uint8)
-    matlab_mask_filename = os.path.join(temp_dir, 'python_mask.nii')
-    mask_qsm_img.to_filename(matlab_mask_filename)
-
-    # Concatenate MEGRE images across echoes
-    mag_img = image.concat_imgs(run_data['megre_mag'])
-    phase_img = image.concat_imgs(run_data['megre_phase'])
-    # Explicitly set slope and intercept to 1 and 0 to avoid issues with matlab nifti tools.
-    mag_img.header.set_slope_inter(1, 0)
-    mag_img.set_data_dtype(np.float32)
-    phase_img.header.set_slope_inter(1, 0)
-    phase_img.set_data_dtype(np.int16)
-    matlab_mag_filename = os.path.join(temp_dir, 'python_mag.nii')
-    matlab_phase_filename = os.path.join(temp_dir, 'python_phase.nii')
-    mag_img.to_filename(matlab_mag_filename)
-    phase_img.to_filename(matlab_phase_filename)
-
-    r2_img = nb.load(r2_qsm_filename)
-    r2_img.header.set_slope_inter(1, 0)
-    r2_img.set_data_dtype(np.float32)
-    matlab_r2_filename = os.path.join(temp_dir, 'python_r2.nii')
-    r2_img.to_filename(matlab_r2_filename)
 
 
 def _get_parser():
@@ -367,8 +363,6 @@ def main(subject_id):
     mese_dir = '/cbica/projects/nibs/derivatives/mese'
     out_dir = '/cbica/projects/nibs/derivatives/qsm'
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/qsm'
-    os.makedirs(temp_dir, exist_ok=True)
 
     layout = BIDSLayout(
         in_dir,
@@ -401,10 +395,8 @@ def main(subject_id):
                 print(f'Failed {megre_file}')
                 print(e)
                 continue
-            fname = os.path.basename(megre_file.path).split('.')[0]
-            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-            os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir)
+
+            process_run(layout, run_data, out_dir)
 
     print('DONE!')
 
