@@ -1,4 +1,7 @@
-"""Expand dicom zip files in order to heudiconv."""
+"""Expand dicom zip files in order to heudiconv.
+
+Rename the folders before running this.
+"""
 
 import os
 import zipfile
