@@ -23,7 +23,7 @@ submit_reface_job() {
 
     # Submit the job
     sbatch "${tmp_script}"
-    rm "${tmp_script}"
+    rm -f "${tmp_script}"
 }
 
 # Create logs directory if it doesn't exist
