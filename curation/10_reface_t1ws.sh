@@ -44,3 +44,11 @@ do
     echo "Submitting job for: $t2w_file"
     submit_reface_job "${t2w_file}"
 done
+
+# Process MP2RAGE files
+mp2rage_files=$(find /cbica/projects/nibs/dset/sub-*/ses-*/anat/*part-mag*MP2RAGE.nii.gz)
+for mp2rage_file in $mp2rage_files
+do
+    echo "Submitting job for: $mp2rage_file"
+    submit_reface_job "${mp2rage_file}"
+done
