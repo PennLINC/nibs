@@ -20,11 +20,11 @@ subject=$( sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" ${BI
 
 #python process_mp2rage.py --subject-id ${subject}
 #python process_ihmt.py --subject-id ${subject}
-#python process_t1wt2w_ratio.py --subject-id ${subject}
+python process_t1wt2w_ratio.py --subject-id ${subject}
 #python process_mese.py --subject-id ${subject}
-python process_qsm_prep.py --subject-id ${subject}
+#python process_qsm_prep.py --subject-id ${subject}
 # Make sure to Load matlab/R2020B for this!!!
-python process_qsm_sepia.py --subject-id ${subject}
+#python process_qsm_sepia.py --subject-id ${subject}
 # Won't work on CUBIC
 #python process_qsm_chisep.py --subject-id ${subject}
 #python process_qsm_post.py --subject-id ${subject}
