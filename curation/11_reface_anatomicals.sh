@@ -84,6 +84,10 @@ set -eux
 # Load AFNI (for T1w refacing)
 module add afni/2022_05_03
 
+# Use conda to run pydeface in the appropriate environment
+eval "$(conda shell hook --shell bash)"
+conda activate curation
+
 # Get the BIDS directory from the environment variable
 bids_root="${BIDS_ROOT}"
 file_list="${FILE_LIST}"
@@ -147,17 +151,10 @@ if [[ "$ANAT_BASENAME" == *"_T1w.nii.gz" ]]; then
 
 elif [[ "$ANAT_BASENAME" == *"_T2w.nii.gz" ]]; then
   echo "Using pydeface for T2w"
-  # Use micromamba to run pydeface in the appropriate environment
-  eval "$(micromamba shell hook --shell bash)"
-  micromamba activate babs # [FIX ME] change to the appropriate environment where you pip installed pydeface
   pydeface --outfile "$DEFACED_BASENAME" "$ANAT_BASENAME"
-  micromamba deactivate
 
 elif [[ "$ANAT_BASENAME" == *"_MP2RAGE.nii.gz" ]]; then
   echo "Using pydeface for MP2RAGE"
-  # Use micromamba to run pydeface in the appropriate environment
-  eval "$(micromamba shell hook --shell bash)"
-  micromamba activate babs # [FIX ME] change to the appropriate environment where you pip installed pydeface
   pydeface "$ANAT_BASENAME" --outfile "$DEFACED_BASENAME" --applyto "$INV1_BASENAME"
   # The defaced INV1 filename will be appended with _defaced, so we need to find it and rename it to DEFACED_INV1_BASENAME
   # Remove .nii.gz from the filename
@@ -166,7 +163,6 @@ elif [[ "$ANAT_BASENAME" == *"_MP2RAGE.nii.gz" ]]; then
   mv "$INV1_DEFACER_OUTPUT" "$DEFACED_INV1_BASENAME"
   # Remove original INV1 file
   rm -f "$INV1_BASENAME"
-  micromamba deactivate
 
 fi
 
