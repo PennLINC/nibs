@@ -6,8 +6,8 @@
 #SBATCH --mem-per-cpu=20gb
 #SBATCH --time=24:00:00
 # Outputs ----------------------------------
-#SBATCH --output=/cbica/projects/nibs/code/processing/jobs/job_%A_nonarray.out
-#SBATCH --error=/cbica/projects/nibs/code/processing/jobs/job_%A_nonarray.err
+#SBATCH --output=/cbica/projects/nibs/logs/g_ratio_scaling_factor_%A.out
+#SBATCH --error=/cbica/projects/nibs/logs/g_ratio_scaling_factor_%A.err
 # ------------------------------------------
 
 pwd; hostname; date

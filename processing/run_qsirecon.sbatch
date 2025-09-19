@@ -2,13 +2,13 @@
 #SBATCH --job-name=qsirecon
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=5-14
+#SBATCH --array=1-26
 #SBATCH --cpus-per-task=20
 #SBATCH --mem-per-cpu=4gb
 #SBATCH --time=36:00:00
 # Outputs ----------------------------------
-#SBATCH --output=/cbica/projects/nibs/code/processing/jobs/qsirecon_%A-%a.out
-#SBATCH --error=/cbica/projects/nibs/code/processing/jobs/qsirecon_%A-%a.err
+#SBATCH --output=/cbica/projects/nibs/logs/qsirecon_%A-%a.out
+#SBATCH --error=/cbica/projects/nibs/logs/qsirecon_%A-%a.err
 # ------------------------------------------
 
 pwd; hostname; date
@@ -16,6 +16,7 @@ set -e
 
 #==============Shell script==============#
 # Location of the *reduced* BIDS dataset
+LOGS_DIR="/cbica/projects/nibs/logs"
 CODE_DIR="/cbica/projects/nibs/code/processing"
 BIDS_DIR="/cbica/projects/nibs/dset"
 SCRATCH_DIR="/cbica/comp_space/nibs/nibs-qsirecon"
