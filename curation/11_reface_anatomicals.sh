@@ -84,10 +84,6 @@ set -eux
 # Load AFNI (for T1w refacing)
 module add afni/2022_05_03
 
-# Use conda to run pydeface in the appropriate environment
-eval "$(conda shell hook --shell bash)"
-conda activate curation
-
 # Get the BIDS directory from the environment variable
 bids_root="${BIDS_ROOT}"
 file_list="${FILE_LIST}"
