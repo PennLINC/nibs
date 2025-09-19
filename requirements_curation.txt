@@ -48,6 +48,7 @@ platformdirs==4.4.0
 prov==2.0.1
 puremagic==1.28
 pycparser==2.22
+pydeface==2.0.2
 pydicom==3.0.1
 pydot==3.0.4
 pylibjpeg-libjpeg==2.3.0
