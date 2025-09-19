@@ -1,4 +1,8 @@
-"""Split 4D IHMT files into 3D BIDS format."""
+"""Split 4D IHMT files into 3D BIDS format.
+
+Had to delete /cbica/projects/nibs/dset/sub-60522/ses-02/anat/*ihMTRAGE*
+before running.
+"""
 
 import json
 import os
