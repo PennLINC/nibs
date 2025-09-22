@@ -36,6 +36,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'preproc',
@@ -47,6 +48,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -56,6 +58,7 @@ def collect_run_data(layout, bids_filters):
         'mprage_t1w_t2w_ratio_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'MPRAGEscaled',
             'suffix': 'myelinw',
@@ -65,6 +68,7 @@ def collect_run_data(layout, bids_filters):
         'space_t1w_t2w_ratio_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'SPACEscaled',
             'suffix': 'myelinw',
@@ -74,6 +78,7 @@ def collect_run_data(layout, bids_filters):
         'isovf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'isovf',
@@ -84,6 +89,7 @@ def collect_run_data(layout, bids_filters):
         'icvf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'icvf',
@@ -95,6 +101,7 @@ def collect_run_data(layout, bids_filters):
         'mtsat_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
@@ -102,6 +109,7 @@ def collect_run_data(layout, bids_filters):
         'ihmtr_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
@@ -110,6 +118,7 @@ def collect_run_data(layout, bids_filters):
         'mprage2t1w_xfm': {
             'datatype': 'anat',
             'space': Query.NONE,
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'from': 'orig',
             'to': 'T1w',
@@ -121,6 +130,7 @@ def collect_run_data(layout, bids_filters):
         'mni2t1w_xfm': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'from': 'MNI152NLin2009cAsym',
@@ -133,6 +143,7 @@ def collect_run_data(layout, bids_filters):
         'dseg_mni': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
@@ -142,6 +153,7 @@ def collect_run_data(layout, bids_filters):
         'mni_mask': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',

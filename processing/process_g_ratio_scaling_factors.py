@@ -58,6 +58,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'isovf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'isovf',
@@ -68,6 +69,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'icvf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'icvf',
@@ -79,6 +81,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'mtsat_t1w': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'T1w',
             'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
@@ -86,6 +89,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'ihmtr_t1w': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'T1w',
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
@@ -94,6 +98,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'mni2t1w_xfm': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'run': [Query.NONE, Query.ANY],
             'from': 'MNI152NLin2009cAsym',
@@ -107,6 +112,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'space': Query.NONE,
+       	    'reconstruction': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'fsnative',

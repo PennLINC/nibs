@@ -35,6 +35,7 @@ def collect_run_data(layout, bids_filters):
         'space_t1w': {
             'part': Query.NONE,
             'acquisition': 'SPACE',
+            'reconstruction': [Query.NONE, Query.ANY],    
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'T1w',
@@ -43,6 +44,7 @@ def collect_run_data(layout, bids_filters):
         'space_t2w': {
             'part': Query.NONE,
             'acquisition': 'SPACE',
+            'reconstruction': [Query.NONE, Query.ANY],    
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'T2w',
@@ -51,6 +53,7 @@ def collect_run_data(layout, bids_filters):
         'mprage_t1w': {
             'part': Query.NONE,
             'acquisition': 'MPRAGE',
+            'reconstruction': [Query.NONE, Query.ANY],    
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'T1w',
@@ -61,6 +64,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],    
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'preproc',
@@ -72,6 +76,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],    
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -81,6 +86,7 @@ def collect_run_data(layout, bids_filters):
         'mprage2t1w_xfm': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],    
             'from': 'orig',
             'to': 'T1w',
             'mode': 'image',
@@ -92,6 +98,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],    
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
@@ -103,6 +110,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],    
             'from': 'MNI152NLin2009cAsym',
             'to': 'T1w',
             'mode': 'image',
@@ -114,6 +122,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],    
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
             'extension': ['.nii', '.nii.gz'],
@@ -123,6 +132,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],    
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',
             'suffix': 'mask',
@@ -609,6 +619,7 @@ def main(subject_id):
         for space_t2w_file in space_t2w_files:
             entities = space_t2w_file.get_entities()
             entities.pop('acquisition')
+            entities.pop('reconstruction')
             try:
                 run_data = collect_run_data(layout, entities)
             except ValueError as e:

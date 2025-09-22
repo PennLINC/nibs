@@ -7,8 +7,8 @@
 #SBATCH --mem-per-cpu=20gb
 #SBATCH --time=48:00:00
 # Outputs ----------------------------------
-#SBATCH --output=/cbica/projects/nibs/logs/generic_%A-%a.out
-#SBATCH --error=/cbica/projects/nibs/logs/generic_%A-%a.err
+#SBATCH --output=/cbica/projects/nibs/logs/processing_%A-%a.out
+#SBATCH --error=/cbica/projects/nibs/logs/processing_%A-%a.err
 # ------------------------------------------
 
 pwd; hostname; date
