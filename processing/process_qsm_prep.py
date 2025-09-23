@@ -41,7 +41,7 @@ def collect_run_data(layout, bids_filters):
         'megre_mag': {
             'datatype': 'anat',
             'acquisition': 'QSM',
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'part': 'mag',
             'echo': Query.ANY,
             'space': Query.NONE,
@@ -52,7 +52,7 @@ def collect_run_data(layout, bids_filters):
         'megre_phase': {
             'datatype': 'anat',
             'acquisition': 'QSM',
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'part': 'phase',
             'echo': Query.ANY,
             'space': Query.NONE,
@@ -63,7 +63,7 @@ def collect_run_data(layout, bids_filters):
         # T1w-space R2 map from MESE pipeline
         'r2_map': {
             'datatype': 'anat',
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'T1w',
             'desc': 'MESE',
             'suffix': 'R2map',
@@ -74,7 +74,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'preproc',
@@ -86,7 +86,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'brain',
@@ -98,7 +98,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -109,7 +109,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
@@ -120,7 +120,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'from': 'MNI152NLin2009cAsym',
             'to': 'T1w',
             'mode': 'image',
@@ -132,7 +132,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
             'extension': ['.nii', '.nii.gz'],
@@ -142,7 +142,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',
             'suffix': 'mask',
@@ -327,6 +327,26 @@ def process_run(layout, run_data, out_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MEGRE', 'suffix': 'R2primemap'},
+    )
+    r2s_hz_img = ants.image_read(r2s_hz_filename)
+    r2prime_hz_img = r2s_hz_img - r2_qsm_img
+    ants.image_write(r2prime_hz_img, r2prime_hz_filename)
+
+    # Calculate R2* and R2' maps from echo 2 onwards
+    _, r2s_hz_img, _, _ = fit_monoexponential(run_data['megre_mag'][1:], echo_times[1:])
+    r2s_hz_filename = get_filename(
+        name_source=r2_qsm_filename,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'desc': 'MEGRE+E2345', 'suffix': 'R2starmap'},
+    )
+    r2s_hz_img.to_filename(r2s_hz_filename)
+
+    r2prime_hz_filename = get_filename(
+        name_source=r2_qsm_filename,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'desc': 'MEGRE+E2345', 'suffix': 'R2primemap'},
     )
     r2s_hz_img = ants.image_read(r2s_hz_filename)
     r2prime_hz_img = r2s_hz_img - r2_qsm_img
