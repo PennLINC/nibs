@@ -8,6 +8,63 @@ from matplotlib import gridspec
 from missingno.utils import nullity_filter, nullity_sort
 
 
+def convert_to_multindex(df, separator='--', level_names=None):
+    """Convert DataFrame columns from 'parent--child' pattern to MultiIndex.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame with columns in 'parent--child' format
+    separator : str, default '--'
+        Separator used between parent and child names
+    level_names : list, optional
+        Names for the MultiIndex levels (e.g., ['Parent', 'Child'])
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with MultiIndex columns
+
+    Examples
+    --------
+    >>> df = pd.DataFrame({'Group A--Metric 1': [1, 2], 'Group A--Metric 2': [3, 4]})
+    >>> df_multindex = convert_to_multindex(df)
+    >>> print(df_multindex.columns)
+    MultiIndex([('Group A', 'Metric 1'),
+                ('Group A', 'Metric 2')],
+               names=['Level_0', 'Level_1'])
+    """
+    if not isinstance(df.columns, pd.Index):
+        raise ValueError("Input must be a pandas DataFrame")
+
+    # Check if columns already contain the separator
+    if not any(separator in str(col) for col in df.columns):
+        raise ValueError(f"No columns found with separator '{separator}'")
+
+    # Convert columns to MultiIndex
+    new_columns = []
+    for col in df.columns:
+        if separator in str(col):
+            parts = str(col).split(separator, 1)  # Split only on first occurrence
+            if len(parts) == 2:
+                new_columns.append((parts[0].strip(), parts[1].strip()))
+            else:
+                # If splitting doesn't work as expected, keep original column
+                new_columns.append((str(col), ''))
+        else:
+            # Column doesn't have separator, treat as single level
+            new_columns.append((str(col), ''))
+
+    # Create MultiIndex
+    multindex = pd.MultiIndex.from_tuples(new_columns, names=level_names)
+
+    # Create new DataFrame with MultiIndex columns
+    df_new = df.copy()
+    df_new.columns = multindex
+
+    return df_new
+
+
 def matrix(
     df,
     filter=None,
