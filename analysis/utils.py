@@ -71,7 +71,7 @@ def matrix(
     n=0,
     p=0,
     sort=None,
-    figsize=(25, 10),
+    figsize=(25, 15),
     width_ratios=(15, 1),
     color=(0.25, 0.25, 0.25),
     fontsize=16,
