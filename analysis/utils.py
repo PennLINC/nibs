@@ -1,6 +1,7 @@
 import warnings
 
 import numpy as np
+import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
@@ -58,13 +59,40 @@ def matrix(
     # Set up the matplotlib grid layout. A unary subplot if no sparkline, a left-right splot if yes sparkline.
     if ax is None:
         plt.figure(figsize=figsize)
+
+        # Check if we have MultiIndex columns to determine layout
+        has_multindex = isinstance(df.columns, pd.MultiIndex)
+        parent_levels = df.columns.nlevels - 1 if has_multindex else 0
+
         if sparkline:
-            gs = gridspec.GridSpec(1, 2, width_ratios=width_ratios)
-            gs.update(wspace=0.08)
-            ax1 = plt.subplot(gs[1])
+            # Create grid with space for parent levels, main plot, and sparkline
+            total_rows = parent_levels + 2
+            gs = gridspec.GridSpec(total_rows, 2, width_ratios=width_ratios, height_ratios=[0.1] * (parent_levels + 1) + [1])
+            gs.update(wspace=0.08, hspace=0.1)
+
+            # Create parent level subplots
+            parent_axes = []
+            for level_idx in range(parent_levels):
+                parent_ax = plt.subplot(gs[level_idx, 0])
+                parent_axes.append(parent_ax)
+
+            # Main plot and sparkline
+            ax0 = plt.subplot(gs[parent_levels + 1, 0])
+            ax1 = plt.subplot(gs[parent_levels + 1, 1])
         else:
-            gs = gridspec.GridSpec(1, 1)
-        ax0 = plt.subplot(gs[0])
+            # Create grid with space for parent levels and main plot
+            total_rows = parent_levels + 1
+            gs = gridspec.GridSpec(total_rows, 1, height_ratios=[0.1] * parent_levels + [1])
+            gs.update(hspace=0.1)
+
+            # Create parent level subplots
+            parent_axes = []
+            for level_idx in range(parent_levels):
+                parent_ax = plt.subplot(gs[level_idx, 0])
+                parent_axes.append(parent_ax)
+
+            # Main plot
+            ax0 = plt.subplot(gs[parent_levels, 0])
     else:
         if sparkline is not False:
             warnings.warn(
@@ -73,6 +101,7 @@ def matrix(
             )
             sparkline = False
         ax0 = ax
+        parent_axes = []  # No parent axes when using existing axis
 
     # Create the nullity plot.
     ax0.imshow(g, interpolation='none')
@@ -93,10 +122,76 @@ def matrix(
     if labels or (labels is None and len(df.columns) <= 50):
         ha = 'left'
         ax0.set_xticks(list(range(0, width)))
-        # TODO: Support MultiIndex columns.
-        # I want the parent level names centered across the columns,
-        # with a line across those columns to make it clear which child columns belong to which parent.
-        ax0.set_xticklabels(list(df.columns), rotation=label_rotation, ha=ha, fontsize=fontsize)
+
+        # Support MultiIndex columns with centered parent level names
+        if isinstance(df.columns, pd.MultiIndex) and parent_axes:
+            # Get child column labels (bottom level)
+            child_labels = [str(col) for col in df.columns.get_level_values(-1)]
+            ax0.set_xticklabels(child_labels, rotation=label_rotation, ha=ha, fontsize=fontsize)
+
+            # Add parent level labels to dedicated subplots
+            for level_idx, parent_ax in enumerate(parent_axes):
+                level_values = df.columns.get_level_values(level_idx)
+
+                # Group consecutive identical parent values
+                parent_groups = []
+                current_group = []
+                current_parent = None
+
+                for i, parent_val in enumerate(level_values):
+                    if parent_val != current_parent:
+                        if current_group:
+                            parent_groups.append((current_parent, current_group))
+                        current_group = [i]
+                        current_parent = parent_val
+                    else:
+                        current_group.append(i)
+
+                if current_group:
+                    parent_groups.append((current_parent, current_group))
+
+                # Set up parent axis
+                parent_ax.set_xlim(-0.5, width - 0.5)
+                parent_ax.set_ylim(0, 1)
+                parent_ax.set_xticks([])
+                parent_ax.set_yticks([])
+
+                # Remove all spines
+                for spine in parent_ax.spines.values():
+                    spine.set_visible(False)
+
+                # Add parent labels and lines
+                for parent_val, child_indices in parent_groups:
+                    start_idx = min(child_indices)
+                    end_idx = max(child_indices)
+                    center_pos = (start_idx + end_idx) / 2
+
+                    # Add horizontal line
+                    parent_ax.plot(
+                        [start_idx, end_idx],
+                        [0.3, 0.3],
+                        'k-',
+                        linewidth=3,
+                        alpha=1,
+                    )
+
+                    # Add parent label
+                    parent_ax.text(
+                        center_pos,
+                        0.7,
+                        str(parent_val),
+                        ha='center',
+                        va='center',
+                        fontsize=fontsize * 1.2,
+                        weight='bold',
+                    )
+        elif isinstance(df.columns, pd.MultiIndex):
+            # Fallback for when using existing axis (no parent_axes available)
+            child_labels = [str(col) for col in df.columns.get_level_values(-1)]
+            ax0.set_xticklabels(child_labels, rotation=label_rotation, ha=ha, fontsize=fontsize)
+        else:
+            # Regular single-level columns
+            ax0.set_xticklabels(list(df.columns), rotation=label_rotation, ha=ha, fontsize=fontsize)
     else:
         ax0.set_xticks([])
 
@@ -138,8 +233,6 @@ def matrix(
         # Modification: offset row values by 0.5 to center the points on the rows.
         x_domain = [i + 0.5 for i in x_domain]
         ax1.plot(y_range, x_domain, color=color)
-        print(max_completeness_index)
-        print(min_completeness_index)
 
         if labels:
             # Figure out what case to display the label in: mixed, upper, lower.
