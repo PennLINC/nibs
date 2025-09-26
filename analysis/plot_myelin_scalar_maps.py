@@ -50,13 +50,17 @@ if __name__ == "__main__":
         # Mask out non-brain voxels
         masker = maskers.NiftiMasker(mask, resampling_target="data")
         mean_img = image.mean_img(scalar_maps, copy_header=True)
-        mean_img = masker.inverse_transform(masker.fit_transform(mean_img))
+        mean_arr = masker.fit_transform(mean_img)
         sd_img = image.math_img("np.std(img, axis=3)", img=scalar_maps)
-        sd_img = masker.inverse_transform(masker.transform(sd_img))
+        sd_arr = masker.fit_transform(sd_img)
 
         # Get vmax (98th percentile) across both sessions
-        vmax0 = np.round(np.percentile(mean_img.get_fdata(), 98), 2)
-        vmax1 = np.round(np.percentile(sd_img.get_fdata(), 98), 2)
+        mean_arr[np.isnan(mean_arr)] = 0
+        mean_arr[np.isinf(mean_arr)] = 0
+        sd_arr[np.isnan(sd_arr)] = 0
+        sd_arr[np.isinf(sd_arr)] = 0
+        vmax0 = np.round(np.percentile(mean_arr, 98), 2)
+        vmax1 = np.round(np.percentile(sd_arr, 98), 2)
 
         for ses in ['01', '02']:
             temp_pattern = pattern.format(ses=ses)
