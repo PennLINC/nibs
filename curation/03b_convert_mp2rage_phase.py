@@ -83,6 +83,7 @@ if __name__ == '__main__':
                 out_file = os.path.join(sub_out_dir, nii_file + '_ph.nii.gz')
 
             out_json = out_file.replace('.nii.gz', '.json')
+            print(out_json)
             with open(out_json, 'w') as f:
                 metadata = json.load(f)
 
