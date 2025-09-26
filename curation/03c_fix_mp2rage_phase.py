@@ -30,7 +30,7 @@ if __name__ == '__main__':
                 with open(mp2rage_json, 'r') as f:
                     metadata = json.load(f)
 
-                assert f'INV{inv}_' in metadata['SeriesDescription']
+                assert f'INV{inv}' in metadata['SeriesDescription']
                 new_mp2rage_file = mp2rage_file.replace('MP2RAGE_ph.', 'MP2RAGE.')
                 os.rename(mp2rage_file, new_mp2rage_file)
                 new_mp2rage_json = mp2rage_json.replace('MP2RAGE_ph.', 'MP2RAGE.')
