@@ -79,6 +79,9 @@ if __name__ == '__main__':
             run_command(cmd)
 
             out_file = os.path.join(sub_out_dir, nii_file + '.nii.gz')
+            if not os.path.exists(out_file):
+                out_file = os.path.join(sub_out_dir, nii_file + '_ph.nii.gz')
+
             out_json = out_file.replace('.nii.gz', '.json')
             with open(out_json, 'w') as f:
                 metadata = json.load(f)
