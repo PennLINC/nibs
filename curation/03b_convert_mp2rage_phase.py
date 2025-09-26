@@ -65,8 +65,7 @@ if __name__ == '__main__':
             dicom_dir_id = dicom_dir_id.split('_')[0]
             inv = re.search(r'INV(\d)_', dicom_dir).group(1)
             nii_file = os.path.join(
-                sub_out_dir,
-                f'sub-{sub_id}_ses-{ses_id}_rec-defaced_run-01_inv-{inv}_part-phase_MP2RAGE.nii.gz',
+                f'sub-{sub_id}_ses-{ses_id}_rec-defaced_run-01_inv-{inv}_part-phase_MP2RAGE',
             )
-            cmd = f'dcm2niix -b y -f {nii_file} -o {sub_out_dir} {dicom_dir}'
+            cmd = f'dcm2niix -b y -z y -f {nii_file} -o {sub_out_dir} {dicom_dir}'
             print(cmd)
