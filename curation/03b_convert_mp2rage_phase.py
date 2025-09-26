@@ -68,4 +68,4 @@ if __name__ == '__main__':
                 f'sub-{sub_id}_ses-{ses_id}_rec-defaced_run-01_inv-{inv}_part-phase_MP2RAGE',
             )
             cmd = f'dcm2niix -b y -z y -f {nii_file} -o {sub_out_dir} {dicom_dir}'
-            print(cmd)
+            run_command(cmd)
