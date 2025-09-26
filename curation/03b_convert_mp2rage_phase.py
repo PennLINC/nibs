@@ -70,7 +70,7 @@ if __name__ == '__main__':
         for dicom_dir in dicom_dirs:
             dicom_dir_id = os.path.basename(dicom_dir)
             dicom_dir_id = dicom_dir_id.split('_')[0]
-            inv = re.search(r'INV(\d)_', dicom_dir).group(1)
+            inv = re.search(r'INV(\d)', dicom_dir).group(1)
             nii_file = os.path.join(
                 f'sub-{sub_id}_ses-{ses_id}_rec-defaced_run-01_inv-{inv}_part-phase_MP2RAGE',
             )
