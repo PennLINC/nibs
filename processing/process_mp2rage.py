@@ -91,7 +91,7 @@ def collect_run_data(layout, bids_filters):
         'b1_anat': {
             'datatype': 'fmap',
             'acquisition': 'anat',
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'TB1TFL',
@@ -102,7 +102,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'preproc',
@@ -114,7 +114,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -125,7 +125,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
@@ -136,7 +136,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'from': 'MNI152NLin2009cAsym',
             'to': 'T1w',
             'mode': 'image',
@@ -148,7 +148,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
             'extension': ['.nii', '.nii.gz'],
@@ -158,7 +158,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],    
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',
             'suffix': 'mask',
@@ -343,8 +343,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
         FLASH_tr=repetition_times,
         inv1=run_data['inv1_magnitude'],
         inv2=run_data['inv2_magnitude'],
-        inv1ph=run_data.get('inv1_phase', None),
-        inv2ph=run_data.get('inv2_phase', None),
+        inv1ph=None,  # Ignore phase images, for consistent processing
+        inv2ph=None,  # Ignore phase images, for consistent processing
     )
     t1map = mp2rage.t1map
     t1map_arr = t1map.get_fdata()
