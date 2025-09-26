@@ -1,4 +1,5 @@
 """Convert MP2RAGE DICOMs to NIfTI."""
+import json
 import os
 import re
 from glob import glob
@@ -76,3 +77,32 @@ if __name__ == '__main__':
             )
             cmd = f'dcm2niix -b y -z y -f {nii_file} -o {sub_out_dir} {dicom_dir}'
             run_command(cmd)
+
+            out_file = os.path.join(sub_out_dir, nii_file + '.nii.gz')
+            out_json = out_file.replace('.nii.gz', '.json')
+            with open(out_json, 'w') as f:
+                metadata = json.load(f)
+
+            if 'P' not in metadata['ImageType']:
+                print(f'Image not phase: {out_file}')
+                os.remove(out_file)
+                os.remove(out_json)
+                continue
+
+            if f'INV{inv}' not in metadata['SeriesDescription']:
+                print(f'SeriesDescription not INV{inv}: {out_file}')
+                os.remove(out_file)
+                os.remove(out_json)
+                continue
+
+            if 'DIS3D' not in metadata['ImageType']:
+                print(f'Image not DIS3D: {out_file}')
+                os.remove(out_file)
+                os.remove(out_json)
+                continue
+
+            if 'DIS2D' in metadata['ImageType']:
+                print(f'Image is DIS2D: {out_file}')
+                os.remove(out_file)
+                os.remove(out_json)
+                continue
