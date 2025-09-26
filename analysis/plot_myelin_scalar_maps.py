@@ -1,6 +1,7 @@
 """Plot scalar maps from myelin measures."""
 
 import os
+import warnings
 from glob import glob
 
 import matplotlib as mpl
@@ -25,11 +26,11 @@ if __name__ == "__main__":
         "Radial Diffusivity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-{ses}/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rd_dwimap.nii.gz",
         "Radial Kurtosis": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-{ses}/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rk_dwimap.nii.gz",
         # ihMT
-        "Inhomogeneous Magnetization Transfer-Weighted": "ihmt/sub-*/ses-{ses}/dwi/*_space-MNI152NLin2009cAsym_ihMTw.nii.gz",
-        "Inhomogeneous Magnetization Transfer Ratio": "ihmt/sub-*/ses-{ses}/dwi/*_space-MNI152NLin2009cAsym_ihMTR.nii.gz",
-        "Magnetization Transfer Ratio": "ihmt/sub-*/ses-{ses}/dwi/*_space-MNI152NLin2009cAsym_MTRmap.nii.gz",
-        "Inhomogeneous Magnetization Transfer Saturation": "ihmt/sub-*/ses-{ses}/dwi/*_space-MNI152NLin2009cAsym_ihMTsat.nii.gz",
-        "B1-Corrected Inhomogeneous Magnetization Transfer Saturation": "ihmt/sub-*/ses-{ses}/dwi/*_space-MNI152NLin2009cAsym_ihMTsatB1sq.nii.gz",
+        "Inhomogeneous Magnetization Transfer-Weighted": "ihmt/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_ihMTw.nii.gz",
+        "Inhomogeneous Magnetization Transfer Ratio": "ihmt/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_ihMTR.nii.gz",
+        "Magnetization Transfer Ratio": "ihmt/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_MTRmap.nii.gz",
+        "Inhomogeneous Magnetization Transfer Saturation": "ihmt/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_ihMTsat.nii.gz",
+        "B1-Corrected Inhomogeneous Magnetization Transfer Saturation": "ihmt/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_ihMTsatB1sq.nii.gz",
         # MP2RAGE
         "R1": "pymp2rage/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_R1map.nii.gz",
         "B1-Corrected R1": "pymp2rage/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-B1corrected_R1map.nii.gz",
@@ -50,9 +51,11 @@ if __name__ == "__main__":
         # Mask out non-brain voxels
         masker = maskers.NiftiMasker(mask, resampling_target="data")
         mean_img = image.mean_img(scalar_maps, copy_header=True)
-        mean_arr = masker.fit_transform(mean_img)
         sd_img = image.math_img("np.std(img, axis=3)", img=scalar_maps)
-        sd_arr = masker.fit_transform(sd_img)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            mean_arr = masker.fit_transform(mean_img)
+            sd_arr = masker.fit_transform(sd_img)
 
         # Get vmax (98th percentile) across both sessions
         mean_arr[np.isnan(mean_arr)] = 0
@@ -61,6 +64,7 @@ if __name__ == "__main__":
         sd_arr[np.isinf(sd_arr)] = 0
         vmax0 = np.round(np.percentile(mean_arr, 98), 2)
         vmax1 = np.round(np.percentile(sd_arr, 98), 2)
+        print(f"\t{vmax0}, {vmax1}")
 
         for ses in ['01', '02']:
             temp_pattern = pattern.format(ses=ses)
@@ -73,9 +77,17 @@ if __name__ == "__main__":
             # Mask out non-brain voxels
             masker = maskers.NiftiMasker(mask, resampling_target="data")
             mean_img = image.mean_img(scalar_maps, copy_header=True)
-            mean_img = masker.inverse_transform(masker.fit_transform(mean_img))
             sd_img = image.math_img("np.std(img, axis=3)", img=scalar_maps)
-            sd_img = masker.inverse_transform(masker.transform(sd_img))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                mean_arr = masker.fit_transform(mean_img)
+                sd_arr = masker.fit_transform(sd_img)
+                mean_arr[np.isnan(mean_arr)] = 0
+                mean_arr[np.isinf(mean_arr)] = 0
+                sd_arr[np.isnan(sd_arr)] = 0
+                sd_arr[np.isinf(sd_arr)] = 0
+                mean_img = masker.inverse_transform(mean_arr)
+                sd_img = masker.inverse_transform(sd_arr)
 
             # Plot mean and SD
             fig, axs = plt.subplots(2, 1, figsize=(10, 5))
