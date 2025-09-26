@@ -12,7 +12,7 @@ if __name__ == '__main__':
         session_dirs = sorted(glob(os.path.join(subject_dir, 'ses-*')))
         for session_dir in session_dirs:
             mp2rage_dir = os.path.join(session_dir, 'anat')
-            mp2rage_files = sorted(glob(os.path.join(mp2rage_dir, '*_part-phase_MP2RAGE*')))
+            mp2rage_files = sorted(glob(os.path.join(mp2rage_dir, '*_part-phase_MP2RAGE*.nii.gz')))
             for mp2rage_file in mp2rage_files:
                 if 'MP2RAGE_ph' not in mp2rage_file:
                     print(f'Misnamed magnitude image: {mp2rage_file}')
