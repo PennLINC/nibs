@@ -49,7 +49,10 @@ if __name__ == "__main__":
         print(f"{title}: {len(scalar_maps)}")
 
         # Mask out non-brain voxels
-        mask_img = image.resample_to_img(mask, scalar_maps[0])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            mask_img = image.resample_to_img(mask, scalar_maps[0], interpolation="nearest")
+
         masker = maskers.NiftiMasker(mask_img, resampling_target="data")
         mean_img = image.mean_img(scalar_maps, copy_header=True)
         sd_img = image.math_img("np.std(img, axis=3)", img=scalar_maps)
