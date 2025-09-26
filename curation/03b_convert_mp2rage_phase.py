@@ -105,8 +105,8 @@ if __name__ == '__main__':
                 os.remove(out_json)
                 continue
 
-            if 'DIS2D' in metadata['ImageType']:
-                print(f'Image is DIS2D: {out_file}')
+            if 'DIS2D' not in metadata['ImageType']:
+                print(f'Image not DIS2D: {out_file}')
                 os.remove(out_file)
                 os.remove(out_json)
                 continue
