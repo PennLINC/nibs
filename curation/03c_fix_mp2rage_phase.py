@@ -1,6 +1,5 @@
 """Fix MP2RAGE phase image conversions."""
 
-import json
 import os
 from glob import glob
 
@@ -12,26 +11,46 @@ if __name__ == '__main__':
         session_dirs = sorted(glob(os.path.join(subject_dir, 'ses-*')))
         for session_dir in session_dirs:
             mp2rage_dir = os.path.join(session_dir, 'anat')
-            mp2rage_files = sorted(glob(os.path.join(mp2rage_dir, '*_part-phase_MP2RAGE*.nii.gz')))
-            for mp2rage_file in mp2rage_files:
-                if 'MP2RAGE_ph' not in mp2rage_file:
-                    print(f'Misnamed magnitude image: {mp2rage_file}')
-                    os.remove(mp2rage_file)
+            inv1_files = sorted(
+                glob(os.path.join(mp2rage_dir, '*inv-1_part-phase_MP2RAGE*.nii.gz')),
+            )
+            for inv1_file in inv1_files:
+                inv1_json = inv1_file.replace('.nii.gz', '.json')
+                inv2_file = inv1_file.replace('inv-1', 'inv-2')
+                inv2_json = inv2_file.replace('.nii.gz', '.json')
+                if 'MP2RAGE_ph' not in inv1_file:
+                    print(f'Misnamed magnitude image: {inv1_file}')
+                    os.remove(inv1_file)
+                    os.remove(inv1_json)
+                    os.remove(inv2_file)
+                    os.remove(inv2_json)
                     continue
 
-                if 'inv-1' in mp2rage_file:
-                    inv = 1
-                elif 'inv-2' in mp2rage_file:
-                    inv = 2
-                else:
-                    raise ValueError(f'Unknown inv: {mp2rage_file}')
+                if not os.path.exists(inv2_file):
+                    print(f'inv-2 file not found: {inv2_file}')
+                    os.remove(inv1_file)
+                    os.remove(inv1_json)
+                    continue
 
-                mp2rage_json = mp2rage_file.replace('.nii.gz', '.json')
-                with open(mp2rage_json, 'r') as f:
-                    metadata = json.load(f)
+                new_inv1_file = inv1_file.replace('MP2RAGE_ph.', 'MP2RAGE.')
+                os.rename(inv1_file, new_inv1_file)
+                new_inv1_json = new_inv1_file.replace('.nii.gz', '.json')
+                os.rename(inv1_json, new_inv1_json)
+                new_inv2_file = inv2_file.replace('MP2RAGE_ph.', 'MP2RAGE.')
+                os.rename(inv2_file, new_inv2_file)
+                new_inv2_json = new_inv2_file.replace('.nii.gz', '.json')
+                os.rename(inv2_json, new_inv2_json)
 
-                assert f'INV{inv}' in metadata['SeriesDescription']
-                new_mp2rage_file = mp2rage_file.replace('MP2RAGE_ph.', 'MP2RAGE.')
-                os.rename(mp2rage_file, new_mp2rage_file)
-                new_mp2rage_json = mp2rage_json.replace('MP2RAGE_ph.', 'MP2RAGE.')
-                os.rename(mp2rage_json, new_mp2rage_json)
+            inv2_files = sorted(
+                glob(os.path.join(mp2rage_dir, '*inv-2_part-phase_MP2RAGE*.nii.gz')),
+            )
+            for inv2_file in inv2_files:
+                inv2_json = inv2_file.replace('.nii.gz', '.json')
+                inv1_file = inv2_file.replace('inv-2', 'inv-1')
+                inv1_json = inv1_file.replace('.nii.gz', '.json')
+
+                if not os.path.exists(inv1_file):
+                    print(f'inv-1 file not found: {inv1_file}')
+                    os.remove(inv2_file)
+                    os.remove(inv2_json)
+                    continue
