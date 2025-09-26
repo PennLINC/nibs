@@ -105,7 +105,7 @@ process_subject() {
   # 2) Create a voxel parcellation from the surface annots (both hemispheres)
   local DSEG_DIR="${OUTDIR}/${BIDS_SUB}/anat"
   mkdir -p "${DSEG_DIR}"
-  local DSEG_PATH="${DSEG_DIR}/${BIDS_SUB}_space-T1w_label-${PARCEL}_dseg.nii.gz"
+  local DSEG_PATH="${DSEG_DIR}/${BIDS_SUB}_space-T1w_label-vogt_dseg.nii.gz"
 
   if [[ -e "${DSEG_PATH}" ]]; then
     echo "[${SUBID}] Voxel parcellation exists — ${DSEG_PATH}"
