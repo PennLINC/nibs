@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
             out_json = out_file.replace('.nii.gz', '.json')
             print(out_json)
-            with open(out_json, 'w') as f:
+            with open(out_json, 'r') as f:
                 metadata = json.load(f)
 
             if 'P' not in metadata['ImageType']:
