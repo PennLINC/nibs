@@ -46,16 +46,23 @@ if __name__ == '__main__':
         sub_dir = os.path.join(out_dir, f'sub-{sub_id}', f'ses-{ses_id}')
         sub_out_dir = os.path.join(sub_dir, 'anat')
 
-        dicom_dirs = sorted(
-            glob(
-                os.path.join(
-                    subses_dir,
-                    'CAMRIS^Satterthwaite',
-                    'anat-MP2RAGE_RR_INV*_ND',
-                    '*.dicom',
-                ),
-            )
+        dicom_dirs = glob(
+            os.path.join(
+                subses_dir,
+                'CAMRIS^Satterthwaite',
+                'anat-MP2RAGE_RR_INV1',
+                '*.dicom',
+            ),
         )
+        dicom_dirs += glob(
+            os.path.join(
+                subses_dir,
+                'CAMRIS^Satterthwaite',
+                'anat-MP2RAGE_RR_INV2',
+                '*.dicom',
+            ),
+        )
+        dicom_dirs = sorted(dicom_dirs)
         if len(dicom_dirs) != 2:
             print(f'Expected 2 dicom dirs, got {len(dicom_dirs)}: {dicom_dirs}')
             continue
