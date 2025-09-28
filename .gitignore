@@ -1,4 +1,5 @@
 # Custom (PennLINC) gitignore
+processing/myelin_atlas/MYATLAS*
 processing/jobs/
 .DS_Store
 
