@@ -1,0 +1,305 @@
+import numpy as np
+import nibabel as nib
+from pathlib import Path
+import matplotlib.pyplot as plt
+import re
+import pandas as pd
+from matplotlib.colors import LogNorm
+
+
+# Needed equations to comput the ICC equations
+def _anova_components(X):
+    n, k = X.shape
+    grand = X.mean()
+    mean_rows = X.mean(axis=1, keepdims=True)
+    mean_cols = X.mean(axis=0, keepdims=True)
+
+    SST = ((X - grand) ** 2).sum()
+    SSR = (k * ((mean_rows - grand) ** 2)).sum()
+    SSC = (n * ((mean_cols - grand) ** 2)).sum()
+    SSE = SST - SSR - SSC
+
+    MSR = SSR / (n - 1)
+    MSC = SSC / (k - 1)
+    MSE = SSE / ((n - 1) * (k - 1))
+    return MSR, MSC, MSE, n, k
+
+# Equation for icc absolute agreement
+def icc_absolute_agreement(X):
+    MSR, MSC, MSE, n, k = _anova_components(X)
+    numerator = MSR - MSE
+    denominator = MSR + (k - 1) * MSE + (k * (MSC - MSE) / n)
+    return float(numerator / denominator)
+
+# Equation for icc consistency
+def icc_consistency(X):
+    MSR, _, MSE, n, k = _anova_components(X)
+    numerator = MSR - MSE
+    denominator = MSR + (k - 1) * MSE
+    return float(numerator / denominator)
+
+# Load image and brain mask
+def load_data(img_path, mask_path):
+    img = nib.load(str(img_path)).get_fdata(dtype=np.float64)
+    msk = nib.load(str(mask_path)).get_fdata()
+    return img, msk
+
+# Computing ICC absolute agreement and ICC consistency
+def compute_icc(img1_path, img2_path, mask_path, mask_threshold=0):
+    img1, msk = load_data(img1_path, mask_path)
+    img2, _   = load_data(img2_path, mask_path)
+
+    # Errors to catch if wrong image
+    if img1.shape != img2.shape or img1.shape != msk.shape:
+        raise ValueError(f"Shape mismatch: {img1.shape=} {img2.shape=} {msk.shape=}")
+
+    valid = (msk > mask_threshold) & np.isfinite(img1) & np.isfinite(img2)
+    if not np.any(valid):
+        raise ValueError("No valid voxels inside mask.")
+
+    v1 = img1[valid].ravel()
+    v2 = img2[valid].ravel()
+    X = np.stack([v1, v2], axis=1)
+
+    icc_a1 = icc_absolute_agreement(X)
+    icc_c1 = icc_consistency(X)
+
+    return {
+        "ICC_A1_abs_agreement": icc_a1,
+        "ICC_C1_consistency": icc_c1,
+        "v1": v1,
+        "v2": v2
+    }
+
+# Helper: extract subject id like "sub-XXXXX" from a path
+def get_subject_id(p: Path) -> str:
+    m = re.search(r"(sub-[A-Za-z0-9]+)", str(p))
+    return m.group(1) if m else "unknown"
+
+# >>> NEW: parse method from filename or parent folder <<<
+def get_method_from_path(p: Path) -> str:  # NEW
+    m = re.search(r"desc-([A-Za-z0-9]+)_myelinw", p.name)
+    if m:
+        return m.group(1)
+    parent = p.parent.name
+    return parent if parent else "unknown"
+
+# ======================================
+# Path(s) to data & batch execution
+# ======================================
+if __name__ == "__main__":
+   
+    PER_SUBJECT_MASKS = {  # "sub-24037": r"\\cubic-share...\sub-24037...\desc-brain_mask.nii.gz",
+        "sub-24037": r"\\cubic-share.uphs.upenn.edu\projects\nibs\derivatives\smriprep\sub-24037\anat\sub-24037_acq-MPRAGE_rec-norm_run-01_desc-brain_mask.nii.gz",
+        "sub-60501": r"\\cubic-share.uphs.upenn.edu\projects\nibs\derivatives\smriprep\sub-60501\anat\sub-60501_acq-MPRAGE_rec-norm_run-01_desc-brain_mask.nii.gz",
+        "sub-60505": r"\\cubic-share.uphs.upenn.edu\projects\nibs\derivatives\smriprep\sub-60505\anat\sub-60505_acq-MPRAGE_rec-norm_run-01_desc-brain_mask.nii.gz",
+        "sub-60514": r"\\cubic-share.uphs.upenn.edu\projects\nibs\derivatives\smriprep\sub-60514\anat\sub-60514_acq-MPRAGE_rec-norm_run-01_desc-brain_mask.nii.gz",
+        "sub-60516": r"\\cubic-share.uphs.upenn.edu\projects\nibs\derivatives\smriprep\sub-60516\anat\sub-60516_acq-MPRAGE_rec-norm_run-01_desc-brain_mask.nii.gz",
+        "sub-60518": r"\\cubic-share.uphs.upenn.edu\projects\nibs\derivatives\smriprep\sub-60518\anat\sub-60518_acq-MPRAGE_rec-norm_run-01_desc-brain_mask.nii.gz",
+        "sub-60519": r"\\cubic-share.uphs.upenn.edu\projects\nibs\derivatives\smriprep\sub-60519\anat\sub-60519_acq-MPRAGE_rec-norm_run-01_desc-brain_mask.nii.gz",
+        "sub-60520": r"\\cubic-share.uphs.upenn.edu\projects\nibs\derivatives\smriprep\sub-60520\anat\sub-60520_acq-MPRAGE_rec-norm_run-01_desc-brain_mask.nii.gz"
+        #"sub-60522: r"
+        #"sub-60526: r"
+    }
+
+    # Each group is one subject/pair:
+    #   [run1, run2]           -> will use PER_SUBJECT_MASKS[subj] if available; else fall back to MASK below
+    # 
+    PATH_GROUPS = [ # [r"C:\...\sub-60505\SPACE\...run-01_desc-SPACE_myelinw_smooth2mm.nii.gz",
+       # Subject 24037 (two sessions, MPRAGE)
+        #ihMTR VS. MPRAGE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-24037\ihMTR\sub-24037_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-24037\MPRAGE\sub-24037_ses-02_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz"],
+        #MPRAGE VS. SPACE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-24037\MPRAGE\sub-24037_ses-01_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-24037\SPACE\sub-24037_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+        #SPACE VS. ihMTR
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-24037\ihMTR\sub-24037_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz",  r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-24037\SPACE\sub-24037_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+    # Sub-60501
+        #ihMTR VS. MPRAGE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60501\ihMTR\sub-60501_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60501\MPRAGE\sub-60501_ses-02_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz"],
+        #MPRAGE VS. SPACE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60501\MPRAGE\sub-60501_ses-01_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60501\SPACE\sub-60501_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+        #SPACE VS. ihMTR
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60501\ihMTR\sub-60501_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz",  r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60501\SPACE\sub-60501_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+    # Sub-60505
+        #ihMTR VS. MPRAGE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60505\T1w_ihMTR\sub-60505_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60505\T1w_desc-MPRAGE_myelinw\sub-60505_ses-02_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz"],
+        #MPRAGE VS. SPACE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60505\T1w_desc-MPRAGE_myelinw\sub-60505_ses-01_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60505\T1w_desc-SPACE_myelinw\sub-60505_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+        #SPACE VS. ihMTR
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60505\T1w_ihMTR\sub-60505_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60505\T1w_desc-SPACE_myelinw\sub-60505_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+    # Sub-60514
+        #ihMTR VS. MPRAGE
+        [r"myelin_outputs/sub-60514/T1w_ihMTR/sub-60514_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60514\T1w_desc-MPRAGE_myelinw\sub-60514_ses-02_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz"],
+        #MPRAGE VS. SPACE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60514\T1w_desc-MPRAGE_myelinw\sub-60514_ses-01_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60514\T1w_desc-SPACE_myelinw\sub-60514_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+        #SPACE VS. ihMTR
+        [r"myelin_outputs/sub-60514/T1w_ihMTR/sub-60514_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60514\T1w_desc-SPACE_myelinw\sub-60514_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+    # Sub-60516
+        #ihMTR VS. MPRAGE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60516\T1w_ihMTR\sub-60516_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60516\T1w_desc-MPRAGE_myelinw\sub-60516_ses-02_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz"],
+        #MPRAGE VS. SPACE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60516\T1w_desc-MPRAGE_myelinw\sub-60516_ses-01_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60516\T1w_desc-SPACE_myelinw\sub-60516_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+        #SPACE VS. ihMTR
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60516\T1w_ihMTR\sub-60516_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60516\T1w_desc-SPACE_myelinw\sub-60516_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+    # Sub-60518
+        #ihMTR VS. MPRAGE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60518\T1w_ihMTR\sub-60518_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60518\T1w_desc-MPRAGE_myelinw\sub-60518_ses-02_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz"],
+        #MPRAGE VS. SPACE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60518\T1w_desc-MPRAGE_myelinw\sub-60518_ses-01_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60518\T1w_desc-SPACE_myelinw\sub-60518_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+        #SPACE VS. ihMTR
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60518\T1w_ihMTR\sub-60518_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60518\T1w_desc-SPACE_myelinw\sub-60518_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+    # Sub-60519
+        #ihMTR VS. MPRAGE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60519\T1w_ihMTR\sub-60519_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60519\T1w_desc-MPRAGE_myelinw\sub-60519_ses-02_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz"],
+        #MPRAGE VS. SPACE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60519\T1w_desc-MPRAGE_myelinw\sub-60519_ses-01_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60519\T1w_desc-SPACE_myelinw\sub-60519_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+        #SPACE VS. ihMTR
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60519\T1w_ihMTR\sub-60519_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60519\T1w_desc-SPACE_myelinw\sub-60519_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+    # Sub-60520
+        #ihMTR VS. MPRAGE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60520\T1w_ihMTR\sub-60520_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60520\T1w_desc-MPRAGE_myelinw\sub-60520_ses-02_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz"],
+        #MPRAGE VS. SPACE
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60520\T1w_desc-MPRAGE_myelinw\sub-60520_ses-01_run-01_space-T1w_desc-MPRAGE_myelinw_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60520\T1w_desc-SPACE_myelinw\sub-60520_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"],
+        #SPACE VS. ihMTR
+        [r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60520\T1w_ihMTR\sub-60520_ses-01_run-01_space-T1w_ihMTR_smooth2mm.nii.gz", r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\myelin_outputs\sub-60520\T1w_desc-SPACE_myelinw\sub-60520_ses-02_run-01_space-T1w_desc-SPACE_myelinw_smooth2mm.nii.gz"]
+       #sub-60522
+       #sub-60526
+    ]
+
+    # Fallback shared mask if neither a per-pair nor per-subject mask is provided
+    MASK = Path(r"\\cubic-share.uphs.upenn.edu\projects\nibs\derivatives\smriprep\sub-24037\anat\sub-24037_acq-MPRAGE_rec-norm_run-01_desc-brain_mask.nii.gz")
+
+    # Root output folder; per-subject subfolders will be made inside this
+    SAVE_ROOT = Path(r"C:\Users\nehem\OneDrive\Documents\GitHub\nibs\ng_analysis")
+    SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+
+    # >>> NEW: summary rows collector <<<
+    summary_rows = []  # NEW
+
+    # ---- Iterate over configured pairs ----
+    for entry in PATH_GROUPS:
+        if len(entry) not in (2, 3):
+            raise ValueError("Each PATH_GROUPS entry must be [run1, run2] or [run1, run2, mask].")
+
+        IMG1 = Path(entry[0])
+        IMG2 = Path(entry[1])
+
+        # Determine mask path priority: explicit in entry > PER_SUBJECT_MASKS > MASK
+        explicit_mask = Path(entry[2]) if len(entry) == 3 and entry[2] else None
+        subj = get_subject_id(IMG1) or get_subject_id(IMG2)
+        method = get_method_from_path(IMG1)  # assumes both runs share method
+
+        if explicit_mask is not None:
+            mask_path = explicit_mask
+        elif subj in PER_SUBJECT_MASKS and PER_SUBJECT_MASKS[subj]:
+            mask_path = Path(PER_SUBJECT_MASKS[subj])
+        else:
+            mask_path = MASK  # fallback
+
+        # Per-subject output directory
+        SAVE_DIR = SAVE_ROOT / subj
+        SAVE_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Compute ICC
+        out = compute_icc(IMG1, IMG2, mask_path, mask_threshold=0)
+        print(f"[{subj}] ICC(A,1) absolute agreement: {out['ICC_A1_abs_agreement']:.6f}")
+        print(f"[{subj}] ICC(C,1) consistency: {out['ICC_C1_consistency']:.6f}")
+
+        v1, v2 = out["v1"], out["v2"]
+
+        ##### Strip plot (optional) #####
+        # n_groups = 20
+        # rng = np.random.default_rng(42)  # fixed seed for reproducibility
+        # idx = rng.choice(v1.size, size=n_groups, replace=False)
+        # vals = np.stack([v1[idx], v2[idx]], axis=1)  # shape (n_groups, 2)
+        # xs = np.arange(1, n_groups + 1)
+        #
+        # plt.figure(figsize=(6, 4.8))
+        # for x in xs:
+        #     plt.axvline(x, color='k', alpha=0.1, linewidth=1)
+        # jitter = 0.08  # jitter left/right so both dots are visible
+        # plt.plot(xs - jitter, vals[:, 0], 'o', color='tab:blue')
+        # plt.plot(xs + jitter, vals[:, 1], 'o', color='tab:blue')
+        # plt.title(f"{subj} • {method} | ICC = {out['ICC_A1_abs_agreement']:.2f}")
+        # plt.xlabel("Group number")
+        # plt.ylabel("Data value")
+        # strip_path = SAVE_DIR / f"{subj}_{method}_icc_strip_{IMG1.stem}_vs_{IMG2.stem}.png"
+        # plt.savefig(strip_path, dpi=200, bbox_inches="tight")
+        # plt.close()
+        # print(f"[{subj}] Strip plot saved to: {strip_path}")
+
+        #### Scatter/Hexbin plot (robust autoscaled) ####
+        fig, ax = plt.subplots(figsize=(6, 6))
+
+        # Robust autoscale from the data (trim 1% tails)
+        xlo, xhi = np.quantile(v1, [0.01, 0.99])
+        ylo, yhi = np.quantile(v2, [0.01, 0.99])
+        lo = min(xlo, ylo)
+        hi = max(xhi, yhi)
+        pad = 0.20 * (hi - lo) if hi > lo else 1.0
+
+        hb = ax.hexbin(v1, v2, gridsize=200, bins='log', norm=LogNorm(), mincnt=1)
+        fig.colorbar(hb, ax=ax, label='Voxel density (log)')
+
+        ax.set_xlabel("Voxel values: Run 1")
+        ax.set_ylabel("Voxel values: Run 2")
+        ax.set_title(
+            f"{subj} • {method} | ICC(A,1)={out['ICC_A1_abs_agreement']:.3f}, "
+            f"ICC(C,1)={out['ICC_C1_consistency']:.3f}"
+        )
+        ax.grid(True, linestyle="--", alpha=0.5)
+
+        # Make axes square and draw y=x
+        ax.set_xlim(lo - pad, hi + pad)
+        ax.set_ylim(lo - pad, hi + pad)
+        lo2 = min(ax.get_xlim()[0], ax.get_ylim()[0])
+        hi2 = max(ax.get_xlim()[1], ax.get_ylim()[1])
+        ax.set_xlim(lo2, hi2)
+        ax.set_ylim(lo2, hi2)
+        ax.plot([lo2, hi2], [lo2, hi2], 'r--', label="y = x")
+        ax.legend()
+
+        save_path = SAVE_DIR / f"{subj}_{method}_icc_scatter_{IMG1.stem}_vs_{IMG2.stem}.png"
+        plt.savefig(save_path, dpi=200, bbox_inches="tight")
+        plt.close()
+        print(f"[{subj}] Scatter plot saved to: {save_path}")
+
+        # >>> add row to summary <<<
+        summary_rows.append({
+            "Subject": subj,
+            "Method": method,
+            "ICC(A,1) Abs Agreement": out["ICC_A1_abs_agreement"],
+            "ICC(C,1) Consistency": out["ICC_C1_consistency"],
+        })
+
+    # >>> build & save subject-grouped summary with per-subject averages <<<
+    if summary_rows:
+        df = pd.DataFrame(summary_rows)
+
+        # Per-subject averages appended as rows with Method='Average'
+        avg_df = (
+            df.groupby("Subject", as_index=False)[["ICC(A,1) Abs Agreement", "ICC(C,1) Consistency"]]
+              .mean()
+              .assign(Method="Average")
+        )
+
+        # Interleave each subject's rows followed by its Average row
+        out_rows = []
+        for subj in sorted(df["Subject"].unique()):
+            block = df[df["Subject"] == subj].sort_values(["Subject", "Method"])
+            out_rows.append(block)
+            out_rows.append(avg_df[avg_df["Subject"] == subj])
+
+        df_final = pd.concat(out_rows, ignore_index=True)
+
+        excel_path = SAVE_ROOT / "icc_summary_across_ses01_vs_ses2.xlsx"
+        csv_path = SAVE_ROOT / "icc_summary_across_ses01_vs_ses2.csv"
+        df_final.to_csv(csv_path, index=False)
+        print(f"\nSaved to: {csv_path}")
+
+
+        print("\n=== ICC Summary (Subject-grouped with per-subject averages) ===")
+        print(df_final.round(4).to_string(index=False))
+        print(f"\nSaved to: {excel_path}")
+
+    print("Done")
