@@ -55,21 +55,17 @@ if __name__ == "__main__":
 
         masker = maskers.NiftiMasker(mask_img, resampling_target="data")
         mean_img = image.mean_img(scalar_maps, copy_header=True)
-        sd_img = image.math_img("np.std(img, axis=3)", img=scalar_maps)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             mean_arr = masker.fit_transform(mean_img)
-            sd_arr = masker.transform(sd_img)
 
         # Get vmax (98th percentile) across both sessions
         mean_arr[np.isnan(mean_arr)] = 0
         mean_arr[np.isinf(mean_arr)] = 0
-        sd_arr[np.isnan(sd_arr)] = 0
-        sd_arr[np.isinf(sd_arr)] = 0
         vmax0 = np.percentile(mean_arr, 98)
-        vmax1 = np.percentile(sd_arr, 98)
-        print(f"\t{vmax0}, {vmax1}")
+        print(f"\t{vmax0}")
 
+        session_mean_imgs = []
         for ses in ['01', '02']:
             temp_pattern = pattern.format(ses=ses)
 
@@ -80,87 +76,67 @@ if __name__ == "__main__":
 
             # Mask out non-brain voxels
             mean_img = image.mean_img(scalar_maps, copy_header=True)
-            sd_img = image.math_img("np.std(img, axis=3)", img=scalar_maps)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 mean_arr = masker.transform(mean_img)
-                sd_arr = masker.transform(sd_img)
                 mean_arr[np.isnan(mean_arr)] = 0
                 mean_arr[np.isinf(mean_arr)] = 0
-                sd_arr[np.isnan(sd_arr)] = 0
-                sd_arr[np.isinf(sd_arr)] = 0
                 mean_img = masker.inverse_transform(mean_arr)
-                sd_img = masker.inverse_transform(sd_arr)
+                session_mean_imgs.append(mean_img)
 
-            # Plot mean and SD
-            fig, axs = plt.subplots(2, 1, figsize=(10, 5))
-            plotting.plot_stat_map(
-                mean_img,
-                bg_img=template,
-                display_mode="z",
-                cut_coords=[-30, -15, 0, 15, 30, 45, 60],
-                axes=axs[0],
-                figure=fig,
-                symmetric_cbar=False,
-                vmin=0,
-                vmax=vmax0,
-                cmap="viridis",
-                annotate=False,
-                black_bg=False,
-                resampling_interpolation="nearest",
-                colorbar=False,
-            )
-            plotting.plot_stat_map(
-                sd_img,
-                bg_img=template,
-                display_mode="z",
-                cut_coords=[-30, -15, 0, 15, 30, 45, 60],
-                axes=axs[1],
-                figure=fig,
-                symmetric_cbar=False,
-                vmin=0,
-                vmax=vmax1,
-                cmap="viridis",
-                annotate=False,
-                black_bg=False,
-                resampling_interpolation="nearest",
-                colorbar=False,
-            )
-            fig.savefig(
-                os.path.join(
-                    out_dir,
-                    f"{title.lower().replace('/', '_').replace(' ', '_')}_ses-{ses}.png",
-                ),
-                bbox_inches="tight",
-            )
-            plt.close()
+        # Plot mean from each session
+        fig, axs = plt.subplots(3, 1, figsize=(12.5, 5), height_ratios=[1, 1, 0.25])
+        plotting.plot_stat_map(
+            session_mean_imgs[0],
+            bg_img=template,
+            display_mode="z",
+            cut_coords=[-30, -15, 0, 15, 30, 45, 60],
+            axes=axs[0],
+            figure=fig,
+            symmetric_cbar=False,
+            vmin=0,
+            vmax=vmax0,
+            cmap="viridis",
+            annotate=False,
+            black_bg=False,
+            resampling_interpolation="nearest",
+            colorbar=False,
+        )
+        axs[0].set_title("Session 01")
+        plotting.plot_stat_map(
+            session_mean_imgs[1],
+            bg_img=template,
+            display_mode="z",
+            cut_coords=[-30, -15, 0, 15, 30, 45, 60],
+            axes=axs[1],
+            figure=fig,
+            symmetric_cbar=False,
+            vmin=0,
+            vmax=vmax0,
+            cmap="viridis",
+            annotate=False,
+            black_bg=False,
+            resampling_interpolation="nearest",
+            colorbar=False,
+        )
+        axs[1].set_title("Session 02")
 
-            # Plot the colorbars
-            fig, axs = plt.subplots(2, 1, figsize=(10, 1.5))
-            cmap = mpl.cm.viridis
+        # Plot the colorbars
+        cmap = mpl.cm.viridis
 
-            norm = mpl.colors.Normalize(vmin=0, vmax=vmax0)
-            cbar = fig.colorbar(
-                mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
-                cax=axs[0],
-                orientation='horizontal',
-            )
-            cbar.set_ticks([0, np.mean([0, vmax0]), vmax0])
+        norm = mpl.colors.Normalize(vmin=0, vmax=vmax0)
+        cbar = fig.colorbar(
+            mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
+            cax=axs[2],
+            orientation='horizontal',
+        )
+        cbar.set_ticks([0, np.mean([0, vmax0]), vmax0])
 
-            norm = mpl.colors.Normalize(vmin=0, vmax=vmax1)
-            cbar = fig.colorbar(
-                mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
-                cax=axs[1],
-                orientation='horizontal',
-            )
-            cbar.set_ticks([0, np.mean([0, vmax1]), vmax1])
-
-            fig.tight_layout()
-            fig.savefig(
-                os.path.join(
-                    out_dir,
-                    f"{title.lower().replace('/', '_').replace(' ', '_')}_ses-{ses}_colorbar.png",
-                ),
-                bbox_inches="tight",
-            )
-            plt.close()
+        fig.savefig(
+            os.path.join(
+                out_dir,
+                f"{title.lower().replace('/', '_').replace(' ', '_')}.png",
+            ),
+            bbox_inches="tight",
+        )
+        plt.close()
