@@ -32,10 +32,6 @@ def run_command(command, env=None):
         )
 
 
-def to_bidsuri(filename, dataset_dir, dataset_name):
-    return f'bids:{dataset_name}:{os.path.relpath(filename, dataset_dir)}'
-
-
 def get_filename(name_source, layout, out_dir, entities, dismiss_entities=None):
     from bids.layout import parse_file_entities
 
