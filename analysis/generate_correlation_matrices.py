@@ -47,6 +47,9 @@ if __name__ == "__main__":
     for subject in sorted(glob(os.path.join(bids_dir, 'sub-*'))):
         subject = os.path.basename(subject)
         subject = subject.split('-')[1]
+        if subject.startswith('PILOT'):
+            continue
+
         dseg = os.path.join(
             deriv_dir,
             'smriprep',
@@ -126,8 +129,8 @@ if __name__ == "__main__":
     mean_wb_df = pd.DataFrame(mean_wb_corr_mat, columns=patterns.keys(), index=patterns.keys())
     mean_gm_df = pd.DataFrame(mean_gm_corr_mat, columns=patterns.keys(), index=patterns.keys())
     mean_wm_df = pd.DataFrame(mean_wm_corr_mat, columns=patterns.keys(), index=patterns.keys())
-    mean_wb_df.to_csv(os.path.join(out_dir, 'mean_wb_corr_mat.tsv'), sep='\t')
-    mean_gm_df.to_csv(os.path.join(out_dir, 'mean_gm_corr_mat.tsv'), sep='\t')
-    mean_wm_df.to_csv(os.path.join(out_dir, 'mean_wm_corr_mat.tsv'), sep='\t')
+    mean_wb_df.to_csv(os.path.join(out_dir, 'mean_wb_corr_mat.tsv'), sep='\t', index=True, index_label='Image')
+    mean_gm_df.to_csv(os.path.join(out_dir, 'mean_gm_corr_mat.tsv'), sep='\t', index=True, index_label='Image')
+    mean_wm_df.to_csv(os.path.join(out_dir, 'mean_wm_corr_mat.tsv'), sep='\t', index=True, index_label='Image')
 
     print(f"Found {len(wb_corr_mats)} correlation matrices")
