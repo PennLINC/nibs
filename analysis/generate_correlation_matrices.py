@@ -1,6 +1,7 @@
 """Plot correlation matrices between myelin measures."""
 
 import os
+import warnings
 from glob import glob
 
 import nibabel as nb
@@ -46,10 +47,27 @@ if __name__ == "__main__":
     for subject in sorted(glob(os.path.join(bids_dir, 'sub-*'))):
         subject = os.path.basename(subject)
         subject = subject.split('-')[1]
-        dseg_pattern = os.path.join(deriv_dir, 'smriprep', f'sub-{subject}', 'anat', '*_space-MNI152NLin2009cAsym_dseg.nii.gz')
-        print(dseg_pattern)
-        dseg = glob(os.path.join(deriv_dir, 'smriprep', f'sub-{subject}', 'anat', '*_space-MNI152NLin2009cAsym_dseg.nii.gz'))
-        dseg = dseg[0]
+        dseg = os.path.join(
+            deriv_dir,
+            'smriprep',
+            f'sub-{subject}',
+            'anat',
+            f'sub-{subject}_acq-MPRAGE_rec-refaced_run-01_space-MNI152NLin2009cAsym_dseg.nii.gz',
+        )
+        if not os.path.isfile(dseg):
+            # Try session-wise
+            dseg = os.path.join(
+                deriv_dir,
+                'smriprep',
+                f'sub-{subject}',
+                'ses-01',
+                'anat',
+                f'sub-{subject}_ses-01_acq-MPRAGE_rec-refaced_run-01_space-MNI152NLin2009cAsym_dseg.nii.gz',
+            )
+            if not os.path.isfile(dseg):
+                print(f'No dseg found for {subject}')
+                continue
+
         dseg_img = nb.load(dseg)
         dseg_data = dseg_img.get_fdata()
         wm_mask = (dseg_data == wm_idx).astype(int)
@@ -83,15 +101,20 @@ if __name__ == "__main__":
                 continue
             else:
                 # Resample image to same resolution as dseg
-                img = image.resample_to_img(files[0], dseg_img, interpolation="nearest")
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    img = image.resample_to_img(files[0], dseg_img, interpolation="nearest")
                 wb_arr[i_file, :] = masking.apply_mask(img, wb_img)
                 gm_arr[i_file, :] = masking.apply_mask(img, gm_img)
                 wm_arr[i_file, :] = masking.apply_mask(img, wm_img)
 
         # Calculate correlation matrices
-        wb_corr_mat = np.atanh(np.corrcoef(wb_arr))
-        gm_corr_mat = np.atanh(np.corrcoef(gm_arr))
-        wm_corr_mat = np.atanh(np.corrcoef(wm_arr))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            wb_corr_mat = np.atanh(np.corrcoef(wb_arr))
+            gm_corr_mat = np.atanh(np.corrcoef(gm_arr))
+            wm_corr_mat = np.atanh(np.corrcoef(wm_arr))
+
         del wb_arr, gm_arr, wm_arr
         wb_corr_mats.append(wb_corr_mat)
         gm_corr_mats.append(gm_corr_mat)
