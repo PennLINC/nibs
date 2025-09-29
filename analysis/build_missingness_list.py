@@ -32,6 +32,10 @@ if __name__ == '__main__':
     participants_file = os.path.join(in_dir, 'participants.tsv')
     participants = pd.read_table(participants_file)
     subject_ids = participants['participant_id'].tolist()
+    # Move PILOT subjects to the beginning of the list
+    pilots = [sid for sid in subject_ids if "PILOT" in sid]
+    subject_ids = [sid for sid in subject_ids if "PILOT" not in sid]
+    subject_ids = pilots + subject_ids
 
     columns = []
     for ses_name in SESSIONS.keys():
@@ -64,5 +68,6 @@ if __name__ == '__main__':
     df = convert_to_multindex(df)
     ax = matrix(df)
     ax.figure.savefig(
-        os.path.join(CODE_DIR, 'figures', 'nibs_missingness.png'), bbox_inches='tight',
+        os.path.join(CODE_DIR, 'figures', 'missingness.png'),
+        bbox_inches='tight',
     )

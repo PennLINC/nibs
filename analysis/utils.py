@@ -79,6 +79,7 @@ def matrix(
     label_rotation=45,
     sparkline=True,
     ax=None,
+    palette=None,
 ):
     """A matrix visualization of the nullity of the given DataFrame.
 
@@ -112,6 +113,10 @@ def matrix(
 
     g[z < 0.5] = [1, 1, 1]
     g[z > 0.5] = color
+    # TDS
+    if palette is not None:
+        for i_col in range(width):
+            g[z[:, i_col] > 0.5, i_col] = palette[i_col]
 
     # Set up the matplotlib grid layout. A unary subplot if no sparkline, a left-right splot if yes sparkline.
     if ax is None:
@@ -261,6 +266,11 @@ def matrix(
     in_between_point = [x + 0.5 for x in range(0, width - 1)]
     for in_between_point in in_between_point:
         ax0.axvline(in_between_point, linestyle='-', color='white')
+
+    # Create the inter-row horizontal grid (TDS)
+    in_between_point = [y + 0.5 for y in range(0, height - 1)]
+    for in_between_point in in_between_point:
+        ax0.axhline(in_between_point, linestyle='-', color='white')
 
     if sparkline:
         # Calculate row-wise completeness for the sparkline.
