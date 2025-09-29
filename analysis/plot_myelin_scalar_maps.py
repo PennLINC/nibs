@@ -86,6 +86,8 @@ if __name__ == "__main__":
 
         # Plot mean from each session
         fig, axs = plt.subplots(3, 1, figsize=(12.5, 5), height_ratios=[1, 1, 0.25])
+        # Increase vertical space between the first two rows
+        fig.subplots_adjust(hspace=0.5)
         plotting.plot_stat_map(
             session_mean_imgs[0],
             bg_img=template,
@@ -102,7 +104,7 @@ if __name__ == "__main__":
             resampling_interpolation="nearest",
             colorbar=False,
         )
-        axs[0].set_title("Session 01")
+        axs[0].set_title("Session 01", fontsize=16)
         plotting.plot_stat_map(
             session_mean_imgs[1],
             bg_img=template,
@@ -119,18 +121,29 @@ if __name__ == "__main__":
             resampling_interpolation="nearest",
             colorbar=False,
         )
-        axs[1].set_title("Session 02")
+        axs[1].set_title("Session 02", fontsize=16)
 
         # Plot the colorbars
+        # Resize colorbar axis to be shorter and narrower
+        cax = axs[2]
+        pos = cax.get_position()
+        new_width = pos.width * 0.75
+        new_height = 0.05
+        center_x = pos.x0 + pos.width / 2.0
+        new_x0 = center_x - new_width / 2.0
+        new_y0 = pos.y0 + (pos.height - new_height) / 2.0
+        cax.set_position([new_x0, new_y0, new_width, new_height])
+
         cmap = mpl.cm.viridis
 
         norm = mpl.colors.Normalize(vmin=0, vmax=vmax0)
         cbar = fig.colorbar(
             mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
-            cax=axs[2],
+            cax=cax,
             orientation='horizontal',
         )
         cbar.set_ticks([0, np.mean([0, vmax0]), vmax0])
+        cbar.ax.tick_params(labelsize=12)
 
         fig.savefig(
             os.path.join(
