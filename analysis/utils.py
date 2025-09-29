@@ -85,21 +85,51 @@ def matrix(
 
     Modified from https://github.com/ResidentMario/missingno/blob/master/missingno/missingno.py.
 
-    :param df: The `DataFrame` being mapped.
-    :param filter: The filter to apply to the heatmap. Should be one of "top", "bottom", or None (default).
-    :param n: The max number of columns to include in the filtered DataFrame.
-    :param p: The max percentage fill of the columns in the filtered DataFrame.
-    :param sort: The row sort order to apply. Can be "ascending", "descending", or None.
-    :param figsize: The size of the figure to display.
-    :param fontsize: The figure's font size. Default to 16.
-    :param labels: Whether or not to display the column names. Defaults to the underlying data labels when there are
-        50 columns or less, and no labels when there are more than 50 columns.
-    :param label_rotation: What angle to rotate the text labels to. Defaults to 45 degrees.
-    :param sparkline: Whether or not to display the sparkline. Defaults to True.
-    :param width_ratios: The ratio of the width of the matrix to the width of the sparkline. Defaults to `(15, 1)`.
+    Changes:
+    - Added palette parameter
+    - Support for MultiIndex columns
+    - Dropped freq argument
+    - Added horizontal grid lines
+    - Corrected offset of sparkline points, line, and labels
+    - Increased font size.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The DataFrame being mapped.
+    filter : str, optional
+        The filter to apply to the heatmap. Should be one of "top", "bottom", or None (default).
+    n : int, optional
+        The max number of columns to include in the filtered DataFrame.
+    p : int, optional
+        The max percentage fill of the columns in the filtered DataFrame.
+    sort : str, optional
+        The row sort order to apply. Can be "ascending", "descending", or None.
+    figsize : tuple, optional
+        The size of the figure to display.
+    width_ratios : tuple, optional
+        The ratio of the width of the matrix to the width of the sparkline. Defaults to `(15, 1)`.
         Does nothing if `sparkline=False`.
-    :param color: The color of the filled columns. Default is `(0.25, 0.25, 0.25)`.
-    :return: The plot axis.
+    color : tuple, optional
+        The color of the filled columns. Default is `(0.25, 0.25, 0.25)`.
+    fontsize : int, optional
+        The figure's font size. Default to 16.
+    labels : bool, optional
+        Whether or not to display the column names. Defaults to the underlying data labels when there are
+        50 columns or less, and no labels when there are more than 50 columns.
+    label_rotation : int, optional
+        What angle to rotate the text labels to. Defaults to 45 degrees.
+    sparkline : bool, optional
+        Whether or not to display the sparkline. Defaults to True.
+    ax : matplotlib.axes.Axes, optional
+        The plot axis. Defaults to None.
+    palette : list, optional
+        The palette to use for the heatmap. Defaults to None.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The plot axis.
     """
     df = nullity_filter(df, filter=filter, n=n, p=p)
     df = nullity_sort(df, sort=sort, axis='columns')
