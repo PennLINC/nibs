@@ -17,26 +17,31 @@ if __name__ == "__main__":
 
     patterns = {
         # dMRI
-        "Fractional Anisotropy": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-fa_dwimap.nii.gz",
-        "Axial Diffusivity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-ad_dwimap.nii.gz",
-        "Mean Diffusivity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-md_dwimap.nii.gz",
-        "Mean Kurtosis": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-mk_dwimap.nii.gz",
-        "Radial Diffusivity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rd_dwimap.nii.gz",
-        "Radial Kurtosis": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rk_dwimap.nii.gz",
+        "FA": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-fa_dwimap.nii.gz",
+        "AD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-ad_dwimap.nii.gz",
+        "MD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-md_dwimap.nii.gz",
+        "MK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-mk_dwimap.nii.gz",
+        "RD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rd_dwimap.nii.gz",
+        "RK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rk_dwimap.nii.gz",
         # ihMT
-        "Inhomogeneous Magnetization Transfer-Weighted": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTw.nii.gz",
-        "Inhomogeneous Magnetization Transfer Ratio": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTR.nii.gz",
-        "Magnetization Transfer Ratio": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_MTRmap.nii.gz",
-        "Inhomogeneous Magnetization Transfer Saturation": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTsat.nii.gz",
-        "B1-Corrected Inhomogeneous Magnetization Transfer Saturation": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTsatB1sq.nii.gz",
+        "ihMTw": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTw.nii.gz",
+        "ihMTR": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTR.nii.gz",
+        "MTR": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_MTRmap.nii.gz",
+        "ihMTsat": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTsat.nii.gz",
+        "ihMTsat-B1c": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTsatB1sq.nii.gz",
         # MP2RAGE
         "R1": "pymp2rage/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_R1map.nii.gz",
-        "B1-Corrected R1": "pymp2rage/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-B1corrected_R1map.nii.gz",
+        "R1-B1c": "pymp2rage/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-B1corrected_R1map.nii.gz",
         # T1w/T2w Ratio
-        "MPRAGE T1w/SPACE T2w Ratio": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGEunscaled_myelinw.nii.gz",
-        "SPACE T1w/SPACE T2w Ratio": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACEunscaled_myelinw.nii.gz",
-        "Scaled MPRAGE T1w/SPACE T2w Ratio": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGEscaled_myelinw.nii.gz",
-        "Scaled SPACE T1w/SPACE T2w Ratio": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACEscaled_myelinw.nii.gz",
+        "MPRAGE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGEunscaled_myelinw.nii.gz",
+        "SPACE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACEunscaled_myelinw.nii.gz",
+        "Scaled MPRAGE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGEscaled_myelinw.nii.gz",
+        "Scaled SPACE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACEscaled_myelinw.nii.gz",
+        # G-Ratio
+        "G-MPRAGE-MyelinW": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGET1wT2w+ISOVF+ICVF_gratio.nii.gz",
+        "G-SPACE-MyelinW": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACET1wT2w+ISOVF+ICVF_gratio.nii.gz",
+        "G-ihMTsat": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
+        "G-ihMTR": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
     }
     gm_idx = 1
     wm_idx = 2
