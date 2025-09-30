@@ -114,9 +114,9 @@ if __name__ == "__main__":
         # Calculate correlation matrices
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            wb_corr_mat = np.atanh(np.corrcoef(wb_arr))
-            gm_corr_mat = np.atanh(np.corrcoef(gm_arr))
-            wm_corr_mat = np.atanh(np.corrcoef(wm_arr))
+            wb_corr_mat = np.arctanh(np.corrcoef(wb_arr))
+            gm_corr_mat = np.arctanh(np.corrcoef(gm_arr))
+            wm_corr_mat = np.arctanh(np.corrcoef(wm_arr))
 
         del wb_arr, gm_arr, wm_arr
         wb_corr_mats.append(wb_corr_mat)
