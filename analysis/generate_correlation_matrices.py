@@ -111,7 +111,9 @@ if __name__ == "__main__":
             "G-ihMTR": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
         },
     }
-    n_scalars = sum(len(v) for v in patterns.values())
+    scalar_names = [list(v) for v in patterns.values()]
+    scalar_names = [item for sublist in scalar_names for item in sublist]
+    n_scalars = len(scalar_names)
 
     gm_idx = 1
     wm_idx = 2
@@ -214,9 +216,9 @@ if __name__ == "__main__":
     mean_wb_corr_mat = np.nanmean(np.stack(wb_corr_mats), axis=0)
     mean_gm_corr_mat = np.nanmean(np.stack(gm_corr_mats), axis=0)
     mean_wm_corr_mat = np.nanmean(np.stack(wm_corr_mats), axis=0)
-    mean_wb_df = pd.DataFrame(mean_wb_corr_mat, columns=patterns.keys(), index=patterns.keys())
-    mean_gm_df = pd.DataFrame(mean_gm_corr_mat, columns=patterns.keys(), index=patterns.keys())
-    mean_wm_df = pd.DataFrame(mean_wm_corr_mat, columns=patterns.keys(), index=patterns.keys())
+    mean_wb_df = pd.DataFrame(mean_wb_corr_mat, columns=scalar_names, index=scalar_names)
+    mean_gm_df = pd.DataFrame(mean_gm_corr_mat, columns=scalar_names, index=scalar_names)
+    mean_wm_df = pd.DataFrame(mean_wm_corr_mat, columns=scalar_names, index=scalar_names)
     mean_wb_df.to_csv(os.path.join(out_dir, 'mean_wb_corr_mat.tsv'), sep='\t', index=True, index_label='Image')
     mean_gm_df.to_csv(os.path.join(out_dir, 'mean_gm_corr_mat.tsv'), sep='\t', index=True, index_label='Image')
     mean_wm_df.to_csv(os.path.join(out_dir, 'mean_wm_corr_mat.tsv'), sep='\t', index=True, index_label='Image')
