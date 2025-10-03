@@ -17,32 +17,102 @@ if __name__ == "__main__":
 
     patterns = {
         # dMRI
-        "FA": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-fa_dwimap.nii.gz",
-        "AD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-ad_dwimap.nii.gz",
-        "MD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-md_dwimap.nii.gz",
-        "MK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-mk_dwimap.nii.gz",
-        "RD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rd_dwimap.nii.gz",
-        "RK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rk_dwimap.nii.gz",
+        "dMRI": {
+            "DKI Micro AD": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-ad_dwimap.nii.gz",
+            "DKI Micro ADE": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-ade_dwimap.nii.gz",
+            "DKI Micro AWF": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-awf_dwimap.nii.gz",
+            "DKI Micro AxonalD": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-axonald_dwimap.nii.gz",
+            "DKI Micro KFA": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-kfa_dwimap.nii.gz",
+            "DKI Micro MD": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-md_dwimap.nii.gz",
+            "DKI Micro RD": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-rd_dwimap.nii.gz",
+            "DKI Micro RDE": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-rde_dwimap.nii.gz",
+            "DKI Micro Tortuosity": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-tortuosity_dwimap.nii.gz",
+            "DKI Micro Trace": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dkimicro_param-trace_dwimap.nii.gz",
+            "DKI AD": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-ad_dwimap.nii.gz",
+            "DKI AK": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-ak_dwimap.nii.gz",
+            "DKI KFA": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-kfa_dwimap.nii.gz",
+            "DKI Linearity": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-linearity_dwimap.nii.gz",
+            "DKI MD": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-md_dwimap.nii.gz",
+            "DKI MK": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-mk_dwimap.nii.gz",
+            "DKI MKT": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-mkt_dwimap.nii.gz",
+            "DKI Planarity": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-planarity_dwimap.nii.gz",
+            "DKI RD": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rd_dwimap.nii.gz",
+            "DKI RK": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rk_dwimap.nii.gz",
+            "DKI Sphericity": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-sphericity_dwimap.nii.gz",
+            "DKI Tensor FA": "qsirecon-DIPYDKI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-fa_dwimap.nii.gz",
+            "DSIStudio GQI GFA": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-gqi_param-gfa_dwimap.nii.gz",
+            "DSIStudio GQI ISO": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-gqi_param-iso_dwimap.nii.gz",
+            "DSIStudio GQI QA": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-gqi_param-qa_dwimap.nii.gz",
+            "DSIStudio Tensor AD": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-ad_dwimap.nii.gz",
+            "DSIStudio Tensor FA": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-fa_dwimap.nii.gz",
+            "DSIStudio Tensor HA": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-ha_dwimap.nii.gz",
+            "DSIStudio Tensor MD": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz",
+            "DSIStudio Tensor RD1": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-rd1_dwimap.nii.gz",
+            "DSIStudio Tensor RD2": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-rd2_dwimap.nii.gz",
+            "DSIStudio Tensor RD": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-rd_dwimap.nii.gz",
+            "DSIStudio Tensor TXX": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-txx_dwimap.nii.gz",
+            "DSIStudio Tensor TXY": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-txy_dwimap.nii.gz",
+            "DSIStudio Tensor TXZ": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-txz_dwimap.nii.gz",
+            "DSIStudio Tensor TYY": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-tyy_dwimap.nii.gz",
+            "DSIStudio Tensor TYZ": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-tyz_dwimap.nii.gz",
+            "DSIStudio Tensor TZZ": "qsirecon-DSIStudio/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-tzz_dwimap.nii.gz",
+            "NODDI ICVF Modulated": "qsirecon-NODDI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-noddi_param-icvf_desc-modulated_dwimap.nii.gz",
+            "NODDI ICVF": "qsirecon-NODDI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-noddi_param-icvf_dwimap.nii.gz",
+            "NODDI ISOVF": "qsirecon-NODDI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-noddi_param-isovf_dwimap.nii.gz",
+            "NODDI NRMSE": "qsirecon-NODDI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-noddi_param-nrmse_dwimap.nii.gz",
+            "NODDI OD Modulated": "qsirecon-NODDI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-noddi_param-od_desc-modulated_dwimap.nii.gz",
+            "NODDI OD": "qsirecon-NODDI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-noddi_param-od_dwimap.nii.gz",
+            "NODDI RMSE": "qsirecon-NODDI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-noddi_param-rmse_dwimap.nii.gz",
+            "NODDI TF": "qsirecon-NODDI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-noddi_param-tf_dwimap.nii.gz",
+            "TORTOISE MAPMRI NG": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-mapmri_param-ng_dwimap.nii.gz",
+            "TORTOISE MAPMRI NG Par": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-mapmri_param-ngpar_dwimap.nii.gz",
+            "TORTOISE MAPMRI NG Perp": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-mapmri_param-ngperp_dwimap.nii.gz",
+            "TORTOISE MAPMRI PA": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-mapmri_param-pa_dwimap.nii.gz",
+            "TORTOISE MAPMRI Path": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-mapmri_param-path_dwimap.nii.gz",
+            "TORTOISE MAPMRI RTA": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-mapmri_param-rtap_dwimap.nii.gz",
+            "TORTOISE MAPMRI RTO": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-mapmri_param-rtop_dwimap.nii.gz",
+            "TORTOISE MAPMRI RTP": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-mapmri_param-rtpp_dwimap.nii.gz",
+            "TORTOISE MAPMRI AD": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-ad_dwimap.nii.gz",
+            "TORTOISE MAPMRI AM": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-am_dwimap.nii.gz",
+            "TORTOISE MAPMRI FA": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-fa_dwimap.nii.gz",
+            "TORTOISE MAPMRI LI": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-li_dwimap.nii.gz",
+            "TORTOISE MAPMRI RD": "qsirecon-TORTOISE_model-MAPMRI/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-rd_dwimap.nii.gz",
+            "TORTOISE Tensor AD": "qsirecon-TORTOISE_model-tensor/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-ad_dwimap.nii.gz",
+            "TORTOISE Tensor AM": "qsirecon-TORTOISE_model-tensor/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-am_dwimap.nii.gz",
+            "TORTOISE Tensor FA": "qsirecon-TORTOISE_model-tensor/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-fa_dwimap.nii.gz",
+            "TORTOISE Tensor LI": "qsirecon-TORTOISE_model-tensor/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-li_dwimap.nii.gz",
+            "TORTOISE Tensor RD": "qsirecon-TORTOISE_model-tensor/sub-{subject}/ses-01/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-rd_dwimap.nii.gz",
+        },
         # ihMT
-        "ihMTw": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTw.nii.gz",
-        "ihMTR": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTR.nii.gz",
-        "MTR": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_MTRmap.nii.gz",
-        "ihMTsat": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTsat.nii.gz",
-        "ihMTsat-B1c": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTsatB1sq.nii.gz",
+        "ihMT": {
+            "ihMTw": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTw.nii.gz",
+            "ihMTR": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTR.nii.gz",
+            "MTR": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_MTRmap.nii.gz",
+            "ihMTsat": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTsat.nii.gz",
+            "ihMTsat-B1c": "ihmt/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_ihMTsatB1sq.nii.gz",
+        },
         # MP2RAGE
-        "R1": "pymp2rage/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_R1map.nii.gz",
-        "R1-B1c": "pymp2rage/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-B1corrected_R1map.nii.gz",
+        "MP2RAGE": {
+            "R1": "pymp2rage/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_R1map.nii.gz",
+            "R1-B1c": "pymp2rage/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-B1corrected_R1map.nii.gz",
+        },
         # T1w/T2w Ratio
-        "MPRAGE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGEunscaled_myelinw.nii.gz",
-        "SPACE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACEunscaled_myelinw.nii.gz",
-        "Scaled MPRAGE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGEscaled_myelinw.nii.gz",
-        "Scaled SPACE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACEscaled_myelinw.nii.gz",
+        "T1w/T2w Ratio": {
+            "MPRAGE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGEunscaled_myelinw.nii.gz",
+            "SPACE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACEunscaled_myelinw.nii.gz",
+            "Scaled MPRAGE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGEscaled_myelinw.nii.gz",
+            "Scaled SPACE-MyelinW": "t1wt2w_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACEscaled_myelinw.nii.gz",
+        },
         # G-Ratio
-        "G-MPRAGE-MyelinW": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGET1wT2w+ISOVF+ICVF_gratio.nii.gz",
-        "G-SPACE-MyelinW": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACET1wT2w+ISOVF+ICVF_gratio.nii.gz",
-        "G-ihMTsat": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
-        "G-ihMTR": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
+        "G-Ratio": {
+            "G-MPRAGE-MyelinW": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGET1wT2w+ISOVF+ICVF_gratio.nii.gz",
+            "G-SPACE-MyelinW": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-SPACET1wT2w+ISOVF+ICVF_gratio.nii.gz",
+            "G-ihMTsat": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
+            "G-ihMTR": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
+        },
     }
+    n_scalars = sum(len(v) for v in patterns.values())
+
     gm_idx = 1
     wm_idx = 2
 
@@ -89,32 +159,45 @@ if __name__ == "__main__":
         wm_n_voxels = np.sum(wm_mask)
 
         print(os.path.basename(dseg))
-        wb_arr = np.zeros((len(patterns), wb_n_voxels))
-        gm_arr = np.zeros((len(patterns), gm_n_voxels))
-        wm_arr = np.zeros((len(patterns), wm_n_voxels))
-        for i_file, (title, pattern) in enumerate(patterns.items()):
-            pattern = pattern.format(subject=subject)
-            files = sorted(glob(os.path.join(deriv_dir, pattern)))
-            if len(files) == 0:
-                print(f"No files found for {pattern}")
-                wb_arr[i_file, :] = np.nan
-                gm_arr[i_file, :] = np.nan
-                wm_arr[i_file, :] = np.nan
-                continue
-            elif len(files) != 1:
-                print(f"Multiple files found for {pattern}")
-                wb_arr[i_file, :] = np.nan
-                gm_arr[i_file, :] = np.nan
-                wm_arr[i_file, :] = np.nan
-                continue
-            else:
-                # Resample image to same resolution as dseg
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    img = image.resample_to_img(files[0], dseg_img, interpolation="nearest")
-                wb_arr[i_file, :] = masking.apply_mask(img, wb_img)
-                gm_arr[i_file, :] = masking.apply_mask(img, gm_img)
-                wm_arr[i_file, :] = masking.apply_mask(img, wm_img)
+        wb_arr = np.zeros((n_scalars, wb_n_voxels))
+        gm_arr = np.zeros((n_scalars, gm_n_voxels))
+        wm_arr = np.zeros((n_scalars, wm_n_voxels))
+
+        scalar_counter = -1
+        for i_modality, (modality, modality_patterns) in enumerate(patterns.items()):
+            for scalar_name, scalar_pattern in modality_patterns.items():
+                pattern = scalar_pattern.format(subject=subject)
+                files = sorted(glob(os.path.join(deriv_dir, pattern)))
+                scalar_counter += 1
+                if len(files) == 0:
+                    print(f"No files found for {pattern}")
+                    wb_arr[scalar_counter, :] = np.nan
+                    gm_arr[scalar_counter, :] = np.nan
+                    wm_arr[scalar_counter, :] = np.nan
+                    continue
+                elif len(files) != 1:
+                    print(f"Multiple files found for {pattern}")
+                    wb_arr[scalar_counter, :] = np.nan
+                    gm_arr[scalar_counter, :] = np.nan
+                    wm_arr[scalar_counter, :] = np.nan
+                    continue
+                else:
+                    # Resample image to same resolution as dseg
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        img = image.resample_to_img(files[0], dseg_img, interpolation="nearest")
+
+                    scalar_wb_arr = masking.apply_mask(img, wb_img)
+                    if scalar_wb_arr.ndim != 1:
+                        print(f"Scalar {scalar_name} has {scalar_wb_arr.ndim} dimensions")
+                        wb_arr[scalar_counter, :] = np.nan
+                        gm_arr[scalar_counter, :] = np.nan
+                        wm_arr[scalar_counter, :] = np.nan
+                        continue
+
+                    wb_arr[scalar_counter, :] = scalar_wb_arr
+                    gm_arr[scalar_counter, :] = masking.apply_mask(img, gm_img)
+                    wm_arr[scalar_counter, :] = masking.apply_mask(img, wm_img)
 
         # Calculate correlation matrices
         with warnings.catch_warnings():
