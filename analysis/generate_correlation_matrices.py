@@ -4,15 +4,18 @@ import os
 import warnings
 from glob import glob
 
+import ants
 import nibabel as nb
 import numpy as np
 import pandas as pd
-from nilearn import image, masking
+from nilearn import masking
 
 
 if __name__ == "__main__":
     bids_dir = "/cbica/projects/nibs/dset"
     deriv_dir = "/cbica/projects/nibs/derivatives"
+    temp_dir = "/cbica/projects/nibs/work/correlation_matrices"
+    os.makedirs(temp_dir, exist_ok=True)
     out_dir = "../data"
 
     patterns = {
@@ -127,6 +130,7 @@ if __name__ == "__main__":
         if subject.startswith('PILOT'):
             continue
 
+        print(f'Processing {subject}', flush=True)
         dseg = os.path.join(
             deriv_dir,
             'smriprep',
@@ -145,9 +149,10 @@ if __name__ == "__main__":
                 f'sub-{subject}_ses-01_acq-MPRAGE_rec-refaced_run-01_space-MNI152NLin2009cAsym_dseg.nii.gz',
             )
             if not os.path.isfile(dseg):
-                print(f'No dseg found for {subject}')
+                print(f'No dseg found for {subject}', flush=True)
                 continue
 
+        dseg_ants_img = ants.image_read(dseg)
         dseg_img = nb.load(dseg)
         dseg_data = dseg_img.get_fdata()
         wm_mask = (dseg_data == wm_idx).astype(int)
@@ -160,7 +165,6 @@ if __name__ == "__main__":
         gm_n_voxels = np.sum(gm_mask)
         wm_n_voxels = np.sum(wm_mask)
 
-        print(os.path.basename(dseg))
         wb_arr = np.zeros((n_scalars, wb_n_voxels))
         gm_arr = np.zeros((n_scalars, gm_n_voxels))
         wm_arr = np.zeros((n_scalars, wm_n_voxels))
@@ -172,26 +176,33 @@ if __name__ == "__main__":
                 files = sorted(glob(os.path.join(deriv_dir, pattern)))
                 scalar_counter += 1
                 if len(files) == 0:
-                    print(f"No files found for {pattern}")
+                    print(f"No files found for {pattern}", flush=True)
                     wb_arr[scalar_counter, :] = np.nan
                     gm_arr[scalar_counter, :] = np.nan
                     wm_arr[scalar_counter, :] = np.nan
                     continue
                 elif len(files) != 1:
-                    print(f"Multiple files found for {pattern}")
+                    print(f"Multiple files found for {pattern}", flush=True)
                     wb_arr[scalar_counter, :] = np.nan
                     gm_arr[scalar_counter, :] = np.nan
                     wm_arr[scalar_counter, :] = np.nan
                     continue
                 else:
                     # Resample image to same resolution as dseg
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        img = image.resample_to_img(files[0], dseg_img, interpolation="nearest")
+                    resampled_ants_img = ants.image_read(files[0]).resample_image_to_target(
+                        dseg_ants_img,
+                        interp_type='lanczosWindowedSinc',
+                    )
+                    resampled_file = os.path.join(temp_dir, f'{subject}_{scalar_name}.nii.gz')
+                    ants.image_write(resampled_ants_img, resampled_file)
 
+                    img = nb.load(resampled_file)
                     scalar_wb_arr = masking.apply_mask(img, wb_img)
                     if scalar_wb_arr.ndim != 1:
-                        print(f"Scalar {scalar_name} has {scalar_wb_arr.ndim} dimensions")
+                        print(
+                            f"Scalar {scalar_name} has {scalar_wb_arr.ndim} dimensions",
+                            flush=True,
+                        )
                         wb_arr[scalar_counter, :] = np.nan
                         gm_arr[scalar_counter, :] = np.nan
                         wm_arr[scalar_counter, :] = np.nan
@@ -200,6 +211,8 @@ if __name__ == "__main__":
                     wb_arr[scalar_counter, :] = scalar_wb_arr
                     gm_arr[scalar_counter, :] = masking.apply_mask(img, gm_img)
                     wm_arr[scalar_counter, :] = masking.apply_mask(img, wm_img)
+
+                    os.remove(resampled_file)
 
         # Calculate correlation matrices
         with warnings.catch_warnings():
@@ -219,8 +232,23 @@ if __name__ == "__main__":
     mean_wb_df = pd.DataFrame(mean_wb_corr_mat, columns=scalar_names, index=scalar_names)
     mean_gm_df = pd.DataFrame(mean_gm_corr_mat, columns=scalar_names, index=scalar_names)
     mean_wm_df = pd.DataFrame(mean_wm_corr_mat, columns=scalar_names, index=scalar_names)
-    mean_wb_df.to_csv(os.path.join(out_dir, 'mean_wb_corr_mat.tsv'), sep='\t', index=True, index_label='Image')
-    mean_gm_df.to_csv(os.path.join(out_dir, 'mean_gm_corr_mat.tsv'), sep='\t', index=True, index_label='Image')
-    mean_wm_df.to_csv(os.path.join(out_dir, 'mean_wm_corr_mat.tsv'), sep='\t', index=True, index_label='Image')
+    mean_wb_df.to_csv(
+        os.path.join(out_dir, 'mean_wb_corr_mat.tsv'),
+        sep='\t',
+        index=True,
+        index_label='Image',
+    )
+    mean_gm_df.to_csv(
+        os.path.join(out_dir, 'mean_gm_corr_mat.tsv'),
+        sep='\t',
+        index=True,
+        index_label='Image',
+    )
+    mean_wm_df.to_csv(
+        os.path.join(out_dir, 'mean_wm_corr_mat.tsv'),
+        sep='\t',
+        index=True,
+        index_label='Image',
+    )
 
     print(f"Found {len(wb_corr_mats)} correlation matrices")
