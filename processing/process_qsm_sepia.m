@@ -8,7 +8,7 @@ output_dir = '{{ output_dir }}';
 % Concatenated phase image
 input(1).name = '{{ phase_file }}';
 
-% Concatenated, skull-stripped magnitude image
+% Concatenated magnitude image
 input(2).name = '{{ mag_file }}';
 input(3).name = '';  % Leave empty if not needed
 input(4).name = '{{ header_file }}';
@@ -19,7 +19,7 @@ mask_file = '{{ mask_file }}';
 algorParam = struct();
 algorParam.general = struct( ...
     'isBET', 1, ...
-    'fractional_threshold', 0.15, ...  % changed from 0.15
+    'fractional_threshold', 0.15, ...
     'gradient_threshold', 0, ...
     'isInvert', 0, ...
     'isRefineBrainMask', 1);
