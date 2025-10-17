@@ -396,11 +396,16 @@ def process_run(layout, run_data, out_dir):
         )
 
         # Plot scalar map
+        desc = 'scalar'
+        if 'desc-' in mni_file:
+            # Append the desc to the target desc
+            desc = mni_file.split('desc-')[-1].split('_')[0] + 'scalar'
+
         scalar_report = get_filename(
             name_source=mni_file,
             layout=layout,
             out_dir=out_dir,
-            entities={'datatype': 'figures', 'desc': 'scalar', 'extension': '.svg'},
+            entities={'datatype': 'figures', 'desc': desc, 'extension': '.svg'},
         )
         data = masking.apply_mask(mni_file, run_data['mni_mask'])
         vmin = np.percentile(data, 2)
