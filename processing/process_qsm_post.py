@@ -366,6 +366,7 @@ def process_run(layout, run_data, out_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=[coreg_transform],
+            interpolator='lanczosWindowedSinc',
         )
         ants.image_write(reg_img, t1w_file)
 
@@ -381,6 +382,7 @@ def process_run(layout, run_data, out_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
+            interpolator='lanczosWindowedSinc',
         )
         ants.image_write(reg_img, mni_file)
 
