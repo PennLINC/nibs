@@ -34,52 +34,192 @@ CODE_DIR = '/cbica/projects/nibs/code'
 def collect_run_data(layout, bids_filters):
     queries = {
         # SEPIA Chimap
-        'sepia_chimap': {
+        'sepia_chimap_e12345': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
             'space': 'MEGRE',
             'res': Query.NONE,
-            'desc': 'SEPIA',
+            'desc': 'E12345+SEPIA',
+            'suffix': 'Chimap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'sepia_chimap_e2345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E2345+SEPIA',
+            'suffix': 'Chimap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # Chisep chi map with R2'
+        'chisep_chimap_r2p_e12345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E12345+chisep+r2p',
+            'suffix': 'Chimap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'chisep_chimap_r2p_e2345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E2345+chisep+r2p',
             'suffix': 'Chimap',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep iron map with R2'
-        'chisep_iron_w_r2p': {
+        'chisep_iron_r2p_e12345': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
             'space': 'MEGRE',
             'res': Query.NONE,
-            'desc': 'chisepR2p',
+            'desc': 'E12345+chisep+r2p',
+            'suffix': 'ironw',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'chisep_iron_r2p_e2345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E2345+chisep+r2p',
             'suffix': 'ironw',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep myelin map with R2'
-        'chisep_myelin_w_r2p': {
+        'chisep_myelin_r2p_e12345': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
             'space': 'MEGRE',
             'res': Query.NONE,
-            'desc': 'chisepR2p',
+            'desc': 'E12345+chisep+r2p',
             'suffix': 'myelinw',
             'extension': ['.nii', '.nii.gz'],
         },
-        # Chisep iron map with R2'
-        'chisep_iron_wo_r2p': {
+        'chisep_myelin_r2p_e2345': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
             'space': 'MEGRE',
             'res': Query.NONE,
-            'desc': 'chisep',
+            'desc': 'E2345+chisep+r2p',
+            'suffix': 'myelinw',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # Chisep chi map with R2'
+        'chisep_chimap_r2primenet_e12345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E12345+chisep+r2primenet',
+            'suffix': 'Chimap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'chisep_chimap_r2primenet_e2345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E2345+chisep+r2primenet',
+            'suffix': 'Chimap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # Chisep iron map with R2'
+        'chisep_iron_r2primenet_e12345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E12345+chisep+r2primenet',
+            'suffix': 'ironw',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'chisep_iron_r2primenet_e2345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E2345+chisep+r2primenet',
             'suffix': 'ironw',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep myelin map with R2'
-        'chisep_myelin_wo_r2p': {
+        'chisep_myelin_r2primenet_e12345': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
             'space': 'MEGRE',
             'res': Query.NONE,
-            'desc': 'chisep',
+            'desc': 'E12345+chisep+r2primenet',
+            'suffix': 'myelinw',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'chisep_myelin_r2primenet_e2345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E2345+chisep+r2primenet',
+            'suffix': 'myelinw',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # Chisep chi map with R2*
+        'chisep_chimap_r2s_e12345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E12345+chisep+r2s',
+            'suffix': 'Chimap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'chisep_chimap_r2s_e2345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E2345+chisep+r2s',
+            'suffix': 'Chimap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # Chisep iron map with R2*
+        'chisep_iron_r2s_e12345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E12345+chisep+r2s',
+            'suffix': 'ironw',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'chisep_iron_r2s_e2345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E2345+chisep+r2s',
+            'suffix': 'ironw',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # Chisep myelin map with R2*
+        'chisep_myelin_r2s_e12345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E12345+chisep+r2s',
+            'suffix': 'myelinw',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'chisep_myelin_r2s_e2345': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'space': 'MEGRE',
+            'res': Query.NONE,
+            'desc': 'E2345+chisep+r2s',
             'suffix': 'myelinw',
             'extension': ['.nii', '.nii.gz'],
         },
@@ -149,7 +289,7 @@ def collect_run_data(layout, bids_filters):
     for key, query in queries.items():
         query = {**bids_filters, **query}
         files = layout.get(**query)
-        if key.startswith('chisep_') and len(files) == 0:
+        if (key.startswith('chisep_') or key.startswith('sepia_')) and len(files) == 0:
             print(f'No files found for {key} with query {query}')
             run_data[key] = None
             continue
@@ -181,16 +321,34 @@ def process_run(layout, run_data, out_dir):
 
     # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
-    for file_ in [
-        run_data['sepia_chimap'],
-        run_data['chisep_iron_w_r2p'],
-        run_data['chisep_myelin_w_r2p'],
-        run_data['chisep_iron_wo_r2p'],
-        run_data['chisep_myelin_wo_r2p'],
-        run_data['r2_qsm'],
-        run_data['r2s_qsm'],
-        run_data['r2prime_qsm'],
-    ]:
+    keys = [
+        # SEPIA
+        'sepia_chimap_e12345',
+        'sepia_chimap_e2345',
+        # Chi-separation with input R2' map
+        'chisep_chimap_r2p_e12345',
+        'chisep_chimap_r2p_e2345',
+        'chisep_iron_r2p_e12345',
+        'chisep_iron_r2p_e2345',
+        'chisep_myelin_r2p_e12345',
+        'chisep_myelin_r2p_e2345',
+        # Chi-separation with R2' map from r2primenet
+        'chisep_chimap_r2primenet_e12345',
+        'chisep_chimap_r2primenet_e2345',
+        'chisep_iron_r2primenet_e12345',
+        'chisep_iron_r2primenet_e2345',
+        'chisep_myelin_r2primenet_e12345',
+        'chisep_myelin_r2primenet_e2345',
+        # Chi-separation with R2* map from ARLO
+        'chisep_chimap_r2s_e12345',
+        'chisep_chimap_r2s_e2345',
+        'chisep_iron_r2s_e12345',
+        'chisep_iron_r2s_e2345',
+        'chisep_myelin_r2s_e12345',
+        'chisep_myelin_r2s_e2345',
+    ]
+    for key in keys:
+        file_ = run_data[key]
         if file_ is None:
             continue
 
@@ -292,7 +450,7 @@ def main(subject_id):
         in_dir,
         config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
         validate=False,
-        derivatives=[smriprep_dir, mese_dir, out_dir],
+        derivatives=[smriprep_dir, out_dir],
     )
 
     print(f'Processing subject {subject_id}')
@@ -323,7 +481,7 @@ def main(subject_id):
                 print(f'Failed {megre_file}')
                 print(e)
                 continue
-            fname = os.path.basename(megre_file.path).split('.')[0]
+
             process_run(layout, run_data, out_dir)
 
         report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
