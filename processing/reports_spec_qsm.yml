@@ -6,7 +6,7 @@ sections:
   - bids: {datatype: figures, space: T1w, suffix: .*, regex_search: True}
     subtitle: Alignment of QSM data to sMRIPrep T1w space
     static: false
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, suffix: .*, regex_search: True}
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*coreg, suffix: .*, regex_search: True}
     subtitle: Alignment of QSM data to MNI152NLin2009cAsym space
     static: false
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: .*, regex_search: True}
