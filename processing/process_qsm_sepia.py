@@ -93,6 +93,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     name_source = run_data['megre_mag'][0]
     header_file = os.path.join(CODE_DIR, 'processing', 'sepia_header.mat')
     header_struct = loadmat(header_file)
+    header_struct['B0_dir'] = header_struct['B0_dir'].astype(float)
 
     # Create concatenated versions of files
     for version in ['E12345', 'E2345']:
@@ -177,7 +178,7 @@ def main(subject_id):
     mese_dir = '/cbica/projects/nibs/derivatives/mese'
     out_dir = '/cbica/projects/nibs/derivatives/qsm'
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/qsm'
+    temp_dir = '/cbica/projects/nibs/work/sepia'
     os.makedirs(temp_dir, exist_ok=True)
 
     layout = BIDSLayout(
