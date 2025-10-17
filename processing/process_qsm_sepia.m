@@ -13,6 +13,8 @@ input(2).name = '{{ mag_file }}';
 input(3).name = '';  % Leave empty if not needed
 input(4).name = '{{ header_file }}';
 
+mask_file = '{{ mask_file }}';
+
 % Algorithm parameters (same as before)
 algorParam = struct();
 algorParam.general = struct( ...
@@ -47,4 +49,4 @@ if ~exist(output_dir, 'dir')
 end
 
 % Run SEPIA process
-sepiaIO(input, output_dir, '', algorParam);
+sepiaIO(input, output_dir, mask_file, algorParam);

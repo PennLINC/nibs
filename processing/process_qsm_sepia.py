@@ -49,6 +49,16 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'MEGRE',
             'extension': ['.nii', '.nii.gz'],
         },
+        'mask': {
+            'datatype': 'anat',
+            'acquisition': 'QSM',
+            'part': 'mag',
+            'echo': 1,
+            'space': 'MEGRE',
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': ['.nii', '.nii.gz'],
+        },
     }
 
     run_data = {}
@@ -124,6 +134,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             .replace("{{ mag_file }}", phase_concat_file)
             .replace("{{ output_dir }}", sepia_dir)
             .replace("{{ header_file }}", out_header_file)
+            .replace("{{ mask_file }}", run_data['mask'])
         )
 
         out_sepia_script = os.path.join(temp_dir, f'process_qsm_sepia_{version}.m')
