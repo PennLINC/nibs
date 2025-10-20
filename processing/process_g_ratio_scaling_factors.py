@@ -250,11 +250,11 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     )
 
     mtsat_splenium = masking.apply_mask(
-        mtsat_mvf_dwires,
+        os.path.join(temp_dir, 'mtsat_mvf_dwires.nii.gz'),
         splenium_mask_file,
     )
     ihmtr_splenium = masking.apply_mask(
-        ihmtr_mvf_dwires,
+        os.path.join(temp_dir, 'ihmtr_mvf_dwires.nii.gz'),
         splenium_mask_file,
     )
 
