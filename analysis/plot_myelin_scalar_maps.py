@@ -67,6 +67,9 @@ if __name__ == "__main__":
         "QSM Chi-separation+R2* 4-Echo Myelin Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2s_myelinw.nii.gz",
     }
     for title, pattern in patterns.items():
+        if "Chi Map" not in title:
+            # Temporarily skip non-chi maps
+            continue
         temp_pattern = pattern.format(ses='*')
 
         # Get all scalar maps
@@ -90,6 +93,11 @@ if __name__ == "__main__":
         mean_arr[np.isinf(mean_arr)] = 0
         vmax0 = np.percentile(mean_arr, 98)
         print(f"\t{vmax0}")
+        if "Chi Map" in title:
+            # Use two-directional colorbar
+            kwargs = {'symmetric_cbar': True, 'vmin': None}
+        else:
+            kwargs = {'symmetric_cbar': False, 'vmin': 0}
 
         session_mean_imgs = []
         for ses in ['01', '02']:
@@ -121,14 +129,13 @@ if __name__ == "__main__":
             cut_coords=[-30, -15, 0, 15, 30, 45, 60],
             axes=axs[0],
             figure=fig,
-            symmetric_cbar=False,
-            vmin=0,
             vmax=vmax0,
             cmap="viridis",
             annotate=False,
             black_bg=False,
             resampling_interpolation="nearest",
             colorbar=False,
+            **kwargs,
         )
         axs[0].set_title("Session 01", fontsize=16)
         plotting.plot_stat_map(
@@ -138,14 +145,13 @@ if __name__ == "__main__":
             cut_coords=[-30, -15, 0, 15, 30, 45, 60],
             axes=axs[1],
             figure=fig,
-            symmetric_cbar=False,
-            vmin=0,
             vmax=vmax0,
             cmap="viridis",
             annotate=False,
             black_bg=False,
             resampling_interpolation="nearest",
             colorbar=False,
+            **kwargs,
         )
         axs[1].set_title("Session 02", fontsize=16)
 
