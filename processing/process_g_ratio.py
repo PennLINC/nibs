@@ -208,10 +208,14 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # MVF measures: MPRAGE T1w/T2w ratio, SPACE T1w/T2w ratio, MTsat, ihMTR
     mprage_t1wt2w_mvf = ants.image_read(run_data['mprage_t1w_t2w_ratio_mni'])
     space_t1wt2w_mvf = ants.image_read(run_data['space_t1w_t2w_ratio_mni'])
-    mtsat_mvf = ants.image_read(run_data['mtsat_mni'])
-    ihmtr_mvf = ants.image_read(run_data['ihmtr_mni'])
+    # Eq. 3 in Berg et al. (2022)
+    mtsat_mvf = ants.image_read(run_data['mtsat_mni']) * MTsat_ISOVF_ICVF_scalar
+    # Eq. 4 in Berg et al. (2022)
+    ihmtr_mvf = ants.image_read(run_data['ihmtr_mni']) * ihMTR_ISOVF_ICVF_scalar
 
     # FVF/AVF measures: ISOVF, ICVF
+    # They're in MNI space, but 1.7 mm isotropic, so we need to resample to the MVF images
+    # (1 mm isotropic)
     isovf = ants.image_read(run_data['isovf_mni']).resample_image_to_target(
         mtsat_mvf,
         interp_type='lanczosWindowedSinc',
@@ -221,17 +225,18 @@ def process_run(layout, run_data, out_dir, temp_dir):
         interp_type='lanczosWindowedSinc',
     )
 
+    # Eq 6 in Berg et al. (2022)
     mprage_t1wt2w_isovf_icvf_fvf = (1 - mprage_t1wt2w_mvf) * (1 - isovf) * icvf
     space_t1wt2w_isovf_icvf_fvf = (1 - space_t1wt2w_mvf) * (1 - isovf) * icvf
-    mtsat_isovf_icvf_fvf = mtsat_mvf * (1 - isovf) * icvf
-    ihmtr_isovf_icvf_fvf = ihmtr_mvf * (1 - isovf) * icvf
+    mtsat_isovf_icvf_fvf = (1 - mtsat_mvf) * (1 - isovf) * icvf
+    ihmtr_isovf_icvf_fvf = (1 - ihmtr_mvf) * (1 - isovf) * icvf
 
-    # G = sqrt(FVF / (FVF + MVF))
+    # G = sqrt(1 - (MVF / (MVF + AVF))) [Eq. 1 in Newman et al. (2024)]
     imgs = {}
-    imgs['MPRAGET1wT2w+ISOVF+ICVF'] = (mprage_t1wt2w_isovf_icvf_fvf / (mprage_t1wt2w_isovf_icvf_fvf + mprage_t1wt2w_mvf)) ** 0.5
-    imgs['SPACET1wT2w+ISOVF+ICVF'] = (space_t1wt2w_isovf_icvf_fvf / (space_t1wt2w_isovf_icvf_fvf + space_t1wt2w_mvf)) ** 0.5
-    imgs['MTsat+ISOVF+ICVF'] = (mtsat_isovf_icvf_fvf / (mtsat_isovf_icvf_fvf + (mtsat_mvf * MTsat_ISOVF_ICVF_scalar))) ** 0.5
-    imgs['ihMTR+ISOVF+ICVF'] = (ihmtr_isovf_icvf_fvf / (ihmtr_isovf_icvf_fvf + (ihmtr_mvf * ihMTR_ISOVF_ICVF_scalar))) ** 0.5
+    imgs['MPRAGET1wT2w+ISOVF+ICVF'] = (1 - (mprage_t1wt2w_mvf / (mprage_t1wt2w_mvf + mprage_t1wt2w_isovf_icvf_fvf))) ** 0.5
+    imgs['SPACET1wT2w+ISOVF+ICVF'] = (1 - (space_t1wt2w_mvf / (space_t1wt2w_mvf + space_t1wt2w_isovf_icvf_fvf))) ** 0.5
+    imgs['MTsat+ISOVF+ICVF'] = (1 - (mtsat_mvf / (mtsat_mvf + mtsat_isovf_icvf_fvf))) ** 0.5
+    imgs['ihMTR+ISOVF+ICVF'] = (1 - (ihmtr_mvf / (ihmtr_mvf + ihmtr_isovf_icvf_fvf))) ** 0.5
 
     for desc, img in imgs.items():
         mni_file = get_filename(

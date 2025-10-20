@@ -67,8 +67,8 @@ if __name__ == "__main__":
         "QSM Chi-separation+R2* 4-Echo Myelin Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2s_myelinw.nii.gz",
     }
     for title, pattern in patterns.items():
-        if "Chi Map" not in title:
-            # Temporarily skip non-chi maps
+        if 'G-Ratio' not in title:
+            # Temporarily skip
             continue
         temp_pattern = pattern.format(ses='*')
 
