@@ -180,7 +180,7 @@ if __name__ == "__main__":
         fig.savefig(
             os.path.join(
                 out_dir,
-                f"{title.lower().replace('/', '_').replace(' ', '_')}.png",
+                f"{title.lower().replace('/', '_').replace(' ', '_').replace('*', 'star')}.png",
             ),
             bbox_inches="tight",
         )
