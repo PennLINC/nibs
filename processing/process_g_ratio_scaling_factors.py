@@ -364,15 +364,15 @@ def main():
 
     # Calculate the scaling factors
     MTsat_ISOVF_ICVF_scalar = compute_scaling_factor(
-        ICVF=splenium_df['ICVF'],
-        MVF=splenium_df['MTsat'],
-        ISOVF=splenium_df['ISOVF'],
+        ICVF=splenium_df['ICVF'].mean(),
+        MVF=splenium_df['MTsat'].mean(),
+        ISOVF=splenium_df['ISOVF'].mean(),
         g=0.7,
     )
     ihMTR_ISOVF_ICVF_scalar = compute_scaling_factor(
-        ICVF=splenium_df['ICVF'],
-        MVF=splenium_df['ihMTR'],
-        ISOVF=splenium_df['ISOVF'],
+        ICVF=splenium_df['ICVF'].mean(),
+        MVF=splenium_df['ihMTR'].mean(),
+        ISOVF=splenium_df['ISOVF'].mean(),
         g=0.7,
     )
 
