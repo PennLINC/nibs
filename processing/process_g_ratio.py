@@ -226,17 +226,18 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
 
     # Eq 6 in Berg et al. (2022)
-    mprage_t1wt2w_isovf_icvf_fvf = (1 - mprage_t1wt2w_mvf) * (1 - isovf) * icvf
-    space_t1wt2w_isovf_icvf_fvf = (1 - space_t1wt2w_mvf) * (1 - isovf) * icvf
-    mtsat_isovf_icvf_fvf = (1 - mtsat_mvf) * (1 - isovf) * icvf
-    ihmtr_isovf_icvf_fvf = (1 - ihmtr_mvf) * (1 - isovf) * icvf
+    mprage_t1wt2w_fvf = (1 - mprage_t1wt2w_mvf) * (1 - isovf) * icvf
+    space_t1wt2w_fvf = (1 - space_t1wt2w_mvf) * (1 - isovf) * icvf
+    mtsat_fvf = (1 - mtsat_mvf) * (1 - isovf) * icvf
+    ihmtr_fvf = (1 - ihmtr_mvf) * (1 - isovf) * icvf
 
     # G = sqrt(1 - (MVF / (MVF + AVF))) [Eq. 1 in Newman et al. (2024)]
+    # Same as sqrt(AVF / (AVF + MVF)) [Eq. 1 in Berg et al. (2022)]
     imgs = {}
-    imgs['MPRAGET1wT2w+ISOVF+ICVF'] = (1 - (mprage_t1wt2w_mvf / (mprage_t1wt2w_mvf + mprage_t1wt2w_isovf_icvf_fvf))) ** 0.5
-    imgs['SPACET1wT2w+ISOVF+ICVF'] = (1 - (space_t1wt2w_mvf / (space_t1wt2w_mvf + space_t1wt2w_isovf_icvf_fvf))) ** 0.5
-    imgs['MTsat+ISOVF+ICVF'] = (1 - (mtsat_mvf / (mtsat_mvf + mtsat_isovf_icvf_fvf))) ** 0.5
-    imgs['ihMTR+ISOVF+ICVF'] = (1 - (ihmtr_mvf / (ihmtr_mvf + ihmtr_isovf_icvf_fvf))) ** 0.5
+    imgs['MPRAGET1wT2w+ISOVF+ICVF'] = (mprage_t1wt2w_fvf / (mprage_t1wt2w_fvf + mprage_t1wt2w_mvf)) ** 0.5
+    imgs['SPACET1wT2w+ISOVF+ICVF'] = (space_t1wt2w_fvf / (space_t1wt2w_fvf + space_t1wt2w_mvf)) ** 0.5
+    imgs['MTsat+ISOVF+ICVF'] = (mtsat_fvf / (mtsat_fvf + mtsat_mvf)) ** 0.5
+    imgs['ihMTR+ISOVF+ICVF'] = (ihmtr_fvf / (ihmtr_fvf + ihmtr_mvf)) ** 0.5
 
     for desc, img in imgs.items():
         mni_file = get_filename(

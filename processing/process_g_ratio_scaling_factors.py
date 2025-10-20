@@ -11,32 +11,6 @@ The equation is solved using the mean g-ratio in the splenium across subjects.
 I need to solve for scaling_factor so that g = 0.7.
 The first step is to calculate the splenium mask,
 then calculate mean FVF and MVF in the splenium across subjects.
-
-g = sqrt(FVF / (FVF + (MVF * scaling_factor)))
-
-(g ** 2) = FVF / (FVF + (MVF * scaling_factor))
-
-(g ** 2) * (FVF + (MVF * scaling_factor)) = FVF
-
-((g ** 2) * FVF) + ((g ** 2) * MVF * scaling_factor) = FVF
-
-((g ** 2) * MVF * scaling_factor) = FVF - (FVF * (g ** 2))
-
-((g ** 2) * MVF * scaling_factor) = FVF * (1 - (g ** 2))
-
-scaling_factor = (FVF * (1 - (g ** 2))) / ((g ** 2) * MVF)
-
-# Now set g to 0.7
-scaling_factor = (FVF * (1 - (0.7 ** 2))) / ((0.7 ** 2) * MVF)
-
-scaling_factor = (FVF * (1 - 0.49)) / (0.49 * MVF)
-
-scaling_factor = (FVF * 0.51) / (0.49 * MVF)
-
-We need to do this for each MTsat- and ihMTR-derived g-ratio combination, namely
-MTsat+ISOVF/ICVF and ihMTR+ISOVF/ICVF.
-
-See equations 3 and 4 in Berg et al. (2022).
 """
 
 import os
@@ -212,7 +186,6 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
 
     # FVF/AVF measures: ISOVF and ICVF
     isovf = ants.image_read(run_data['isovf_mni'])
-    icvf = ants.image_read(run_data['icvf_mni'])
 
     # Warp each image to Freesurfer space
     mtsat_mvf_dwires = ants.apply_transforms(
@@ -228,12 +201,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         interpolator='lanczosWindowedSinc',
     )
 
-    mtsat_isovf_icvf_fvf = mtsat_mvf_dwires * (1 - isovf) * icvf
-    ihmtr_isovf_icvf_fvf = ihmtr_mvf_dwires * (1 - isovf) * icvf
-
     # Write out these images so I can just use NiftiMasker to get the splenium data
-    ants.image_write(mtsat_isovf_icvf_fvf, os.path.join(temp_dir, 'mtsat_isovf_icvf_fvf_dwires.nii.gz'))
-    ants.image_write(ihmtr_isovf_icvf_fvf, os.path.join(temp_dir, 'ihmtr_isovf_icvf_fvf_dwires.nii.gz'))
     ants.image_write(mtsat_mvf_dwires, os.path.join(temp_dir, 'mtsat_mvf_dwires.nii.gz'))
     ants.image_write(ihmtr_mvf_dwires, os.path.join(temp_dir, 'ihmtr_mvf_dwires.nii.gz'))
 
@@ -245,7 +213,17 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         transformlist=[run_data['t1w2mni_xfm'],run_data['fs2t1w_xfm']],
         interpolator='nearestNeighbor',
     )
-    ants.image_write(splenium_mask_dwires, os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'))
+    splenium_mask_file = os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz')
+    ants.image_write(splenium_mask_dwires, splenium_mask_file)
+
+    isovf_splenium = masking.apply_mask(
+        run_data['isovf_mni'],
+        splenium_mask_file,
+    )
+    icvf_splenium = masking.apply_mask(
+        run_data['icvf_mni'],
+        splenium_mask_file,
+    )
 
     # Plot the splenium mask on top of the brain
     brain_img = ants.image_read(run_data['brain_fsnative'])
@@ -271,39 +249,59 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         display_mode='mosaic',
     )
 
-    # Get the splenium data
-    mtsat_isovf_icvf_fvf_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'mtsat_isovf_icvf_fvf_dwires.nii.gz'),
-        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
+    mtsat_splenium = masking.apply_mask(
+        mtsat_mvf_dwires,
+        splenium_mask_file,
     )
-    ihmtr_isovf_icvf_fvf_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'ihmtr_isovf_icvf_fvf_dwires.nii.gz'),
-        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
-    )
-    mtsat_mvf_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'mtsat_mvf_dwires.nii.gz'),
-        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
-    )
-    ihmtr_mvf_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'ihmtr_mvf_dwires.nii.gz'),
-        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
+    ihmtr_splenium = masking.apply_mask(
+        ihmtr_mvf_dwires,
+        splenium_mask_file,
     )
 
     # Calculate the mean values in the splenium
-    # MTsat+ISOVF+ICVF FVF, ihMTR+ISOVF+ICVF FVF, MTsat MVF, ihMTR MVF
     splenium_values = pd.Series(
         data={
             'subject_id': bids_filters['subject'],
             'session_id': bids_filters['session'],
             'run': bids_filters['run'],
-            'MTsat_FVF': np.mean(mtsat_isovf_icvf_fvf_splenium),
-            'ihMTR_FVF': np.mean(ihmtr_isovf_icvf_fvf_splenium),
-            'MTsat_MVF': np.mean(mtsat_mvf_splenium),
-            'ihMTR_MVF': np.mean(ihmtr_mvf_splenium),
+            'ISOVF': np.mean(isovf_splenium),
+            'ICVF': np.mean(icvf_splenium),
+            'MTsat': np.mean(mtsat_splenium),
+            'ihMTR': np.mean(ihmtr_splenium),
         },
     )
 
     return splenium_values
+
+
+def compute_scaling_factor(ICVF, MVF, ISOVF, g=0.7):
+    """
+    Compute the scaling_factor such that:
+        g = sqrt(FVF / (FVF + MVFs))
+    given:
+        FVF = (1 - MVFs) * (1 - ISOVF) * ICVF
+        MVFs = MVF * scaling_factor
+
+    Parameters
+    ----------
+    ICVF : float or array-like
+        Intra-cellular volume fraction.
+    MVF : float or array-like
+        Myelin volume fraction.
+    ISOVF : float or array-like
+        Isotropic volume fraction.
+    g : float, optional
+        Target g-ratio. Default is 0.7.
+
+    Returns
+    -------
+    scaling_factor : float or ndarray
+        Value that satisfies the given equation.
+    """
+    g2 = np.square(g)
+    numerator = (1 - ISOVF) * ICVF * (1 - g2)
+    denominator = MVF * (g2 + (1 - ISOVF) * ICVF * (1 - g2))
+    return numerator / denominator
 
 
 def main():
@@ -365,11 +363,17 @@ def main():
     splenium_df.to_csv(os.path.join(CODE_DIR, 'data/splenium_values.tsv'), sep='\t', index=False)
 
     # Calculate the scaling factors
-    MTsat_ISOVF_ICVF_scalar = np.mean(
-        (splenium_df['MTsat_FVF'] * 0.51) / (splenium_df['MTsat_MVF'] * 0.49)
+    MTsat_ISOVF_ICVF_scalar = compute_scaling_factor(
+        ICVF=splenium_df['ICVF'],
+        MVF=splenium_df['MTsat'],
+        ISOVF=splenium_df['ISOVF'],
+        g=0.7,
     )
-    ihMTR_ISOVF_ICVF_scalar = np.mean(
-        (splenium_df['ihMTR_FVF'] * 0.51) / (splenium_df['ihMTR_MVF'] * 0.49)
+    ihMTR_ISOVF_ICVF_scalar = compute_scaling_factor(
+        ICVF=splenium_df['ICVF'],
+        MVF=splenium_df['ihMTR'],
+        ISOVF=splenium_df['ISOVF'],
+        g=0.7,
     )
 
     print(f'MTsat_ISOVF_ICVF_scalar: {MTsat_ISOVF_ICVF_scalar}', flush=True)
