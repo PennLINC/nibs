@@ -96,8 +96,10 @@ if __name__ == "__main__":
         if "Chi Map" in title:
             # Use two-directional colorbar
             kwargs = {'symmetric_cbar': True, 'vmin': None}
+            vmin = -vmax0
         else:
             kwargs = {'symmetric_cbar': False, 'vmin': 0}
+            vmin = 0
 
         session_mean_imgs = []
         for ses in ['01', '02']:
@@ -168,13 +170,17 @@ if __name__ == "__main__":
 
         cmap = mpl.cm.viridis
 
-        norm = mpl.colors.Normalize(vmin=0, vmax=vmax0)
+        norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax0)
         cbar = fig.colorbar(
             mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
             cax=cax,
             orientation='horizontal',
         )
-        cbar.set_ticks([0, np.mean([0, vmax0]), vmax0])
+        if vmin == 0:
+            cbar.set_ticks([0, np.mean([0, vmax0]), vmax0])
+        else:
+            cbar.set_ticks([vmin, 0, vmax0])
+
         cbar.ax.tick_params(labelsize=12)
 
         fig.savefig(
