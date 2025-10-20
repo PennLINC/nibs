@@ -10,7 +10,7 @@ input(1).name = '{{ phase_file }}';
 
 % Concatenated magnitude image
 input(2).name = '{{ mag_file }}';
-input(3).name = '';  % Leave empty if not needed
+input(3).name = [];  % Leave empty if not needed
 input(4).name = '{{ header_file }}';
 
 mask_file = '{{ mask_file }}';
@@ -49,4 +49,4 @@ if ~exist(output_dir, 'dir')
 end
 
 % Run SEPIA process
-sepiaIO(input, output_dir, mask_file, algorParam);
+sepiaIO(input, output_dir, [], algorParam);

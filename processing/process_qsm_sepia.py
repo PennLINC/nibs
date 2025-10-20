@@ -104,6 +104,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     header_file = os.path.join(CODE_DIR, 'processing', 'sepia_header.mat')
     header_struct = loadmat(header_file)
     header_struct['B0_dir'] = header_struct['B0_dir'].astype(float)
+    header_struct['B0'] = header_struct['B0'].astype(float)
 
     # Create concatenated versions of files
     for version in ['E12345', 'E2345']:
@@ -124,7 +125,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
         # Run SEPIA QSM estimation
         sepia_dir = os.path.join(temp_dir, f'sepia_{version}')
-        os.makedirs(sepia_dir, exist_ok=True)
         sepia_script = os.path.join(CODE_DIR, 'processing', 'process_qsm_sepia.m')
         with open(sepia_script, 'r') as fobj:
             base_sepia_script = fobj.read()
@@ -151,7 +151,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
                 f"run('{out_sepia_script}'); exit;",
             ],
         )
-        sepia_chimap_file = os.path.join(sepia_dir, 'sepia_Chimap.nii.gz')
+        sepia_chimap_file = f'{sepia_dir}_Chimap.nii.gz'
         if not os.path.isfile(sepia_chimap_file):
             raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')
 
@@ -161,7 +161,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MEGRE', 'desc': f'{version}+sepia', 'suffix': 'Chimap'},
-            dismiss_entities=['echo', 'part', 'inv', 'reconstruction'],
+            dismiss_entities=['acquisition', 'echo', 'part', 'inv', 'reconstruction'],
         )
         sepia_chimap_img.to_filename(sepia_chimap_filename)
 
