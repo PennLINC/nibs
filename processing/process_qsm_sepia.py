@@ -14,7 +14,7 @@ Notes:
 import argparse
 import os
 import subprocess
-from pprint import pprint
+from pprint import pformat
 
 import nibabel as nb
 from bids.layout import BIDSLayout, Query
@@ -81,7 +81,7 @@ def collect_run_data(layout, bids_filters):
     if len(run_data['megre_mag']) != len(run_data['megre_phase']):
         raise ValueError('Expected same number of magnitude and phase images')
 
-    pprint(run_data)
+    print(pformat(run_data), flush=True)
 
     return run_data
 
@@ -125,19 +125,21 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
         # Run SEPIA QSM estimation
         sepia_dir = os.path.join(temp_dir, f'sepia_{version}')
+        os.makedirs(sepia_dir, exist_ok=True)
         sepia_script = os.path.join(CODE_DIR, 'processing', 'process_qsm_sepia.m')
         with open(sepia_script, 'r') as fobj:
             base_sepia_script = fobj.read()
 
+        sepia_dir_prefix = os.path.join(sepia_dir, 'sepia')
         modified_sepia_script = (
             base_sepia_script.replace("{{ phase_file }}", mag_concat_file)
             .replace("{{ mag_file }}", phase_concat_file)
-            .replace("{{ output_dir }}", sepia_dir)
+            .replace("{{ output_dir }}", sepia_dir_prefix)
             .replace("{{ header_file }}", out_header_file)
             .replace("{{ mask_file }}", run_data['mask'])
         )
 
-        out_sepia_script = os.path.join(temp_dir, f'process_qsm_sepia_{version}.m')
+        out_sepia_script = os.path.join(sepia_dir, f'process_qsm_sepia_{version}.m')
         with open(out_sepia_script, "w") as fobj:
             fobj.write(modified_sepia_script)
 
@@ -151,7 +153,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
                 f"run('{out_sepia_script}'); exit;",
             ],
         )
-        sepia_chimap_file = f'{sepia_dir}_Chimap.nii.gz'
+        sepia_chimap_file = f'{sepia_dir_prefix}_Chimap.nii.gz'
         if not os.path.isfile(sepia_chimap_file):
             raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')
 
@@ -199,10 +201,10 @@ def main(subject_id):
         derivatives=[smriprep_dir, mese_dir, out_dir],
     )
 
-    print(f'Processing subject {subject_id}')
+    print(f'Processing subject {subject_id}', flush=True)
     sessions = layout.get_sessions(subject=subject_id, suffix='MEGRE')
     for session in sessions:
-        print(f'Processing session {session}')
+        print(f'Processing session {session}', flush=True)
         megre_files = layout.get(
             subject=subject_id,
             session=session,
@@ -220,15 +222,15 @@ def main(subject_id):
             try:
                 run_data = collect_run_data(layout, entities)
             except ValueError as e:
-                print(f'Failed {megre_file}')
-                print(e)
+                print(f'Failed {megre_file}', flush=True)
+                print(e, flush=True)
                 continue
             fname = os.path.basename(megre_file.path).split('.')[0]
             run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
             os.makedirs(run_temp_dir, exist_ok=True)
             process_run(layout, run_data, out_dir, run_temp_dir)
 
-    print('DONE!')
+    print('DONE!', flush=True)
 
 
 if __name__ == '__main__':
