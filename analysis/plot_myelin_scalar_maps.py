@@ -39,6 +39,32 @@ if __name__ == "__main__":
         "SPACE T1w/SPACE T2w Ratio": "t1wt2w_ratio/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-SPACEunscaled_myelinw.nii.gz",
         "Scaled MPRAGE T1w/SPACE T2w Ratio": "t1wt2w_ratio/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGEscaled_myelinw.nii.gz",
         "Scaled SPACE T1w/SPACE T2w Ratio": "t1wt2w_ratio/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-SPACEscaled_myelinw.nii.gz",
+        # G-Ratio
+        "G-Ratio MPRAGE": "g_ratio/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-MPRAGET1wT2w+ISOVF+ICVF_gratio.nii.gz",
+        "G-Ratio SPACE": "g_ratio/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-SPACET1wT2w+ISOVF+ICVF_gratio.nii.gz",
+        "G-Ratio ihMTsat": "g_ratio/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
+        "G-Ratio ihMTR": "g_ratio/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
+        # QSM
+        "QSM SEPIA 5-Echo Chi Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+sepia_Chimap.nii.gz",
+        "QSM SEPIA 4-Echo Chi Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+sepia_Chimap.nii.gz",
+        "QSM Chi-separation+R2' 5-Echo Chi Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_Chimap.nii.gz",
+        "QSM Chi-separation+R2' 4-Echo Chi Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2p_Chimap.nii.gz",
+        "QSM Chi-separation+R2' 5-Echo Iron Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_ironw.nii.gz",
+        "QSM Chi-separation+R2' 4-Echo Iron Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2p_ironw.nii.gz",
+        "QSM Chi-separation+R2' 5-Echo Myelin Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_myelinw.nii.gz",
+        "QSM Chi-separation+R2' 4-Echo Myelin Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2p_myelinw.nii.gz",
+        "QSM Chi-separation+R2pnet 5-Echo Chi Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2primenet_Chimap.nii.gz",
+        "QSM Chi-separation+R2pnet 4-Echo Chi Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2primenet_Chimap.nii.gz",
+        "QSM Chi-separation+R2pnet 5-Echo Iron Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2primenet_ironw.nii.gz",
+        "QSM Chi-separation+R2pnet 4-Echo Iron Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2primenet_ironw.nii.gz",
+        "QSM Chi-separation+R2pnet 5-Echo Myelin Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2primenet_myelinw.nii.gz",
+        "QSM Chi-separation+R2pnet 4-Echo Myelin Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2primenet_myelinw.nii.gz",
+        "QSM Chi-separation+R2* 5-Echo Chi Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2s_Chimap.nii.gz",
+        "QSM Chi-separation+R2* 4-Echo Chi Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2s_Chimap.nii.gz",
+        "QSM Chi-separation+R2* 5-Echo Iron Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2s_ironw.nii.gz",
+        "QSM Chi-separation+R2* 4-Echo Iron Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2s_ironw.nii.gz",
+        "QSM Chi-separation+R2* 5-Echo Myelin Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2s_myelinw.nii.gz",
+        "QSM Chi-separation+R2* 4-Echo Myelin Map": "qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2s_myelinw.nii.gz",
     }
     for title, pattern in patterns.items():
         temp_pattern = pattern.format(ses='*')

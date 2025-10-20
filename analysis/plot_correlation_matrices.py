@@ -102,6 +102,29 @@ if __name__ == "__main__":
             "G-ihMTsat": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
             "G-ihMTR": "g_ratio/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
         },
+        # QSM
+        "QSM": {
+            "QSM-SEPIA-E5": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+sepia_Chimap.nii.gz",
+            "QSM-SEPIA-E4": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+sepia_Chimap.nii.gz",
+            "QSM-X-R2'-E5-Chi": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_Chimap.nii.gz",
+            "QSM-X-R2'-E4-Chi": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2p_Chimap.nii.gz",
+            "QSM-X-R2'-E5-Iron": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_ironw.nii.gz",
+            "QSM-X-R2'-E4-Iron": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2p_ironw.nii.gz",
+            "QSM-X-R2'-E5-Myelin": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_myelinw.nii.gz",
+            "QSM-X-R2'-E4-Myelin": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2p_myelinw.nii.gz",
+            "QSM-X-R2pnet-E5-Chi": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2primenet_Chimap.nii.gz",
+            "QSM-X-R2pnet-E4-Chi": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2primenet_Chimap.nii.gz",
+            "QSM-X-R2pnet-E5-Iron": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2primenet_ironw.nii.gz",
+            "QSM-X-R2pnet-E4-Iron": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2primenet_ironw.nii.gz",
+            "QSM-X-R2pnet-E5-Myelin": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2primenet_myelinw.nii.gz",
+            "QSM-X-R2pnet-E4-Myelin": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2primenet_myelinw.nii.gz",
+            "QSM-X-R2*-E5-Chi": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2s_Chimap.nii.gz",
+            "QSM-X-R2*-E4-Chi": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2s_Chimap.nii.gz",
+            "QSM-X-R2*-E5-Iron": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2s_ironw.nii.gz",
+            "QSM-X-R2*-E4-Iron": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2s_ironw.nii.gz",
+            "QSM-X-R2*-E5-Myelin": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2s_myelinw.nii.gz",
+            "QSM-X-R2*-E4-Myelin": "qsm/sub-{subject}/ses-01/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2s_myelinw.nii.gz",
+        },
     }
     modalities = list(patterns.keys())
     modalities = modalities[::-1]
