@@ -132,8 +132,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
         sepia_dir_prefix = os.path.join(sepia_dir, 'sepia')
         modified_sepia_script = (
-            base_sepia_script.replace("{{ phase_file }}", mag_concat_file)
-            .replace("{{ mag_file }}", phase_concat_file)
+            base_sepia_script.replace("{{ phase_file }}", phase_concat_file)
+            .replace("{{ mag_file }}", mag_concat_file)
             .replace("{{ output_dir }}", sepia_dir_prefix)
             .replace("{{ header_file }}", out_header_file)
             .replace("{{ mask_file }}", run_data['mask'])
