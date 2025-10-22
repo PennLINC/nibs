@@ -145,11 +145,12 @@ if __name__ == "__main__":
         suffix="dseg",
         extension="nii.gz",
     )
+    carpet_dseg = str(carpet_dseg)
     carpet_ants_img = ants.image_read(carpet_dseg)
     carpet_nb_img = nb.load(carpet_dseg)
     carpet_dseg_data = carpet_nb_img.get_fdata()
 
-    carpet_tsv = tflow.get("MNI152NLin2009cAsym", desc="carpet", suffix="tsv", extension="tsv")
+    carpet_tsv = tflow.get("MNI152NLin2009cAsym", desc="carpet", suffix="dseg", extension="tsv")
     carpet_df = pd.read_table(carpet_tsv, index_col="index")
 
     voxel_counts = {}
