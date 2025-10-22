@@ -156,17 +156,17 @@ if __name__ == "__main__":
     voxel_counts = {}
 
     cortical_gm_idx = carpet_df.loc[100:201].index.values
-    cortical_gm_mask = (carpet_dseg_data == 1).astype(int)
+    cortical_gm_mask = np.isin(carpet_dseg_data, cortical_gm_idx).astype(int)
     cortical_gm_img = nb.Nifti1Image(cortical_gm_mask, carpet_nb_img.affine, carpet_nb_img.header)
     voxel_counts['cortical_gm'] = np.sum(cortical_gm_mask)
 
     deep_gm_idx = carpet_df.loc[30:99].index.values
-    deep_gm_mask = (carpet_dseg_data == 2).astype(int)
+    deep_gm_mask = np.isin(carpet_dseg_data, deep_gm_idx).astype(int)
     deep_gm_img = nb.Nifti1Image(deep_gm_mask, carpet_nb_img.affine, carpet_nb_img.header)
     voxel_counts['deep_gm'] = np.sum(deep_gm_mask)
 
     wm_idx = carpet_df.loc[1:2].index.values
-    wm_mask = (carpet_dseg_data == wm_idx).astype(int)
+    wm_mask = np.isin(carpet_dseg_data, wm_idx).astype(int)
     wm_img = nb.Nifti1Image(wm_mask, carpet_nb_img.affine, carpet_nb_img.header)
     voxel_counts['wm'] = np.sum(wm_mask)
 
