@@ -23,6 +23,8 @@ if __name__ == "__main__":
         'Whole Brain': 'mean_wb_corr_mat.tsv',
         'Gray Matter': 'mean_gm_corr_mat.tsv',
         'White Matter': 'mean_wm_corr_mat.tsv',
+        'Cortical Gray Matter': 'mean_cortical_gm_corr_mat.tsv',
+        'Deep Gray Matter': 'mean_deep_gm_corr_mat.tsv',
     }
     for title, filename in names.items():
         df = pd.read_table(
