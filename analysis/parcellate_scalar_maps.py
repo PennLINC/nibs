@@ -131,7 +131,7 @@ if __name__ == "__main__":
     os.makedirs(temp_dir, exist_ok=True)
     out_dir = "../data"
 
-    n_jobs = 4
+    n_jobs = 30
 
     with open("patterns.json", "r") as f:
         patterns = json.load(f)
