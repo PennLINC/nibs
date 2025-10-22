@@ -39,7 +39,7 @@ if __name__ == "__main__":
                     continue
 
                 arr = np.load(in_file)
-                corr_mat = np.atanh(np.corrcoef(arr))
+                corr_mat = np.arctanh(np.corrcoef(arr))
                 np.fill_diagonal(corr_mat, 0)
                 subject_arrs.append(corr_mat)
 
