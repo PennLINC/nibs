@@ -197,7 +197,7 @@ if __name__ == "__main__":
     # Build list of (subject, session) tasks
     subject_dirs = sorted(glob(os.path.join(bids_dir, 'sub-*')))
     subjects = [os.path.basename(subject_dir) for subject_dir in subject_dirs]
-    subjects = [subject for subject in subjects if not subject.startswith('PILOT')]
+    subjects = [subject for subject in subjects if not subject.startswith('sub-PILOT')]
     tasks = []
     for subject in subjects:
         session_dirs = sorted(glob(os.path.join(bids_dir, subject, 'ses-*')))
