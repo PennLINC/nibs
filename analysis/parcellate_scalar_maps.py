@@ -71,7 +71,7 @@ def process_subject(
             continue
         else:
             resampled_file = None
-            if carpet_nb_img.header.get_zooms() != ants.image_read(files[0]).header.get_zooms():
+            if carpet_nb_img.header.get_zooms() != nb.load(files[0]).header.get_zooms():
                 # Resample image to same resolution as dseg
                 resampled_ants_img = ants.image_read(files[0]).resample_image_to_target(
                     carpet_ants_img,
