@@ -25,8 +25,8 @@ from utils import get_filename, plot_scalar_map
 
 CODE_DIR = '/cbica/projects/nibs/code'
 # Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
-MTsat_ISOVF_ICVF_scalar = 0.09272582050325327
-ihMTR_ISOVF_ICVF_scalar = 2.242060512162797
+MTsat_ISOVF_ICVF_scalar = 0.0936729130079245
+ihMTR_ISOVF_ICVF_scalar = 2.2593688403395906
 
 
 def collect_run_data(layout, bids_filters):
@@ -66,33 +66,21 @@ def collect_run_data(layout, bids_filters):
             'extension': ['.nii', '.nii.gz'],
         },
         # MNI-space MTsat and ihMTR maps from process_ihmt.py
-        'mtsat_ihmtrageref': {
+        'mtsat_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
        	    'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'ihMTRAGEref',
+            'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
         },
-        'ihmtr_ihmtrageref': {
+        'ihmtr_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
        	    'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'ihMTRAGEref',
+            'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
-        },
-        # Transform from ihMT-space to T1w space
-        'ihmtrageref2t1w_xfm': {
-            'datatype': 'anat',
-            'reconstruction': [Query.NONE, Query.ANY],
-            'space': Query.NONE,
-            'run': [Query.NONE, Query.ANY],
-            'to': 'T1w',
-            'from': 'ihMTRAGEref',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.mat',
         },
         # Normalization transform from sMRIPrep
         'mni2t1w_xfm': {
@@ -169,21 +157,15 @@ def process_run(layout, run_data, out_dir, temp_dir):
     temp_dir : str
         Directory to write temporary files.
     """
-    # XXX: Instead of using MNI-space, I will warp ihMT-space to MNI at 1.7 mm.
+    # FVF/AVF measures: ISOVF, ICVF
+    # They're in MNI space at 1.7 mm isotropic
+    isovf = ants.image_read(run_data['isovf_mni'])
+    icvf = ants.image_read(run_data['icvf_mni'])
+
     # Eq. 3 in Berg et al. (2022)
-    mtsat_mvf = ants.apply_transforms(
-        fixed=ants.image_read(run_data['isovf_mni']),
-        moving=ants.image_read(run_data['mtsat_ihmtrageref']),
-        transformlist=[run_data['t1w2mni_xfm'], run_data['ihmtrageref2t1w_xfm']],
-        interpolator='nearestNeighbor',
-    ) * MTsat_ISOVF_ICVF_scalar
+    mtsat_mvf = ants.image_read(run_data['mtsat_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor') * MTsat_ISOVF_ICVF_scalar
     # Eq. 4 in Berg et al. (2022)
-    ihmtr_mvf = ants.apply_transforms(
-        fixed=ants.image_read(run_data['isovf_mni']),
-        moving=ants.image_read(run_data['ihmtr_ihmtrageref']),
-        transformlist=[run_data['t1w2mni_xfm'], run_data['ihmtrageref2t1w_xfm']],
-        interpolator='nearestNeighbor',
-    ) * ihMTR_ISOVF_ICVF_scalar
+    ihmtr_mvf = ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor') * ihMTR_ISOVF_ICVF_scalar
 
     # FVF/AVF measures: ISOVF, ICVF
     # They're in MNI space at 1.7 mm isotropic

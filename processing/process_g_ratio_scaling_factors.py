@@ -52,33 +52,21 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
             'extension': ['.nii', '.nii.gz'],
         },
         # ihMT-space MTsat and ihMTR maps from process_ihmt.py
-        'mtsat_ihmtrageref': {
+        'mtsat_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
        	    'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'ihMTref',
+            'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
         },
-        'ihmtr_ihmtrageref': {
+        'ihmtr_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
        	    'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
-        },
-        # Transform from ihMT-space to T1w space
-        'ihmtrageref2t1w_xfm': {
-            'datatype': 'anat',
-            'reconstruction': [Query.NONE, Query.ANY],
-            'space': Query.NONE,
-            'run': [Query.NONE, Query.ANY],
-            'to': 'T1w',
-            'from': 'ihMTRAGEref',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.mat',
         },
         # Transform from sMRIPrep T1w to MNI space
         't1w2mni_xfm': {
@@ -183,20 +171,10 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     ants.image_write(splenium_mask_dwires, splenium_mask_file_dwires)
 
     # Warp ihMTRAGEref-space MTsat and ihMTR to MNI space
-    mtsat_mni = ants.apply_transforms(
-        fixed=isovf,
-        moving=ants.image_read(run_data['mtsat_ihmtrageref']),
-        transformlist=[run_data['t1w2mni_xfm'], run_data['ihmtrageref2t1w_xfm']],
-        interpolator='nearestNeighbor',
-    )
+    mtsat_mni = ants.image_read(run_data['mtsat_mni']).resample_image_to_target(splenium_mask_dwires, interp_type='nearestNeighbor')
     mtsat_mni_file = os.path.join(temp_dir, 'mtsat_mni.nii.gz')
     ants.image_write(mtsat_mni, mtsat_mni_file)
-    ihmtr_mni = ants.apply_transforms(
-        fixed=isovf,
-        moving=ants.image_read(run_data['ihmtr_ihmtrageref']),
-        transformlist=[run_data['t1w2mni_xfm'], run_data['ihmtrageref2t1w_xfm']],
-        interpolator='nearestNeighbor',
-    )
+    ihmtr_mni = ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(splenium_mask_dwires, interp_type='nearestNeighbor')
     ihmtr_mni_file = os.path.join(temp_dir, 'ihmtr_mni.nii.gz')
     ants.image_write(ihmtr_mni, ihmtr_mni_file)
 
