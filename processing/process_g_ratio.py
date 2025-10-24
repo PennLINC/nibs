@@ -82,19 +82,6 @@ def collect_run_data(layout, bids_filters):
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
         },
-        # Normalization transform from sMRIPrep
-        'mni2t1w_xfm': {
-            'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
-            'space': Query.NONE,
-            'run': [Query.NONE, Query.ANY],
-            'from': 'MNI152NLin2009cAsym',
-            'to': 'T1w',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.h5',
-        },
         # MNI-space dseg from sMRIPrep
         'dseg_mni': {
             'datatype': 'anat',
@@ -167,11 +154,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Eq. 4 in Berg et al. (2022)
     ihmtr_mvf = ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor') * ihMTR_ISOVF_ICVF_scalar
 
-    # FVF/AVF measures: ISOVF, ICVF
-    # They're in MNI space at 1.7 mm isotropic
-    isovf = ants.image_read(run_data['isovf_mni'])
-    icvf = ants.image_read(run_data['icvf_mni'])
-
     # Eq 6 in Berg et al. (2022)
     mtsat_fvf = (1 - mtsat_mvf) * (1 - isovf) * icvf
     ihmtr_fvf = (1 - ihmtr_mvf) * (1 - isovf) * icvf
@@ -181,6 +163,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
     imgs = {}
     imgs['MTsat+ISOVF+ICVF'] = (mtsat_fvf / (mtsat_fvf + mtsat_mvf)) ** 0.5
     imgs['ihMTR+ISOVF+ICVF'] = (ihmtr_fvf / (ihmtr_fvf + ihmtr_mvf)) ** 0.5
+
+    resampled_mni_mask = ants.image_read(run_data['mni_mask']).resample_image_to_target(isovf, interp_type='nearestNeighbor')
+    mni_mask_file = os.path.join(temp_dir, 'resampled_mni_mask.nii.gz')
+    ants.image_write(resampled_mni_mask, mni_mask_file)
+    resampled_mni_t1w = ants.image_read(run_data['t1w_mni']).resample_image_to_target(isovf, interp_type='lanczosWindowedSinc')
+    mni_t1w_file = os.path.join(temp_dir, 'resampled_mni_t1w.nii.gz')
+    ants.image_write(resampled_mni_t1w, mni_t1w_file)
+    resampled_mni_dseg = ants.image_read(run_data['dseg_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor')
+    mni_dseg_file = os.path.join(temp_dir, 'resampled_mni_dseg.nii.gz')
+    ants.image_write(resampled_mni_dseg, mni_dseg_file)
 
     for desc, img in imgs.items():
         mni_file = get_filename(
@@ -196,7 +188,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         if desc:
             scalar_desc = f'{desc}{scalar_desc}'
 
-        data = masking.apply_mask(mni_file, run_data['mni_mask'])
+        data = masking.apply_mask(mni_file, mni_mask_file)
         vmin = np.percentile(data, 2)
         vmin = np.minimum(vmin, 0)
         vmax = np.percentile(data, 98)
@@ -208,10 +200,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
             entities={'datatype': 'figures', 'desc': scalar_desc, 'extension': '.svg'},
         )
         plot_scalar_map(
-            underlay=run_data['t1w_mni'],
+            underlay=mni_t1w_file,
             overlay=mni_file,
-            mask=run_data['mni_mask'],
-            dseg=run_data['dseg_mni'],
+            mask=mni_mask_file,
+            dseg=mni_dseg_file,
             out_file=scalar_report,
             vmin=vmin,
             vmax=vmax,
