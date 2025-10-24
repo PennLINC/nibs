@@ -203,7 +203,6 @@ if __name__ == "__main__":
     )
 
     n_jobs = 30
-    n_jobs = 1
 
     with open("patterns.json", "r") as f:
         patterns = json.load(f)
