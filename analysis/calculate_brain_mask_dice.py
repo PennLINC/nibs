@@ -26,12 +26,60 @@ mod_transforms = {
     "pymp2rage": [
         "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5",
     ],
-    "smriprep": None,
     "qsm": [
         "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5",
         "qsm/{subject}/{session}/anat/{subject}_{session}_run-01_from-MEGRE_to-T1w_mode-image_xfm.mat",
     ],
 }
+
+
+def dice(input1, input2):
+    r"""Calculate Dice coefficient between two arrays.
+
+    Computes the Dice coefficient (also known as Sorensen index) between two binary images.
+
+    The metric is defined as
+
+    .. math::
+
+        DC=\frac{2|A\cap B|}{|A|+|B|}
+
+    , where :math:`A` is the first and :math:`B` the second set of samples (here: binary objects).
+    This method was first proposed in :footcite:t:`dice1945measures` and
+    :footcite:t:`sorensen1948method`.
+
+    Parameters
+    ----------
+    input1/input2 : :obj:`numpy.ndarray`
+        Numpy arrays to compare.
+        Can be any type but will be converted into binary:
+        False where 0, True everywhere else.
+
+    Returns
+    -------
+    coef : :obj:`float`
+        The Dice coefficient between ``input1`` and ``input2``.
+        It ranges from 0 (no overlap) to 1 (perfect overlap).
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    input1 = np.atleast_1d(input1.astype(bool))
+    input2 = np.atleast_1d(input2.astype(bool))
+
+    intersection = np.count_nonzero(input1 & input2)
+
+    size_i1 = np.count_nonzero(input1)
+    size_i2 = np.count_nonzero(input2)
+
+    if (size_i1 + size_i2) == 0:
+        coef = 0
+    else:
+        coef = (2 * intersection) / (size_i1 + size_i2)
+
+    return coef
+
 
 if __name__ == "__main__":
     bids_dir = '/cbica/projects/nibs/dset'
@@ -48,7 +96,7 @@ if __name__ == "__main__":
         session_dirs = sorted(glob(os.path.join(bids_dir, subject, 'ses-*')))
         sessions = [os.path.basename(d) for d in session_dirs]
         for session in sessions:
-            print(session, flush=True)
+            print(f"\t{session}", flush=True)
             smriprep_file = os.path.join(deriv_dir, smriprep.format(subject=subject))
             if not os.path.exists(smriprep_file):
                 print(f'{smriprep_file} does not exist', flush=True)
@@ -64,8 +112,41 @@ if __name__ == "__main__":
                 smriprep_sum_mask = smriprep_sum_mask + smriprep_mask
 
             subses_counter += 1
-            scalar_counter += 1
+
+            for modality, pattern in patterns.items():
+                in_file = os.path.join(deriv_dir, pattern.format(subject=subject, session=session))
+                if not os.path.exists(in_file):
+                    print(f'{in_file} does not exist')
+                    continue
+
+                mask = ants.image_read(in_file)
+                if modality == "qsirecon":
+                    # Binarize MD image
+                    mask = (mask > 0).astype('uint32')
+
+                transforms = mod_transforms[modality]
+                if transforms is not None:
+                    transforms[0] = os.path.join(deriv_dir, transforms[0].format(subject=subject))
+                    if len(transforms) > 1:
+                        transforms[1] = os.path.join(deriv_dir, transforms[1].format(subject=subject, session=session))
+
+                    mask = ants.apply_transforms(
+                        fixed=smriprep_mask,
+                        moving=mask,
+                        transformlist=transforms,
+                        interpolator='nearestNeighbor',
+                    )
+                else:
+                    mask = mask.resample_image_to_target(smriprep_mask, interp_type='nearestNeighbor')
+
+                dsi = dice(smriprep_mask.numpy(), mask.numpy())
+                print(f"\t\t{modality}: {dsi:.4f}", flush=True)
+
+                if scalar_counter == 0:
+                    sum_mask = mask
+                else:
+                    sum_mask = sum_mask + mask
 
     ants.image_write(smriprep_sum_mask, os.path.join(work_dir, 'smriprep_brain_mask.nii.gz'))
-    #ants.image_write(sum_mask, os.path.join(work_dir, 'scalar_brain_mask.nii.gz'))
+    ants.image_write(sum_mask, os.path.join(work_dir, 'scalar_brain_mask.nii.gz'))
     print(subses_counter, scalar_counter, flush=True)
