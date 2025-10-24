@@ -130,10 +130,11 @@ def process_subject(
         else:
             resampled_file = None
             if brain_mask_img.header.get_zooms() != nb.load(files[0]).header.get_zooms():
+                print(f"Resampling {files[0]} to same resolution as brain mask", flush=True)
                 # Resample image to same resolution as dseg
                 resampled_ants_img = ants.image_read(files[0]).resample_image_to_target(
                     qsirecon_brain_mask,
-                    interp_type='lanczosWindowedSinc',
+                    interp_type='nearestNeighbor',
                 )
                 resampled_file = os.path.join(
                     temp_dir,
