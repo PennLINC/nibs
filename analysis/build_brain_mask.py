@@ -7,16 +7,16 @@ import os
 from glob import glob
 
 import ants
+import numpy as np
 
 patterns = {
     "qsirecon": "qsirecon/derivatives/qsirecon-DSIStudio/{subject}/{session}/dwi/{subject}_{session}_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz",
     "ihmt": "ihmt/{subject}/{session}/anat/{subject}_{session}_run-01_space-ihMTRAGEref_desc-brain_mask.nii.gz",
-    "pymp2rage": "pymp2rage/{subject}/{session}/anat/{subject}_{session}_run-01_space-T1w_desc-brain_mask.nii.gz",
-    "t1wt2w_ratio": "t1wt2w_ratio/{subject}/{session}/anat/{subject}_{session}_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz",
-    "smriprep": "smriprep/{subject}/{session}/anat/{subject}_{session}_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz",
+    "pymp2rage": "pymp2rage/{subject}/{session}/anat/{subject}_{session}_run-01_part-mag_space-T1w_desc-brain_mask.nii.gz",
+    "smriprep": "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz",
     "qsm": "qsm/{subject}/{session}/anat/{subject}_{session}_acq-QSM_run-01_echo-1_part-mag_space-MEGRE_desc-brain_mask.nii.gz",
 }
-transforms = {
+mod_transforms = {
     "qsirecon": None,
     "ihmt": [
         "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5",
@@ -25,7 +25,6 @@ transforms = {
     "pymp2rage": [
         "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5",
     ],
-    "t1wt2w_ratio": None,
     "smriprep": None,
     "qsm": [
         "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5",
@@ -44,9 +43,11 @@ if __name__ == "__main__":
     masks = []
     counter = 0
     for subject in subjects:
+        print(subject, flush=True)
         session_dirs = sorted(glob(os.path.join(bids_dir, subject, 'ses-*')))
         sessions = [os.path.basename(d) for d in session_dirs]
         for session in sessions:
+            print(session, flush=True)
             for modality, pattern in patterns.items():
                 in_file = os.path.join(deriv_dir, pattern.format(subject=subject, session=session))
                 if not os.path.exists(in_file):
@@ -56,11 +57,11 @@ if __name__ == "__main__":
                 mask = ants.image_read(in_file)
                 if modality == "qsirecon":
                     # Binarize MD image
-                    mask = (mask > 0).astype(int)
+                    mask = (mask > 0).astype('uint32')
                     # Use QSIRecon MD image as target image for resampling
                     target_img = ants.image_read(in_file)
 
-                transforms = transforms[modality]
+                transforms = mod_transforms[modality]
                 if transforms is not None:
                     transforms[0] = os.path.join(deriv_dir, transforms[0].format(subject=subject))
                     if len(transforms) > 1:
@@ -83,3 +84,4 @@ if __name__ == "__main__":
                 counter += 1
 
     ants.image_write(sum_mask, os.path.join(work_dir, 'brain_mask.nii.gz'))
+    print(counter, flush=True)
