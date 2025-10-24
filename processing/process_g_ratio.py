@@ -176,7 +176,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     for desc, img in imgs.items():
         mni_file = get_filename(
-            name_source=run_data['t1w_mni'],
+            name_source=run_data['mtsat_mni'],
             layout=layout,
             out_dir=out_dir,
             entities={'space': 'MNI152NLin2009cAsym', 'desc': desc, 'suffix': 'gratio'},

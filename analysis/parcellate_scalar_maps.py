@@ -38,6 +38,7 @@ def process_subject(
         f'{subject}_{session}_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz',
     )
     qsirecon_brain_mask_img = nb.load(qsirecon_brain_mask)
+    target_scalar = ants.image_read(qsirecon_brain_mask)
     qsirecon_brain_mask = (ants.image_read(qsirecon_brain_mask) > 0).astype('uint32')
 
     # Create a restrictive brain mask from the QSIRecon MD image and sMRIPrep brain mask
@@ -71,6 +72,7 @@ def process_subject(
         qsirecon_brain_mask_img.affine,
         qsirecon_brain_mask_img.header,
     )
+    brain_mask_img.to_filename(os.path.join(temp_dir, f'{subject}_{session}_brain_mask.nii.gz'))
 
     # Use intersection of brain masks to limit tissue-wise masks
     wb_img = image.math_img(
@@ -132,9 +134,11 @@ def process_subject(
             if brain_mask_img.header.get_zooms() != nb.load(files[0]).header.get_zooms():
                 print(f"Resampling {files[0]} to same resolution as brain mask", flush=True)
                 # Resample image to same resolution as dseg
-                resampled_ants_img = ants.image_read(files[0]).resample_image_to_target(
-                    qsirecon_brain_mask,
-                    interp_type='nearestNeighbor',
+                resampled_ants_img = ants.apply_transforms(
+                    fixed=target_scalar,
+                    moving=ants.image_read(files[0]),
+                    transformlist=[],
+                    interpolator='nearestNeighbor',
                 )
                 resampled_file = os.path.join(
                     temp_dir,
@@ -165,9 +169,12 @@ def process_subject(
             gm_arr[scalar_counter, :] = np.nan_to_num(masking.apply_mask(img, gm_img))
             wm_arr[scalar_counter, :] = np.nan_to_num(masking.apply_mask(img, wm_img))
             wb_arr[scalar_counter, :] = np.nan_to_num(scalar_wb_arr)
+            if np.all(wb_arr[scalar_counter, :] == 0):
+                raise ValueError(f'Something wrong with {files[0]}')
 
             if resampled_file:
-                os.remove(resampled_file)
+                # os.remove(resampled_file)
+                pass
 
     # Save out arrays to disk
     cortical_gm_arr_file = os.path.join(temp_dir, f'{subject}_{session}_cortical_gm.npy')
@@ -196,6 +203,7 @@ if __name__ == "__main__":
     )
 
     n_jobs = 30
+    n_jobs = 1
 
     with open("patterns.json", "r") as f:
         patterns = json.load(f)
@@ -288,7 +296,7 @@ if __name__ == "__main__":
             process_subject(
                 subject=subject,
                 session=session,
-                patterns=flat_patterns,
+                patterns=flat_patterns.copy(),
                 temp_dir=temp_dir,
                 deriv_dir=deriv_dir,
                 masks=masks,
@@ -301,7 +309,7 @@ if __name__ == "__main__":
                     process_subject,
                     subject,
                     session,
-                    flat_patterns,
+                    flat_patterns.copy(),
                     temp_dir,
                     deriv_dir,
                     masks,
