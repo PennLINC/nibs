@@ -51,36 +51,36 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
-        # sMRIPrep T1w-space MTsat and ihMTR maps from process_ihmt.py
-        'mtsat_t1w': {
+        # ihMT-space MTsat and ihMTR maps from process_ihmt.py
+        'mtsat_ihmtrageref': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
        	    'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'T1w',
+            'space': 'ihMTref',
             'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
         },
-        'ihmtr_t1w': {
+        'ihmtr_ihmtrageref': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
        	    'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'T1w',
+            'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
         },
-        # Transform from MNI to sMRIPrep T1w space
-        'mni2t1w_xfm': {
+        # Transform from ihMT-space to T1w space
+        'ihmtrageref2t1w_xfm': {
             'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'run': [Query.NONE, Query.ANY],
-            'from': 'MNI152NLin2009cAsym',
             'to': 'T1w',
+            'from': 'ihMTRAGEref',
             'mode': 'image',
             'suffix': 'xfm',
-            'extension': '.h5',
+            'extension': '.mat',
         },
+        # Transform from sMRIPrep T1w to MNI space
         't1w2mni_xfm': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
@@ -93,19 +93,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
             'suffix': 'xfm',
             'extension': '.h5',
         },
-        # Transform from sMRIPrep T1w to Freesurfer space
-        't1w2fs_xfm': {
-            'datatype': 'anat',
-            'session': [Query.NONE, Query.ANY],
-            'space': Query.NONE,
-       	    'reconstruction': [Query.NONE, Query.ANY],
-            'run': [Query.NONE, Query.ANY],
-            'from': 'T1w',
-            'to': 'fsnative',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.txt',
-        },
+        # Transform from Freesurfer to sMRIPrep T1w space
         'fs2t1w_xfm': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
@@ -180,50 +168,43 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     splenium_g_ratios : np.ndarray of shape (4, n_voxels)
         Array of g-ratios in the splenium.
     """
-    # MVF measures: MPRAGE T1w/T2w ratio, SPACE T1w/T2w ratio, MTsat, ihMTR
-    mtsat_mvf = ants.image_read(run_data['mtsat_t1w'])
-    ihmtr_mvf = ants.image_read(run_data['ihmtr_t1w'])
-
-    # FVF/AVF measures: ISOVF and ICVF
-    isovf = ants.image_read(run_data['isovf_mni'])
-
-    # Warp each image to Freesurfer space
-    mtsat_mvf_dwires = ants.apply_transforms(
-        fixed=isovf,
-        moving=mtsat_mvf,
-        transformlist=[run_data['t1w2mni_xfm']],
-        interpolator='lanczosWindowedSinc',
-    )
-    ihmtr_mvf_dwires = ants.apply_transforms(
-        fixed=isovf,
-        moving=ihmtr_mvf,
-        transformlist=[run_data['t1w2mni_xfm']],
-        interpolator='lanczosWindowedSinc',
-    )
-
-    # Write out these images so I can just use NiftiMasker to get the splenium data
-    ants.image_write(mtsat_mvf_dwires, os.path.join(temp_dir, 'mtsat_mvf_dwires.nii.gz'))
-    ants.image_write(ihmtr_mvf_dwires, os.path.join(temp_dir, 'ihmtr_mvf_dwires.nii.gz'))
+    # Load images for target resolutions
+    isovf = ants.image_read(run_data['isovf_mni'])  # DWI resolution (1.7 mm isotropic)
 
     # Select only the splenium voxels
     splenium_mask = ants.image_read(run_data['aseg_fsnative']) == 251
     splenium_mask_dwires = ants.apply_transforms(
         fixed=isovf,
         moving=splenium_mask,
-        transformlist=[run_data['t1w2mni_xfm'],run_data['fs2t1w_xfm']],
+        transformlist=[run_data['t1w2mni_xfm'], run_data['fs2t1w_xfm']],
         interpolator='nearestNeighbor',
     )
-    splenium_mask_file = os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz')
-    ants.image_write(splenium_mask_dwires, splenium_mask_file)
+    splenium_mask_file_dwires = os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz')
+    ants.image_write(splenium_mask_dwires, splenium_mask_file_dwires)
 
-    isovf_splenium = masking.apply_mask(
-        run_data['isovf_mni'],
-        splenium_mask_file,
+    # Warp ihMTRAGEref-space MTsat and ihMTR to MNI space
+    mtsat_mni = ants.apply_transforms(
+        fixed=isovf,
+        moving=ants.image_read(run_data['mtsat_ihmtrageref']),
+        transformlist=[run_data['t1w2mni_xfm'], run_data['ihmtrageref2t1w_xfm']],
+        interpolator='nearestNeighbor',
     )
-    icvf_splenium = masking.apply_mask(
-        run_data['icvf_mni'],
-        splenium_mask_file,
+    mtsat_mni_file = os.path.join(temp_dir, 'mtsat_mni.nii.gz')
+    ants.image_write(mtsat_mni, mtsat_mni_file)
+    ihmtr_mni = ants.apply_transforms(
+        fixed=isovf,
+        moving=ants.image_read(run_data['ihmtr_ihmtrageref']),
+        transformlist=[run_data['t1w2mni_xfm'], run_data['ihmtrageref2t1w_xfm']],
+        interpolator='nearestNeighbor',
     )
+    ihmtr_mni_file = os.path.join(temp_dir, 'ihmtr_mni.nii.gz')
+    ants.image_write(ihmtr_mni, ihmtr_mni_file)
+
+    # Get the data in the splenium
+    isovf_splenium = masking.apply_mask(run_data['isovf_mni'], splenium_mask_file_dwires)
+    icvf_splenium = masking.apply_mask(run_data['icvf_mni'], splenium_mask_file_dwires)
+    mtsat_splenium = masking.apply_mask(mtsat_mni_file, splenium_mask_file_dwires)
+    ihmtr_splenium = masking.apply_mask(ihmtr_mni_file, splenium_mask_file_dwires)
 
     # Plot the splenium mask on top of the brain
     brain_img = ants.image_read(run_data['brain_fsnative'])
@@ -243,19 +224,10 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         dismiss_entities=['model', 'param'],
     )
     plotting.plot_roi(
-        os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz'),
+        splenium_mask_file_dwires,
         bg_img=os.path.join(temp_dir, 'brain_mni_dwires.nii.gz'),
         output_file=splenium_plot,
         display_mode='mosaic',
-    )
-
-    mtsat_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'mtsat_mvf_dwires.nii.gz'),
-        splenium_mask_file,
-    )
-    ihmtr_splenium = masking.apply_mask(
-        os.path.join(temp_dir, 'ihmtr_mvf_dwires.nii.gz'),
-        splenium_mask_file,
     )
 
     # Calculate the mean values in the splenium
@@ -264,10 +236,10 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
             'subject_id': bids_filters['subject'],
             'session_id': bids_filters['session'],
             'run': bids_filters['run'],
-            'ISOVF': np.mean(isovf_splenium),
-            'ICVF': np.mean(icvf_splenium),
-            'MTsat': np.mean(mtsat_splenium),
-            'ihMTR': np.mean(ihmtr_splenium),
+            'ISOVF': np.nanmean(isovf_splenium),
+            'ICVF': np.nanmean(icvf_splenium),
+            'MTsat': np.nanmean(mtsat_splenium),
+            'ihMTR': np.nanmean(ihmtr_splenium),
         },
     )
 
@@ -341,7 +313,7 @@ def main():
                 **base_query,
             )
             if not base_files:
-                print(f'No T1w/T2w files found for subject {subject_id} and session {session}', flush=True)
+                print(f'No ihMTR files found for subject {subject_id} and session {session}', flush=True)
                 continue
 
             for base_file in base_files:
