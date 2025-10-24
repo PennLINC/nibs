@@ -11,9 +11,8 @@ import numpy as np
 
 patterns = {
     "qsirecon": "qsirecon/derivatives/qsirecon-DSIStudio/{subject}/{session}/dwi/{subject}_{session}_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz",
-    "ihmt": "ihmt/{subject}/{session}/anat/{subject}_{session}_run-01_space-ihMTRAGEref_desc-brain_mask.nii.gz",
+    "ihmt": "ihmt/{subject}/{session}/anat/{subject}_{session}_run-01_space-T1w_desc-brain_mask.nii.gz",
     "pymp2rage": "pymp2rage/{subject}/{session}/anat/{subject}_{session}_run-01_part-mag_space-T1w_desc-brain_mask.nii.gz",
-    "qsm": "qsm/{subject}/{session}/anat/{subject}_{session}_acq-QSM_run-01_echo-1_part-mag_space-MEGRE_desc-brain_mask.nii.gz",
 }
 smriprep = "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz"
 smriprep_backup = "smriprep/{subject}/{session}/anat/{subject}_{session}_acq-MPRAGE_rec-refaced_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz"
@@ -21,17 +20,11 @@ mod_transforms = {
     "qsirecon": None,
     "ihmt": [
         "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5",
-        "ihmt/{subject}/{session}/anat/{subject}_{session}_run-01_from-ihMTRAGEref_to-T1w_mode-image_xfm.mat",
     ],
     "pymp2rage": [
         "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5",
     ],
-    "qsm": [
-        "smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5",
-        "qsm/{subject}/{session}/anat/{subject}_{session}_run-01_from-MEGRE_to-T1w_mode-image_xfm.mat",
-    ],
 }
-
 
 def dice(input1, input2):
     r"""Calculate Dice coefficient between two arrays.
@@ -106,6 +99,7 @@ if __name__ == "__main__":
                     continue
 
             smriprep_mask = ants.image_read(smriprep_file)
+            ants.image_write(smriprep_mask, os.path.join(work_dir, f"{subject}_{session}_smriprep.nii.gz"))
             if subses_counter == 0:
                 smriprep_sum_mask = smriprep_mask
             else:
@@ -141,11 +135,14 @@ if __name__ == "__main__":
 
                 dsi = dice(smriprep_mask.numpy(), mask.numpy())
                 print(f"\t\t{modality}: {dsi:.4f}", flush=True)
+                ants.image_write(mask, os.path.join(work_dir, f"{subject}_{session}_{modality}.nii.gz"))
 
                 if scalar_counter == 0:
                     sum_mask = mask
                 else:
                     sum_mask = sum_mask + mask
+
+                scalar_counter += 1
 
     ants.image_write(smriprep_sum_mask, os.path.join(work_dir, 'smriprep_brain_mask.nii.gz'))
     ants.image_write(sum_mask, os.path.join(work_dir, 'scalar_brain_mask.nii.gz'))
