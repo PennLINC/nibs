@@ -12,7 +12,7 @@ import ants
 import nibabel as nb
 import numpy as np
 import pandas as pd
-from nilearn import masking
+from nilearn import image, masking
 import templateflow.api as tflow
 
 
@@ -22,30 +22,88 @@ def process_subject(
     patterns,
     temp_dir,
     deriv_dir,
-    wb_mask_path,
-    cortical_gm_mask_path,
-    deep_gm_mask_path,
-    gm_mask_path,
-    wm_mask_path,
-    voxel_counts,
-    carpet_dseg_path,
+    masks,
 ):
     """Process a single subject."""
-    # Load shared resources inside the worker to avoid pickling large objects
-    carpet_ants_img = ants.image_read(carpet_dseg_path)
-    carpet_nb_img = nb.load(carpet_dseg_path)
-    wb_img = nb.load(wb_mask_path)
-    cortical_gm_img = nb.load(cortical_gm_mask_path)
-    deep_gm_img = nb.load(deep_gm_mask_path)
-    gm_img = nb.load(gm_mask_path)
-    wm_img = nb.load(wm_mask_path)
     n_scalars = len(patterns)
 
-    cortical_gm_arr = np.zeros((n_scalars, voxel_counts['cortical_gm']))
-    deep_gm_arr = np.zeros((n_scalars, voxel_counts['deep_gm']))
-    wm_arr = np.zeros((n_scalars, voxel_counts['wm']))
-    gm_arr = np.zeros((n_scalars, voxel_counts['gm']))
-    wb_arr = np.zeros((n_scalars, voxel_counts['wb']))
+    qsirecon_brain_mask = os.path.join(
+        deriv_dir,
+        'qsirecon',
+        'derivatives',
+        'qsirecon-DSIStudio',
+        subject,
+        session,
+        'dwi',
+        f'{subject}_{session}_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz',
+    )
+    qsirecon_brain_mask_img = nb.load(qsirecon_brain_mask)
+    qsirecon_brain_mask = (ants.image_read(qsirecon_brain_mask) > 0).astype('uint32')
+
+    # Create a restrictive brain mask from the QSIRecon MD image and sMRIPrep brain mask
+    smriprep_brain_mask = os.path.join(
+        deriv_dir,
+        'smriprep',
+        subject,
+        'anat',
+        f'{subject}_acq-MPRAGE_rec-refaced_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz',
+    )
+    if not os.path.exists(smriprep_brain_mask):
+        smriprep_brain_mask = os.path.join(
+            deriv_dir,
+            'smriprep',
+            subject,
+            session,
+            'anat',
+            f'{subject}_{session}_acq-MPRAGE_rec-refaced_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz',
+        )
+        if not os.path.exists(smriprep_brain_mask):
+            print(f'{smriprep_brain_mask} does not exist', flush=True)
+            return
+
+    smriprep_brain_mask = ants.image_read(smriprep_brain_mask).resample_image_to_target(
+        qsirecon_brain_mask,
+        interp_type='nearestNeighbor',
+    )
+    brain_mask = (qsirecon_brain_mask * smriprep_brain_mask).numpy()
+    brain_mask_img = nb.Nifti1Image(
+        brain_mask,
+        qsirecon_brain_mask_img.affine,
+        qsirecon_brain_mask_img.header,
+    )
+
+    # Use intersection of brain masks to limit tissue-wise masks
+    wb_img = image.math_img(
+        'img1 * img2',
+        img1=brain_mask_img,
+        img2=nb.load(masks['wb']),
+    )
+    cortical_gm_img = image.math_img(
+        'img1 * img2',
+        img1=brain_mask_img,
+        img2=nb.load(masks['cortical_gm']),
+    )
+    deep_gm_img = image.math_img(
+        'img1 * img2',
+        img1=brain_mask_img,
+        img2=nb.load(masks['deep_gm']),
+    )
+    gm_img = image.math_img(
+        'img1 * img2',
+        img1=brain_mask_img,
+        img2=nb.load(masks['gm']),
+    )
+    wm_img = image.math_img(
+        'img1 * img2',
+        img1=brain_mask_img,
+        img2=nb.load(masks['wm']),
+    )
+
+    cortical_gm_arr = np.zeros((n_scalars, int(np.sum(cortical_gm_img.get_fdata()))))
+    deep_gm_arr = np.zeros((n_scalars, int(np.sum(deep_gm_img.get_fdata()))))
+    wm_arr = np.zeros((n_scalars, int(np.sum(wm_img.get_fdata()))))
+    gm_arr = np.zeros((n_scalars, int(np.sum(gm_img.get_fdata()))))
+    wb_arr = np.zeros((n_scalars, int(np.sum(wb_img.get_fdata()))))
 
     scalar_counter = -1
     for scalar_name, scalar_pattern in patterns.items():
@@ -71,10 +129,10 @@ def process_subject(
             continue
         else:
             resampled_file = None
-            if carpet_nb_img.header.get_zooms() != nb.load(files[0]).header.get_zooms():
+            if brain_mask_img.header.get_zooms() != nb.load(files[0]).header.get_zooms():
                 # Resample image to same resolution as dseg
                 resampled_ants_img = ants.image_read(files[0]).resample_image_to_target(
-                    carpet_ants_img,
+                    qsirecon_brain_mask,
                     interp_type='lanczosWindowedSinc',
                 )
                 resampled_file = os.path.join(
@@ -130,6 +188,11 @@ if __name__ == "__main__":
     temp_dir = "/cbica/projects/nibs/work/correlation_matrices"
     os.makedirs(temp_dir, exist_ok=True)
     out_dir = "../data"
+    target_file = (
+        "/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DSIStudio/"
+        "sub-22449/ses-01/dwi/sub-22449_ses-01_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_"
+        "model-tensor_param-md_dwimap.nii.gz"
+    )
 
     n_jobs = 30
 
@@ -146,7 +209,12 @@ if __name__ == "__main__":
         extension="nii.gz",
     )
     carpet_dseg = str(carpet_dseg)
-    carpet_ants_img = ants.image_read(carpet_dseg)
+    carpet_ants_img = ants.image_read(carpet_dseg).resample_image_to_target(
+        ants.image_read(target_file),
+        interp_type='nearestNeighbor',
+    )
+    carpet_dseg = os.path.join(temp_dir, 'carpet_dseg.nii.gz')
+    ants.image_write(carpet_ants_img, carpet_dseg)
     carpet_nb_img = nb.load(carpet_dseg)
     carpet_dseg_data = carpet_nb_img.get_fdata()
 
@@ -194,6 +262,14 @@ if __name__ == "__main__":
     wm_img.to_filename(wm_mask_path)
     wb_img.to_filename(wb_mask_path)
 
+    masks = {
+        'wb': wb_mask_path,
+        'cortical_gm': cortical_gm_mask_path,
+        'deep_gm': deep_gm_mask_path,
+        'gm': gm_mask_path,
+        'wm': wm_mask_path,
+    }
+
     # Build list of (subject, session) tasks
     subject_dirs = sorted(glob(os.path.join(bids_dir, 'sub-*')))
     subjects = [os.path.basename(subject_dir) for subject_dir in subject_dirs]
@@ -214,13 +290,7 @@ if __name__ == "__main__":
                 patterns=flat_patterns,
                 temp_dir=temp_dir,
                 deriv_dir=deriv_dir,
-                wb_mask_path=wb_mask_path,
-                cortical_gm_mask_path=cortical_gm_mask_path,
-                deep_gm_mask_path=deep_gm_mask_path,
-                gm_mask_path=gm_mask_path,
-                wm_mask_path=wm_mask_path,
-                voxel_counts=voxel_counts,
-                carpet_dseg_path=carpet_dseg,
+                masks=masks,
             )
     else:
         print(f"Running with {n_jobs} workers across {len(tasks)} tasks", flush=True)
@@ -233,13 +303,7 @@ if __name__ == "__main__":
                     flat_patterns,
                     temp_dir,
                     deriv_dir,
-                    wb_mask_path,
-                    cortical_gm_mask_path,
-                    deep_gm_mask_path,
-                    gm_mask_path,
-                    wm_mask_path,
-                    voxel_counts,
-                    carpet_dseg,
+                    masks,
                 )
                 for subject, session in tasks
             ]
