@@ -60,6 +60,7 @@ def collect_run_data(layout, bids_filters):
             'part': ['mag', Query.NONE],
             'echo': Query.ANY,
             'direction': 'AP',
+            'run': '01',
        	    'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
@@ -650,6 +651,7 @@ def main(subject_id):
             echo=1,
             part=['mag', Query.NONE],
             direction='AP',
+            run='01',
             suffix='MESE',
             extension=['.nii', '.nii.gz'],
         )
