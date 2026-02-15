@@ -99,11 +99,13 @@ class TestConvertToMultindex:
     """Unit tests for the DataFrame column MultiIndex converter."""
 
     def test_basic_conversion(self):
-        df = pd.DataFrame({
-            'Session 01--MPRAGE': [1, 2],
-            'Session 01--FLAIR': [3, 4],
-            'Session 02--MPRAGE': [5, 6],
-        })
+        df = pd.DataFrame(
+            {
+                'Session 01--MPRAGE': [1, 2],
+                'Session 01--FLAIR': [3, 4],
+                'Session 02--MPRAGE': [5, 6],
+            }
+        )
         result = convert_to_multindex(df)
         assert isinstance(result.columns, pd.MultiIndex)
         assert result.columns.nlevels == 2
@@ -115,16 +117,18 @@ class TestConvertToMultindex:
         assert list(result.columns) == expected
 
     def test_data_preserved(self):
-        df = pd.DataFrame({
-            'A--X': [10, 20],
-            'A--Y': [30, 40],
-        })
+        df = pd.DataFrame(
+            {
+                'A--X': [10, 20],
+                'A--Y': [30, 40],
+            }
+        )
         result = convert_to_multindex(df)
         np.testing.assert_array_equal(result.values, df.values)
 
     def test_no_separator_raises(self):
         df = pd.DataFrame({'col_a': [1], 'col_b': [2]})
-        with pytest.raises(ValueError, match="No columns found with separator"):
+        with pytest.raises(ValueError, match='No columns found with separator'):
             convert_to_multindex(df)
 
     def test_custom_separator(self):

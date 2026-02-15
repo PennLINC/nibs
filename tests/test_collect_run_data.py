@@ -41,6 +41,7 @@ for _mod_name in [
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_bids_file(path):
     """Create a mock BIDSFile-like object with .path and .filename attrs."""
     f = MagicMock()
@@ -63,6 +64,7 @@ class TestCollectRunDataMp2rage:
         # Force a fresh import each time
         sys.modules.pop('process_mp2rage', None)
         from process_mp2rage import collect_run_data
+
         self.collect_run_data = collect_run_data
 
     @pytest.fixture()
@@ -141,12 +143,15 @@ class TestCollectRunDataScalingFactors:
     @pytest.fixture(autouse=True)
     def _import_collect(self):
         """Import collect_run_data, patching load_config for module-level CFG."""
-        with patch('utils.load_config', return_value={
-            'code_dir': '/fake/code',
-            'bids_dir': '/fake/bids',
-            'work_dir': '/fake/work',
-            'derivatives': {'smriprep': '/fake/smriprep'},
-        }):
+        with patch(
+            'utils.load_config',
+            return_value={
+                'code_dir': '/fake/code',
+                'bids_dir': '/fake/bids',
+                'work_dir': '/fake/work',
+                'derivatives': {'smriprep': '/fake/smriprep'},
+            },
+        ):
             sys.modules.pop('process_g_ratio_scaling_factors', None)
             from process_g_ratio_scaling_factors import collect_run_data
         self.collect_run_data = collect_run_data
@@ -189,14 +194,16 @@ class TestCollectRunDataScalingFactors:
         # (isovf_mni, icvf_mni) have a ``param`` key that gets popped before
         # calling layout.get, then used to filter files by filename.  The
         # remaining four queries have no ``param``.  Return matching filenames.
-        _responses = iter([
-            [_make_bids_file('/fake/sub-01_param-isovf_dwimap.nii.gz')],
-            [_make_bids_file('/fake/sub-01_param-icvf_dwimap.nii.gz')],
-            [_make_bids_file('/fake/sub-01_ihMTsatB1sq.nii.gz')],
-            [_make_bids_file('/fake/sub-01_ihMTR.nii.gz')],
-            [_make_bids_file('/fake/sub-01_xfm.h5')],
-            [_make_bids_file('/fake/sub-01_xfm.txt')],
-        ])
+        _responses = iter(
+            [
+                [_make_bids_file('/fake/sub-01_param-isovf_dwimap.nii.gz')],
+                [_make_bids_file('/fake/sub-01_param-icvf_dwimap.nii.gz')],
+                [_make_bids_file('/fake/sub-01_ihMTsatB1sq.nii.gz')],
+                [_make_bids_file('/fake/sub-01_ihMTR.nii.gz')],
+                [_make_bids_file('/fake/sub-01_xfm.h5')],
+                [_make_bids_file('/fake/sub-01_xfm.txt')],
+            ]
+        )
 
         layout.get.side_effect = lambda **kw: next(_responses)
 

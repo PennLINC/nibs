@@ -11,6 +11,7 @@ import pytest
 # Tier 1 fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def minimal_config_path(tmp_path):
     """Write a small paths.yaml to *tmp_path* and return its path."""
@@ -88,6 +89,7 @@ def synthetic_monoexp_data():
 # ---------------------------------------------------------------------------
 # Tier 2 fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def mock_bids_layout(tmp_path):

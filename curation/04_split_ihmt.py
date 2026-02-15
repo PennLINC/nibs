@@ -57,8 +57,8 @@ if __name__ == '__main__':
                 pattern_str = pattern.format(run=run_entity)
                 img3d = img.slicer[..., i_vol]
                 out_fname = os.path.join(out_dir, f'{fname_base}{pattern_str}.nii.gz')
-                with open(in_json, 'r') as fo:
-                    metadata = json.load(fo)
+                with open(in_json, 'r') as f_obj:
+                    metadata = json.load(f_obj)
 
                 out_json = os.path.join(out_dir, f'{fname_base}{pattern_str}.json')
                 if 'mt-off' in pattern_str:
@@ -67,8 +67,8 @@ if __name__ == '__main__':
                     metadata['MTState'] = True
 
                 img3d.to_filename(out_fname)
-                with open(out_json, 'w') as fo:
-                    json.dump(metadata, fo, indent=4, sort_keys=True)
+                with open(out_json, 'w') as f_obj:
+                    json.dump(metadata, f_obj, indent=4, sort_keys=True)
 
             os.remove(ihmt_file)
             os.remove(in_json)

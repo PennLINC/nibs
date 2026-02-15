@@ -4,7 +4,6 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pytest
 
 # The module imports heavy deps at the top level and calls load_config() at
 # module scope.  Mock the heavy deps and patch load_config before importing.
@@ -15,12 +14,15 @@ sys.modules.setdefault('nilearn.plotting', MagicMock())
 sys.modules.setdefault('bids', MagicMock())
 sys.modules.setdefault('bids.layout', MagicMock())
 
-with patch('utils.load_config', return_value={
-    'code_dir': '/fake/code',
-    'bids_dir': '/fake/bids',
-    'work_dir': '/fake/work',
-    'derivatives': {},
-}):
+with patch(
+    'utils.load_config',
+    return_value={
+        'code_dir': '/fake/code',
+        'bids_dir': '/fake/bids',
+        'work_dir': '/fake/work',
+        'derivatives': {},
+    },
+):
     # Force a clean import that picks up the patched load_config
     sys.modules.pop('process_g_ratio_scaling_factors', None)
     from process_g_ratio_scaling_factors import compute_scaling_factor

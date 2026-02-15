@@ -26,8 +26,8 @@ if __name__ == '__main__':
             ap_mese_files = sorted(glob(os.path.join(mese_dir, '*_dir-AP_run-*_echo-1_MESE.json')))
             for ap_mese_file in ap_mese_files:
                 print(f'\t\tProcessing MESE file: {os.path.basename(ap_mese_file)}')
-                with open(ap_mese_file, 'r') as fo:
-                    data = json.load(fo)
+                with open(ap_mese_file, 'r') as f_obj:
+                    data = json.load(f_obj)
 
                 if data['PhaseEncodingDirection'] != 'j-':
                     print(f'\t\t\tPhaseEncodingDirection is not j-: {ap_mese_file}')
@@ -38,8 +38,8 @@ if __name__ == '__main__':
                     print(f'\t\t\tPA MESE file not found: {pa_mese_file}')
                     continue
 
-                with open(pa_mese_file, 'r') as fo:
-                    data = json.load(fo)
+                with open(pa_mese_file, 'r') as f_obj:
+                    data = json.load(f_obj)
 
                 if data['PhaseEncodingDirection'] != 'j':
                     print(

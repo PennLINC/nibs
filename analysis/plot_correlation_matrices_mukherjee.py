@@ -28,8 +28,8 @@ if __name__ == '__main__':
         ['NODDI ICVF', 'ICVF', 'NODDI', 'Kurtosis'],
         ['NODDI OD', 'ODI', 'NODDI', 'Anisotropy'],
         ['NODDI ISOVF', 'ISOVF', 'NODDI', 'Diffusivity'],
-        ['MSD', 'MSD', 'MAPMRI', 'Diffusivity'],  # DNE
-        ['QIV', 'QIV', 'MAPMRI', 'Complex Diffusivity'],  # DNE
+        ['MSD', 'MSD', 'MAPMRI', 'Diffusivity'],  # Does not exist
+        ['QIV', 'QIV', 'MAPMRI', 'Complex Diffusivity'],  # Does not exist
         ['TORTOISE MAPMRI RTOP', 'RTOP', 'MAPMRI', 'Diffusivity'],
         ['TORTOISE MAPMRI RTAP', 'RTAP', 'MAPMRI', 'Diffusivity'],
         ['TORTOISE MAPMRI RTPP', 'RTPP', 'MAPMRI', 'Diffusivity'],

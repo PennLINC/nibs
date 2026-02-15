@@ -28,12 +28,12 @@ if __name__ == '__main__':
     json_files = sorted(glob(os.path.join(dset_dir, 'sub-*/ses-*/*/*.json')))
     for json_file in json_files:
         print(json_file)
-        with open(json_file, 'r') as fo:
-            json_data = json.load(fo)
+        with open(json_file, 'r') as f_obj:
+            json_data = json.load(f_obj)
 
         for drop_key in drop_keys:
             if drop_key in json_data.keys():
                 json_data.pop(drop_key)
 
-        with open(json_file, 'w') as fo:
-            json.dump(json_data, fo, indent=4, sort_keys=True)
+        with open(json_file, 'w') as f_obj:
+            json.dump(json_data, f_obj, indent=4, sort_keys=True)
