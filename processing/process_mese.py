@@ -42,15 +42,20 @@ from nireports.assembler.report import Report
 from utils import (
     fit_monoexponential,
     get_filename,
+    load_config,
     plot_coregistration,
     plot_scalar_map,
     run_command,
 )
 
-os.environ['SUBJECTS_DIR'] = '/cbica/projects/nibs/derivatives/smriprep/sourcedata/freesurfer'
-os.environ['FS_LICENSE'] = '/cbica/projects/nibs/tokens/freesurfer_license.txt'
 os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
-CODE_DIR = '/cbica/projects/nibs/code'
+
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
+SYNTHSTRIP_SIF = CFG['apptainer']['synthstrip']
+
+os.environ['SUBJECTS_DIR'] = CFG['freesurfer']['subjects_dir']
+os.environ['FS_LICENSE'] = CFG['freesurfer']['license']
 
 
 def collect_run_data(layout, bids_filters):
@@ -500,7 +505,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     )
     skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_files[0])}')
     cmd = (
-        'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
+        f'singularity run {SYNTHSTRIP_SIF} '
         f'-i {in_files[0]} -o {skullstripped_file} -m {brain_mask}'
     )
     run_command(cmd)
@@ -513,7 +518,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
 
         skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_file)}')
         cmd = (
-            'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
+            f'singularity run {SYNTHSTRIP_SIF} '
             f'-i {in_file} -o {skullstripped_file}'
         )
         run_command(cmd)
@@ -624,11 +629,11 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    out_dir = '/cbica/projects/nibs/derivatives/mese'
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    out_dir = CFG['derivatives']['mese']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/mese'
+    temp_dir = os.path.join(CFG['work_dir'], 'mese')
     os.makedirs(temp_dir, exist_ok=True)
 
     bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_mese.yml')

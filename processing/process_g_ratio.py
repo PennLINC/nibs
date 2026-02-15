@@ -21,9 +21,10 @@ from bids.layout import BIDSLayout, Query
 from nilearn import masking
 from nireports.assembler.report import Report
 
-from utils import get_filename, plot_scalar_map
+from utils import get_filename, load_config, plot_scalar_map
 
-CODE_DIR = '/cbica/projects/nibs/code'
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
 # Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
 MTsat_ISOVF_ICVF_scalar = 0.0936729130079245
 ihMTR_ISOVF_ICVF_scalar = 2.2593688403395906
@@ -228,15 +229,15 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    dipydki_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DIPYDKI'
-    noddi_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-NODDI'
-    ihmt_dir = '/cbica/projects/nibs/derivatives/ihmt'
-    t1wt2w_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
-    out_dir = '/cbica/projects/nibs/derivatives/g_ratio'
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    dipydki_dir = CFG['derivatives']['qsirecon_dipydki']
+    noddi_dir = CFG['derivatives']['qsirecon_noddi']
+    ihmt_dir = CFG['derivatives']['ihmt']
+    t1wt2w_dir = CFG['derivatives']['t1wt2w_ratio']
+    out_dir = CFG['derivatives']['g_ratio']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/g_ratio'
+    temp_dir = os.path.join(CFG['work_dir'], 'g_ratio')
     os.makedirs(temp_dir, exist_ok=True)
 
     bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_g_ratio.yml')

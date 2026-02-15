@@ -36,7 +36,7 @@ from nilearn import image, masking
 from nireports.assembler.report import Report
 from pymp2rage import MP2RAGE
 
-from utils import coregister_to_t1, get_filename, plot_coregistration, plot_scalar_map
+from utils import coregister_to_t1, get_filename, load_config, plot_coregistration, plot_scalar_map
 
 
 def collect_run_data(layout, bids_filters):
@@ -638,12 +638,13 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    code_dir = '/cbica/projects/nibs/code'
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    out_dir = '/cbica/projects/nibs/derivatives/pymp2rage'
+    cfg = load_config()
+    code_dir = cfg['code_dir']
+    in_dir = cfg['bids_dir']
+    smriprep_dir = cfg['derivatives']['smriprep']
+    out_dir = cfg['derivatives']['pymp2rage']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/pymp2rage'
+    temp_dir = os.path.join(cfg['work_dir'], 'pymp2rage')
     os.makedirs(temp_dir, exist_ok=True)
 
     bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_mp2rage.yml')

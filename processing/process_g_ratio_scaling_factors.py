@@ -21,9 +21,10 @@ import pandas as pd
 from bids.layout import BIDSLayout, Query
 from nilearn import masking, plotting
 
-from utils import get_filename
+from utils import get_filename, load_config
 
-CODE_DIR = '/cbica/projects/nibs/code'
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
 
 
 def collect_run_data(layout, bids_filters, smriprep_dir):
@@ -261,14 +262,14 @@ def compute_scaling_factor(ICVF, MVF, ISOVF, g=0.7):
 
 
 def main():
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    dipydki_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DIPYDKI'
-    noddi_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-NODDI'
-    ihmt_dir = '/cbica/projects/nibs/derivatives/ihmt'
-    out_dir = '/cbica/projects/nibs/derivatives/g_ratio'
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    dipydki_dir = CFG['derivatives']['qsirecon_dipydki']
+    noddi_dir = CFG['derivatives']['qsirecon_noddi']
+    ihmt_dir = CFG['derivatives']['ihmt']
+    out_dir = CFG['derivatives']['g_ratio']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/g_ratio'
+    temp_dir = os.path.join(CFG['work_dir'], 'g_ratio')
     os.makedirs(temp_dir, exist_ok=True)
 
     layout = BIDSLayout(

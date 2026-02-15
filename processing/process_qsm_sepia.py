@@ -21,9 +21,10 @@ from bids.layout import BIDSLayout, Query
 from nilearn import image
 from scipy.io import loadmat, savemat
 
-from utils import get_filename
+from utils import get_filename, load_config
 
-CODE_DIR = '/cbica/projects/nibs/code'
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
 
 
 def collect_run_data(layout, bids_filters):
@@ -186,12 +187,12 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    mese_dir = '/cbica/projects/nibs/derivatives/mese'
-    out_dir = '/cbica/projects/nibs/derivatives/qsm'
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    mese_dir = CFG['derivatives']['mese']
+    out_dir = CFG['derivatives']['qsm']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/sepia'
+    temp_dir = os.path.join(CFG['work_dir'], 'sepia')
     os.makedirs(temp_dir, exist_ok=True)
 
     layout = BIDSLayout(

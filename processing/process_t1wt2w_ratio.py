@@ -25,9 +25,10 @@ from bids.layout import BIDSLayout, Query
 from nilearn import masking
 from nireports.assembler.report import Report
 
-from utils import get_filename, plot_coregistration, plot_scalar_map
+from utils import get_filename, load_config, plot_coregistration, plot_scalar_map
 
-CODE_DIR = '/cbica/projects/nibs/code'
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
 
 
 def collect_run_data(layout, bids_filters):
@@ -585,11 +586,11 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    out_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    out_dir = CFG['derivatives']['t1wt2w_ratio']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/t1wt2w_ratio'
+    temp_dir = os.path.join(CFG['work_dir'], 't1wt2w_ratio')
     os.makedirs(temp_dir, exist_ok=True)
 
     bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_t1wt2w_ratio.yml')

@@ -30,9 +30,12 @@ from utils import (
     coregister_to_t1,
     fit_monoexponential,
     get_filename,
+    load_config,
     plot_coregistration,
     plot_scalar_map,
 )
+
+CFG = load_config()
 
 
 def collect_run_data(layout, bids_filters):
@@ -385,11 +388,11 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    code_dir = '/cbica/projects/nibs/code'
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    mese_dir = '/cbica/projects/nibs/derivatives/mese'
-    out_dir = '/cbica/projects/nibs/derivatives/qsm'
+    code_dir = CFG['code_dir']
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    mese_dir = CFG['derivatives']['mese']
+    out_dir = CFG['derivatives']['qsm']
     os.makedirs(out_dir, exist_ok=True)
 
     layout = BIDSLayout(

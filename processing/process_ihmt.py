@@ -30,9 +30,11 @@ from ihmt_proc import cli
 from nilearn import image, masking
 from nireports.assembler.report import Report
 
-from utils import coregister_to_t1, get_filename, plot_coregistration, plot_scalar_map, run_command
+from utils import coregister_to_t1, get_filename, load_config, plot_coregistration, plot_scalar_map, run_command
 
-CODE_DIR = '/cbica/projects/nibs/code'
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
+SYNTHSTRIP_SIF = CFG['apptainer']['synthstrip']
 
 
 def collect_run_data(layout, bids_filters):
@@ -565,7 +567,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
         print(f'Creating brain mask: {brain_mask}')
         skullstripped_file = os.path.join(skullstripped_dir, os.path.basename(in_file))
         cmd = (
-            'singularity run /cbica/projects/nibs/apptainer/synthstrip-1.7.sif '
+            f'singularity run {SYNTHSTRIP_SIF} '
             f'-i {n4_file} -o {skullstripped_file} -m {brain_mask}'
         )
         run_command(cmd)
@@ -711,12 +713,12 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    in_dir = '/cbica/projects/nibs/dset'
-    mp2rage_dir = '/cbica/projects/nibs/derivatives/pymp2rage'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    out_dir = '/cbica/projects/nibs/derivatives/ihmt'
+    in_dir = CFG['bids_dir']
+    mp2rage_dir = CFG['derivatives']['pymp2rage']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    out_dir = CFG['derivatives']['ihmt']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/ihmt'
+    temp_dir = os.path.join(CFG['work_dir'], 'ihmt')
     os.makedirs(temp_dir, exist_ok=True)
 
     bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_ihmt.yml')
