@@ -318,14 +318,14 @@ def process_run(layout, run_data, out_dir, temp_dir):
     inv_transform = reg_output['invtransforms'][0]
     del moving_img, reg_output
 
-    # Write the transform to a file
+    # Write the forward transform to a file
     fwd_transform_file = get_filename(
         name_source=run_data['space_t2w'],
         layout=layout,
         out_dir=out_dir,
         entities={
-            'from': 'T1w',
-            'to': 'SPACET2w',
+            'from': 'SPACET2w',
+            'to': 'T1w',
             'mode': 'image',
             'suffix': 'xfm',
             'extension': '.txt',
@@ -334,6 +334,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     shutil.copyfile(fwd_transform, fwd_transform_file)
 
+    # Write the inverse transform to a file
     inv_transform_file = get_filename(
         name_source=run_data['space_t2w'],
         layout=layout,
