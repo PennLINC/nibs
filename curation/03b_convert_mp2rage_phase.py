@@ -38,8 +38,15 @@ def run_command(command, env=None):
 
 
 if __name__ == '__main__':
-    in_dir = '/cbica/projects/nibs/sourcedata/scitran/bbl/NIBS_857664'
-    out_dir = '/cbica/projects/nibs/dset'
+    import yaml
+
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
+    in_dir = os.path.join(_root, _cfg['sourcedata']['scitran'])
+    out_dir = os.path.join(_root, _cfg['bids_dir'])
 
     subses_dirs = sorted(glob(os.path.join(in_dir, '*_*')))
     for subses_dir in subses_dirs:

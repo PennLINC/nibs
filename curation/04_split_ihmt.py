@@ -10,11 +10,16 @@ import re
 from glob import glob
 
 import nibabel as nb
+import yaml
 
 
 if __name__ == '__main__':
-    # in_dir = "/Users/taylor/Downloads/flywheel/bbl/dset"
-    in_dir = '/cbica/projects/nibs/dset'
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
+    in_dir = os.path.join(_root, _cfg['bids_dir'])
 
     patterns = [
         '_acq-nosat_run-{run}_mt-off_ihMTRAGE',

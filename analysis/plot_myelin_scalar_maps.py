@@ -8,11 +8,17 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import templateflow.api as tflow
+import yaml
 from nilearn import image, maskers, plotting
 
 
 if __name__ == '__main__':
-    in_dir = '/cbica/projects/nibs/derivatives'
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
+    in_dir = os.path.join(_root, 'derivatives')
     out_dir = '../figures'
     template = tflow.get(
         'MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='T1w', extension='nii.gz'

@@ -9,6 +9,7 @@ from glob import glob
 
 import ants
 import numpy as np
+import yaml
 
 patterns = {
     'qsirecon': 'qsirecon/derivatives/qsirecon-DSIStudio/{subject}/{session}/dwi/{subject}_{session}_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz',
@@ -77,9 +78,14 @@ def dice(input1, input2):
 
 
 if __name__ == '__main__':
-    bids_dir = '/cbica/projects/nibs/dset'
-    deriv_dir = '/cbica/projects/nibs/derivatives'
-    work_dir = '/cbica/projects/nibs/work/brain_mask'
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
+    bids_dir = os.path.join(_root, _cfg['bids_dir'])
+    deriv_dir = os.path.join(_root, 'derivatives')
+    work_dir = os.path.join(_root, _cfg['work_dir'], 'brain_mask')
     os.makedirs(work_dir, exist_ok=True)
     subject_dirs = sorted(glob(os.path.join(bids_dir, 'sub-*')))
     subjects = [os.path.basename(d) for d in subject_dirs]

@@ -1,14 +1,19 @@
-#!/cbica/home/salot/miniconda3/envs/salot/bin/python
 """Remove unneeded fields from bottom-level JSON files."""
 
 import json
 import os
 from glob import glob
 
+import yaml
+
 
 if __name__ == '__main__':
-    dset_dir = '/cbica/projects/nibs/dset'
-    # dset_dir = "/Users/taylor/Documents/datasets/nibs/dset"
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
+    dset_dir = os.path.join(_root, _cfg['bids_dir'])
     drop_keys = [
         'AcquisitionTime',
         'AcquisitionDateTime',

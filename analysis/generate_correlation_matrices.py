@@ -4,11 +4,17 @@ from glob import glob
 
 import numpy as np
 import pandas as pd
+import yaml
 
 
 if __name__ == '__main__':
-    bids_dir = '/cbica/projects/nibs/dset'
-    work_dir = '/cbica/projects/nibs/work/correlation_matrices'
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
+    bids_dir = os.path.join(_root, _cfg['bids_dir'])
+    work_dir = os.path.join(_root, _cfg['work_dir'], 'correlation_matrices')
     out_dir = '../data'
 
     masks = [

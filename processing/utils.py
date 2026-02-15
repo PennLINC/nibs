@@ -40,6 +40,11 @@ def load_config(config_path=None):
 
     config['apptainer'] = {key: os.path.join(root, path) for key, path in raw['apptainer'].items()}
 
+    if 'sourcedata' in raw:
+        config['sourcedata'] = {
+            key: os.path.join(root, path) for key, path in raw['sourcedata'].items()
+        }
+
     config['freesurfer'] = {
         key: os.path.join(root, path) for key, path in raw['freesurfer'].items()
     }

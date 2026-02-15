@@ -2,6 +2,7 @@ import os
 from glob import glob
 
 import pandas as pd
+import yaml
 
 from utils import convert_to_multindex, matrix
 
@@ -10,6 +11,11 @@ CODE_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
 
 
 if __name__ == '__main__':
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
     PATTERNS = {
         'MPRAGE T1w': ['anat/*acq-MPRAGE*T1w.nii.gz'],
         'SPACE T1w': ['anat/*acq-SPACE*T1w.nii.gz'],
@@ -27,7 +33,7 @@ if __name__ == '__main__':
         'Session 02': 'ses-02',
     }
 
-    in_dir = '/cbica/projects/nibs/dset'
+    in_dir = os.path.join(_root, _cfg['bids_dir'])
     participants_file = os.path.join(in_dir, 'participants.tsv')
     participants = pd.read_table(participants_file)
     subject_ids = participants['participant_id'].tolist()

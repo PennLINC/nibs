@@ -12,6 +12,7 @@ import ants
 import nibabel as nb
 import numpy as np
 import pandas as pd
+import yaml
 from nilearn import image, masking
 import templateflow.api as tflow
 
@@ -191,15 +192,21 @@ def process_subject(
 
 
 if __name__ == '__main__':
-    bids_dir = '/cbica/projects/nibs/dset'
-    deriv_dir = '/cbica/projects/nibs/derivatives'
-    temp_dir = '/cbica/projects/nibs/work/correlation_matrices'
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
+    bids_dir = os.path.join(_root, _cfg['bids_dir'])
+    deriv_dir = os.path.join(_root, 'derivatives')
+    temp_dir = os.path.join(_root, _cfg['work_dir'], 'correlation_matrices')
     os.makedirs(temp_dir, exist_ok=True)
     out_dir = '../data'
-    target_file = (
-        '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DSIStudio/'
+    target_file = os.path.join(
+        _root,
+        _cfg['derivatives']['qsirecon_dsistudio'],
         'sub-22449/ses-01/dwi/sub-22449_ses-01_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_'
-        'model-tensor_param-md_dwimap.nii.gz'
+        'model-tensor_param-md_dwimap.nii.gz',
     )
 
     n_jobs = 30

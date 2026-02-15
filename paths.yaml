@@ -3,6 +3,9 @@
 project_root: /cbica/projects/nibs
 
 bids_dir: dset
+sourcedata:
+  root: sourcedata
+  scitran: sourcedata/scitran/bbl/NIBS_857664
 code_dir: code
 work_dir: work
 
