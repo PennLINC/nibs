@@ -114,7 +114,7 @@ def process_subject(
         files = sorted(glob(os.path.join(deriv_dir, pattern)))
         scalar_counter += 1
         if len(files) == 0:
-            print(f"No files found for {pattern}", flush=True)
+            print(f'No files found for {pattern}', flush=True)
             cortical_gm_arr[scalar_counter, :] = np.nan
             deep_gm_arr[scalar_counter, :] = np.nan
             wm_arr[scalar_counter, :] = np.nan
@@ -122,7 +122,7 @@ def process_subject(
             wb_arr[scalar_counter, :] = np.nan
             continue
         elif len(files) != 1:
-            print(f"Multiple files found for {pattern}", flush=True)
+            print(f'Multiple files found for {pattern}', flush=True)
             cortical_gm_arr[scalar_counter, :] = np.nan
             deep_gm_arr[scalar_counter, :] = np.nan
             wm_arr[scalar_counter, :] = np.nan
@@ -132,7 +132,7 @@ def process_subject(
         else:
             resampled_file = None
             if brain_mask_img.header.get_zooms() != nb.load(files[0]).header.get_zooms():
-                print(f"Resampling {files[0]} to same resolution as brain mask", flush=True)
+                print(f'Resampling {files[0]} to same resolution as brain mask', flush=True)
                 # Resample image to same resolution as dseg
                 resampled_ants_img = ants.apply_transforms(
                     fixed=target_scalar,
@@ -152,7 +152,7 @@ def process_subject(
             scalar_wb_arr = masking.apply_mask(img, wb_img)
             if scalar_wb_arr.ndim != 1:
                 print(
-                    f"Scalar {scalar_name} has {scalar_wb_arr.ndim} dimensions",
+                    f'Scalar {scalar_name} has {scalar_wb_arr.ndim} dimensions',
                     flush=True,
                 )
                 cortical_gm_arr[scalar_counter, :] = np.nan
@@ -187,34 +187,34 @@ def process_subject(
     np.save(gm_arr_file, gm_arr)
     wb_arr_file = os.path.join(temp_dir, f'{subject}_{session}_wb.npy')
     np.save(wb_arr_file, wb_arr)
-    print(f"Processed {subject} {session}", flush=True)
+    print(f'Processed {subject} {session}', flush=True)
 
 
-if __name__ == "__main__":
-    bids_dir = "/cbica/projects/nibs/dset"
-    deriv_dir = "/cbica/projects/nibs/derivatives"
-    temp_dir = "/cbica/projects/nibs/work/correlation_matrices"
+if __name__ == '__main__':
+    bids_dir = '/cbica/projects/nibs/dset'
+    deriv_dir = '/cbica/projects/nibs/derivatives'
+    temp_dir = '/cbica/projects/nibs/work/correlation_matrices'
     os.makedirs(temp_dir, exist_ok=True)
-    out_dir = "../data"
+    out_dir = '../data'
     target_file = (
-        "/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DSIStudio/"
-        "sub-22449/ses-01/dwi/sub-22449_ses-01_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_"
-        "model-tensor_param-md_dwimap.nii.gz"
+        '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DSIStudio/'
+        'sub-22449/ses-01/dwi/sub-22449_ses-01_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_'
+        'model-tensor_param-md_dwimap.nii.gz'
     )
 
     n_jobs = 30
 
-    with open("patterns.json", "r") as f:
+    with open('patterns.json', 'r') as f:
         patterns = json.load(f)
 
     flat_patterns = {k: v for subdict in patterns.values() for k, v in subdict.items()}
 
     carpet_dseg = tflow.get(
-        "MNI152NLin2009cAsym",
-        resolution="01",
-        desc="carpet",
-        suffix="dseg",
-        extension="nii.gz",
+        'MNI152NLin2009cAsym',
+        resolution='01',
+        desc='carpet',
+        suffix='dseg',
+        extension='nii.gz',
     )
     carpet_dseg = str(carpet_dseg)
     carpet_ants_img = ants.image_read(carpet_dseg).resample_image_to_target(
@@ -226,8 +226,8 @@ if __name__ == "__main__":
     carpet_nb_img = nb.load(carpet_dseg)
     carpet_dseg_data = carpet_nb_img.get_fdata()
 
-    carpet_tsv = tflow.get("MNI152NLin2009cAsym", desc="carpet", suffix="dseg", extension="tsv")
-    carpet_df = pd.read_table(carpet_tsv, index_col="index")
+    carpet_tsv = tflow.get('MNI152NLin2009cAsym', desc='carpet', suffix='dseg', extension='tsv')
+    carpet_df = pd.read_table(carpet_tsv, index_col='index')
 
     voxel_counts = {}
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
                 masks=masks,
             )
     else:
-        print(f"Running with {n_jobs} workers across {len(tasks)} tasks", flush=True)
+        print(f'Running with {n_jobs} workers across {len(tasks)} tasks', flush=True)
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             futures = [
                 executor.submit(
@@ -320,4 +320,4 @@ if __name__ == "__main__":
                     fut.result()
                 except Exception as e:
                     # Surface exceptions but keep other tasks running
-                    print(f"Task failed: {e}", flush=True)
+                    print(f'Task failed: {e}', flush=True)

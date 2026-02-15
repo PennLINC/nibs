@@ -37,7 +37,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -47,7 +47,7 @@ def collect_run_data(layout, bids_filters):
         'isovf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'isovf',
@@ -58,7 +58,7 @@ def collect_run_data(layout, bids_filters):
         'icvf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'icvf',
@@ -70,7 +70,7 @@ def collect_run_data(layout, bids_filters):
         'mtsat_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
@@ -78,7 +78,7 @@ def collect_run_data(layout, bids_filters):
         'ihmtr_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
@@ -87,7 +87,7 @@ def collect_run_data(layout, bids_filters):
         'dseg_mni': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
@@ -97,7 +97,7 @@ def collect_run_data(layout, bids_filters):
         'mni_mask': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',
@@ -151,9 +151,19 @@ def process_run(layout, run_data, out_dir, temp_dir):
     icvf = ants.image_read(run_data['icvf_mni'])
 
     # Eq. 3 in Berg et al. (2022)
-    mtsat_mvf = ants.image_read(run_data['mtsat_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor') * MTsat_ISOVF_ICVF_scalar
+    mtsat_mvf = (
+        ants.image_read(run_data['mtsat_mni']).resample_image_to_target(
+            isovf, interp_type='nearestNeighbor'
+        )
+        * MTsat_ISOVF_ICVF_scalar
+    )
     # Eq. 4 in Berg et al. (2022)
-    ihmtr_mvf = ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor') * ihMTR_ISOVF_ICVF_scalar
+    ihmtr_mvf = (
+        ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(
+            isovf, interp_type='nearestNeighbor'
+        )
+        * ihMTR_ISOVF_ICVF_scalar
+    )
 
     # Eq 6 in Berg et al. (2022)
     mtsat_fvf = (1 - mtsat_mvf) * (1 - isovf) * icvf
@@ -165,13 +175,19 @@ def process_run(layout, run_data, out_dir, temp_dir):
     imgs['MTsat+ISOVF+ICVF'] = (mtsat_fvf / (mtsat_fvf + mtsat_mvf)) ** 0.5
     imgs['ihMTR+ISOVF+ICVF'] = (ihmtr_fvf / (ihmtr_fvf + ihmtr_mvf)) ** 0.5
 
-    resampled_mni_mask = ants.image_read(run_data['mni_mask']).resample_image_to_target(isovf, interp_type='nearestNeighbor')
+    resampled_mni_mask = ants.image_read(run_data['mni_mask']).resample_image_to_target(
+        isovf, interp_type='nearestNeighbor'
+    )
     mni_mask_file = os.path.join(temp_dir, 'resampled_mni_mask.nii.gz')
     ants.image_write(resampled_mni_mask, mni_mask_file)
-    resampled_mni_t1w = ants.image_read(run_data['t1w_mni']).resample_image_to_target(isovf, interp_type='lanczosWindowedSinc')
+    resampled_mni_t1w = ants.image_read(run_data['t1w_mni']).resample_image_to_target(
+        isovf, interp_type='lanczosWindowedSinc'
+    )
     mni_t1w_file = os.path.join(temp_dir, 'resampled_mni_t1w.nii.gz')
     ants.image_write(resampled_mni_t1w, mni_t1w_file)
-    resampled_mni_dseg = ants.image_read(run_data['dseg_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor')
+    resampled_mni_dseg = ants.image_read(run_data['dseg_mni']).resample_image_to_target(
+        isovf, interp_type='nearestNeighbor'
+    )
     mni_dseg_file = os.path.join(temp_dir, 'resampled_mni_dseg.nii.gz')
     ants.image_write(resampled_mni_dseg, mni_dseg_file)
 

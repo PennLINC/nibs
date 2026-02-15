@@ -33,7 +33,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'isovf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'isovf',
@@ -44,7 +44,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'icvf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'icvf',
@@ -56,7 +56,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'mtsat_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
@@ -64,7 +64,7 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'ihmtr_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
@@ -127,7 +127,9 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'mri',
         'aseg.mgz',
     )
-    assert os.path.isfile(run_data['aseg_fsnative']), f'Aseg file {run_data["aseg_fsnative"]} not found'
+    assert os.path.isfile(run_data['aseg_fsnative']), (
+        f'Aseg file {run_data["aseg_fsnative"]} not found'
+    )
 
     run_data['brain_fsnative'] = os.path.join(
         smriprep_dir,
@@ -137,7 +139,9 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
         'mri',
         'brain.mgz',
     )
-    assert os.path.isfile(run_data['brain_fsnative']), f'Brain file {run_data["brain_fsnative"]} not found'
+    assert os.path.isfile(run_data['brain_fsnative']), (
+        f'Brain file {run_data["brain_fsnative"]} not found'
+    )
 
     return run_data
 
@@ -178,10 +182,14 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     ants.image_write(splenium_mask_dwires, splenium_mask_file_dwires)
 
     # Warp ihMTRAGEref-space MTsat and ihMTR to MNI space
-    mtsat_mni = ants.image_read(run_data['mtsat_mni']).resample_image_to_target(splenium_mask_dwires, interp_type='nearestNeighbor')
+    mtsat_mni = ants.image_read(run_data['mtsat_mni']).resample_image_to_target(
+        splenium_mask_dwires, interp_type='nearestNeighbor'
+    )
     mtsat_mni_file = os.path.join(temp_dir, 'mtsat_mni.nii.gz')
     ants.image_write(mtsat_mni, mtsat_mni_file)
-    ihmtr_mni = ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(splenium_mask_dwires, interp_type='nearestNeighbor')
+    ihmtr_mni = ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(
+        splenium_mask_dwires, interp_type='nearestNeighbor'
+    )
     ihmtr_mni_file = os.path.join(temp_dir, 'ihmtr_mni.nii.gz')
     ants.image_write(ihmtr_mni, ihmtr_mni_file)
 
@@ -196,7 +204,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     brain_img_dwires = ants.apply_transforms(
         fixed=isovf,
         moving=brain_img,
-        transformlist=[run_data['t1w2mni_xfm'],run_data['fs2t1w_xfm']],
+        transformlist=[run_data['t1w2mni_xfm'], run_data['fs2t1w_xfm']],
         interpolator='lanczosWindowedSinc',
     )
     ants.image_write(brain_img_dwires, os.path.join(temp_dir, 'brain_mni_dwires.nii.gz'))
@@ -298,7 +306,10 @@ def main():
                 **base_query,
             )
             if not base_files:
-                print(f'No ihMTR files found for subject {subject_id} and session {session}', flush=True)
+                print(
+                    f'No ihMTR files found for subject {subject_id} and session {session}',
+                    flush=True,
+                )
                 continue
 
             for base_file in base_files:

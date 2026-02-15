@@ -38,9 +38,7 @@ def load_config(config_path=None):
         key: os.path.join(root, path) for key, path in raw['derivatives'].items()
     }
 
-    config['apptainer'] = {
-        key: os.path.join(root, path) for key, path in raw['apptainer'].items()
-    }
+    config['apptainer'] = {key: os.path.join(root, path) for key, path in raw['apptainer'].items()}
 
     config['freesurfer'] = {
         key: os.path.join(root, path) for key, path in raw['freesurfer'].items()
@@ -179,7 +177,7 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_spac
             'suffix': 'xfm',
             'extension': 'txt' if transform.endswith('.txt') else 'mat',
         },
-        dismiss_entities=['acquisition', 'inv', 'reconstruction','mt', 'echo', 'part'],
+        dismiss_entities=['acquisition', 'inv', 'reconstruction', 'mt', 'echo', 'part'],
     )
     shutil.copyfile(transform, transform_file)
 
@@ -263,11 +261,19 @@ def fit_monoexponential(in_files, echo_times):
         report=False,
     )
     # Limit positive infinite values to maximum finite value
-    t2s_limited[np.isinf(t2s_limited) & (t2s_limited > 0)] = np.nanmax(t2s_limited[np.isfinite(t2s_limited)])
-    s0_limited[np.isinf(s0_limited) & (s0_limited > 0)] = np.nanmax(s0_limited[np.isfinite(s0_limited)])
+    t2s_limited[np.isinf(t2s_limited) & (t2s_limited > 0)] = np.nanmax(
+        t2s_limited[np.isfinite(t2s_limited)]
+    )
+    s0_limited[np.isinf(s0_limited) & (s0_limited > 0)] = np.nanmax(
+        s0_limited[np.isfinite(s0_limited)]
+    )
     # Set negative infinite values to minimum finite value
-    t2s_limited[np.isinf(t2s_limited) & (t2s_limited < 0)] = np.nanmin(t2s_limited[np.isfinite(t2s_limited)])
-    s0_limited[np.isinf(s0_limited) & (s0_limited < 0)] = np.nanmin(s0_limited[np.isfinite(s0_limited)])
+    t2s_limited[np.isinf(t2s_limited) & (t2s_limited < 0)] = np.nanmin(
+        t2s_limited[np.isfinite(t2s_limited)]
+    )
+    s0_limited[np.isinf(s0_limited) & (s0_limited < 0)] = np.nanmin(
+        s0_limited[np.isfinite(s0_limited)]
+    )
     # Set nan values to 0
     t2s_limited[np.isnan(t2s_limited)] = 0
     s0_limited[np.isnan(s0_limited)] = 0
@@ -286,7 +292,9 @@ def fit_monoexponential(in_files, echo_times):
     return t2s_s_img, r2s_hz_img, s0_img, r_squared_img
 
 
-def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vmax=None, cmap='Reds'):
+def plot_scalar_map(
+    underlay, overlay, mask, out_file, dseg=None, vmin=None, vmax=None, cmap='Reds'
+):
     import matplotlib.pyplot as plt
     import nibabel as nb
     import numpy as np
@@ -360,7 +368,9 @@ def plot_scalar_map(underlay, overlay, mask, out_file, dseg=None, vmin=None, vma
 
     ax0.set_xlim(xlim)
 
-    xticks = [i for i in xticks if i.get_position()[0] <= xlim[1] and i.get_position()[0] >= xlim[0]]
+    xticks = [
+        i for i in xticks if i.get_position()[0] <= xlim[1] and i.get_position()[0] >= xlim[0]
+    ]
     xticklabels = [xtick.get_text() for xtick in xticks]
     xticks = [xtick.get_position()[0] for xtick in xticks]
     xmin = xlim[0]
@@ -423,7 +433,7 @@ def calculate_r_squared(data, echo_times, s0, t2s):
     residuals = data - s_pred
 
     # Sum of squared residuals per voxel
-    ss_resid = np.sum(residuals ** 2, axis=1)
+    ss_resid = np.sum(residuals**2, axis=1)
 
     # Calculate mean signal per voxel
     mean_signal = np.mean(data, axis=1)

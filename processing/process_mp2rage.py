@@ -45,7 +45,7 @@ def collect_run_data(layout, bids_filters):
         'inv1_magnitude': {
             'part': ['mag', Query.NONE],
             'inv': 1,
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'MP2RAGE',
@@ -54,7 +54,7 @@ def collect_run_data(layout, bids_filters):
         'inv1_phase': {
             'part': 'phase',
             'inv': 1,
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'MP2RAGE',
@@ -63,7 +63,7 @@ def collect_run_data(layout, bids_filters):
         'inv2_magnitude': {
             'part': ['mag', Query.NONE],
             'inv': 2,
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'MP2RAGE',
@@ -72,7 +72,7 @@ def collect_run_data(layout, bids_filters):
         'inv2_phase': {
             'part': 'phase',
             'inv': 2,
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'MP2RAGE',
@@ -82,7 +82,7 @@ def collect_run_data(layout, bids_filters):
         'b1_famp': {
             'datatype': 'fmap',
             'acquisition': 'famp',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'TB1TFL',

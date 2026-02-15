@@ -133,24 +133,24 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
         sepia_dir_prefix = os.path.join(sepia_dir, 'sepia')
         modified_sepia_script = (
-            base_sepia_script.replace("{{ phase_file }}", phase_concat_file)
-            .replace("{{ mag_file }}", mag_concat_file)
-            .replace("{{ output_dir }}", sepia_dir_prefix)
-            .replace("{{ header_file }}", out_header_file)
-            .replace("{{ mask_file }}", run_data['mask'])
+            base_sepia_script.replace('{{ phase_file }}', phase_concat_file)
+            .replace('{{ mag_file }}', mag_concat_file)
+            .replace('{{ output_dir }}', sepia_dir_prefix)
+            .replace('{{ header_file }}', out_header_file)
+            .replace('{{ mask_file }}', run_data['mask'])
         )
 
         out_sepia_script = os.path.join(sepia_dir, f'process_qsm_sepia_{version}.m')
-        with open(out_sepia_script, "w") as fobj:
+        with open(out_sepia_script, 'w') as fobj:
             fobj.write(modified_sepia_script)
 
         subprocess.run(
             [
-                "matlab",
-                "-nodisplay",
-                "-nosplash",
-                "-nodesktop",
-                "-r",
+                'matlab',
+                '-nodisplay',
+                '-nosplash',
+                '-nodesktop',
+                '-r',
                 f"run('{out_sepia_script}'); exit;",
             ],
         )

@@ -44,7 +44,9 @@ if __name__ == '__main__':
                         print(f'\t\t\tNII file not found: {nii_file}')
                         continue
 
-                    new_filename = pa_mese_file.replace('dir-PA', 'dir-AP').replace('run-01', 'run-02')
+                    new_filename = pa_mese_file.replace('dir-PA', 'dir-AP').replace(
+                        'run-01', 'run-02'
+                    )
                     if os.path.isfile(new_filename):
                         print(f'\t\t\tFile already exists: {new_filename}')
                         continue

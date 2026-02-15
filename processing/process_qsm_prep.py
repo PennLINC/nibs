@@ -22,9 +22,8 @@ from pprint import pprint
 
 import ants
 import nibabel as nb
-import numpy as np
 from bids.layout import BIDSLayout, Query
-from nilearn import image, masking
+from nilearn import image
 
 from utils import (
     coregister_to_t1,
@@ -32,7 +31,6 @@ from utils import (
     get_filename,
     load_config,
     plot_coregistration,
-    plot_scalar_map,
 )
 
 CFG = load_config()

@@ -1,4 +1,5 @@
 """Rename Chi-separation outputs to follow BIDS specification."""
+
 import os
 from glob import glob
 
@@ -7,7 +8,7 @@ import nibabel as nb
 from utils import load_config
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     cfg = load_config()
     in_dir = os.path.join(cfg['work_dir'], 'qsm')
     out_dir = cfg['derivatives']['qsm']

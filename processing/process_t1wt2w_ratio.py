@@ -146,7 +146,9 @@ def collect_run_data(layout, bids_filters):
         query = {**bids_filters, **query}
         files = layout.get(**query)
         if key == 'mprage2t1w_xfm' and len(files) == 0:
-            print(f'No MPRAGE T1w coregistration transform found for {query}. Using identity transform.')
+            print(
+                f'No MPRAGE T1w coregistration transform found for {query}. Using identity transform.'
+            )
             run_data[key] = None
             continue
         elif len(files) != 1:

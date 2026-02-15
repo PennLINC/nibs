@@ -1,4 +1,5 @@
 """Convert MP2RAGE DICOMs to NIfTI."""
+
 import json
 import os
 import re

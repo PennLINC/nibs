@@ -1,6 +1,5 @@
 """Plot correlation matrices."""
 
-import json
 import os
 
 import matplotlib.pyplot as plt
@@ -9,7 +8,7 @@ import pandas as pd
 import seaborn as sns
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     grouping_df = pd.read_table('scalar_groups.tsv', index_col='scalar')
 
     to_use = [
@@ -88,9 +87,9 @@ if __name__ == "__main__":
         out_file = os.path.join('../figures', filename.split('.')[0] + '.png')
 
         # Add lines separating networks
-        for idx in break_idx[1:-1]:
-            ax.axes.axvline(idx, color='black')
-            ax.axes.axhline(idx, color='black')
+        # for idx in break_idx[1:-1]:
+        #     ax.axes.axvline(idx, color='black')
+        #     ax.axes.axhline(idx, color='black')
 
         ax.figure.savefig(out_file, bbox_inches='tight')
         plt.close()

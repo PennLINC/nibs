@@ -1,13 +1,12 @@
 import os
-import sys
 from glob import glob
 
 import pandas as pd
 
-CODE_DIR = '/cbica/projects/nibs/code'
-sys.path.append(os.path.join(CODE_DIR, 'analysis'))
-
 from utils import convert_to_multindex, matrix
+
+# Repository root (one level up from analysis/)
+CODE_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
 
 
 if __name__ == '__main__':
@@ -33,8 +32,8 @@ if __name__ == '__main__':
     participants = pd.read_table(participants_file)
     subject_ids = participants['participant_id'].tolist()
     # Move PILOT subjects to the beginning of the list
-    pilots = [sid for sid in subject_ids if "PILOT" in sid]
-    subject_ids = [sid for sid in subject_ids if "PILOT" not in sid]
+    pilots = [sid for sid in subject_ids if 'PILOT' in sid]
+    subject_ids = [sid for sid in subject_ids if 'PILOT' not in sid]
     subject_ids = pilots + subject_ids
 
     columns = []

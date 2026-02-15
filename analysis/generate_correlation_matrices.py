@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     bids_dir = '/cbica/projects/nibs/dset'
     work_dir = '/cbica/projects/nibs/work/correlation_matrices'
     out_dir = '../data'

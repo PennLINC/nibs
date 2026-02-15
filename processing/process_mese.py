@@ -66,7 +66,7 @@ def collect_run_data(layout, bids_filters):
             'echo': Query.ANY,
             'direction': 'AP',
             'run': '01',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'MESE',
@@ -77,7 +77,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'preproc',
@@ -89,7 +89,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'brain',
@@ -101,7 +101,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',
             'suffix': 'mask',
@@ -112,7 +112,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -123,7 +123,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
@@ -134,7 +134,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'from': 'MNI152NLin2009cAsym',
             'to': 'T1w',
             'mode': 'image',
@@ -146,7 +146,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
             'extension': ['.nii', '.nii.gz'],
@@ -155,7 +155,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'from': 'fsnative',
             'to': 'T1w',
             'mode': 'image',
@@ -342,7 +342,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
     in_mese_to_smriprep_affine_xfm = f'{xfm_prefix}0GenericAffine.mat'
     in_mese_to_smriprep_warp_xfm = f'{xfm_prefix}1Warp.nii.gz'
     assert os.path.isfile(in_mese_to_smriprep_warp_xfm), f'{in_mese_to_smriprep_warp_xfm} not found'
-    assert os.path.isfile(in_mese_to_smriprep_affine_xfm), f'{in_mese_to_smriprep_affine_xfm} not found'
+    assert os.path.isfile(in_mese_to_smriprep_affine_xfm), (
+        f'{in_mese_to_smriprep_affine_xfm} not found'
+    )
     shutil.copyfile(in_mese_to_smriprep_warp_xfm, mese_to_smriprep_warp_xfm)
     shutil.copyfile(in_mese_to_smriprep_affine_xfm, mese_to_smriprep_affine_xfm)
 
@@ -505,8 +507,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     )
     skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_files[0])}')
     cmd = (
-        f'singularity run {SYNTHSTRIP_SIF} '
-        f'-i {in_files[0]} -o {skullstripped_file} -m {brain_mask}'
+        f'singularity run {SYNTHSTRIP_SIF} -i {in_files[0]} -o {skullstripped_file} -m {brain_mask}'
     )
     run_command(cmd)
 
@@ -517,10 +518,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             continue
 
         skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_file)}')
-        cmd = (
-            f'singularity run {SYNTHSTRIP_SIF} '
-            f'-i {in_file} -o {skullstripped_file}'
-        )
+        cmd = f'singularity run {SYNTHSTRIP_SIF} -i {in_file} -o {skullstripped_file}'
         run_command(cmd)
         skullstripped_files.append(skullstripped_file)
 
@@ -722,5 +720,5 @@ def main(subject_id):
     print('DONE!')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     _main()

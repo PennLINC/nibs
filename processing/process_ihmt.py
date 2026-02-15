@@ -30,7 +30,14 @@ from ihmt_proc import cli
 from nilearn import image, masking
 from nireports.assembler.report import Report
 
-from utils import coregister_to_t1, get_filename, load_config, plot_coregistration, plot_scalar_map, run_command
+from utils import (
+    coregister_to_t1,
+    get_filename,
+    load_config,
+    plot_coregistration,
+    plot_scalar_map,
+    run_command,
+)
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
@@ -44,7 +51,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'nosat',
             'mt': 'off',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
@@ -54,7 +61,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'singlepos',
             'mt': 'on',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
@@ -64,7 +71,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'singleneg',
             'mt': 'on',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
@@ -74,7 +81,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'dual1',
             'mt': 'on',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
@@ -84,7 +91,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'acquisition': 'dual2',
             'mt': 'on',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'ihMTRAGE',
@@ -93,7 +100,7 @@ def collect_run_data(layout, bids_filters):
         # sMRIPrep T1w-space B1 map from MP2RAGE derivatives
         'b1map': {
             'datatype': 'fmap',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'T1w',
             'suffix': 'TB1map',
             'extension': ['.nii', '.nii.gz'],
@@ -101,7 +108,7 @@ def collect_run_data(layout, bids_filters):
         # sMRIPrep T1w-space T1 map from MP2RAGE derivatives
         't1map': {
             'datatype': 'anat',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'T1w',
             # 'desc': 'B1corrected',
             'desc': Query.NONE,
@@ -113,7 +120,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'preproc',
@@ -125,7 +132,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -136,7 +143,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
@@ -148,7 +155,7 @@ def collect_run_data(layout, bids_filters):
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'from': 'MNI152NLin2009cAsym',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'to': 'T1w',
             'mode': 'image',
             'suffix': 'xfm',
@@ -159,7 +166,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
             'extension': ['.nii', '.nii.gz'],
@@ -169,7 +176,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',
             'suffix': 'mask',
@@ -567,8 +574,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
         print(f'Creating brain mask: {brain_mask}')
         skullstripped_file = os.path.join(skullstripped_dir, os.path.basename(in_file))
         cmd = (
-            f'singularity run {SYNTHSTRIP_SIF} '
-            f'-i {n4_file} -o {skullstripped_file} -m {brain_mask}'
+            f'singularity run {SYNTHSTRIP_SIF} -i {n4_file} -o {skullstripped_file} -m {brain_mask}'
         )
         run_command(cmd)
 
@@ -682,7 +688,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     ants.image_write(sum_mask_img, sum_mask)
 
     # Step 6: Create mask from sum image
-    brain_mask_img = (sum_mask_img > 4)
+    brain_mask_img = sum_mask_img > 4
     brain_mask_file = get_filename(
         name_source=name_sources[0],
         layout=layout,
@@ -802,5 +808,5 @@ def main(subject_id):
     print('DONE!')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     _main()

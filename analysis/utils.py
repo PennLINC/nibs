@@ -35,7 +35,7 @@ def convert_to_multindex(df, separator='--', level_names=None):
                names=['Level_0', 'Level_1'])
     """
     if not isinstance(df.columns, pd.Index):
-        raise ValueError("Input must be a pandas DataFrame")
+        raise ValueError('Input must be a pandas DataFrame')
 
     # Check if columns already contain the separator
     if not any(separator in str(col) for col in df.columns):
@@ -159,7 +159,12 @@ def matrix(
         if sparkline:
             # Create grid with space for parent levels, main plot, and sparkline
             total_rows = parent_levels + 2
-            gs = gridspec.GridSpec(total_rows, 2, width_ratios=width_ratios, height_ratios=[0.1] * (parent_levels + 1) + [1])
+            gs = gridspec.GridSpec(
+                total_rows,
+                2,
+                width_ratios=width_ratios,
+                height_ratios=[0.1] * (parent_levels + 1) + [1],
+            )
             gs.update(wspace=0.08, hspace=0.1)
 
             # Create parent level subplots
@@ -188,8 +193,8 @@ def matrix(
     else:
         if sparkline is not False:
             warnings.warn(
-                "Plotting a sparkline on an existing axis is not currently supported. "
-                "To remove this warning, set sparkline=False."
+                'Plotting a sparkline on an existing axis is not currently supported. '
+                'To remove this warning, set sparkline=False.'
             )
             sparkline = False
         ax0 = ax
@@ -368,11 +373,17 @@ def matrix(
             ha='right',
         )
 
-        ax1.set_xlim([min_completeness - 2, max_completeness + 2])  # Otherwise the circles are cut off.
+        ax1.set_xlim(
+            [min_completeness - 2, max_completeness + 2]
+        )  # Otherwise the circles are cut off.
         ax1.set_ylim(0, height)
         # Modification: offset row values by 0.5 to center the points on the rows.
-        ax1.plot([min_completeness], [min_completeness_index + 0.5], '.', color=color, markersize=10.0)
-        ax1.plot([max_completeness], [max_completeness_index + 0.5], '.', color=color, markersize=10.0)
+        ax1.plot(
+            [min_completeness], [min_completeness_index + 0.5], '.', color=color, markersize=10.0
+        )
+        ax1.plot(
+            [max_completeness], [max_completeness_index + 0.5], '.', color=color, markersize=10.0
+        )
 
         # Remove tick mark (only works after plotting).
         ax1.xaxis.set_ticks_position('none')
