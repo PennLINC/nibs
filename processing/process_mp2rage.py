@@ -227,6 +227,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=wm_seg_img,
         transformlist=[run_data['mni2t1w_xfm']],
+        interpolator='nearestNeighbor',
     )
     wm_seg_t1w_file = get_filename(
         name_source=wm_seg_file,
