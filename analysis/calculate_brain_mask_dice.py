@@ -133,9 +133,7 @@ if __name__ == '__main__':
                 template_transforms = mod_transforms[modality]
                 if template_transforms is not None:
                     transforms = [
-                        os.path.join(
-                            deriv_dir, t.format(subject=subject, session=session)
-                        )
+                        os.path.join(deriv_dir, t.format(subject=subject, session=session))
                         for t in template_transforms
                     ]
 
