@@ -359,7 +359,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     t1map.to_filename(t1map_file)
 
-    r1map_arr = 1 / t1map_arr
+    r1map_arr = np.zeros_like(t1map_arr)
+    np.divide(1, t1map_arr, out=r1map_arr, where=t1map_arr != 0)
     r1map = nb.Nifti1Image(r1map_arr, t1map.affine, t1map.header)
     r1map_file = get_filename(
         name_source=name_source,
@@ -395,7 +396,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     t1map.to_filename(t1map_b1_corrected_file)
 
-    r1map_arr = 1 / t1map_arr
+    r1map_arr = np.zeros_like(t1map_arr)
+    np.divide(1, t1map_arr, out=r1map_arr, where=t1map_arr != 0)
     r1map = nb.Nifti1Image(r1map_arr, t1map.affine, t1map.header)
     r1map_b1_corrected_file = get_filename(
         name_source=name_source,

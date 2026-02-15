@@ -228,7 +228,8 @@ def fit_monoexponential(in_files, echo_times):
 
     t2s_s = t2s_limited / 1000
 
-    r2s_hz = 1 / t2s_s
+    r2s_hz = np.zeros_like(t2s_s)
+    np.divide(1, t2s_s, out=r2s_hz, where=t2s_s != 0)
 
     t2s_s_img = io.new_nii_like(ref_img, t2s_s)
     r2s_hz_img = io.new_nii_like(ref_img, r2s_hz)
