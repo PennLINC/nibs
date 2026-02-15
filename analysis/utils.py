@@ -2,11 +2,6 @@ import warnings
 
 import numpy as np
 import pandas as pd
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from matplotlib import gridspec
-from matplotlib.patches import Polygon
-from missingno.utils import nullity_filter, nullity_sort
 
 
 def convert_to_multindex(df, separator='--', level_names=None):
@@ -132,6 +127,12 @@ def matrix(
     matplotlib.axes.Axes
         The plot axis.
     """
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    from matplotlib import gridspec
+    from matplotlib.patches import Polygon
+    from missingno.utils import nullity_filter, nullity_sort
+
     df = nullity_filter(df, filter=filter, n=n, p=p)
     df = nullity_sort(df, sort=sort, axis='columns')
 
