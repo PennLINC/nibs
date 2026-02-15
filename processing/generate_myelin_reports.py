@@ -11,9 +11,10 @@ from bids.layout import BIDSLayout, Query
 from nilearn import maskers
 from nireports.assembler.report import Report
 
-from utils import get_filename, plot_scalar_map
+from utils import get_filename, load_config, plot_scalar_map
 
-CODE_DIR = '/cbica/projects/nibs/code'
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
 QUERY_LOOKUP = {
     'Query.NONE': Query.NONE,
     'Query.ANY': Query.ANY,
@@ -149,16 +150,16 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    ihmt_dir = '/cbica/projects/nibs/derivatives/ihmt'
-    mp2rage_dir = '/cbica/projects/nibs/derivatives/pymp2rage'
-    qsm_dir = '/cbica/projects/nibs/derivatives/qsm'
-    t1wt2w_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
-    qsirecon_dki_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DIPYDKI'
-    qsirecon_dsi_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DSIStudio'
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    ihmt_dir = CFG['derivatives']['ihmt']
+    mp2rage_dir = CFG['derivatives']['pymp2rage']
+    qsm_dir = CFG['derivatives']['qsm']
+    t1wt2w_dir = CFG['derivatives']['t1wt2w_ratio']
+    qsirecon_dki_dir = CFG['derivatives']['qsirecon_dipydki']
+    qsirecon_dsi_dir = CFG['derivatives']['qsirecon_dsistudio']
 
-    out_dir = '/cbica/projects/nibs/derivatives/myelin'
+    out_dir = CFG['derivatives']['myelin']
     os.makedirs(out_dir, exist_ok=True)
 
     bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_myelin.yml')

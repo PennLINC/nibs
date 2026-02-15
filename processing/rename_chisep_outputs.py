@@ -1,13 +1,17 @@
 """Rename Chi-separation outputs to follow BIDS specification."""
+
 import os
 from glob import glob
 
 import nibabel as nb
 
+from utils import load_config
 
-if __name__ == "__main__":
-    in_dir = '/cbica/projects/nibs/work/qsm'
-    out_dir = '/cbica/projects/nibs/derivatives/qsm'
+
+if __name__ == '__main__':
+    cfg = load_config()
+    in_dir = os.path.join(cfg['work_dir'], 'qsm')
+    out_dir = cfg['derivatives']['qsm']
     subject_dirs = sorted(glob(os.path.join(in_dir, 'sub-*')))
     for subject_dir in subject_dirs:
         subject_id = os.path.basename(subject_dir)

@@ -1,0 +1,30 @@
+# Central path configuration for NIBS processing pipelines.
+# All relative paths are resolved against project_root.
+project_root: /cbica/projects/nibs
+
+bids_dir: dset
+sourcedata:
+  root: sourcedata
+  scitran: sourcedata/scitran/bbl/NIBS_857664
+code_dir: code
+work_dir: work
+
+derivatives:
+  smriprep: derivatives/smriprep
+  pymp2rage: derivatives/pymp2rage
+  ihmt: derivatives/ihmt
+  mese: derivatives/mese
+  qsm: derivatives/qsm
+  t1wt2w_ratio: derivatives/t1wt2w_ratio
+  g_ratio: derivatives/g_ratio
+  myelin: derivatives/myelin
+  qsirecon_dipydki: derivatives/qsirecon/derivatives/qsirecon-DIPYDKI
+  qsirecon_noddi: derivatives/qsirecon/derivatives/qsirecon-NODDI
+  qsirecon_dsistudio: derivatives/qsirecon/derivatives/qsirecon-DSIStudio
+
+apptainer:
+  synthstrip: apptainer/synthstrip-1.7.sif
+
+freesurfer:
+  subjects_dir: derivatives/smriprep/sourcedata/freesurfer
+  license: tokens/freesurfer_license.txt

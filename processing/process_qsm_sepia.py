@@ -21,9 +21,10 @@ from bids.layout import BIDSLayout, Query
 from nilearn import image
 from scipy.io import loadmat, savemat
 
-from utils import get_filename
+from utils import get_filename, load_config
 
-CODE_DIR = '/cbica/projects/nibs/code'
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
 
 
 def collect_run_data(layout, bids_filters):
@@ -94,7 +95,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     layout : BIDSLayout
         BIDSLayout object for the dataset.
     run_data : dict
-        Dictionary containing the paths to the MESE data.
+        Dictionary containing the paths to the QSM data.
     out_dir : str
         Path to the output directory.
     temp_dir : str
@@ -132,27 +133,36 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
         sepia_dir_prefix = os.path.join(sepia_dir, 'sepia')
         modified_sepia_script = (
-            base_sepia_script.replace("{{ phase_file }}", phase_concat_file)
-            .replace("{{ mag_file }}", mag_concat_file)
-            .replace("{{ output_dir }}", sepia_dir_prefix)
-            .replace("{{ header_file }}", out_header_file)
-            .replace("{{ mask_file }}", run_data['mask'])
+            base_sepia_script.replace('{{ phase_file }}', phase_concat_file)
+            .replace('{{ mag_file }}', mag_concat_file)
+            .replace('{{ output_dir }}', sepia_dir_prefix)
+            .replace('{{ header_file }}', out_header_file)
+            .replace('{{ mask_file }}', run_data['mask'])
         )
 
         out_sepia_script = os.path.join(sepia_dir, f'process_qsm_sepia_{version}.m')
-        with open(out_sepia_script, "w") as fobj:
+        with open(out_sepia_script, 'w') as fobj:
             fobj.write(modified_sepia_script)
 
-        subprocess.run(
+        result = subprocess.run(
             [
-                "matlab",
-                "-nodisplay",
-                "-nosplash",
-                "-nodesktop",
-                "-r",
+                'matlab',
+                '-nodisplay',
+                '-nosplash',
+                '-nodesktop',
+                '-r',
                 f"run('{out_sepia_script}'); exit;",
             ],
+            capture_output=True,
+            text=True,
         )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f'MATLAB exited with code {result.returncode}\n'
+                f'stdout:\n{result.stdout}\n'
+                f'stderr:\n{result.stderr}'
+            )
+
         sepia_chimap_file = f'{sepia_dir_prefix}_Chimap.nii.gz'
         if not os.path.isfile(sepia_chimap_file):
             raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')
@@ -186,12 +196,12 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    mese_dir = '/cbica/projects/nibs/derivatives/mese'
-    out_dir = '/cbica/projects/nibs/derivatives/qsm'
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    mese_dir = CFG['derivatives']['mese']
+    out_dir = CFG['derivatives']['qsm']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/sepia'
+    temp_dir = os.path.join(CFG['work_dir'], 'sepia')
     os.makedirs(temp_dir, exist_ok=True)
 
     layout = BIDSLayout(

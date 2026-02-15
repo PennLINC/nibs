@@ -9,8 +9,8 @@ import pandas as pd
 import seaborn as sns
 
 
-if __name__ == "__main__":
-    with open("patterns.json", "r") as f:
+if __name__ == '__main__':
+    with open('patterns.json', 'r') as f:
         patterns = json.load(f)
 
     modalities = list(patterns.keys())

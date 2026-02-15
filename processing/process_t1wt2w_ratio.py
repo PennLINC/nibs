@@ -25,9 +25,10 @@ from bids.layout import BIDSLayout, Query
 from nilearn import masking
 from nireports.assembler.report import Report
 
-from utils import get_filename, plot_coregistration, plot_scalar_map
+from utils import get_filename, load_config, plot_coregistration, plot_scalar_map
 
-CODE_DIR = '/cbica/projects/nibs/code'
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
 
 
 def collect_run_data(layout, bids_filters):
@@ -145,7 +146,9 @@ def collect_run_data(layout, bids_filters):
         query = {**bids_filters, **query}
         files = layout.get(**query)
         if key == 'mprage2t1w_xfm' and len(files) == 0:
-            print(f'No MPRAGE T1w coregistration transform found for {query}. Using identity transform.')
+            print(
+                f'No MPRAGE T1w coregistration transform found for {query}. Using identity transform.'
+            )
             run_data[key] = None
             continue
         elif len(files) != 1:
@@ -158,7 +161,7 @@ def collect_run_data(layout, bids_filters):
 
 
 def process_run(layout, run_data, out_dir, temp_dir):
-    """Process a single MP2RAGE run.
+    """Process a single T1w/T2w ratio run.
 
     Parameters
     ----------
@@ -190,6 +193,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=wm_seg_img,
         transformlist=[run_data['mni2t1w_xfm']],
+        interpolator='nearestNeighbor',
     )
     wm_seg_t1w_file = get_filename(
         name_source=wm_seg_file,
@@ -318,14 +322,14 @@ def process_run(layout, run_data, out_dir, temp_dir):
     inv_transform = reg_output['invtransforms'][0]
     del moving_img, reg_output
 
-    # Write the transform to a file
+    # Write the forward transform to a file
     fwd_transform_file = get_filename(
         name_source=run_data['space_t2w'],
         layout=layout,
         out_dir=out_dir,
         entities={
-            'from': 'T1w',
-            'to': 'SPACET2w',
+            'from': 'SPACET2w',
+            'to': 'T1w',
             'mode': 'image',
             'suffix': 'xfm',
             'extension': '.txt',
@@ -334,6 +338,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     shutil.copyfile(fwd_transform, fwd_transform_file)
 
+    # Write the inverse transform to a file
     inv_transform_file = get_filename(
         name_source=run_data['space_t2w'],
         layout=layout,
@@ -577,18 +582,18 @@ def _get_parser():
 
 
 def _main(argv=None):
-    """Run the process_mese workflow."""
+    """Run the process_t1wt2w_ratio workflow."""
     options = _get_parser().parse_args(argv)
     kwargs = vars(options)
     main(**kwargs)
 
 
 def main(subject_id):
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    out_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    out_dir = CFG['derivatives']['t1wt2w_ratio']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/t1wt2w_ratio'
+    temp_dir = os.path.join(CFG['work_dir'], 't1wt2w_ratio')
     os.makedirs(temp_dir, exist_ok=True)
 
     bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_t1wt2w_ratio.yml')
@@ -660,7 +665,7 @@ def main(subject_id):
             'GeneratedBy': [
                 {
                     'Name': 'Custom code',
-                    'Description': 'Custom Python code combining ANTsPy and pymp2rage.',
+                    'Description': 'Custom Python code using ANTsPy.',
                     'CodeURL': 'https://github.com/PennLINC/nibs',
                 }
             ],

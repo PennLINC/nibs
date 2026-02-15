@@ -178,18 +178,25 @@ def infotodict(
     for s in seqinfo:
         # Anatomical scans (we only want the last one)
         if (
-            ('anat-T1w_acq-MPRAGE' in s.protocol_name) or ('t1_mprage_sag_p3' in s.protocol_name)
-        ) and ('NORM' in s.image_type) and ('DIS3D' in s.image_type):
+            (('anat-T1w_acq-MPRAGE' in s.protocol_name) or ('t1_mprage_sag_p3' in s.protocol_name))
+            and ('NORM' in s.image_type)
+            and ('DIS3D' in s.image_type)
+        ):
             info[t1_mprage_norm].append(s.series_id)
         elif (
             (
                 ('anat-T1w_acq-SPACE' in s.protocol_name)
                 or ('t1_space_sag_p3_iso' in s.protocol_name)
             )
-            and ('NORM' in s.image_type) and ('DIS3D' in s.image_type)
+            and ('NORM' in s.image_type)
+            and ('DIS3D' in s.image_type)
         ):
             info[t1_space_norm].append(s.series_id)
-        elif ('anat-T2w_acq-SPACE' in s.protocol_name) and ('NORM' in s.image_type) and ('DIS3D' in s.image_type):
+        elif (
+            ('anat-T2w_acq-SPACE' in s.protocol_name)
+            and ('NORM' in s.image_type)
+            and ('DIS3D' in s.image_type)
+        ):
             # Some scans have DIS3D enabled. Some don't. I'll let CuBIDS figure that out.
             info[t2_space_norm].append(s.series_id)
         elif ('t2_tse_tra_512' in s.protocol_name) and ('NORM' in s.image_type):

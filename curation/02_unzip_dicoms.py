@@ -7,15 +7,23 @@ import os
 import zipfile
 from glob import glob
 
+import yaml
+
 if __name__ == '__main__':
-    status_file = '/cbica/projects/nibs/code/curation/status_unzip_dicoms.txt'
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+    _sourcedata_scitran = os.path.join(_root, _cfg['sourcedata']['scitran'])
+
+    status_file = os.path.join(_root, _cfg['code_dir'], 'curation', 'status_unzip_dicoms.txt')
     if os.path.exists(status_file):
         with open(status_file, 'r') as f:
             unzipped_subjects = f.read().splitlines()
     else:
         unzipped_subjects = []
 
-    subjects = sorted(glob('/cbica/projects/nibs/sourcedata/scitran/bbl/NIBS_857664/*'))
+    subjects = sorted(glob(os.path.join(_sourcedata_scitran, '*')))
     subjects = [os.path.basename(subject) for subject in subjects]
 
     for subject in subjects:
@@ -24,9 +32,7 @@ if __name__ == '__main__':
             continue
 
         zip_files = sorted(
-            glob(
-                f'/cbica/projects/nibs/sourcedata/scitran/bbl/NIBS_857664/{subject}/*/*/*.dicom.zip'
-            )
+            glob(os.path.join(_sourcedata_scitran, subject, '*', '*', '*.dicom.zip'))
         )
         print(f'Processing {subject}...')
         for zip_file in zip_files:

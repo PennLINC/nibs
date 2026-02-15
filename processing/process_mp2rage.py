@@ -36,7 +36,7 @@ from nilearn import image, masking
 from nireports.assembler.report import Report
 from pymp2rage import MP2RAGE
 
-from utils import coregister_to_t1, get_filename, plot_coregistration, plot_scalar_map
+from utils import coregister_to_t1, get_filename, load_config, plot_coregistration, plot_scalar_map
 
 
 def collect_run_data(layout, bids_filters):
@@ -45,7 +45,7 @@ def collect_run_data(layout, bids_filters):
         'inv1_magnitude': {
             'part': ['mag', Query.NONE],
             'inv': 1,
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'MP2RAGE',
@@ -54,7 +54,7 @@ def collect_run_data(layout, bids_filters):
         'inv1_phase': {
             'part': 'phase',
             'inv': 1,
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'MP2RAGE',
@@ -63,7 +63,7 @@ def collect_run_data(layout, bids_filters):
         'inv2_magnitude': {
             'part': ['mag', Query.NONE],
             'inv': 2,
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'MP2RAGE',
@@ -72,7 +72,7 @@ def collect_run_data(layout, bids_filters):
         'inv2_phase': {
             'part': 'phase',
             'inv': 2,
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'MP2RAGE',
@@ -82,7 +82,7 @@ def collect_run_data(layout, bids_filters):
         'b1_famp': {
             'datatype': 'fmap',
             'acquisition': 'famp',
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': Query.NONE,
             'desc': Query.NONE,
             'suffix': 'TB1TFL',
@@ -227,6 +227,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=wm_seg_img,
         transformlist=[run_data['mni2t1w_xfm']],
+        interpolator='nearestNeighbor',
     )
     wm_seg_t1w_file = get_filename(
         name_source=wm_seg_file,
@@ -359,7 +360,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     t1map.to_filename(t1map_file)
 
-    r1map_arr = 1 / t1map_arr
+    r1map_arr = np.zeros_like(t1map_arr)
+    np.divide(1, t1map_arr, out=r1map_arr, where=t1map_arr != 0)
     r1map = nb.Nifti1Image(r1map_arr, t1map.affine, t1map.header)
     r1map_file = get_filename(
         name_source=name_source,
@@ -395,7 +397,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     t1map.to_filename(t1map_b1_corrected_file)
 
-    r1map_arr = 1 / t1map_arr
+    r1map_arr = np.zeros_like(t1map_arr)
+    np.divide(1, t1map_arr, out=r1map_arr, where=t1map_arr != 0)
     r1map = nb.Nifti1Image(r1map_arr, t1map.affine, t1map.header)
     r1map_b1_corrected_file = get_filename(
         name_source=name_source,
@@ -629,19 +632,20 @@ def _get_parser():
 
 
 def _main(argv=None):
-    """Run the process_mese workflow."""
+    """Run the process_mp2rage workflow."""
     options = _get_parser().parse_args(argv)
     kwargs = vars(options)
     main(**kwargs)
 
 
 def main(subject_id):
-    code_dir = '/cbica/projects/nibs/code'
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    out_dir = '/cbica/projects/nibs/derivatives/pymp2rage'
+    cfg = load_config()
+    code_dir = cfg['code_dir']
+    in_dir = cfg['bids_dir']
+    smriprep_dir = cfg['derivatives']['smriprep']
+    out_dir = cfg['derivatives']['pymp2rage']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/pymp2rage'
+    temp_dir = os.path.join(cfg['work_dir'], 'pymp2rage')
     os.makedirs(temp_dir, exist_ok=True)
 
     bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_mp2rage.yml')

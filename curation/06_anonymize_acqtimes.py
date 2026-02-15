@@ -10,12 +10,17 @@ import os
 from glob import glob
 
 import pandas as pd
+import yaml
 from dateutil import parser
 
 
 if __name__ == '__main__':
-    dset_dir = '/cbica/projects/nibs/dset'
-    # dset_dir = "/Users/taylor/Documents/datasets/nibs/dset"
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
+    dset_dir = os.path.join(_root, _cfg['bids_dir'])
 
     subject_dirs = sorted(glob(os.path.join(dset_dir, 'sub-*')))
     for subject_dir in subject_dirs:
@@ -55,7 +60,7 @@ if __name__ == '__main__':
             ses_acqtime = str(ses_start).replace(' ', 'T')
 
             if ses_name not in sessions_df['session_id'].values:
-                next_row = sessions_df.shape[0] - 1
+                next_row = sessions_df.shape[0]
                 sessions_df.loc[next_row, 'session_id'] = ses_name
 
             sessions_df.loc[sessions_df['session_id'] == ses_name, 'acq_time'] = ses_acqtime

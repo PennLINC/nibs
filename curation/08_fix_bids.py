@@ -1,4 +1,3 @@
-#!/cbica/home/salot/miniconda3/envs/salot/bin/python
 """Fix BIDS files after heudiconv conversion.
 
 The necessary steps are:
@@ -19,10 +18,16 @@ import os
 import shutil
 from glob import glob
 
+import yaml
+
 
 if __name__ == '__main__':
-    dset_dir = '/cbica/projects/nibs/dset'
-    # dset_dir = "/Users/taylor/Documents/datasets/nibs/dset"
+    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
+    with open(_cfg_path) as f:
+        _cfg = yaml.safe_load(f)
+    _root = _cfg['project_root']
+
+    dset_dir = os.path.join(_root, _cfg['bids_dir'])
 
     subject_dirs = sorted(glob(os.path.join(dset_dir, 'sub-*')))
     for subject_dir in subject_dirs:

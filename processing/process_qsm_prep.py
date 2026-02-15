@@ -22,17 +22,18 @@ from pprint import pprint
 
 import ants
 import nibabel as nb
-import numpy as np
 from bids.layout import BIDSLayout, Query
-from nilearn import image, masking
+from nilearn import image
 
 from utils import (
     coregister_to_t1,
     fit_monoexponential,
     get_filename,
+    load_config,
     plot_coregistration,
-    plot_scalar_map,
 )
+
+CFG = load_config()
 
 
 def collect_run_data(layout, bids_filters):
@@ -183,11 +184,9 @@ def process_run(layout, run_data, out_dir):
     layout : BIDSLayout
         BIDSLayout object for the dataset.
     run_data : dict
-        Dictionary containing the paths to the MESE data.
+        Dictionary containing the paths to the QSM data.
     out_dir : str
         Path to the output directory.
-    temp_dir : str
-        Path to the temporary directory.
     """
     name_source = run_data['megre_mag'][0]
 
@@ -213,6 +212,7 @@ def process_run(layout, run_data, out_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=wm_seg_img,
         transformlist=[run_data['mni2t1w_xfm']],
+        interpolator='nearestNeighbor',
     )
     wm_seg_t1w_file = get_filename(
         name_source=wm_seg_file,
@@ -387,11 +387,11 @@ def _main(argv=None):
 
 
 def main(subject_id):
-    code_dir = '/cbica/projects/nibs/code'
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    mese_dir = '/cbica/projects/nibs/derivatives/mese'
-    out_dir = '/cbica/projects/nibs/derivatives/qsm'
+    code_dir = CFG['code_dir']
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    mese_dir = CFG['derivatives']['mese']
+    out_dir = CFG['derivatives']['qsm']
     os.makedirs(out_dir, exist_ok=True)
 
     layout = BIDSLayout(

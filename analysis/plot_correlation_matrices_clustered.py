@@ -19,7 +19,7 @@ def mirror_linkage(Z):
     return Z_flipped
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     grouping_df = pd.read_table('scalar_groups.tsv', index_col='scalar')
 
     names = {
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         'Deep Gray Matter': 'mean_deep_gm_corr_mat.tsv',
     }
     groups = list(grouping_df['group'].unique())
-    pal = sns.color_palette("hls", len(groups))
+    pal = sns.color_palette('hls', len(groups))
     color_mapper = {}
     for i_row, row in grouping_df.iterrows():
         group_idx = groups.index(row['group'])
@@ -83,7 +83,7 @@ if __name__ == "__main__":
         ax.ax_heatmap.set_yticks(ticks)
         ax.ax_heatmap.set_yticklabels(ax.data2d.index, fontsize=6)
         ax.ax_heatmap.set_ylabel(None)
-        #ax.ax_heatmap.set_title(title, fontsize=16)
+        # ax.ax_heatmap.set_title(title, fontsize=16)
         out_file = os.path.join('../figures', filename.split('.')[0] + '_clustered.png')
         ax.figure.suptitle(title, fontsize=36, y=1.02)
         ax.figure.savefig(out_file, bbox_inches='tight')
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             ax.ax_heatmap.set_yticks(ticks)
             ax.ax_heatmap.set_yticklabels(ax.data2d.index, fontsize=6)
             ax.ax_heatmap.set_ylabel(None)
-            #ax.ax_heatmap.set_title(title, fontsize=16)
+            # ax.ax_heatmap.set_title(title, fontsize=16)
             out_file = os.path.join('../figures', filename.split('.')[0] + '_clustered_rv.png')
             ax.figure.suptitle(title, fontsize=36, y=1.02)
             ax.figure.savefig(out_file, bbox_inches='tight')

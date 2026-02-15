@@ -21,9 +21,10 @@ from bids.layout import BIDSLayout, Query
 from nilearn import masking
 from nireports.assembler.report import Report
 
-from utils import get_filename, plot_scalar_map
+from utils import get_filename, load_config, plot_scalar_map
 
-CODE_DIR = '/cbica/projects/nibs/code'
+CFG = load_config()
+CODE_DIR = CFG['code_dir']
 # Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
 MTsat_ISOVF_ICVF_scalar = 0.0936729130079245
 ihMTR_ISOVF_ICVF_scalar = 2.2593688403395906
@@ -36,7 +37,7 @@ def collect_run_data(layout, bids_filters):
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'preproc',
             'suffix': 'T1w',
@@ -46,7 +47,7 @@ def collect_run_data(layout, bids_filters):
         'isovf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'isovf',
@@ -57,7 +58,7 @@ def collect_run_data(layout, bids_filters):
         'icvf_mni': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'model': 'noddi',
             'param': 'icvf',
@@ -69,7 +70,7 @@ def collect_run_data(layout, bids_filters):
         'mtsat_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTsatB1sq',
             'extension': ['.nii', '.nii.gz'],
@@ -77,7 +78,7 @@ def collect_run_data(layout, bids_filters):
         'ihmtr_mni': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'ihMTR',
             'extension': ['.nii', '.nii.gz'],
@@ -86,7 +87,7 @@ def collect_run_data(layout, bids_filters):
         'dseg_mni': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'suffix': 'dseg',
@@ -96,7 +97,7 @@ def collect_run_data(layout, bids_filters):
         'mni_mask': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
-       	    'reconstruction': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'space': 'MNI152NLin2009cAsym',
             'desc': 'brain',
@@ -131,7 +132,7 @@ def collect_run_data(layout, bids_filters):
 
 
 def process_run(layout, run_data, out_dir, temp_dir):
-    """Process a single MP2RAGE run.
+    """Process a single g-ratio run.
 
     Parameters
     ----------
@@ -150,9 +151,19 @@ def process_run(layout, run_data, out_dir, temp_dir):
     icvf = ants.image_read(run_data['icvf_mni'])
 
     # Eq. 3 in Berg et al. (2022)
-    mtsat_mvf = ants.image_read(run_data['mtsat_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor') * MTsat_ISOVF_ICVF_scalar
+    mtsat_mvf = (
+        ants.image_read(run_data['mtsat_mni']).resample_image_to_target(
+            isovf, interp_type='nearestNeighbor'
+        )
+        * MTsat_ISOVF_ICVF_scalar
+    )
     # Eq. 4 in Berg et al. (2022)
-    ihmtr_mvf = ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor') * ihMTR_ISOVF_ICVF_scalar
+    ihmtr_mvf = (
+        ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(
+            isovf, interp_type='nearestNeighbor'
+        )
+        * ihMTR_ISOVF_ICVF_scalar
+    )
 
     # Eq 6 in Berg et al. (2022)
     mtsat_fvf = (1 - mtsat_mvf) * (1 - isovf) * icvf
@@ -164,13 +175,19 @@ def process_run(layout, run_data, out_dir, temp_dir):
     imgs['MTsat+ISOVF+ICVF'] = (mtsat_fvf / (mtsat_fvf + mtsat_mvf)) ** 0.5
     imgs['ihMTR+ISOVF+ICVF'] = (ihmtr_fvf / (ihmtr_fvf + ihmtr_mvf)) ** 0.5
 
-    resampled_mni_mask = ants.image_read(run_data['mni_mask']).resample_image_to_target(isovf, interp_type='nearestNeighbor')
+    resampled_mni_mask = ants.image_read(run_data['mni_mask']).resample_image_to_target(
+        isovf, interp_type='nearestNeighbor'
+    )
     mni_mask_file = os.path.join(temp_dir, 'resampled_mni_mask.nii.gz')
     ants.image_write(resampled_mni_mask, mni_mask_file)
-    resampled_mni_t1w = ants.image_read(run_data['t1w_mni']).resample_image_to_target(isovf, interp_type='lanczosWindowedSinc')
+    resampled_mni_t1w = ants.image_read(run_data['t1w_mni']).resample_image_to_target(
+        isovf, interp_type='lanczosWindowedSinc'
+    )
     mni_t1w_file = os.path.join(temp_dir, 'resampled_mni_t1w.nii.gz')
     ants.image_write(resampled_mni_t1w, mni_t1w_file)
-    resampled_mni_dseg = ants.image_read(run_data['dseg_mni']).resample_image_to_target(isovf, interp_type='nearestNeighbor')
+    resampled_mni_dseg = ants.image_read(run_data['dseg_mni']).resample_image_to_target(
+        isovf, interp_type='nearestNeighbor'
+    )
     mni_dseg_file = os.path.join(temp_dir, 'resampled_mni_dseg.nii.gz')
     ants.image_write(resampled_mni_dseg, mni_dseg_file)
 
@@ -221,22 +238,22 @@ def _get_parser():
 
 
 def _main(argv=None):
-    """Run the process_mese workflow."""
+    """Run the process_g_ratio workflow."""
     options = _get_parser().parse_args(argv)
     kwargs = vars(options)
     main(**kwargs)
 
 
 def main(subject_id):
-    in_dir = '/cbica/projects/nibs/dset'
-    smriprep_dir = '/cbica/projects/nibs/derivatives/smriprep'
-    dipydki_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-DIPYDKI'
-    noddi_dir = '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-NODDI'
-    ihmt_dir = '/cbica/projects/nibs/derivatives/ihmt'
-    t1wt2w_dir = '/cbica/projects/nibs/derivatives/t1wt2w_ratio'
-    out_dir = '/cbica/projects/nibs/derivatives/g_ratio'
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    dipydki_dir = CFG['derivatives']['qsirecon_dipydki']
+    noddi_dir = CFG['derivatives']['qsirecon_noddi']
+    ihmt_dir = CFG['derivatives']['ihmt']
+    t1wt2w_dir = CFG['derivatives']['t1wt2w_ratio']
+    out_dir = CFG['derivatives']['g_ratio']
     os.makedirs(out_dir, exist_ok=True)
-    temp_dir = '/cbica/projects/nibs/work/g_ratio'
+    temp_dir = os.path.join(CFG['work_dir'], 'g_ratio')
     os.makedirs(temp_dir, exist_ok=True)
 
     bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_g_ratio.yml')
