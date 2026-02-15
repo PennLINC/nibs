@@ -11,8 +11,6 @@ sys.modules.setdefault('ants', MagicMock())
 sys.modules.setdefault('nilearn', MagicMock())
 sys.modules.setdefault('nilearn.masking', MagicMock())
 sys.modules.setdefault('nilearn.plotting', MagicMock())
-sys.modules.setdefault('bids', MagicMock())
-sys.modules.setdefault('bids.layout', MagicMock())
 
 with patch(
     'utils.load_config',

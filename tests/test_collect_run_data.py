@@ -31,8 +31,6 @@ for _mod_name in [
     'nireports.reportlets',
     'nireports.reportlets.utils',
     'pymp2rage',
-    'bids',
-    'bids.layout',
 ]:
     sys.modules.setdefault(_mod_name, MagicMock())
 
