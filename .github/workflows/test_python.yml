@@ -1,0 +1,36 @@
+name: Run Python tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements_test.txt
+          python -m pip install pyyaml numpy pandas pybids
+
+      - name: Collect tests (sanity gate)
+        run: python -m pytest tests/ --co -q
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
