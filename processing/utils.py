@@ -8,7 +8,7 @@ def run_command(command, env=None):
     """
     import subprocess
 
-    merged_env = os.environ
+    merged_env = os.environ.copy()
     if env:
         merged_env.update(env)
 
