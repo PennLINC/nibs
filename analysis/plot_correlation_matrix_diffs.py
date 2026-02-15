@@ -34,8 +34,8 @@ if __name__ == '__main__':
             index_col='Image',
         )
         df = df1.copy()
-        df.loc[:, :] = df1.values - df2.values
-        df = df.apply(np.tanh)
+        # Convert from Fisher z back to r, then compute the difference
+        df.loc[:, :] = np.tanh(df1.values) - np.tanh(df2.values)
         arr = df.values
         np.fill_diagonal(arr, 0)
         df.loc[:, :] = arr

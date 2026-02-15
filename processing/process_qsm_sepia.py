@@ -95,7 +95,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     layout : BIDSLayout
         BIDSLayout object for the dataset.
     run_data : dict
-        Dictionary containing the paths to the MESE data.
+        Dictionary containing the paths to the QSM data.
     out_dir : str
         Path to the output directory.
     temp_dir : str
@@ -144,7 +144,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         with open(out_sepia_script, 'w') as fobj:
             fobj.write(modified_sepia_script)
 
-        subprocess.run(
+        result = subprocess.run(
             [
                 'matlab',
                 '-nodisplay',
@@ -153,7 +153,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
                 '-r',
                 f"run('{out_sepia_script}'); exit;",
             ],
+            capture_output=True,
+            text=True,
         )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f'MATLAB exited with code {result.returncode}\n'
+                f'stdout:\n{result.stdout}\n'
+                f'stderr:\n{result.stderr}'
+            )
+
         sepia_chimap_file = f'{sepia_dir_prefix}_Chimap.nii.gz'
         if not os.path.isfile(sepia_chimap_file):
             raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')

@@ -249,7 +249,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # nosat_mt-off, singlepos_mt-on, dual1_mt-on, singleneg_mt-on, dual2_mt-on
     filetypes = ['m0', 'mtplus', 'mtdual1', 'mtminus', 'mtdual2']
     in_files = [run_data[filetype] for filetype in filetypes]
-    concat_ihmt_img = image.concat_imgs([in_files])
+    concat_ihmt_img = image.concat_imgs(in_files)
     concat_ihmt_file = os.path.join(temp_dir, f'concat_{name_base}')
     concat_ihmt_img.to_filename(concat_ihmt_file)
 

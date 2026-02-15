@@ -130,13 +130,14 @@ if __name__ == '__main__':
                     # Binarize MD image
                     mask = (mask > 0).astype('uint32')
 
-                transforms = mod_transforms[modality]
-                if transforms is not None:
-                    transforms[0] = os.path.join(deriv_dir, transforms[0].format(subject=subject))
-                    if len(transforms) > 1:
-                        transforms[1] = os.path.join(
-                            deriv_dir, transforms[1].format(subject=subject, session=session)
+                template_transforms = mod_transforms[modality]
+                if template_transforms is not None:
+                    transforms = [
+                        os.path.join(
+                            deriv_dir, t.format(subject=subject, session=session)
                         )
+                        for t in template_transforms
+                    ]
 
                     mask = ants.apply_transforms(
                         fixed=smriprep_mask,

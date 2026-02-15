@@ -238,7 +238,7 @@ def fit_monoexponential(in_files, echo_times):
     in_files : list of str
         List of paths to MESE data.
     echo_times : list of float
-        List of echo times in seconds.
+        List of echo times in milliseconds.
 
     Returns
     -------
@@ -417,7 +417,7 @@ def calculate_r_squared(data, echo_times, s0, t2s):
     data : numpy.ndarray of shape (n_samples, n_echos)
         Data to calculate R-squared for.
     echo_times : list of float
-        Echo times in seconds.
+        Echo times in milliseconds.
     s0 : numpy.ndarray of shape (n_samples,)
         S0 values from a monoexponential fit of echo times against the data.
     t2s : numpy.ndarray of shape (n_samples,)
