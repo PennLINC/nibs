@@ -1,27 +1,27 @@
 participant_id	Session 01--MPRAGE T1w	Session 01--SPACE T1w	Session 01--SPACE T2w	Session 01--MP2RAGE	Session 01--MP2RAGE-P	Session 01--dMRI	Session 01--MEGRE	Session 01--ihMTRAGE	Session 01--MESE	Session 01--B1+	Session 02--MPRAGE T1w	Session 02--SPACE T1w	Session 02--SPACE T2w	Session 02--MP2RAGE	Session 02--MP2RAGE-P	Session 02--dMRI	Session 02--MEGRE	Session 02--ihMTRAGE	Session 02--MESE	Session 02--B1+
-sub-22449	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True
-sub-24037	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-24762	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60476	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True
-sub-60501	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60505	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60514	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60515	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True
-sub-60516	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60517	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True
-sub-60518	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60519	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60520	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60522	True	True	True	True		True	True	True	True	True		True	True	True		True	True		True	
-sub-60526	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60531	True	True	True	True		True	True	True	True	True	True	True	True	True		True	True			
-sub-60532	True	True	True	True		True	True	True	True	True	True	True	True	True	True	True	True	True	True	True
-sub-60545	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True		True	True	True
-sub-60553	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True
-sub-60556	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True
-sub-60563	True	True	True	True	True	True	True	True	True	True	True	True	True	True		True	True	True	True	True
-sub-60641	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True	True
-sub-PILOT01		True						True												
-sub-PILOT02		True	True	True		True	True	True		True										
-sub-PILOT03	True	True	True	True		True	True	True	True	True										
-sub-PILOT04		True		True		True	True	True	True	True										
+sub-22449	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1
+sub-24037	1	1	1	1		1	1	1	1	1	1	1	1	1		1	1	1	0.5	1
+sub-24762	1	1	1	1		1	1	1	1	1	1	1	1	1		1	1	1	1	1
+sub-60476	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1
+sub-60501	1	1	1	1		1	1	1	1	1	1	1	1	1		1	1	1	1	1
+sub-60505	1	1	1	1		1	1	1	1	1	1	1	1	1		1	1	1	1	1
+sub-60514	1	1	1	1		1	1	1	1	1	1	1	1	1		1	1	1	1	1
+sub-60515	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1
+sub-60516	1	1	1	1		1	1	1	1	1	1	1	1	1		1	1	1	1	1
+sub-60517	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1
+sub-60518	1	1	1	1		1	1	1	0.5	1	1	1	1	1		1	1	1	1	1
+sub-60519	1	1	1	1		1	1	1	1	1	1	1	1	1		1	1	1	0.5	1
+sub-60520	1	1	1	1		1	1	1	1	1	1	1	1	1		1	1	1	1	1
+sub-60522	1	1	1	1		1	1	1	1	1		1	1	1		1	1		1
+sub-60526	1	1	1	1		1	1	1	0.5	1	1	1	1	1		1	1	1	1	1
+sub-60531	1	1	1	1		1	1	1	1	1	1	1	1	1		1	1
+sub-60532	1	1	1	1		1	1	1	1	1	1	1	1	1	1	1	1	1	1	1
+sub-60545	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1		1	1	1
+sub-60553	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1
+sub-60556	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1
+sub-60563	1	1	1	1	1	1	1	1	1	1	1	1	1	1		1	1	1	1	1
+sub-60641	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1
+sub-PILOT01		1						1
+sub-PILOT02		1	1	1		1	1	1		1
+sub-PILOT03	1	1	1	1		1	1	1	1	1
+sub-PILOT04		1		1		1	1	1	1	1

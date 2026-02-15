@@ -2,6 +2,7 @@ import os
 from glob import glob
 
 import pandas as pd
+import seaborn as sns
 import yaml
 
 from utils import convert_to_multindex, matrix
@@ -21,7 +22,6 @@ if __name__ == '__main__':
         'SPACE T1w': ['anat/*acq-SPACE*T1w.nii.gz'],
         'SPACE T2w': ['anat/*acq-SPACE*T2w.nii.gz'],
         'MP2RAGE': ['anat/*part-mag*MP2RAGE.nii.gz'],
-        'MP2RAGE-P': ['anat/*part-phase*MP2RAGE.nii.gz'],
         'dMRI': ['dwi/*dir-AP*dwi.nii.gz', 'dwi/*dir-PA*dwi.nii.gz'],
         'MEGRE': ['anat/*MEGRE.nii.gz'],
         'ihMTRAGE': ['anat/*ihMTRAGE.nii.gz'],
@@ -54,12 +54,24 @@ if __name__ == '__main__':
     for subject_id in subject_ids:
         for ses_name, ses_id in SESSIONS.items():
             for modality_name, modality_patterns in PATTERNS.items():
-                found = True
+                found = 1
                 for modality_pattern in modality_patterns:
                     files = sorted(glob(os.path.join(in_dir, subject_id, ses_id, modality_pattern)))
                     if not files:
-                        found = None
+                        found = 0
                         break
+
+                if modality_name == 'MP2RAGE':
+                    if os.path.isfile(files[0].replace('part-mag', 'part-phase')):
+                        found = 1
+                    else:
+                        found = 0.5
+
+                if modality_name == 'MESE':
+                    if os.path.isfile(files[0].replace('dir-AP', 'dir-PA')):
+                        found = 1
+                    else:
+                        found = 0.5
 
                 df.loc[subject_id, f'{ses_name}--{modality_name}'] = found
 
@@ -70,8 +82,9 @@ if __name__ == '__main__':
         index_label='participant_id',
     )
 
+    pal = sns.color_palette('husl', len(PATTERNS.keys())) * 2
     df = convert_to_multindex(df)
-    ax = matrix(df)
+    ax = matrix(df, palette=pal)
     ax.figure.savefig(
         os.path.join(CODE_DIR, 'figures', 'missingness.png'),
         bbox_inches='tight',

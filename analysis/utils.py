@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+from matplotlib.patches import Polygon
 from missingno.utils import nullity_filter, nullity_sort
 
 
@@ -138,15 +139,15 @@ def matrix(
     width = df.shape[1]
 
     # z is the color-mask array, g is a NxNx3 matrix. Apply the z color-mask to set the RGB of each pixel.
-    z = df.notnull().values
+    z = df.values
     g = np.zeros((height, width, 3), dtype=np.float32)
 
     g[z < 0.5] = [1, 1, 1]
-    g[z > 0.5] = color
+    g[z >= 0.5] = color
     # TDS
     if palette is not None:
         for i_col in range(width):
-            g[z[:, i_col] > 0.5, i_col] = palette[i_col]
+            g[z[:, i_col] >= 0.5, i_col] = palette[i_col]
 
     # Set up the matplotlib grid layout. A unary subplot if no sparkline, a left-right splot if yes sparkline.
     if ax is None:
@@ -202,6 +203,26 @@ def matrix(
 
     # Create the nullity plot.
     ax0.imshow(g, interpolation='none')
+
+    # Overlay a diagonal triangle on cells where the diagonal value is neither 0 nor 1
+    values_array = df.values
+    for i_row in range(height):
+        for j_col in range(width):
+            v = values_array[i_row, j_col]
+            if not np.isclose(v, 0.0) and not np.isclose(v, 1.0):
+                # Coordinates for the lower-right triangle of cell (i_row, i_col)
+                x0, x1 = j_col - 0.5, j_col + 0.5
+                y0, y1 = i_row - 0.5, i_row + 0.5
+                tri = Polygon(
+                    [(x1, y0), (x1, y1), (x0, y1)],
+                    closed=True,
+                    fill=True,
+                    facecolor='white',
+                    edgecolor='white',
+                    linewidth=1.5,
+                    zorder=3,
+                )
+                ax0.add_patch(tri)
 
     # Remove extraneous default visual elements.
     ax0.set_aspect('auto')
@@ -309,9 +330,9 @@ def matrix(
 
     if sparkline:
         # Calculate row-wise completeness for the sparkline.
-        completeness_srs = df.notnull().astype(bool).sum(axis=1)
+        completeness_srs = df.values.sum(axis=1)
         x_domain = list(range(0, height))
-        y_range = list(reversed(completeness_srs.values))
+        y_range = list(reversed(completeness_srs))
         min_completeness = min(y_range)
         max_completeness = max(y_range)
         min_completeness_index = y_range.index(min_completeness)
