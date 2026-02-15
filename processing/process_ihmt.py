@@ -540,7 +540,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     transforms : list of str
         List of transform files.
     """
-    # Step 2: Skull-strip each image.
+    # Step 1: Skull-strip each image.
     skullstripped_files = []
     brain_masks = []
     n4_dir = os.path.join(temp_dir, 'n4')
@@ -555,7 +555,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
         n4_file = os.path.join(n4_dir, os.path.basename(in_file))
         ants.image_write(n4_img, n4_file)
 
-        # Step 1: Create a brain mask from the first image with SynthStrip.
+        # Step 1a: Create a brain mask from the first image with SynthStrip.
         brain_mask = get_filename(
             name_source=in_file,
             layout=layout,
@@ -621,7 +621,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     )
     ants.image_write(template_img, template_file)
 
-    # Step 5: Apply transforms to original images.
+    # Step 4: Apply transforms to original images.
     for i_file, in_file in enumerate(in_files):
         transform_file = transforms[i_file]
         out_file = get_filename(
@@ -669,7 +669,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
         else:
             sum_mask_img = sum_mask_img + reg_img
 
-    # Step 6: Create sum image
+    # Step 5: Create sum image
     sum_mask = get_filename(
         name_source=name_sources[0],
         layout=layout,
@@ -679,7 +679,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     )
     ants.image_write(sum_mask_img, sum_mask)
 
-    # Step 7: Create mask from sum image
+    # Step 6: Create mask from sum image
     brain_mask_img = (sum_mask_img > 4)
     brain_mask_file = get_filename(
         name_source=name_sources[0],
@@ -704,7 +704,7 @@ def _get_parser():
 
 
 def _main(argv=None):
-    """Run the process_mese workflow."""
+    """Run the process_ihmt workflow."""
     options = _get_parser().parse_args(argv)
     kwargs = vars(options)
     main(**kwargs)

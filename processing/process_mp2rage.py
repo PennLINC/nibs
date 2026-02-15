@@ -629,7 +629,7 @@ def _get_parser():
 
 
 def _main(argv=None):
-    """Run the process_mese workflow."""
+    """Run the process_mp2rage workflow."""
     options = _get_parser().parse_args(argv)
     kwargs = vars(options)
     main(**kwargs)

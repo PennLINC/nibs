@@ -131,7 +131,7 @@ def collect_run_data(layout, bids_filters):
 
 
 def process_run(layout, run_data, out_dir, temp_dir):
-    """Process a single MP2RAGE run.
+    """Process a single g-ratio run.
 
     Parameters
     ----------
@@ -221,7 +221,7 @@ def _get_parser():
 
 
 def _main(argv=None):
-    """Run the process_mese workflow."""
+    """Run the process_g_ratio workflow."""
     options = _get_parser().parse_args(argv)
     kwargs = vars(options)
     main(**kwargs)

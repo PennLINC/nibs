@@ -142,19 +142,25 @@ def collect_run_data(layout, bids_filters, smriprep_dir):
 
 
 def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
-    """Process a single MP2RAGE run.
+    """Calculate mean splenium values for g-ratio scaling factor estimation.
 
     Parameters
     ----------
+    layout : BIDSLayout
+        BIDSLayout object.
     run_data : dict
         Dictionary of run data.
+    out_dir : str
+        Directory to write output files.
     temp_dir : str
         Directory to write temporary files.
+    bids_filters : dict
+        BIDS entities for the current run.
 
     Returns
     -------
-    splenium_g_ratios : np.ndarray of shape (4, n_voxels)
-        Array of g-ratios in the splenium.
+    splenium_values : pandas.Series
+        Mean values of ISOVF, ICVF, MTsat, and ihMTR in the splenium.
     """
     # Load images for target resolutions
     isovf = ants.image_read(run_data['isovf_mni'])  # DWI resolution (1.7 mm isotropic)
@@ -299,7 +305,7 @@ def main():
                 try:
                     run_data = collect_run_data(layout, entities, smriprep_dir=smriprep_dir)
                 except ValueError as e:
-                    print(f'Failed {base_file}, flush=True')
+                    print(f'Failed {base_file}', flush=True)
                     print(e, flush=True)
                     continue
 

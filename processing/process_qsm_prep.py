@@ -183,11 +183,9 @@ def process_run(layout, run_data, out_dir):
     layout : BIDSLayout
         BIDSLayout object for the dataset.
     run_data : dict
-        Dictionary containing the paths to the MESE data.
+        Dictionary containing the paths to the QSM data.
     out_dir : str
         Path to the output directory.
-    temp_dir : str
-        Path to the temporary directory.
     """
     name_source = run_data['megre_mag'][0]
 

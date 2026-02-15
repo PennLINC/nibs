@@ -158,7 +158,7 @@ def collect_run_data(layout, bids_filters):
 
 
 def process_run(layout, run_data, out_dir, temp_dir):
-    """Process a single MP2RAGE run.
+    """Process a single T1w/T2w ratio run.
 
     Parameters
     ----------
@@ -577,7 +577,7 @@ def _get_parser():
 
 
 def _main(argv=None):
-    """Run the process_mese workflow."""
+    """Run the process_t1wt2w_ratio workflow."""
     options = _get_parser().parse_args(argv)
     kwargs = vars(options)
     main(**kwargs)
@@ -660,7 +660,7 @@ def main(subject_id):
             'GeneratedBy': [
                 {
                     'Name': 'Custom code',
-                    'Description': 'Custom Python code combining ANTsPy and pymp2rage.',
+                    'Description': 'Custom Python code using ANTsPy.',
                     'CodeURL': 'https://github.com/PennLINC/nibs',
                 }
             ],
