@@ -3,50 +3,20 @@
 import json
 import os
 import re
+import sys
 from glob import glob
 
 
-def run_command(command, env=None):
-    """Run a given shell command with certain environment variables set.
-
-    Copied from XCP-D.
-    """
-    import subprocess
-
-    merged_env = os.environ
-    if env:
-        merged_env.update(env)
-
-    process = subprocess.Popen(
-        command.split(),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        shell=False,
-        env=merged_env,
-    )
-    while True:
-        line = process.stdout.readline()
-        line = str(line, 'utf-8')[:-1]
-        print(line)
-        if line == '' and process.poll() is not None:
-            break
-
-    if process.returncode != 0:
-        raise RuntimeError(
-            f'Non zero return code: {process.returncode}\n{command}\n\n{process.stdout.read()}'
-        )
-
-
 if __name__ == '__main__':
-    import yaml
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'processing'))
+    from config import load_config
+    from utils import run_command
 
-    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-    with open(_cfg_path) as f:
-        _cfg = yaml.safe_load(f)
-    _root = _cfg['project_root']
+    _cfg = load_config()
 
-    in_dir = os.path.join(_root, _cfg['sourcedata']['scitran'])
-    out_dir = os.path.join(_root, _cfg['bids_dir'])
+    in_dir = _cfg['sourcedata']['scitran']
+    out_dir = _cfg['bids_dir']
 
     subses_dirs = sorted(glob(os.path.join(in_dir, '*_*')))
     for subses_dir in subses_dirs:

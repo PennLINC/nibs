@@ -13,6 +13,8 @@ The first step is to calculate the splenium mask,
 then calculate mean FVF and MVF in the splenium across subjects.
 """
 
+from __future__ import annotations
+
 import os
 
 import ants
@@ -27,7 +29,23 @@ CFG = load_config()
 CODE_DIR = CFG['code_dir']
 
 
-def collect_run_data(layout, bids_filters, smriprep_dir):
+def collect_run_data(layout: object, bids_filters: dict, smriprep_dir: str) -> dict[str, str]:
+    """Collect ISOVF, ICVF, and myelin-sensitive maps for scaling factor calibration.
+
+    Parameters
+    ----------
+    layout : bids.BIDSLayout
+        BIDSLayout indexing the dataset and derivatives.
+    bids_filters : dict
+        BIDS entity filters (e.g., subject, session, run) to narrow the query.
+    smriprep_dir : str
+        Path to the sMRIPrep derivatives directory.
+
+    Returns
+    -------
+    run_data : dict
+        Mapping of descriptive keys to resolved file paths.
+    """
     queries = {
         # MNI-space ISOVF and ICVF maps from QSIRecon
         'isovf_mni': {

@@ -16,6 +16,8 @@ Notes:
 - This must be run after sMRIPrep and process_mese.py.
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 from pprint import pprint
@@ -36,7 +38,21 @@ from utils import (
 CFG = load_config()
 
 
-def collect_run_data(layout, bids_filters):
+def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
+    """Collect required input files for QSM preparation processing.
+
+    Parameters
+    ----------
+    layout : bids.BIDSLayout
+        BIDSLayout indexing the dataset and derivatives.
+    bids_filters : dict
+        BIDS entity filters (e.g., subject, session, run) to narrow the query.
+
+    Returns
+    -------
+    run_data : dict
+        Mapping of descriptive keys to resolved file paths.
+    """
     queries = {
         # SWI images from raw BIDS dataset
         'megre_mag': {
@@ -369,7 +385,7 @@ def process_run(layout, run_data, out_dir):
     ants.image_write(mask_qsm_img, mask_qsm_filename)
 
 
-def _get_parser():
+def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--subject-id',

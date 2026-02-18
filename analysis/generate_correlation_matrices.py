@@ -1,21 +1,24 @@
+"""Compute mean Fisher-z correlation matrices across subjects for each tissue mask."""
+
 import json
 import os
+import sys
 from glob import glob
 
 import numpy as np
 import pandas as pd
-import yaml
 
 
 if __name__ == '__main__':
-    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-    with open(_cfg_path) as f:
-        _cfg = yaml.safe_load(f)
-    _root = _cfg['project_root']
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.join(_script_dir, '..'))
+    from config import load_config
 
-    bids_dir = os.path.join(_root, _cfg['bids_dir'])
-    work_dir = os.path.join(_root, _cfg['work_dir'], 'correlation_matrices')
-    out_dir = '../data'
+    _cfg = load_config()
+
+    bids_dir = _cfg['bids_dir']
+    work_dir = os.path.join(_cfg['work_dir'], 'correlation_matrices')
+    out_dir = os.path.join(_script_dir, '..', 'data')
 
     masks = [
         'cortical_gm',
@@ -25,7 +28,7 @@ if __name__ == '__main__':
         'wb',
     ]
 
-    with open('patterns.json', 'r') as f:
+    with open(os.path.join(_script_dir, 'patterns.json'), 'r') as f:
         patterns = json.load(f)
 
     flat_patterns = {k: v for subdict in patterns.values() for k, v in subdict.items()}

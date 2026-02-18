@@ -26,6 +26,8 @@ Notes:
 - This must be run after sMRIPrep.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -58,7 +60,21 @@ os.environ['SUBJECTS_DIR'] = CFG['freesurfer']['subjects_dir']
 os.environ['FS_LICENSE'] = CFG['freesurfer']['license']
 
 
-def collect_run_data(layout, bids_filters):
+def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
+    """Collect required input files for multi-echo spin-echo (MESE) processing.
+
+    Parameters
+    ----------
+    layout : bids.BIDSLayout
+        BIDSLayout indexing the dataset and derivatives.
+    bids_filters : dict
+        BIDS entity filters (e.g., subject, session, run) to narrow the query.
+
+    Returns
+    -------
+    run_data : dict
+        Mapping of descriptive keys to resolved file paths.
+    """
     queries = {
         # MESE images from raw BIDS dataset
         'mese_mag_ap': {
@@ -612,7 +628,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     return hmced_files, brain_mask
 
 
-def _get_parser():
+def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--subject-id',

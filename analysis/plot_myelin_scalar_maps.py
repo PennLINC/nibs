@@ -1,6 +1,7 @@
 """Plot scalar maps from myelin measures."""
 
 import os
+import sys
 import warnings
 from glob import glob
 
@@ -8,18 +9,18 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import templateflow.api as tflow
-import yaml
 from nilearn import image, maskers, plotting
 
 
 if __name__ == '__main__':
-    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-    with open(_cfg_path) as f:
-        _cfg = yaml.safe_load(f)
-    _root = _cfg['project_root']
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.join(_script_dir, '..'))
+    from config import load_config
 
-    in_dir = os.path.join(_root, 'derivatives')
-    out_dir = '../figures'
+    _cfg = load_config()
+
+    in_dir = os.path.join(_cfg['project_root'], 'derivatives')
+    out_dir = os.path.join(_script_dir, '..', 'figures')
     template = tflow.get(
         'MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='T1w', extension='nii.gz'
     )
@@ -77,9 +78,6 @@ if __name__ == '__main__':
         'QSM Chi-separation+R2* 4-Echo Myelin Map': 'qsm/sub-*/ses-{ses}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+chisep+r2s_myelinw.nii.gz',
     }
     for title, pattern in patterns.items():
-        if 'G-Ratio' not in title:
-            # Temporarily skip
-            continue
         temp_pattern = pattern.format(ses='*')
 
         # Get all scalar maps

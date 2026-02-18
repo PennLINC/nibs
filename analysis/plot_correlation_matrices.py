@@ -10,7 +10,9 @@ import seaborn as sns
 
 
 if __name__ == '__main__':
-    with open('patterns.json', 'r') as f:
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    with open(os.path.join(_script_dir, 'patterns.json'), 'r') as f:
         patterns = json.load(f)
 
     modalities = list(patterns.keys())
@@ -28,7 +30,7 @@ if __name__ == '__main__':
     }
     for title, filename in names.items():
         df = pd.read_table(
-            os.path.join('../data', filename),
+            os.path.join(_script_dir, '..', 'data', filename),
             index_col='Image',
         )
         df = df.apply(np.tanh)
@@ -50,7 +52,7 @@ if __name__ == '__main__':
         ax.set_yticklabels(df.index, fontsize=7)
         ax.set_ylabel(None)
         ax.set_title(title, fontsize=16)
-        out_file = os.path.join('../figures', filename.split('.')[0] + '.png')
+        out_file = os.path.join(_script_dir, '..', 'figures', filename.split('.')[0] + '.png')
 
         # Add lines separating networks
         for idx in break_idx[1:-1]:

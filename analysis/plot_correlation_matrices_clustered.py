@@ -20,7 +20,9 @@ def mirror_linkage(Z):
 
 
 if __name__ == '__main__':
-    grouping_df = pd.read_table('scalar_groups.tsv', index_col='scalar')
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    grouping_df = pd.read_table(os.path.join(_script_dir, 'scalar_groups.tsv'), index_col='scalar')
 
     names = {
         'Whole Brain': 'mean_wb_corr_mat.tsv',
@@ -40,7 +42,7 @@ if __name__ == '__main__':
 
     for i_name, (title, filename) in enumerate(names.items()):
         df = pd.read_table(
-            os.path.join('../data', filename),
+            os.path.join(_script_dir, '..', 'data', filename),
             index_col='Image',
         )
         df = df.apply(np.tanh)
@@ -84,7 +86,7 @@ if __name__ == '__main__':
         ax.ax_heatmap.set_yticklabels(ax.data2d.index, fontsize=6)
         ax.ax_heatmap.set_ylabel(None)
         # ax.ax_heatmap.set_title(title, fontsize=16)
-        out_file = os.path.join('../figures', filename.split('.')[0] + '_clustered.png')
+        out_file = os.path.join(_script_dir, '..', 'figures', filename.split('.')[0] + '_clustered.png')
         ax.figure.suptitle(title, fontsize=36, y=1.02)
         ax.figure.savefig(out_file, bbox_inches='tight')
         plt.close()
@@ -110,7 +112,7 @@ if __name__ == '__main__':
             ax.ax_heatmap.set_yticklabels(ax.data2d.index, fontsize=6)
             ax.ax_heatmap.set_ylabel(None)
             # ax.ax_heatmap.set_title(title, fontsize=16)
-            out_file = os.path.join('../figures', filename.split('.')[0] + '_clustered_rv.png')
+            out_file = os.path.join(_script_dir, '..', 'figures', filename.split('.')[0] + '_clustered_rv.png')
             ax.figure.suptitle(title, fontsize=36, y=1.02)
             ax.figure.savefig(out_file, bbox_inches='tight')
             plt.close()

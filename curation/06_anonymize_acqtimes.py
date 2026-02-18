@@ -7,20 +7,20 @@ Then remove the scans.tsv files.
 """
 
 import os
+import sys
 from glob import glob
 
 import pandas as pd
-import yaml
 from dateutil import parser
 
 
 if __name__ == '__main__':
-    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-    with open(_cfg_path) as f:
-        _cfg = yaml.safe_load(f)
-    _root = _cfg['project_root']
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+    from config import load_config
 
-    dset_dir = os.path.join(_root, _cfg['bids_dir'])
+    _cfg = load_config()
+
+    dset_dir = _cfg['bids_dir']
 
     subject_dirs = sorted(glob(os.path.join(dset_dir, 'sub-*')))
     for subject_dir in subject_dirs:

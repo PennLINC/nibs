@@ -4,19 +4,18 @@ Rename the folders before running this.
 """
 
 import os
+import sys
 import zipfile
 from glob import glob
 
-import yaml
-
 if __name__ == '__main__':
-    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-    with open(_cfg_path) as f:
-        _cfg = yaml.safe_load(f)
-    _root = _cfg['project_root']
-    _sourcedata_scitran = os.path.join(_root, _cfg['sourcedata']['scitran'])
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+    from config import load_config
 
-    status_file = os.path.join(_root, _cfg['code_dir'], 'curation', 'status_unzip_dicoms.txt')
+    _cfg = load_config()
+    _sourcedata_scitran = _cfg['sourcedata']['scitran']
+
+    status_file = os.path.join(_cfg['code_dir'], 'curation', 'status_unzip_dicoms.txt')
     if os.path.exists(status_file):
         with open(status_file, 'r') as f:
             unzipped_subjects = f.read().splitlines()

@@ -1,89 +1,99 @@
+"""Shared utilities for processing pipelines.
+
+Provides ``load_config``, ``run_command``, ``get_filename``,
+``coregister_to_t1``, ``fit_monoexponential``, ``plot_scalar_map``,
+and ``calculate_r_squared``.
+"""
+
+from __future__ import annotations
+
 import os
+import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
+from config import load_config  # noqa: E402, F401
 
 
-def load_config(config_path=None):
-    """Load project path configuration from a YAML file.
+def run_command(command: str | list[str], env: dict[str, str] | None = None) -> None:
+    """Run a shell command, streaming stdout line-by-line.
 
     Parameters
     ----------
-    config_path : str, optional
-        Path to the YAML config file. Defaults to ``paths.yaml`` at the
-        repository root (one directory above this file).
+    command : str or list of str
+        Command to execute. Strings are split with :func:`shlex.split`.
+    env : dict, optional
+        Extra environment variables merged into the current environment.
 
-    Returns
-    -------
-    config : dict
-        Dictionary with resolved absolute paths. Keys include ``project_root``,
-        ``bids_dir``, ``code_dir``, ``work_dir``, ``derivatives`` (dict),
-        ``apptainer`` (dict), and ``freesurfer`` (dict).
+    Raises
+    ------
+    RuntimeError
+        If the process exits with a non-zero return code.
     """
-    import yaml
-
-    if config_path is None:
-        config_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-
-    with open(config_path) as f:
-        raw = yaml.safe_load(f)
-
-    root = raw['project_root']
-
-    config = {
-        'project_root': root,
-        'bids_dir': os.path.join(root, raw['bids_dir']),
-        'code_dir': os.path.join(root, raw['code_dir']),
-        'work_dir': os.path.join(root, raw['work_dir']),
-    }
-
-    config['derivatives'] = {
-        key: os.path.join(root, path) for key, path in raw['derivatives'].items()
-    }
-
-    config['apptainer'] = {key: os.path.join(root, path) for key, path in raw['apptainer'].items()}
-
-    if 'sourcedata' in raw:
-        config['sourcedata'] = {
-            key: os.path.join(root, path) for key, path in raw['sourcedata'].items()
-        }
-
-    config['freesurfer'] = {
-        key: os.path.join(root, path) for key, path in raw['freesurfer'].items()
-    }
-
-    return config
-
-
-def run_command(command, env=None):
-    """Run a given shell command with certain environment variables set.
-
-    Copied from XCP-D.
-    """
+    import shlex
     import subprocess
+
+    if isinstance(command, str):
+        command = shlex.split(command)
 
     merged_env = os.environ.copy()
     if env:
         merged_env.update(env)
 
     process = subprocess.Popen(
-        command.split(),
+        command,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         shell=False,
         env=merged_env,
     )
+    output_lines = []
     while True:
         line = process.stdout.readline()
         line = str(line, 'utf-8')[:-1]
         print(line)
+        output_lines.append(line)
         if line == '' and process.poll() is not None:
             break
 
     if process.returncode != 0:
         raise RuntimeError(
-            f'Non zero return code: {process.returncode}\n{command}\n\n{process.stdout.read()}'
+            f'Non zero return code: {process.returncode}\n'
+            f'{" ".join(command)}\n\n{"".join(output_lines)}'
         )
 
 
-def get_filename(name_source, layout, out_dir, entities, dismiss_entities=None):
+def get_filename(
+    name_source: str,
+    layout: object,
+    out_dir: str,
+    entities: dict[str, object],
+    dismiss_entities: list[str] | None = None,
+) -> str:
+    """Build an output file path from a BIDS name source and new entities.
+
+    Parameters
+    ----------
+    name_source : str
+        Path to an existing BIDS file whose entities serve as defaults.
+    layout : bids.BIDSLayout
+        BIDSLayout used to construct the output path.
+    out_dir : str
+        Root directory for the output file (replaces the layout root).
+    entities : dict
+        Entity key-value pairs to override or add to the source entities.
+    dismiss_entities : list of str, optional
+        Entity keys to drop from the source before merging.
+
+    Returns
+    -------
+    out_file : str
+        Absolute path to the (newly created directory for the) output file.
+    """
     from bids.layout import parse_file_entities
 
     if dismiss_entities is None:
@@ -99,7 +109,15 @@ def get_filename(name_source, layout, out_dir, entities, dismiss_entities=None):
     return out_file
 
 
-def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_space, target_space):
+def coregister_to_t1(
+    name_source: str,
+    layout: object,
+    in_file: str,
+    t1_file: str,
+    out_dir: str,
+    source_space: str,
+    target_space: str,
+) -> str:
     """Coregister an image to a T1w image.
 
     Parameters
@@ -190,16 +208,36 @@ def coregister_to_t1(name_source, layout, in_file, t1_file, out_dir, source_spac
 
 
 def plot_coregistration(
-    name_source,
-    layout,
-    in_file,
-    t1_file,
-    out_dir,
-    source_space,
-    target_space,
-    wm_seg=None,
-):
-    """Plot the coregistration of an image to a T1w image."""
+    name_source: str,
+    layout: object,
+    in_file: str,
+    t1_file: str,
+    out_dir: str,
+    source_space: str,
+    target_space: str,
+    wm_seg: str | None = None,
+) -> None:
+    """Generate an SVG report comparing an image before and after coregistration to T1w.
+
+    Parameters
+    ----------
+    name_source : str
+        Path to the BIDS file used to derive the output report filename.
+    layout : bids.BIDSLayout
+        BIDSLayout for path construction.
+    in_file : str
+        Path to the coregistered image (the "before" view).
+    t1_file : str
+        Path to the T1w reference image (the "after" view).
+    out_dir : str
+        Root directory for the output report.
+    source_space : str
+        Label for the source image space.
+    target_space : str
+        Label for the T1w target space.
+    wm_seg : str, optional
+        Path to a white-matter segmentation for edge overlay.
+    """
     from nireports.interfaces.reporting.base import SimpleBeforeAfterRPT
 
     desc = 'coreg'
@@ -230,7 +268,7 @@ def plot_coregistration(
     coreg_report.run()
 
 
-def fit_monoexponential(in_files, echo_times):
+def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
     """Fit monoexponential decay model to MESE data.
 
     Parameters
@@ -298,8 +336,40 @@ def fit_monoexponential(in_files, echo_times):
 
 
 def plot_scalar_map(
-    underlay, overlay, mask, out_file, dseg=None, vmin=None, vmax=None, cmap='Reds'
-):
+    underlay: str,
+    overlay: str,
+    mask: str,
+    out_file: str,
+    dseg: str | None = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap: str = 'Reds',
+) -> None:
+    """Plot a scalar map overlaid on an anatomical underlay with a tissue-type histogram.
+
+    Produces a three-panel figure: a KDE histogram of voxel intensities by
+    tissue type (left), axial slice overlay (center), and a colorbar (right).
+
+    Parameters
+    ----------
+    underlay : str
+        Path to the anatomical underlay NIfTI image.
+    overlay : str
+        Path to the scalar map NIfTI image to plot.
+    mask : str
+        Path to a binary brain mask NIfTI image.
+    out_file : str
+        Path for the saved figure.
+    dseg : str, optional
+        Path to a discrete segmentation image (1=GM, 2=WM, 3=CSF).
+        If None, the mask is used as a single "Brain" tissue class.
+    vmin : float, optional
+        Minimum value for the color scale.
+    vmax : float, optional
+        Maximum value for the color scale.
+    cmap : str, optional
+        Matplotlib colormap name. Default is ``'Reds'``.
+    """
     import matplotlib.pyplot as plt
     import nibabel as nb
     import numpy as np
@@ -407,7 +477,9 @@ def plot_scalar_map(
     fig.savefig(out_file, bbox_inches=0)
 
 
-def calculate_r_squared(data, echo_times, s0, t2s):
+def calculate_r_squared(
+    data: np.ndarray, echo_times: list[float], s0: np.ndarray, t2s: np.ndarray
+) -> np.ndarray:
     """Calculate R-squared from data and T2*/S0 estimates.
 
     R-squared is a measure of goodness of fit of a monoexponential model to the data.

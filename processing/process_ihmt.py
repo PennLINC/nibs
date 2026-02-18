@@ -17,6 +17,8 @@ Notes:
 - This must be run after sMRIPrep and process_mp2rage.py.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -44,7 +46,21 @@ CODE_DIR = CFG['code_dir']
 SYNTHSTRIP_SIF = CFG['apptainer']['synthstrip']
 
 
-def collect_run_data(layout, bids_filters):
+def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
+    """Collect required input files for ihMTRAGE processing.
+
+    Parameters
+    ----------
+    layout : bids.BIDSLayout
+        BIDSLayout indexing the dataset and derivatives.
+    bids_filters : dict
+        BIDS entity filters (e.g., subject, session, run) to narrow the query.
+
+    Returns
+    -------
+    run_data : dict
+        Mapping of descriptive keys to resolved file paths.
+    """
     queries = {
         # ihMTRAGE files from raw BIDS dataset
         'm0': {
@@ -702,7 +718,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
     return template_file, transforms, brain_mask_file
 
 
-def _get_parser():
+def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--subject-id',

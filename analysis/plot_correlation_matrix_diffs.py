@@ -10,7 +10,9 @@ import seaborn as sns
 
 
 if __name__ == '__main__':
-    with open('patterns.json', 'r') as f:
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    with open(os.path.join(_script_dir, 'patterns.json'), 'r') as f:
         patterns = json.load(f)
 
     modalities = list(patterns.keys())
@@ -26,11 +28,11 @@ if __name__ == '__main__':
     }
     for title, filenames in names.items():
         df1 = pd.read_table(
-            os.path.join('../data', filenames[0]),
+            os.path.join(_script_dir, '..', 'data', filenames[0]),
             index_col='Image',
         )
         df2 = pd.read_table(
-            os.path.join('../data', filenames[1]),
+            os.path.join(_script_dir, '..', 'data', filenames[1]),
             index_col='Image',
         )
         df = df1.copy()
@@ -55,7 +57,7 @@ if __name__ == '__main__':
         ax.set_ylabel(None)
         ax.set_title(title, fontsize=16)
         out_file = os.path.join(
-            '../figures',
+            _script_dir, '..', 'figures',
             f'{title.lower().replace(" ", "_").replace("-", "minus")}.png',
         )
 

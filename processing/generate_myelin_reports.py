@@ -1,5 +1,7 @@
 """Generate myelin reports."""
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -21,7 +23,21 @@ QUERY_LOOKUP = {
 }
 
 
-def collect_run_data(layout, bids_filters):
+def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
+    """Collect myelin derivative images for report generation.
+
+    Parameters
+    ----------
+    layout : bids.BIDSLayout
+        BIDSLayout indexing the dataset and derivatives.
+    bids_filters : dict
+        BIDS entity filters (e.g., subject, session, space) to narrow the query.
+
+    Returns
+    -------
+    run_data : dict
+        Mapping of descriptive keys to resolved file paths.
+    """
     with open(os.path.join(CODE_DIR, 'processing', 'myelin_derivatives.yml'), 'r') as fobj:
         queries = yaml.safe_load(fobj)['queries']
 
@@ -132,7 +148,7 @@ def process_run(layout, run_data, out_dir):
         )
 
 
-def _get_parser():
+def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--subject-id',

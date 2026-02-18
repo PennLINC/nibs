@@ -11,6 +11,8 @@ Notes:
 - This must be run after sMRIPrep and process_mese.py.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -33,7 +35,21 @@ CFG = load_config()
 CODE_DIR = CFG['code_dir']
 
 
-def collect_run_data(layout, bids_filters):
+def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
+    """Collect SEPIA chi maps, GRE images, and masks for QSM post-processing.
+
+    Parameters
+    ----------
+    layout : bids.BIDSLayout
+        BIDSLayout indexing the dataset and derivatives.
+    bids_filters : dict
+        BIDS entity filters (e.g., subject, session, run) to narrow the query.
+
+    Returns
+    -------
+    run_data : dict
+        Mapping of descriptive keys to resolved file paths.
+    """
     queries = {
         # SEPIA Chimap
         'sepia_chimap_e12345': {
@@ -426,7 +442,7 @@ def process_run(layout, run_data, out_dir):
         )
 
 
-def _get_parser():
+def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--subject-id',

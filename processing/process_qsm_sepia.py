@@ -11,6 +11,8 @@ Notes:
 - Chimap outputs should be in parts per million (ppm).
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import subprocess
@@ -27,7 +29,21 @@ CFG = load_config()
 CODE_DIR = CFG['code_dir']
 
 
-def collect_run_data(layout, bids_filters):
+def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
+    """Collect multi-echo GRE images for SEPIA QSM estimation.
+
+    Parameters
+    ----------
+    layout : bids.BIDSLayout
+        BIDSLayout indexing the dataset and derivatives.
+    bids_filters : dict
+        BIDS entity filters (e.g., subject, session, run) to narrow the query.
+
+    Returns
+    -------
+    run_data : dict
+        Mapping of descriptive keys to resolved file paths.
+    """
     queries = {
         # SWI images from raw BIDS dataset
         'megre_mag': {
@@ -178,7 +194,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         sepia_chimap_img.to_filename(sepia_chimap_filename)
 
 
-def _get_parser():
+def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--subject-id',
