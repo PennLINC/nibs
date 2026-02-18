@@ -88,15 +88,16 @@ and `simulate_correlations2.ipynb`.
 Install the dependency set that matches your task:
 
 ```bash
-conda create -n curation python=3.10    # DICOM curation (heudiconv, pydeface, datalad, ...)
+conda env create -f environment_curation.yml
+conda env create -f environment_processing.yml
+conda env create -f environment_test.yml
+```
+
+Activate the environment you need to use:
+```bash
 conda activate curation
-pip install -r requirements_curation.txt
-conda create -n processing python=3.10    # Neuroimaging processing (nibabel, nilearn, ANTs, ...)
 conda activate processing
-pip install -r requirements_processing.txt
-conda create -n test python=3.10    # Testing (pytest, matplotlib)
 conda activate test
-pip install -r requirements_test.txt
 ```
 
 ### Configuration
