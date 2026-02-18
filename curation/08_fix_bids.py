@@ -32,7 +32,6 @@ if __name__ == '__main__':
     for subject_dir in subject_dirs:
         session_dirs = sorted(glob(os.path.join(subject_dir, 'ses-*')))
         for session_dir in session_dirs:
-
             dwi_dir = os.path.join(session_dir, 'dwi')
 
             # Remove part-phase bvec and bval DWI files

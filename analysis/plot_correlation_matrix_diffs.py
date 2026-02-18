@@ -57,7 +57,9 @@ if __name__ == '__main__':
         ax.set_ylabel(None)
         ax.set_title(title, fontsize=16)
         out_file = os.path.join(
-            _script_dir, '..', 'figures',
+            _script_dir,
+            '..',
+            'figures',
             f'{title.lower().replace(" ", "_").replace("-", "minus")}.png',
         )
 

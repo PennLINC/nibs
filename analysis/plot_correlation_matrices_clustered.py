@@ -86,7 +86,9 @@ if __name__ == '__main__':
         ax.ax_heatmap.set_yticklabels(ax.data2d.index, fontsize=6)
         ax.ax_heatmap.set_ylabel(None)
         # ax.ax_heatmap.set_title(title, fontsize=16)
-        out_file = os.path.join(_script_dir, '..', 'figures', filename.split('.')[0] + '_clustered.png')
+        out_file = os.path.join(
+            _script_dir, '..', 'figures', filename.split('.')[0] + '_clustered.png'
+        )
         ax.figure.suptitle(title, fontsize=36, y=1.02)
         ax.figure.savefig(out_file, bbox_inches='tight')
         plt.close()
@@ -112,7 +114,9 @@ if __name__ == '__main__':
             ax.ax_heatmap.set_yticklabels(ax.data2d.index, fontsize=6)
             ax.ax_heatmap.set_ylabel(None)
             # ax.ax_heatmap.set_title(title, fontsize=16)
-            out_file = os.path.join(_script_dir, '..', 'figures', filename.split('.')[0] + '_clustered_rv.png')
+            out_file = os.path.join(
+                _script_dir, '..', 'figures', filename.split('.')[0] + '_clustered_rv.png'
+            )
             ax.figure.suptitle(title, fontsize=36, y=1.02)
             ax.figure.savefig(out_file, bbox_inches='tight')
             plt.close()
