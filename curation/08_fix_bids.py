@@ -16,26 +16,22 @@ The necessary steps are:
 import json
 import os
 import shutil
+import sys
 from glob import glob
-
-import yaml
 
 
 if __name__ == '__main__':
-    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-    with open(_cfg_path) as f:
-        _cfg = yaml.safe_load(f)
-    _root = _cfg['project_root']
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+    from config import load_config
 
-    dset_dir = os.path.join(_root, _cfg['bids_dir'])
+    _cfg = load_config()
+
+    dset_dir = _cfg['bids_dir']
 
     subject_dirs = sorted(glob(os.path.join(dset_dir, 'sub-*')))
     for subject_dir in subject_dirs:
-        sub_id = os.path.basename(subject_dir)
         session_dirs = sorted(glob(os.path.join(subject_dir, 'ses-*')))
         for session_dir in session_dirs:
-            ses_id = os.path.basename(session_dir)
-
             dwi_dir = os.path.join(session_dir, 'dwi')
 
             # Remove part-phase bvec and bval DWI files

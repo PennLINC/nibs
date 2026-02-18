@@ -1,5 +1,7 @@
 """Rename Chi-separation outputs to follow BIDS specification."""
 
+from __future__ import annotations
+
 import os
 from glob import glob
 

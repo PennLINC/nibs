@@ -9,7 +9,9 @@ import seaborn as sns
 
 
 if __name__ == '__main__':
-    grouping_df = pd.read_table('scalar_groups.tsv', index_col='scalar')
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    grouping_df = pd.read_table(os.path.join(_script_dir, 'scalar_groups.tsv'), index_col='scalar')
 
     to_use = [
         ['DSIStudio Tensor FA', 'FA', 'DTI', 'Anisotropy'],
@@ -50,7 +52,7 @@ if __name__ == '__main__':
     }
     for title, filename in names.items():
         df = pd.read_table(
-            os.path.join('../data', filename),
+            os.path.join(_script_dir, '..', 'data', filename),
             index_col='Image',
         )
         df = df.apply(np.tanh)
@@ -84,7 +86,7 @@ if __name__ == '__main__':
         ax.set_yticklabels(df.index, fontsize=7)
         ax.set_ylabel(None)
         ax.set_title(title, fontsize=16)
-        out_file = os.path.join('../figures', filename.split('.')[0] + '.png')
+        out_file = os.path.join(_script_dir, '..', 'figures', filename.split('.')[0] + '.png')
 
         # Add lines separating networks
         # for idx in break_idx[1:-1]:

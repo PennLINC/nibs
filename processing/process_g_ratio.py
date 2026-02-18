@@ -11,6 +11,8 @@ Notes:
 - This must be run after sMRIPrep and process_mp2rage.py.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -30,7 +32,21 @@ MTsat_ISOVF_ICVF_scalar = 0.0936729130079245
 ihMTR_ISOVF_ICVF_scalar = 2.2593688403395906
 
 
-def collect_run_data(layout, bids_filters):
+def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
+    """Collect MNI-space myelin and microstructure maps for g-ratio computation.
+
+    Parameters
+    ----------
+    layout : bids.BIDSLayout
+        BIDSLayout indexing the dataset and derivatives.
+    bids_filters : dict
+        BIDS entity filters (e.g., subject, session, run) to narrow the query.
+
+    Returns
+    -------
+    run_data : dict
+        Mapping of descriptive keys to resolved file paths.
+    """
     queries = {
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
@@ -227,7 +243,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
 
 
-def _get_parser():
+def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--subject-id',

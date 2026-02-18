@@ -5,6 +5,7 @@ Parallelized across subjects/sessions with a process pool.
 
 import json
 import os
+import sys
 from glob import glob
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -12,7 +13,6 @@ import ants
 import nibabel as nb
 import numpy as np
 import pandas as pd
-import yaml
 from nilearn import image, masking
 import templateflow.api as tflow
 
@@ -192,26 +192,29 @@ def process_subject(
 
 
 if __name__ == '__main__':
-    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-    with open(_cfg_path) as f:
-        _cfg = yaml.safe_load(f)
-    _root = _cfg['project_root']
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.join(_script_dir, '..'))
+    from config import load_config
 
-    bids_dir = os.path.join(_root, _cfg['bids_dir'])
-    deriv_dir = os.path.join(_root, 'derivatives')
-    temp_dir = os.path.join(_root, _cfg['work_dir'], 'correlation_matrices')
+    _cfg = load_config()
+
+    bids_dir = _cfg['bids_dir']
+    deriv_dir = os.path.join(_cfg['project_root'], 'derivatives')
+    temp_dir = os.path.join(_cfg['work_dir'], 'correlation_matrices')
     os.makedirs(temp_dir, exist_ok=True)
-    out_dir = '../data'
-    target_file = os.path.join(
-        _root,
+    out_dir = os.path.join(_script_dir, '..', 'data')
+    target_pattern = os.path.join(
         _cfg['derivatives']['qsirecon_dsistudio'],
-        'sub-22449/ses-01/dwi/sub-22449_ses-01_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_'
-        'model-tensor_param-md_dwimap.nii.gz',
+        'sub-*/ses-*/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz',
     )
+    target_candidates = sorted(glob(target_pattern))
+    if not target_candidates:
+        raise FileNotFoundError(f'No reference file found matching: {target_pattern}')
+    target_file = target_candidates[0]
 
     n_jobs = 30
 
-    with open('patterns.json', 'r') as f:
+    with open(os.path.join(_script_dir, 'patterns.json'), 'r') as f:
         patterns = json.load(f)
 
     flat_patterns = {k: v for subdict in patterns.values() for k, v in subdict.items()}

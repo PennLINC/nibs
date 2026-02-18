@@ -1,15 +1,18 @@
-"""Create study-wide brain mask.
+"""Calculate Dice coefficients between modality-specific brain masks and smriprep.
 
-Create a brain mask for each subject and session in the study,
-then limit it to the intersection of all the masks.
+Transforms each modality's native-space brain mask into MNI space,
+computes pairwise Dice overlap with the smriprep mask, and writes
+accumulated mask count images for downstream thresholding.
 """
 
+from __future__ import annotations
+
 import os
+import sys
 from glob import glob
 
 import ants
 import numpy as np
-import yaml
 
 patterns = {
     'qsirecon': 'qsirecon/derivatives/qsirecon-DSIStudio/{subject}/{session}/dwi/{subject}_{session}_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz',
@@ -29,7 +32,7 @@ mod_transforms = {
 }
 
 
-def dice(input1, input2):
+def dice(input1: np.ndarray, input2: np.ndarray) -> float:
     r"""Calculate Dice coefficient between two arrays.
 
     Computes the Dice coefficient (also known as Sorensen index) between two binary images.
@@ -78,14 +81,14 @@ def dice(input1, input2):
 
 
 if __name__ == '__main__':
-    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-    with open(_cfg_path) as f:
-        _cfg = yaml.safe_load(f)
-    _root = _cfg['project_root']
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+    from config import load_config
 
-    bids_dir = os.path.join(_root, _cfg['bids_dir'])
-    deriv_dir = os.path.join(_root, 'derivatives')
-    work_dir = os.path.join(_root, _cfg['work_dir'], 'brain_mask')
+    _cfg = load_config()
+
+    bids_dir = _cfg['bids_dir']
+    deriv_dir = os.path.join(_cfg['project_root'], 'derivatives')
+    work_dir = os.path.join(_cfg['work_dir'], 'brain_mask')
     os.makedirs(work_dir, exist_ok=True)
     subject_dirs = sorted(glob(os.path.join(bids_dir, 'sub-*')))
     subjects = [os.path.basename(d) for d in subject_dirs]

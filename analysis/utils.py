@@ -1,10 +1,22 @@
+"""Utilities for analysis scripts.
+
+Provides ``convert_to_multindex`` for reshaping flat DataFrames into
+MultiIndex form and ``matrix`` for visualizing nullity/missingness.
+"""
+
+from __future__ import annotations
+
 import warnings
 
 import numpy as np
 import pandas as pd
 
 
-def convert_to_multindex(df, separator='--', level_names=None):
+def convert_to_multindex(
+    df: pd.DataFrame,
+    separator: str = '--',
+    level_names: list[str] | None = None,
+) -> pd.DataFrame:
     """Convert DataFrame columns from 'parent--child' pattern to MultiIndex.
 
     Parameters
@@ -62,21 +74,21 @@ def convert_to_multindex(df, separator='--', level_names=None):
 
 
 def matrix(
-    df,
-    filter=None,
-    n=0,
-    p=0,
-    sort=None,
-    figsize=(25, 15),
-    width_ratios=(15, 1),
-    color=(0.25, 0.25, 0.25),
-    fontsize=16,
-    labels=None,
-    label_rotation=45,
-    sparkline=True,
-    ax=None,
-    palette=None,
-):
+    df: pd.DataFrame,
+    nullity_filter: str | None = None,
+    n: int = 0,
+    p: int = 0,
+    sort: str | None = None,
+    figsize: tuple[int, int] = (25, 15),
+    width_ratios: tuple[int, int] = (15, 1),
+    color: tuple[float, float, float] = (0.25, 0.25, 0.25),
+    fontsize: int = 16,
+    labels: bool | None = None,
+    label_rotation: int = 45,
+    sparkline: bool = True,
+    ax: object | None = None,
+    palette: list | None = None,
+) -> object:
     """A matrix visualization of the nullity of the given DataFrame.
 
     Modified from https://github.com/ResidentMario/missingno/blob/master/missingno/missingno.py.
@@ -93,7 +105,7 @@ def matrix(
     ----------
     df : pandas.DataFrame
         The DataFrame being mapped.
-    filter : str, optional
+    nullity_filter : str, optional
         The filter to apply to the heatmap. Should be one of "top", "bottom", or None (default).
     n : int, optional
         The max number of columns to include in the filtered DataFrame.
@@ -131,9 +143,9 @@ def matrix(
     import matplotlib.pyplot as plt
     from matplotlib import gridspec
     from matplotlib.patches import Polygon
-    from missingno.utils import nullity_filter, nullity_sort
+    from missingno.utils import nullity_filter as _nullity_filter, nullity_sort
 
-    df = nullity_filter(df, filter=filter, n=n, p=p)
+    df = _nullity_filter(df, filter=nullity_filter, n=n, p=p)
     df = nullity_sort(df, sort=sort, axis='columns')
 
     height = df.shape[0]

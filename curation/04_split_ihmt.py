@@ -7,19 +7,19 @@ before running.
 import json
 import os
 import re
+import sys
 from glob import glob
 
 import nibabel as nb
-import yaml
 
 
 if __name__ == '__main__':
-    _cfg_path = os.path.join(os.path.dirname(__file__), '..', 'paths.yaml')
-    with open(_cfg_path) as f:
-        _cfg = yaml.safe_load(f)
-    _root = _cfg['project_root']
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+    from config import load_config
 
-    in_dir = os.path.join(_root, _cfg['bids_dir'])
+    _cfg = load_config()
+
+    in_dir = _cfg['bids_dir']
 
     patterns = [
         '_acq-nosat_run-{run}_mt-off_ihMTRAGE',
