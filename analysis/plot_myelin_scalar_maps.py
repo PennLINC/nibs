@@ -32,7 +32,8 @@ if __name__ == '__main__':
         filename_mapper = json.load(fo)
 
     for group, patterns in filename_mapper.items():
-        for title, pattern in patterns.items():
+        for key, pattern in patterns.items():
+            title = name_mapper[key]
             temp_pattern = pattern.format(subject='*', session='*')
 
             # Get all scalar maps
