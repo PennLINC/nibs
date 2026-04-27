@@ -109,8 +109,8 @@ if __name__ == '__main__':
             else:
                 df_reduced = df.loc[SELECTED_SCALARS, SELECTED_SCALARS]
 
-            # linkage_matrix = linkage(np.abs(df_reduced.values), optimal_ordering=True)
-            linkage_matrix = linkage(df_reduced.values, optimal_ordering=True)
+            linkage_matrix = linkage(np.abs(df_reduced.values), optimal_ordering=True)
+            # linkage_matrix = linkage(df_reduced.values, optimal_ordering=True)
             leaves = leaves_list(linkage_matrix)
 
             if i_name == 0:
