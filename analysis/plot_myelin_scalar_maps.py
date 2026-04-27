@@ -1,6 +1,7 @@
 """Plot scalar maps from myelin measures."""
 
 import json
+import math
 import os
 import sys
 import warnings
@@ -22,8 +23,12 @@ if __name__ == '__main__':
 
     in_dir = os.path.join(_cfg['project_root'], 'derivatives')
     out_dir = os.path.join(_script_dir, '..', 'figures', 'scalars')
+    PERCENTILE = False
+
     template = tflow.get('MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='T1w', extension='nii.gz')
     mask = tflow.get('MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='mask', extension='nii.gz')
+
+    os.makedirs(out_dir, exist_ok=True)
 
     with open('name_mapper.json', 'r') as fo:
         name_mapper = json.load(fo)
@@ -67,14 +72,14 @@ if __name__ == '__main__':
                 vmin = 0
 
             # Plot mean from each session
-            fig, axs = plt.subplots(2, 1, figsize=(12.5, 5), height_ratios=[2, 0.25])
+            fig, axs = plt.subplots(2, 1, figsize=(17.5, 5), height_ratios=[2, 0.25])
             # Increase vertical space between the first two rows
-            fig.subplots_adjust(hspace=0.5)
+            fig.subplots_adjust(hspace=-0.2)
             plotting.plot_stat_map(
                 mean_img,
                 bg_img=template,
                 display_mode='z',
-                cut_coords=[-15, 0, 15, 30, 45],
+                cut_coords=[-30, -15, 0, 15, 30, 45, 60],
                 axes=axs[0],
                 figure=fig,
                 vmax=vmax0,
@@ -85,6 +90,7 @@ if __name__ == '__main__':
                 colorbar=False,
                 **kwargs,
             )
+            fig.suptitle(title, fontsize=20, y=0.9)
 
             # Plot the colorbars
             # Resize colorbar axis to be shorter and narrower
@@ -105,18 +111,39 @@ if __name__ == '__main__':
                 cax=cax,
                 orientation='horizontal',
             )
-            if vmin == 0:
-                cbar.set_ticks([0, np.mean([0, vmax0]), vmax0])
+            if PERCENTILE:
+                if vmin == 0:
+                    cbar.set_ticks([0, vmax0])
+                    cbar.set_ticklabels(['0', '98th Percentile'])
+                else:
+                    cbar.set_ticks([vmin, 0, vmax0])
+                    cbar.set_ticklabels(['-98th Percentile', '0', '98th Percentile'])
             else:
-                cbar.set_ticks([vmin, 0, vmax0])
+                if vmin == 0:
+                    cbar.set_ticks([0, np.mean([0, vmax0]), vmax0])
+                else:
+                    cbar.set_ticks([vmin, 0, vmax0])
 
-            cbar.ax.tick_params(labelsize=12)
+                exponent = int(math.floor(math.log10(abs(vmax0)))) if vmax0 != 0 else 0
+                scale = 10 ** exponent
+                cbar.ax.xaxis.set_major_formatter(
+                    mpl.ticker.FuncFormatter(lambda val, _, s=scale: '0' if val == 0 else f'{val / s:.3f}')
+                )
+                if exponent != 0:
+                    cbar.ax.text(
+                        1.01,
+                        0.5,
+                        f'$\\times10^{{{exponent}}}$',
+                        transform=cbar.ax.transAxes,
+                        va='center',
+                        ha='left',
+                        fontsize=14,
+                    )
 
-            fig.savefig(
-                os.path.join(
-                    out_dir,
-                    f'{title.lower().replace("/", "_").replace(" ", "_").replace("*", "star")}.png',
-                ),
-                bbox_inches='tight',
-            )
+            cbar.ax.tick_params(labelsize=14, length=0)
+
+            fname = title.lower().replace('/', '_').replace(' ', '_')
+            fname = fname.replace('*', 'star').replace("'", 'prime')
+            fname = fname.replace('(', '').replace(')', '')
+            fig.savefig(os.path.join(out_dir, f'{fname}.png'), bbox_inches='tight')
             plt.close()

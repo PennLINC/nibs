@@ -51,6 +51,8 @@ def save_clustermap(df, linkage_matrix, title, out_file, color_mapper=None):
         row_colors=color_mapper,
         row_linkage=linkage_matrix,
         col_linkage=linkage_matrix,
+        vmin=-1,
+        vmax=1,
     )
     ticks = np.arange(0, n) + 0.5
     ax.ax_heatmap.set_xticks(ticks)
@@ -107,7 +109,8 @@ if __name__ == '__main__':
             else:
                 df_reduced = df.loc[SELECTED_SCALARS, SELECTED_SCALARS]
 
-            linkage_matrix = linkage(np.abs(df_reduced.values), optimal_ordering=True)
+            # linkage_matrix = linkage(np.abs(df_reduced.values), optimal_ordering=True)
+            linkage_matrix = linkage(df_reduced.values, optimal_ordering=True)
             leaves = leaves_list(linkage_matrix)
 
             if i_name == 0:
