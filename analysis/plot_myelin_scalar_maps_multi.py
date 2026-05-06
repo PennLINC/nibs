@@ -15,11 +15,11 @@ from nilearn import image, maskers, plotting
 
 # Keys in patterns.json / name_mapper.json; order is row order (top to bottom).
 MULTI_KEYS = [
-    "DKI Tensor FA",
     "NODDI ICVF",
     "MPRAGE-MyelinW",
+    "R1-B1c",
     "ihMTsat-B1c",
-    "QSM-SEPIA-E5",
+    "QSM-X-R2'-E5-Dia",
 ]
 
 CUT_COORDS = [-30, -15, 0, 15, 30, 45, 60]
@@ -192,6 +192,6 @@ if __name__ == "__main__":
         )
         _colorbar_ticks(cbar, vmin, vmax0, PERCENTILE)
 
-    fname = "multi_panel_dki_fa_qsm_ihmt_b1c_mprage_myelinw_noddi_icvf.png"
+    fname = "multi_panel_scalars.png"
     fig.savefig(os.path.join(out_dir, fname), bbox_inches="tight")
     plt.close()
