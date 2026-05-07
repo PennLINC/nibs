@@ -230,6 +230,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
     wm_seg_img.to_filename(wm_seg_file)
@@ -247,6 +248,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
     del wm_seg_img, wm_seg_t1w_img, wm_seg
