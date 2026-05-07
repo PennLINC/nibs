@@ -94,6 +94,14 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'suffix': 'MP2RAGE',
             'extension': ['.nii', '.nii.gz'],
         },
+        'uni': {
+            'part': Query.NONE,
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
+            'desc': Query.NONE,
+            'suffix': 'UNIT1',
+            'extension': ['.nii', '.nii.gz'],
+        },
         # B1 field map from raw BIDS dataset
         'b1_famp': {
             'datatype': 'fmap',
@@ -326,7 +334,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=b1_anat_img,
         transformlist=b1_to_mp2rage_xfm,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     b1_anat_reg_file = get_filename(
         name_source=name_source,
@@ -362,6 +370,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         inv2=run_data['inv2_magnitude'],
         inv1ph=None,  # Ignore phase images, for consistent processing
         inv2ph=None,  # Ignore phase images, for consistent processing
+        uni=run_data['uni'],
     )
     t1map = mp2rage.t1map
     t1map_arr = t1map.get_fdata()
@@ -456,7 +465,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(t1w_uni_b1_corrected_file),
         transformlist=[mp2rage_to_smriprep_xfm],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(t1w_t1w_uni_b1_corrected_img, t1w_t1w_uni_b1_corrected_file)
     plot_coregistration(
@@ -481,7 +490,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(t1w_uni_b1_corrected_file),
         transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(mni_t1w_uni_b1_corrected_img, mni_t1w_uni_b1_corrected_file)
     plot_coregistration(
@@ -516,7 +525,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=[mp2rage_to_smriprep_xfm],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -531,7 +540,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(mni_img, mni_file)
 

@@ -294,7 +294,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=space_t1w_img,
         transformlist=fwd_transform,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1w_space_t1w_file = get_filename(
         name_source=run_data['space_t1w'],
@@ -310,7 +310,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=scaled_space_t1w_img,
         transformlist=fwd_transform,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1w_scaled_space_t1w_file = get_filename(
         name_source=run_data['space_t1w'],
@@ -376,7 +376,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=space_t2w_img,
         transformlist=fwd_transform,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1w_space_t2w_file = get_filename(
         name_source=run_data['space_t2w'],
@@ -393,7 +393,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=scaled_space_t2w_img,
         transformlist=fwd_transform,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1w_scaled_space_t2w_file = get_filename(
         name_source=run_data['space_t2w'],
@@ -416,13 +416,13 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=fixed_img,
             moving=mprage_t1w_img,
             transformlist=fwd_transform,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         t1w_scaled_mprage_t1w_img = ants.apply_transforms(
             fixed=fixed_img,
             moving=scaled_mprage_t1w_img,
             transformlist=fwd_transform,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
 
     t1w_mprage_t1w_file = get_filename(
@@ -516,7 +516,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -556,7 +556,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(mni_img, mni_file)
 

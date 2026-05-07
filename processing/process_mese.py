@@ -369,7 +369,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(mese_mag_ap_echo1),
         transformlist=[mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(mese_mag_ap_echo1_t1_img, mese_mag_ap_echo1_t1_file)
 
@@ -396,7 +396,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(mese_mag_ap_echo1),
         transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(mese_mag_ap_echo1_mni_img, mese_mag_ap_echo1_mni_file)
     plot_coregistration(
@@ -448,7 +448,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=mese_to_smriprep,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -463,7 +463,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -609,7 +609,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             fixed=ants.image_read(ref_file),
             moving=ants.image_read(in_file),
             transformlist=[transform_file],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(out_img, out_file)
 
