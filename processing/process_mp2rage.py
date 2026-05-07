@@ -29,6 +29,7 @@ import argparse
 import json
 import os
 import shutil
+from pprint import pformat
 
 import ants
 import nibabel as nb
@@ -203,6 +204,8 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
         file = files[0]
         run_data[key] = file.path
 
+    print(f"Collected run data:\n{pformat(run_data, indent=4)}", flush=True)
+
     return run_data
 
 
@@ -221,6 +224,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         Directory to write temporary files.
     """
     name_source = run_data['inv1_magnitude']
+    print(f"Processing {name_source}", flush=True)
     inv1_metadata = layout.get_metadata(run_data['inv1_magnitude'])
     inv2_metadata = layout.get_metadata(run_data['inv2_magnitude'])
     b1map_metadata = layout.get_metadata(run_data['b1_famp'])
@@ -263,6 +267,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
     # Register b1_famp to inv1_magnitude using b1_anat with ANTs
+    print("Registering b1_famp to inv1_magnitude using b1_anat", flush=True)
     fixed_img = ants.image_read(run_data['inv1_magnitude'])
     reg_output = ants.registration(
         fixed=fixed_img,
@@ -380,7 +385,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'suffix': 'T1map'},
+        entities={'space': 'MP2RAGE', 'suffix': 'T1map'},
         dismiss_entities=['inv', 'part'],
     )
     t1map.to_filename(t1map_file)
@@ -392,7 +397,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'suffix': 'R1map'},
+        entities={'space': 'MP2RAGE', 'suffix': 'R1map'},
         dismiss_entities=['inv', 'part'],
     )
     r1map.to_filename(r1map_file)
@@ -401,7 +406,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'suffix': 'T1w'},
+        entities={'space': 'MP2RAGE', 'suffix': 'UNIT1'},
         dismiss_entities=['inv', 'part'],
     )
     mp2rage.t1w_uni.to_filename(t1w_uni_file)
@@ -417,7 +422,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'suffix': 'T1map', 'desc': 'B1corrected'},
+        entities={'space': 'MP2RAGE', 'suffix': 'T1map', 'desc': 'B1corrected'},
         dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     t1map.to_filename(t1map_b1_corrected_file)
@@ -429,7 +434,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'suffix': 'R1map', 'desc': 'B1corrected'},
+        entities={'space': 'MP2RAGE', 'suffix': 'R1map', 'desc': 'B1corrected'},
         dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     r1map.to_filename(r1map_b1_corrected_file)
@@ -438,7 +443,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'suffix': 'T1w', 'desc': 'B1corrected'},
+        entities={'space': 'MP2RAGE', 'suffix': 'UNIT1', 'desc': 'B1corrected'},
         dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     mp2rage.t1w_uni_b1_corrected.to_filename(t1w_uni_b1_corrected_file)
@@ -513,6 +518,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     for i_file, file_ in enumerate(files):
         desc = descs[i_file]
         suffix = suffixes[i_file]
+        print(f"Warping {suffix} image to MNI space", flush=True)
 
         t1w_file = get_filename(
             name_source=name_source,
@@ -572,6 +578,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     suffixes = ['B1anat', 'TB1map']
     for i_file, file_ in enumerate([run_data['b1_anat'], b1map_rescaled_file]):
         suffix = suffixes[i_file]
+        print(f"Warping {suffix} image to T1w and MNI spaces", flush=True)
 
         t1w_file = get_filename(
             name_source=name_source,
@@ -683,10 +690,10 @@ def main(subject_id):
         derivatives=[smriprep_dir],
     )
 
-    print(f'Processing subject {subject_id}')
+    print(f'Processing subject {subject_id}', flush=True)
     sessions = layout.get_sessions(subject=subject_id, suffix='MP2RAGE')
     for session in sessions:
-        print(f'Processing session {session}')
+        print(f'Processing session {session}', flush=True)
         inv1_magnitude_files = layout.get(
             subject=subject_id,
             session=session,
@@ -696,7 +703,7 @@ def main(subject_id):
             extension=['.nii', '.nii.gz'],
         )
         if not inv1_magnitude_files:
-            print(f'No inv1 magnitude files found for subject {subject_id} and session {session}')
+            print(f'No inv1 magnitude files found for subject {subject_id} and session {session}', flush=True)
             continue
 
         for inv1_magnitude_file in inv1_magnitude_files:
@@ -708,7 +715,7 @@ def main(subject_id):
             try:
                 run_data = collect_run_data(layout, entities)
             except ValueError as e:
-                print(f'Failed {inv1_magnitude_file}')
+                print(f'Failed {inv1_magnitude_file}', flush=True)
                 print(e)
                 continue
             fname = os.path.basename(inv1_magnitude_file.path).split('.')[0]
@@ -752,7 +759,7 @@ def main(subject_id):
         with open(dataset_description_file, 'w') as fobj:
             json.dump(dataset_description, fobj, sort_keys=True, indent=4)
 
-    print('DONE!')
+    print('DONE!', flush=True)
 
 
 if __name__ == '__main__':
