@@ -386,7 +386,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MP2RAGE', 'suffix': 'T1map'},
-        dismiss_entities=['inv', 'part'],
+        dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     t1map.to_filename(t1map_file)
 
@@ -398,7 +398,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MP2RAGE', 'suffix': 'R1map'},
-        dismiss_entities=['inv', 'part'],
+        dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     r1map.to_filename(r1map_file)
 
@@ -407,7 +407,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MP2RAGE', 'suffix': 'UNIT1'},
-        dismiss_entities=['inv', 'part'],
+        dismiss_entities=['inv', 'part', 'reconstruction'],
     )
     mp2rage.t1w_uni.to_filename(t1w_uni_file)
 
@@ -449,6 +449,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mp2rage.t1w_uni_b1_corrected.to_filename(t1w_uni_b1_corrected_file)
 
     # Coregister MP2RAGE-space T1w image to sMRIPrep T1w image
+    print(f"Coregistering {t1w_uni_b1_corrected_file} to {run_data['t1w']}", flush=True)
     mp2rage_to_smriprep_xfm = coregister_to_t1(
         name_source=name_source,
         layout=layout,
