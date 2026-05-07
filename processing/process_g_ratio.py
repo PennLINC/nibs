@@ -197,7 +197,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     mni_mask_file = os.path.join(temp_dir, 'resampled_mni_mask.nii.gz')
     ants.image_write(resampled_mni_mask, mni_mask_file)
     resampled_mni_t1w = ants.image_read(run_data['t1w_mni']).resample_image_to_target(
-        isovf, interp_type='lanczosWindowedSinc'
+        isovf, interp_type='nearestNeighbor'
     )
     mni_t1w_file = os.path.join(temp_dir, 'resampled_mni_t1w.nii.gz')
     ants.image_write(resampled_mni_t1w, mni_t1w_file)

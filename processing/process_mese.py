@@ -327,7 +327,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         '--output',
         xfm_prefix,
         '--interpolation',
-        'LanczosWindowedSinc',
+        'nearestNeighbor',
         '--winsorize-image-intensities',
         '[0.005,0.995]',
         '--initial-moving-transform',
