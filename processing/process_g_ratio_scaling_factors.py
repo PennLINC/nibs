@@ -23,7 +23,7 @@ import pandas as pd
 from bids.layout import BIDSLayout, Query
 from nilearn import masking, plotting
 
-from utils import get_filename, load_config
+from utils import coregister_to_t1, get_filename, load_config
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
@@ -47,58 +47,68 @@ def collect_run_data(layout: object, bids_filters: dict, smriprep_dir: str) -> d
         Mapping of descriptive keys to resolved file paths.
     """
     queries = {
-        # MNI-space ISOVF and ICVF maps from QSIRecon
-        'isovf_mni': {
+        # T1w-space MTsat and ihMTR maps from process_ihmt.py
+        'mtsat_t1w': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': 'T1w',
+            'suffix': 'ihMTsatB1sq',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'ihmtr_t1w': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': 'T1w',
+            'suffix': 'ihMTR',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # sMRIPrep preprocessed T1w in native space (ACPC registration target)
+        't1w': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
+            'res': Query.NONE,
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # ACPC-space ISOVF and ICVF maps from QSIRecon
+        'isovf_acpc': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
             'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
+            'space': 'ACPC',
             'model': 'noddi',
             'param': 'isovf',
             'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
-        'icvf_mni': {
+        'icvf_acpc': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
             'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
+            'space': 'ACPC',
             'model': 'noddi',
             'param': 'icvf',
             'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
-        # ihMT-space MTsat and ihMTR maps from process_ihmt.py
-        'mtsat_mni': {
-            'datatype': 'anat',
-            'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
-            'suffix': 'ihMTsatB1sq',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        'ihmtr_mni': {
-            'datatype': 'anat',
-            'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
-            'suffix': 'ihMTR',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        # Transform from sMRIPrep T1w to MNI space
-        't1w2mni_xfm': {
+        # ACPC-space T1w from QSIPrep (used to compute the ACPC-to-T1w rigid transform)
+        't1w_acpc': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],
-            'space': Query.NONE,
             'run': [Query.NONE, Query.ANY],
-            'to': 'MNI152NLin2009cAsym',
-            'from': 'T1w',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.h5',
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': 'ACPC',
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
         },
         # Transform from Freesurfer to sMRIPrep T1w space
         'fs2t1w_xfm': {
@@ -185,58 +195,97 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     splenium_values : pandas.Series
         Mean values of ISOVF, ICVF, MTsat, and ihMTR in the splenium.
     """
-    # Load images for target resolutions
-    isovf = ants.image_read(run_data['isovf_mni'])  # DWI resolution (1.7 mm isotropic)
+    # Register ACPC-space T1w (QSIPrep) to native T1w (sMRIPrep) and use that transform
+    # to warp ISOVF and ICVF into T1w space, writing the results for downstream use.
+    acpc2t1w_xfm = coregister_to_t1(
+        name_source=run_data['t1w_acpc'],
+        layout=layout,
+        in_file=run_data['t1w_acpc'],
+        t1_file=run_data['t1w'],
+        out_dir=out_dir,
+        source_space='ACPC',
+        target_space='T1w',
+    )
 
-    # Select only the splenium voxels
-    splenium_mask = ants.image_read(run_data['aseg_fsnative']) == 251
-    splenium_mask_dwires = ants.apply_transforms(
-        fixed=isovf,
-        moving=splenium_mask,
-        transformlist=[run_data['t1w2mni_xfm'], run_data['fs2t1w_xfm']],
+    t1w_img = ants.image_read(run_data['t1w'])
+
+    isovf_t1w_img = ants.apply_transforms(
+        fixed=t1w_img,
+        moving=ants.image_read(run_data['isovf_acpc']),
+        transformlist=[acpc2t1w_xfm],
         interpolator='nearestNeighbor',
     )
-    splenium_mask_file_dwires = os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz')
-    ants.image_write(splenium_mask_dwires, splenium_mask_file_dwires)
+    isovf_t1w_file = get_filename(
+        name_source=run_data['isovf_acpc'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w'},
+    )
+    ants.image_write(isovf_t1w_img, isovf_t1w_file)
 
-    # Warp ihMTRAGEref-space MTsat and ihMTR to MNI space
-    mtsat_mni = ants.image_read(run_data['mtsat_mni']).resample_image_to_target(
-        splenium_mask_dwires, interp_type='nearestNeighbor'
+    icvf_t1w_img = ants.apply_transforms(
+        fixed=t1w_img,
+        moving=ants.image_read(run_data['icvf_acpc']),
+        transformlist=[acpc2t1w_xfm],
+        interpolator='nearestNeighbor',
     )
-    mtsat_mni_file = os.path.join(temp_dir, 'mtsat_mni.nii.gz')
-    ants.image_write(mtsat_mni, mtsat_mni_file)
-    ihmtr_mni = ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(
-        splenium_mask_dwires, interp_type='nearestNeighbor'
+    icvf_t1w_file = get_filename(
+        name_source=run_data['icvf_acpc'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w'},
     )
-    ihmtr_mni_file = os.path.join(temp_dir, 'ihmtr_mni.nii.gz')
-    ants.image_write(ihmtr_mni, ihmtr_mni_file)
+    ants.image_write(icvf_t1w_img, icvf_t1w_file)
+
+    # Select only the splenium voxels and warp to T1w space at DWI resolution
+    splenium_mask = ants.image_read(run_data['aseg_fsnative']) == 251
+    splenium_mask_t1w = ants.apply_transforms(
+        fixed=isovf_t1w_img,
+        moving=splenium_mask,
+        transformlist=[run_data['fs2t1w_xfm']],
+        interpolator='nearestNeighbor',
+    )
+    splenium_mask_file = os.path.join(temp_dir, 'splenium_mask_t1w_dwires.nii.gz')
+    ants.image_write(splenium_mask_t1w, splenium_mask_file)
+
+    # Resample T1w-space MTsat and ihMTR to DWI resolution
+    mtsat_t1w = ants.image_read(run_data['mtsat_t1w']).resample_image_to_target(
+        isovf_t1w_img, interp_type='nearestNeighbor'
+    )
+    mtsat_t1w_file = os.path.join(temp_dir, 'mtsat_t1w_dwires.nii.gz')
+    ants.image_write(mtsat_t1w, mtsat_t1w_file)
+    ihmtr_t1w = ants.image_read(run_data['ihmtr_t1w']).resample_image_to_target(
+        isovf_t1w_img, interp_type='nearestNeighbor'
+    )
+    ihmtr_t1w_file = os.path.join(temp_dir, 'ihmtr_t1w_dwires.nii.gz')
+    ants.image_write(ihmtr_t1w, ihmtr_t1w_file)
 
     # Get the data in the splenium
-    isovf_splenium = masking.apply_mask(run_data['isovf_mni'], splenium_mask_file_dwires)
-    icvf_splenium = masking.apply_mask(run_data['icvf_mni'], splenium_mask_file_dwires)
-    mtsat_splenium = masking.apply_mask(mtsat_mni_file, splenium_mask_file_dwires)
-    ihmtr_splenium = masking.apply_mask(ihmtr_mni_file, splenium_mask_file_dwires)
+    isovf_splenium = masking.apply_mask(isovf_t1w_file, splenium_mask_file)
+    icvf_splenium = masking.apply_mask(icvf_t1w_file, splenium_mask_file)
+    mtsat_splenium = masking.apply_mask(mtsat_t1w_file, splenium_mask_file)
+    ihmtr_splenium = masking.apply_mask(ihmtr_t1w_file, splenium_mask_file)
 
-    # Plot the splenium mask on top of the brain
+    # Plot the splenium mask on top of the T1w brain
     brain_img = ants.image_read(run_data['brain_fsnative'])
-    brain_img_dwires = ants.apply_transforms(
-        fixed=isovf,
+    brain_img_t1w = ants.apply_transforms(
+        fixed=isovf_t1w_img,
         moving=brain_img,
-        transformlist=[run_data['t1w2mni_xfm'], run_data['fs2t1w_xfm']],
+        transformlist=[run_data['fs2t1w_xfm']],
         interpolator='nearestNeighbor',
     )
-    ants.image_write(brain_img_dwires, os.path.join(temp_dir, 'brain_mni_dwires.nii.gz'))
+    ants.image_write(brain_img_t1w, os.path.join(temp_dir, 'brain_t1w_dwires.nii.gz'))
 
     splenium_plot = get_filename(
-        name_source=run_data['isovf_mni'],
+        name_source=isovf_t1w_file,
         layout=layout,
         out_dir=out_dir,
         entities={'datatype': 'figures', 'desc': 'splenium', 'suffix': 'mask', 'extension': '.svg'},
         dismiss_entities=['model', 'param'],
     )
     plotting.plot_roi(
-        splenium_mask_file_dwires,
-        bg_img=os.path.join(temp_dir, 'brain_mni_dwires.nii.gz'),
+        splenium_mask_file,
+        bg_img=os.path.join(temp_dir, 'brain_t1w_dwires.nii.gz'),
         output_file=splenium_plot,
         display_mode='mosaic',
     )
@@ -290,7 +339,7 @@ def compute_scaling_factor(ICVF, MVF, ISOVF, g=0.7):
 def main():
     in_dir = CFG['bids_dir']
     smriprep_dir = CFG['derivatives']['smriprep']
-    dipydki_dir = CFG['derivatives']['qsirecon_dipydki']
+    qsiprep_dir = CFG['derivatives']['qsiprep']
     noddi_dir = CFG['derivatives']['qsirecon_noddi']
     ihmt_dir = CFG['derivatives']['ihmt']
     out_dir = CFG['derivatives']['g_ratio']
@@ -302,7 +351,7 @@ def main():
         in_dir,
         config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
         validate=False,
-        derivatives=[smriprep_dir, dipydki_dir, noddi_dir, ihmt_dir],
+        derivatives=[smriprep_dir, qsiprep_dir, noddi_dir, ihmt_dir],
     )
 
     base_query = {
