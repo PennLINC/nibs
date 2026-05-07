@@ -17,7 +17,16 @@
 % Code by Byeongpil Moon (mbpil7044@snu.ac.kr)
 
 %% Necessary preparation
-function Chisep_script_shell_nibr2prime(input,output,r2primepath,outputa)
+% Arguments:
+%   input       - path to raw MEGRE echo-1 magnitude NIfTI (used for niftiinfo)
+%   output      - SEPIA output folder containing part-mag.nii.gz, part-phase.nii.gz, header.mat
+%   r2primepath - path to precomputed R2' NIfTI (used only when have_r2prime==1)
+%   outputa     - chi-sep output folder (final NIfTIs and temp files written here)
+%   echo_start  - first echo index to use: 1 for E12345, 2 for E2345
+%   have_r2prime - 1: use precomputed R2' map; 0: compute R2' from R2* internally
+%   is_scaling_flag - 0: use R2pnet to predict R2' from R2*; 1: use scaling factor
+%   r2starpath  - path to precomputed R2* NIfTI (used only when have_r2prime==1)
+function run_chisep(input,output,r2primepath,outputa,echo_start,have_r2prime,is_scaling_flag,r2starpath)
     delete(gcp('nocreate'));
 
 % % Detect how many CPUs were assigned by a scheduler (e.g., SLURM, PBS)
@@ -98,7 +107,13 @@ RunOptions.Mask = false;
 RunOptions.Mask_method = 'MEDI';
 
 % 'ARLO' | 'NNLS fitting' | 'Use preprocessed R2* or R2'' map'
-RunOptions.R2sfit = 'ARLO';   % changed from 'ARLO' spandey
+% When have_r2prime==1 the R2* and R2' maps are loaded from disk; otherwise
+% R2* is computed from the MEGRE echoes via ARLO.
+if have_r2prime
+    RunOptions.R2sfit = 'Use preprocessed R2* or R2'' map';
+else
+    RunOptions.R2sfit = 'ARLO';
+end
 
 % 'ROMEO + weighted echo averaging' | 'nonlinear complex fitting + SEGUE' | 'Laplacian'
 RunOptions.Unwrap = 'ROMEO + weighted echo averaging';
@@ -119,11 +134,11 @@ RunOptions.Tukey = double(0.4);
 RunOptions.PhaseInverse = 0;
 
 % 1: have R2' | 0: don't have R2'
-RunOptions.HaveR2Prime = 0;
+RunOptions.HaveR2Prime = have_r2prime;
 % r2prime - R2' map in Hz unit (x, y, z). If you don't have R2' map, use chi-sepnet-R2* which doesn't require R2' map.
 
 % 0: generate R2' from R2* using R2pnet | 1: generate R2' from R2* using scaling
-RunOptions.is_scaling = 1;
+RunOptions.is_scaling = is_scaling_flag;
 RunOptions.scaling_factor = 0.19;
 
 % false: No denoising for R2s | true: denosing for R2s
@@ -134,7 +149,9 @@ RunOptions.resgen = false;
 % Determine whether to use resolution generalization pipeline or to interpolate to 1 mm isotropic resolution
 % 7T processing is available only with resolution generalization
 
-RunOptions.OutputPath = output;
+% Temp files and final outputs both go to outputa so they stay out of the
+% shared SEPIA input folder.
+RunOptions.OutputPath = outputa;
 % Output path must not contatin ' '(spaces)
 
 % Interpolation options (for B0 direction, Resampling)
@@ -191,15 +208,15 @@ elseif strcmp(RunOptions.InputType, 'nifti')
     pathheader  = sprintf('%s/sub-%s_ses-%s_header.mat', output, subjectID, sessionID);
     % magnitude
     magnitudedata = niftiread(pathNifti_mag);
-    magnitudedata = magnitudedata(:,:,:,2:5); %added to accomodate 2nd to 5th echo
+    magnitudedata = magnitudedata(:,:,:,echo_start:5);
     Data.MGRE_Mag = rot90(double(magnitudedata));
     phasedata = niftiread(pathNifti_phs);
-    phasedata=phasedata(:,:,:,2:5); %added to accomodate 2nd to 5th echo
+    phasedata=phasedata(:,:,:,echo_start:5);
     maxval = max(double(    phasedata(:)));
     minval = min(double(    phasedata(:)));
     Data.MGRE_Phs = rot90(double(phasedata));%(rot90(double(  phasedata))-(minval+maxval)/2)/(maxval-minval)*2*pi;
     load(pathheader);
-    TE=TE(1,2:5); %added to accomodate 2nd to 5th echo
+    TE=TE(1,echo_start:5);
     Data.VoxelSize = voxelSize;
     Data.Necho = length(TE);
     Data.CF = CF;
@@ -230,7 +247,7 @@ end
 Data.output_root = [RunOptions.OutputPath,filesep,'chisep_output_',char(datetime('now','Format',"MM-dd-yy_HH.mm.ss"))];
 mkdir(Data.output_root);
 
-clearvars -except Params Data type_dir subj subj_dir path type type_path RunOptions home_directory input output subjectID sessionID r2primepath outputa
+clearvars -except Params Data type_dir subj subj_dir path type type_path RunOptions home_directory input output subjectID sessionID r2primepath outputa echo_start have_r2prime is_scaling_flag r2starpath
 
 %% Fill in necessary parameters if empty
 % Data.TE = [];                     % [ms]  [row vector]
@@ -297,18 +314,14 @@ clearvars mask_brain
 
 %% R2* fitting (Range [0,100])
 disp("==================< R2* fitting >==================")
-if strcmp(RunOptions.R2sfit, 'Use preprocessed R2* or R2'' map')            % If you have R2s or R2p
-    123321
-    Data.R2s = niftiread(r2primepath);  % commented spandey I loaded this for sake of loading. We dont need it as we are processing R2pspandey for input r2prime
-    Data.R2s = rot90(Data.R2s, 1);
+if strcmp(RunOptions.R2sfit, 'Use preprocessed R2* or R2'' map')
+    Data.R2s = rot90(double(niftiread(r2starpath)), 1);
 
     if RunOptions.HaveR2Prime == 1
-        %Data.R2p = load('R2p.mat');  %commented spandey
-        Data.R2p = niftiread(r2primepath); % spandey for input r2prime
-        Data.R2p = rot90(Data.R2p, 1);
+        Data.R2p = rot90(double(niftiread(r2primepath)), 1);
     end
 else
-    678910                                                             % R2s fitting
+                                                                      % R2s fitting
     if strcmp(RunOptions.R2sfit, 'ARLO')
         Data.dTE = Data.TE(2) - Data.TE(1);
         if (~isempty(find(abs(Data.TE - Data.TE(1) - Data.dTE*(0:length(Data.TE)-1)') > 0.001, 1)) && (length(Data.TE)>2))
@@ -554,23 +567,32 @@ if ~(sum(RunOptions.EvenSizePadding) == 0)
     end
 end
 
+ % Derive a label for output filenames reflecting which R2 map was used.
+ if have_r2prime
+     map_label = 'r2p';
+ elseif ~is_scaling_flag
+     map_label = 'r2primenet';
+ else
+     map_label = 'r2s';
+ end
+
  info = niftiinfo(input)
  info.Datatype='double';
  min_val=0;  % scaling the results
  max_val=0.1;
  Data.x_para= Data.x_para %* ( max_val - min_val) + min_val;
  Data.x_para= rot90(Data.x_para,-1);
- para_file = sprintf('%s/sub-%s_ses-%s_paramagnetic_r2s.nii', outputa, subjectID, sessionID);
+ para_file = sprintf('%s/sub-%s_ses-%s_paramagnetic_%s.nii', outputa, subjectID, sessionID, map_label);
  niftiwrite( Data.x_para, para_file, info);
  Data.x_dia= Data.x_dia %* ( max_val - min_val) + min_val;
  Data.x_dia= rot90(Data.x_dia,-1);
- dia_file = sprintf('%s/sub-%s_ses-%s_diamagnetic_r2s.nii', outputa, subjectID, sessionID);
+ dia_file = sprintf('%s/sub-%s_ses-%s_diamagnetic_%s.nii', outputa, subjectID, sessionID, map_label);
  niftiwrite( Data.x_dia, dia_file, info);
  min_val=-0.1;
  max_val=0.1;
  Data.x_tot= Data.x_tot %* ( max_val - min_val) + min_val;
  Data.x_tot= rot90(Data.x_tot,-1);
- total_file = sprintf('%s/sub-%s_ses-%s_total_r2s.nii', outputa, subjectID, sessionID);
+ total_file = sprintf('%s/sub-%s_ses-%s_total_%s.nii', outputa, subjectID, sessionID, map_label);
  niftiwrite( Data.x_tot, total_file, info);
 %  Data.r2p_map= rot90(Data.r2p_map,-1);
 %  r2p_file = sprintf('%s/sub-%s_ses-%s_r2primenet.nii', outputa, subjectID, sessionID);
