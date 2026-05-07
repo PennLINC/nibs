@@ -25,5 +25,5 @@ python process_mese.py --subject-id ${subject}
 python process_qsm_prep.py --subject-id ${subject}
 python process_qsm_sepia.py --subject-id ${subject}
 python process_qsm_post.py --subject-id ${subject}
-python process_g_ratio.py --subject-id ${subject}
+#python process_g_ratio.py --subject-id ${subject}
 #python generate_myelin_reports.py --subject-id ${subject}
