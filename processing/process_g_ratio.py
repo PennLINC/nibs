@@ -8,7 +8,7 @@ Steps:
 Notes:
 
 - sMRIPrep's preprocessed T1w image is used as the "native T1w space".
-- This must be run after sMRIPrep and process_mp2rage.py.
+- This must be run after sMRIPrep and process_ihmt.py.
 """
 
 from __future__ import annotations
