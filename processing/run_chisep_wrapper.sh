@@ -24,18 +24,18 @@ r2star="/cbica/projects/nibs/dset/sub-${subjectID}/ses-${sessionID}/anat/sub-${s
 r2star_e2345="/cbica/projects/nibs/dset/sub-${subjectID}/ses-${sessionID}/anat/sub-${subjectID}_ses-${sessionID}_run-01_space-MEGRE_desc-MEGRE+E2345_R2starmap.nii.gz"
 
 # We run chi-sep six ways:
-# 1. E12345+chisep+r2p
-# 2. E2345+chisep+r2p
-# 3. E12345+chisep+r2primenet
-# 4. E2345+chisep+r2primenet
-# 5. E12345+chisep+r2s
-# 6. E2345+chisep+r2s
+# 1. E12345+chisep+r2p (precalculated R2' map)
+# 2. E2345+chisep+r2p (precalculated R2' map)
+# 3. E12345+chisep+r2primenet (use R2-prime-net to simulate R2' map)
+# 4. E2345+chisep+r2primenet (use R2-prime-net to simulate R2' map)
+# 5. E12345+chisep+r2s (use chisepnet's R2* estimation)
+# 6. E2345+chisep+r2s (use chisepnet's R2* estimation)
 
 # Specify the directory where the MATLAB function is located
 MATLAB_SCRIPT_DIR="/cbica/projects/nibs/software"
-echo "matlab -nodisplay -nosplash -r \"addpath(genpath('$MATLAB_SCRIPT_DIR')); disp('MATLAB Path:'); disp(path); try; Chisep_script_shell_nibr2prime('$input_file', '$output_folder','$r2prime', '$output_folder_e2345'); catch e; disp(e.message); end; exit;\""
+echo "matlab -nodisplay -nosplash -r \"addpath(genpath('$MATLAB_SCRIPT_DIR')); disp('MATLAB Path:'); disp(path); try; run_chisep('$input_file', '$output_folder','$r2prime', '$output_folder_e2345'); catch e; disp(e.message); end; exit;\""
 
-matlab -nodisplay -nosplash -r "addpath(genpath('$MATLAB_SCRIPT_DIR')); try; Chisep_script_shell_nibr2prime('$input_file', '$output_folder','$r2prime', '$output_folder_e2345'); catch e; disp(e.message); end; exit;"
+matlab -nodisplay -nosplash -r "addpath(genpath('$MATLAB_SCRIPT_DIR')); try; run_chisep('$input_file', '$output_folder','$r2prime', '$output_folder_e2345'); catch e; disp(e.message); end; exit;"
 
 # Check if MATLAB succeeded and handle errors
 if [ $? -ne 0 ]; then
