@@ -67,7 +67,7 @@ if __name__ == '__main__':
                 with open(mp2rage_json, 'r') as f:
                     data = json.load(f)
                 data['NumberShots'] = 176  # SlicesPerSlab
-                data['RepetitionTimeExcitation'] = 0.0063  # 6.3 ms
+                data['RepetitionTimeExcitation'] = 0.0068  # 6.8 ms
                 data['RepetitionTimePreparation'] = data['RepetitionTime']
                 with open(mp2rage_json, 'w') as f:
                     json.dump(data, f, indent=4, sort_keys=True)

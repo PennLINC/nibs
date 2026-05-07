@@ -265,7 +265,7 @@ def process_run(layout, run_data, out_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(mean_mag_filename),
         transformlist=[coreg_transform],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1_megre_ref_filename = get_filename(
         name_source=mean_mag_filename,
@@ -290,7 +290,7 @@ def process_run(layout, run_data, out_dir):
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(mean_mag_filename),
         transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     mni_megre_ref_filename = get_filename(
         name_source=t1_megre_ref_filename,
@@ -324,7 +324,7 @@ def process_run(layout, run_data, out_dir):
         moving=ants.image_read(run_data['r2_map']),
         transformlist=[coreg_transform],
         whichtoinvert=[True],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(r2_qsm_img, r2_qsm_filename)
 

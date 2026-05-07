@@ -223,7 +223,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         fixed=isovf,
         moving=brain_img,
         transformlist=[run_data['t1w2mni_xfm'], run_data['fs2t1w_xfm']],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(brain_img_dwires, os.path.join(temp_dir, 'brain_mni_dwires.nii.gz'))
 

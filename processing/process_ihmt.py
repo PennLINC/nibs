@@ -321,7 +321,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ihmt_img,
             transformlist=transform_list,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ihmt_file_t1space = get_filename(
             name_source=in_file,
@@ -490,7 +490,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(reg_img, mni_file)
 
@@ -659,7 +659,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
             fixed=ants.image_read(template_file),
             moving=ants.image_read(in_file),
             transformlist=[transform_file],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(out_img, out_file)
 
