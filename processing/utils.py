@@ -287,14 +287,18 @@ def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
     s0_img : nibabel.Nifti1Image
         S0 map in arbitrary units.
     """
+    import nibabel as nb
     import numpy as np
+    from nilearn import masking
     from tedana import io, decay
 
-    data_cat, ref_img = io.load_data(in_files, n_echos=len(echo_times))
+    in_img = nb.load(in_files[0])
+    mask = np.ones(in_img.shape[:3], dtype=int)
+    mask_img = nb.Nifti1Image(mask, in_img.affine, in_img.header)
+    data_cat = io.load_data_nilearn(in_files, mask_img=mask_img, n_echos=len(echo_times))
 
     # Fit model on all voxels, using all echoes
-    mask = np.ones(data_cat.shape[0], dtype=int)
-    masksum = mask * len(echo_times)
+    masksum = np.full(data_cat.shape[0], len(echo_times))
 
     echo_times_ms = [te * 1000 for te in echo_times]
     t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
@@ -329,10 +333,14 @@ def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
     r2s_hz = np.zeros_like(t2s_s)
     np.divide(1, t2s_s, out=r2s_hz, where=t2s_s != 0)
 
-    t2s_s_img = io.new_nii_like(ref_img, t2s_s)
-    r2s_hz_img = io.new_nii_like(ref_img, r2s_hz)
-    s0_img = io.new_nii_like(ref_img, s0_limited)
-    r_squared_img = io.new_nii_like(ref_img, r_squared)
+    t2s_s_img = masking.unmask(t2s_limited, mask_img)
+    t2s_s_img.header.set_data_dtype(np.float32)
+    r2s_hz_img = masking.unmask(r2s_hz, mask_img)
+    r2s_hz_img.header.set_data_dtype(np.float32)
+    s0_img = masking.unmask(s0_limited, mask_img)
+    s0_img.header.set_data_dtype(np.float32)
+    r_squared_img = masking.unmask(r_squared, mask_img)
+    r_squared_img.header.set_data_dtype(np.float32)
     return t2s_s_img, r2s_hz_img, s0_img, r_squared_img
 
 
