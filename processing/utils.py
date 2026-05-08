@@ -198,7 +198,7 @@ def coregister_to_t1(
             'suffix': 'xfm',
             'extension': 'txt' if transform.endswith('.txt') else 'mat',
         },
-        dismiss_entities=['acquisition', 'desc', 'inv', 'reconstruction', 'mt', 'echo', 'part'],
+        dismiss_entities=['acquisition', 'desc', 'inv', 'reconstruction', 'mt', 'echo', 'part', 'space'],
     )
     shutil.copyfile(transform, transform_file)
 
