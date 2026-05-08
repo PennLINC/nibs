@@ -38,7 +38,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     run_data : dict
         Mapping of descriptive keys to resolved file paths.
     """
-    with open(os.path.join(CODE_DIR, 'processing', 'myelin_derivatives.yml'), 'r') as fobj:
+    with open(os.path.join(CODE_DIR, 'configuration', 'myelin_derivatives.yml'), 'r') as fobj:
         queries = yaml.safe_load(fobj)['queries']
 
     run_data = {}
@@ -178,10 +178,10 @@ def main(subject_id):
     out_dir = CFG['derivatives']['myelin']
     os.makedirs(out_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_myelin.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_myelin.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
-    config = os.path.join(CODE_DIR, 'nibs_bids_config.json')
+    config = os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json')
     layout = BIDSLayout(
         in_dir,
         config=[config],

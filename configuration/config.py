@@ -11,7 +11,7 @@ def load_config(config_path: str | None = None) -> dict:
     Parameters
     ----------
     config_path : str, optional
-        Path to the YAML config file. Defaults to ``paths.yaml`` in the
+        Path to the YAML config file. Defaults to ``paths.yml`` in the
         same directory as this module (the repository root).
 
     Returns
@@ -24,7 +24,7 @@ def load_config(config_path: str | None = None) -> dict:
     import yaml
 
     if config_path is None:
-        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'paths.yaml')
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'paths.yml')
 
     with open(config_path) as f:
         raw = yaml.safe_load(f)

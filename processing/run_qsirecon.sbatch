@@ -45,7 +45,7 @@ cmd="apptainer run --cleanenv \
       --mem 79000 \
       --fs-license-file /license.txt \
       --output-resolution 1.7 \
-      --recon-spec /code/recon_spec.yml \
+      --recon-spec /code/qsirecon_spec.yml \
       --report-output-level session"
 
 # Setup done, run the command

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from config import load_config  # noqa: E402, F401
+from configuration.config import load_config  # noqa: E402, F401
 
 
 def run_command(command: str | list[str], env: dict[str, str] | None = None) -> None:

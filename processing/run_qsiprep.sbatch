@@ -54,7 +54,7 @@ cmd="apptainer run --cleanenv \
       --hmc-model 3dSHORE \
       --pepolar-method DRBUDDI \
       --b1-biascorrect-stage none \
-      --bids-filter-file /code/fmriprep_filter.json \
+      --bids-filter-file /code/smriprep_filter.json \
       --ignore t2w"
 
 # Setup done, run the command

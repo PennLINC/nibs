@@ -22,7 +22,7 @@ from glob import glob
 
 if __name__ == '__main__':
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-    from config import load_config
+    from configuration.config import load_config
 
     _cfg = load_config()
 

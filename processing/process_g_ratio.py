@@ -302,12 +302,12 @@ def main(subject_id):
     temp_dir = os.path.join(CFG['work_dir'], 'g_ratio')
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_g_ratio.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_g_ratio.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         # out_dir is included so that T1w-space ISOVF/ICVF written by
         # process_g_ratio_scaling_factors.py can be queried directly.

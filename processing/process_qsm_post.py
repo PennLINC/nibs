@@ -2,13 +2,14 @@
 
 Steps:
 
-1.  Warp QSM derivatives to T1w and MNI152NLin2009cAsym spaces.
-2.  Generate scalar reports for QSM derivatives.
+1.  Rename chi-separation outputs from MATLAB to BIDS-compliant filenames.
+2.  Warp QSM derivatives to T1w and MNI152NLin2009cAsym spaces.
+3.  Generate scalar reports for QSM derivatives.
 
 Notes:
 
 - The R2* map is calculated using the monoexponential fit.
-- This must be run after sMRIPrep and process_mese.py.
+- This must be run after sMRIPrep, process_mese.py, and process_qsm_chisep.py.
 """
 
 from __future__ import annotations
@@ -16,9 +17,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from glob import glob
 from pprint import pformat
 
 import ants
+import nibabel as nb
 import numpy as np
 from bids.layout import BIDSLayout, Query
 from nilearn import masking
@@ -33,6 +36,61 @@ from utils import (
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
+
+
+def rename_chisep_outputs(subject_id: str, session: str) -> None:
+    """Rename chi-separation MATLAB outputs to BIDS-compliant filenames.
+
+    Reads uncompressed NIfTIs from each chi-sep work directory and writes
+    compressed, BIDS-named files to the QSM derivatives directory.
+
+    Parameters
+    ----------
+    subject_id : str
+        BIDS subject label (without 'sub-' prefix).
+    session : str
+        BIDS session label (without 'ses-' prefix).
+    """
+    work_dir = CFG['work_dir']
+    out_dir = CFG['derivatives']['qsm']
+    ses_out_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}', 'anat')
+    os.makedirs(ses_out_dir, exist_ok=True)
+
+    variants = [
+        ('E12345+chisep+r2p', 'r2p'),
+        ('E2345+chisep+r2p', 'r2p'),
+        ('E12345+chisep+r2primenet', 'r2primenet'),
+        ('E2345+chisep+r2primenet', 'r2primenet'),
+        ('E12345+chisep+r2s', 'r2s'),
+        ('E2345+chisep+r2s', 'r2s'),
+    ]
+    suffix_map = {
+        'paramagnetic': 'ironw',
+        'diamagnetic': 'myelinw',
+        'total': 'Chimap',
+    }
+
+    for variant, map_label in variants:
+        variant_dir = os.path.join(
+            work_dir, f'qsm-{variant}', f'sub-{subject_id}', f'ses-{session}', 'anat'
+        )
+        if not os.path.isdir(variant_dir):
+            print(f'Chi-sep output directory not found: {variant_dir}')
+            continue
+
+        for contrast, bids_suffix in suffix_map.items():
+            in_file = os.path.join(
+                variant_dir,
+                f'sub-{subject_id}_ses-{session}_{contrast}_{map_label}.nii',
+            )
+            out_file = os.path.join(
+                ses_out_dir,
+                f'sub-{subject_id}_ses-{session}_run-01_space-MEGRE_desc-{variant}_{bids_suffix}.nii.gz',
+            )
+            if not os.path.isfile(in_file):
+                print(f'Chi-sep output not found: {in_file}')
+                continue
+            nb.load(in_file).to_filename(out_file)
 
 
 def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
@@ -467,12 +525,21 @@ def main(subject_id):
     temp_dir = os.path.join(CFG['work_dir'], 'qsm')
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_qsm.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_qsm.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
+
+    sessions_to_rename = {
+        os.path.basename(d).removeprefix('ses-')
+        for d in glob(os.path.join(CFG['work_dir'], 'qsm-*+chisep+*', f'sub-{subject_id}', 'ses-*'))
+        if os.path.isdir(d)
+    }
+    for session in sorted(sessions_to_rename):
+        print(f'Renaming chi-sep outputs for session {session}')
+        rename_chisep_outputs(subject_id, session)
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir, out_dir],
     )

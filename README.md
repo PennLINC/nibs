@@ -102,7 +102,7 @@ conda activate test
 
 ### Configuration
 
-All paths are configured in `paths.yaml` at the repository root.
+All paths are configured in `paths.yml` at the repository root.
 Update `project_root` to match your local or cluster mount point:
 
 ```yaml

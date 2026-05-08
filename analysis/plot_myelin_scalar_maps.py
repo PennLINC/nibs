@@ -17,7 +17,7 @@ from nilearn import image, maskers, plotting
 if __name__ == '__main__':
     _script_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, os.path.join(_script_dir, '..'))
-    from config import load_config
+    from configuration.config import load_config
 
     _cfg = load_config()
 

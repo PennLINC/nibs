@@ -683,12 +683,12 @@ def main(subject_id):
     temp_dir = os.path.join(cfg['work_dir'], 'pymp2rage')
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(code_dir, 'processing', 'reports_spec_mp2rage.yml')
+    bootstrap_file = os.path.join(code_dir, 'configuration', 'reports_spec_mp2rage.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(code_dir, 'nibs_bids_config.json'),
+        config=os.path.join(code_dir, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir],
     )
