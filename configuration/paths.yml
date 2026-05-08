@@ -18,6 +18,7 @@ derivatives:
   t1wt2w_ratio: derivatives/t1wt2w_ratio
   g_ratio: derivatives/g_ratio
   myelin: derivatives/myelin
+  qsiprep: derivatives/qsiprep
   qsirecon_dipydki: derivatives/qsirecon/derivatives/qsirecon-DIPYDKI
   qsirecon_noddi: derivatives/qsirecon/derivatives/qsirecon-NODDI
   qsirecon_dsistudio: derivatives/qsirecon/derivatives/qsirecon-DSIStudio
