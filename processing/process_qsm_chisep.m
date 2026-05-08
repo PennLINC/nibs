@@ -203,8 +203,8 @@ elseif strcmp(RunOptions.InputType, 'nifti')
 %     gunzip("C:\Users\pandesr\Desktop\Data\QSM\Chi_seperation\QSM\nibs\anat\output\sub-24037_ses-01_part-phase.nii.gz")%[fullfile(subj_dir(subj).folder,subj_dir(subj).name),'\Phase.nii'];
 %     pathNifti_mag = "C:\Users\pandesr\Desktop\Data\QSM\Chi_seperation\QSM\nibs\anat\output\sub-24037_ses-01_part-mag.nii"% [fullfile(subj_dir(subj).folder,subj_dir(subj).name),'\Mag.nii'];
 %     pathNifti_phs = "C:\Users\pandesr\Desktop\Data\QSM\Chi_seperation\QSM\nibs\anat\output\sub-24037_ses-01_part-phase.nii"%[fullfile(subj_dir(subj).folder,subj_dir(subj).name),'\Phase.nii'];
-    pathNifti_mag = sprintf('%s/sub-%s_ses-%s_part-mag.nii.gz', output, subjectID, sessionID);
-    pathNifti_phs = sprintf('%s/sub-%s_ses-%s_part-phase.nii.gz', output, subjectID, sessionID);
+    pathNifti_mag = sprintf('%s/sub-%s_ses-%s_part-mag_desc-concat_MEGRE.nii.gz', output, subjectID, sessionID);
+    pathNifti_phs = sprintf('%s/sub-%s_ses-%s_part-phase_desc-concat_MEGRE.nii.gz', output, subjectID, sessionID);
     pathheader  = sprintf('%s/sub-%s_ses-%s_header.mat', output, subjectID, sessionID);
     % magnitude
     magnitudedata = niftiread(pathNifti_mag);

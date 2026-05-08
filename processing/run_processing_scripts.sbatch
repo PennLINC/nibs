@@ -14,6 +14,8 @@
 pwd; hostname; date
 set -e
 
+module load matlab/2023a
+
 # Parse the participants.tsv file and extract one subject ID from the line corresponding to this SLURM task.
 BIDS_DIR="/cbica/projects/nibs/dset"
 subject=$( sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" ${BIDS_DIR}/participants.tsv )
