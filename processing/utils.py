@@ -9,10 +9,8 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import numpy as np
+import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
@@ -290,12 +288,13 @@ def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
     import nibabel as nb
     import numpy as np
     from nilearn import masking
-    from tedana import io, decay
+    from tedana import decay
 
     in_img = nb.load(in_files[0])
     mask = np.ones(in_img.shape[:3], dtype=int)
     mask_img = nb.Nifti1Image(mask, in_img.affine, in_img.header)
-    data_cat = io.load_data_nilearn(in_files, mask_img=mask_img, n_echos=len(echo_times))
+    data_arrays = [masking.apply_mask(nb.load(f), mask_img)[:, None] for f in in_files]
+    data_cat = np.stack(data_arrays, axis=1)
 
     # Fit model on all voxels, using all echoes
     masksum = np.full(data_cat.shape[0], len(echo_times))
