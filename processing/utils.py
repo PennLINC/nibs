@@ -302,6 +302,7 @@ def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
         echo_times=echo_times_ms,
         adaptive_mask=masksum,
         report=False,
+        n_threads=4,
     )
     # Limit positive infinite values to maximum finite value
     t2s_limited[np.isinf(t2s_limited) & (t2s_limited > 0)] = np.nanmax(

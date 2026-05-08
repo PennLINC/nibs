@@ -98,8 +98,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     if len(run_data['megre_mag']) != len(run_data['megre_phase']):
         raise ValueError('Expected same number of magnitude and phase images')
 
-    print(pformat(run_data), flush=True)
-
+    print(f"Collected run data:\n{pformat(run_data, indent=4)}", flush=True)
     return run_data
 
 

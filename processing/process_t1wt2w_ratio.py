@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import shutil
+from pprint import pformat
 
 import ants
 import nibabel as nb
@@ -173,6 +174,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
         file = files[0]
         run_data[key] = file.path
 
+    print(f"Collected run data:\n{pformat(run_data, indent=4)}", flush=True)
     return run_data
 
 

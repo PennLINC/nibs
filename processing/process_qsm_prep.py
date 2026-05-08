@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from pprint import pprint
+from pprint import pformat
 
 import ants
 import nibabel as nb
@@ -187,8 +187,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     if len(run_data['megre_mag']) != len(run_data['megre_phase']):
         raise ValueError('Expected same number of magnitude and phase images')
 
-    pprint(run_data)
-
+    print(f"Collected run data:\n{pformat(run_data, indent=4)}", flush=True)
     return run_data
 
 
@@ -336,7 +335,7 @@ def process_run(layout, run_data, out_dir):
         name_source=r2_qsm_filename,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MEGRE', 'desc': 'MEGRE', 'suffix': 'R2starmap'},
+        entities={'space': 'MEGRE', 'desc': 'MEGRE+E12345', 'suffix': 'R2starmap'},
     )
     r2s_hz_img.to_filename(r2s_hz_filename)
 
@@ -344,7 +343,7 @@ def process_run(layout, run_data, out_dir):
         name_source=r2_qsm_filename,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MEGRE', 'suffix': 'R2primemap'},
+        entities={'space': 'MEGRE', 'desc': 'MEGRE+E12345', 'suffix': 'R2primemap'},
     )
     r2s_hz_img = ants.image_read(r2s_hz_filename)
     r2prime_hz_img = r2s_hz_img - r2_qsm_img
