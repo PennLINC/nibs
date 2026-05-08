@@ -98,7 +98,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     if len(run_data['megre_mag']) != len(run_data['megre_phase']):
         raise ValueError('Expected same number of magnitude and phase images')
 
-    print(f"Collected run data:\n{pformat(run_data, indent=4)}", flush=True)
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 
@@ -142,8 +142,12 @@ def process_run(layout, run_data, out_dir, temp_dir, subject_id, session):
         os.makedirs(sepia_work_dir, exist_ok=True)
         out_header_file = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_header.mat')
         savemat(out_header_file, header_struct)
-        mag_concat_file = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-mag_desc-concat_MEGRE.nii.gz')
-        phase_concat_file = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-phase_desc-concat_MEGRE.nii.gz')
+        mag_concat_file = os.path.join(
+            sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-mag_desc-concat_MEGRE.nii.gz'
+        )
+        phase_concat_file = os.path.join(
+            sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-phase_desc-concat_MEGRE.nii.gz'
+        )
         mag_concat_img.to_filename(mag_concat_file)
         phase_concat_img.to_filename(phase_concat_file)
 

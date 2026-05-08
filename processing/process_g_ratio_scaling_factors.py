@@ -172,7 +172,7 @@ def collect_run_data(layout: object, bids_filters: dict, smriprep_dir: str) -> d
         f'Brain file {run_data["brain_fsnative"]} not found'
     )
 
-    print(f"Collected run data:\n{pformat(run_data, indent=4)}", flush=True)
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 

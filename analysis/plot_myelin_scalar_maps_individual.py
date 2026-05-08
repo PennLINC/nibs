@@ -91,7 +91,7 @@ def _plot_scalar_map(args):
             cbar.set_ticks([vmin, 0, vmax0])
 
         exponent = int(math.floor(math.log10(abs(vmax0)))) if vmax0 != 0 else 0
-        scale = 10 ** exponent
+        scale = 10**exponent
         cbar.ax.xaxis.set_major_formatter(
             mpl.ticker.FuncFormatter(lambda val, _, s=scale: '0' if val == 0 else f'{val / s:.3f}')
         )
@@ -130,8 +130,12 @@ if __name__ == '__main__':
 
     in_dir = os.path.join(_cfg['project_root'], 'scalars')
     out_dir = os.path.abspath(os.path.join(_script_dir, '..', 'figures', 'scalars_individual'))
-    template = tflow.get('MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='T1w', extension='nii.gz')
-    mask = tflow.get('MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='mask', extension='nii.gz')
+    template = tflow.get(
+        'MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='T1w', extension='nii.gz'
+    )
+    mask = tflow.get(
+        'MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='mask', extension='nii.gz'
+    )
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -149,7 +153,10 @@ if __name__ == '__main__':
             # Get all scalar maps
             scalar_maps = sorted(glob(os.path.join(in_dir, temp_pattern)))
             scalar_maps = [f for f in scalar_maps if 'PILOT' not in f]
-            worker_args = [(scalar_map, title, template, mask, out_dir, PERCENTILE) for scalar_map in scalar_maps]
+            worker_args = [
+                (scalar_map, title, template, mask, out_dir, PERCENTILE)
+                for scalar_map in scalar_maps
+            ]
             max_workers = min(len(worker_args), os.cpu_count() or 1)
             if max_workers <= 1:
                 for args in tqdm(worker_args, desc=title, unit='map'):

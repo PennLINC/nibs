@@ -84,10 +84,9 @@ if __name__ == '__main__':
 
     modality_groups = list(grouping_df['group'].unique())
     pal = sns.color_palette('hls', len(modality_groups))
-    color_mapper = pd.Series({
-        scalar: pal[modality_groups.index(row['group'])]
-        for scalar, row in grouping_df.iterrows()
-    })
+    color_mapper = pd.Series(
+        {scalar: pal[modality_groups.index(row['group'])] for scalar, row in grouping_df.iterrows()}
+    )
 
     groups = ['all', 'dMRI', 'QSM', 'selected']
     for group in groups:
@@ -121,7 +120,9 @@ if __name__ == '__main__':
                 fwd_corr = np.corrcoef(leaves, first_leaves)[0, 1]
                 reversed_order = rv_corr > fwd_corr
                 if reversed_order:
-                    print(f'{title} forward correlation: {fwd_corr}, reverse correlation: {rv_corr}')
+                    print(
+                        f'{title} forward correlation: {fwd_corr}, reverse correlation: {rv_corr}'
+                    )
                     print(f'{title} is reversed')
 
             stem = filename.split('.')[0]

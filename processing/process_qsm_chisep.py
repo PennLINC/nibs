@@ -88,7 +88,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)} with query {query}')
         run_data[key] = files[0].path
 
-    print(f"Collected run data:\n{pformat(run_data, indent=4)}", flush=True)
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 
@@ -122,45 +122,87 @@ def process_run(run_data: dict, subject_id: str, session: str) -> None:
     combos = [
         # (label, sepia_folder, r2p_path, outputa, echo_start, have_r2prime, is_scaling, r2s_path)
         (
-            'E12345+chisep+r2p', sepia_e12345,
-            run_data['r2prime_e12345'], out_dir('E12345+chisep+r2p'),
-            1, 1, 0, run_data['r2star_e12345'],
+            'E12345+chisep+r2p',
+            sepia_e12345,
+            run_data['r2prime_e12345'],
+            out_dir('E12345+chisep+r2p'),
+            1,
+            1,
+            0,
+            run_data['r2star_e12345'],
         ),
         (
-            'E2345+chisep+r2p', sepia_e2345,
-            run_data['r2prime_e2345'], out_dir('E2345+chisep+r2p'),
-            2, 1, 0, run_data['r2star_e2345'],
+            'E2345+chisep+r2p',
+            sepia_e2345,
+            run_data['r2prime_e2345'],
+            out_dir('E2345+chisep+r2p'),
+            2,
+            1,
+            0,
+            run_data['r2star_e2345'],
         ),
         (
-            'E12345+chisep+r2primenet', sepia_e12345,
-            '', out_dir('E12345+chisep+r2primenet'),
-            1, 0, 0, '',
+            'E12345+chisep+r2primenet',
+            sepia_e12345,
+            '',
+            out_dir('E12345+chisep+r2primenet'),
+            1,
+            0,
+            0,
+            '',
         ),
         (
-            'E2345+chisep+r2primenet', sepia_e2345,
-            '', out_dir('E2345+chisep+r2primenet'),
-            2, 0, 0, '',
+            'E2345+chisep+r2primenet',
+            sepia_e2345,
+            '',
+            out_dir('E2345+chisep+r2primenet'),
+            2,
+            0,
+            0,
+            '',
         ),
         (
-            'E12345+chisep+r2s', sepia_e12345,
-            '', out_dir('E12345+chisep+r2s'),
-            1, 0, 1, '',
+            'E12345+chisep+r2s',
+            sepia_e12345,
+            '',
+            out_dir('E12345+chisep+r2s'),
+            1,
+            0,
+            1,
+            '',
         ),
         (
-            'E2345+chisep+r2s', sepia_e2345,
-            '', out_dir('E2345+chisep+r2s'),
-            2, 0, 1, '',
+            'E2345+chisep+r2s',
+            sepia_e2345,
+            '',
+            out_dir('E2345+chisep+r2s'),
+            2,
+            0,
+            1,
+            '',
         ),
     ]
     matlab_script_dir = os.path.join(CODE_DIR, 'processing')
-    for label, sepia_folder, r2p_path, outputa, echo_start, have_r2prime, is_scaling, r2s_path in combos:
+    for (
+        label,
+        sepia_folder,
+        r2p_path,
+        outputa,
+        echo_start,
+        have_r2prime,
+        is_scaling,
+        r2s_path,
+    ) in combos:
         cmd = [
-            'matlab', '-nodisplay', '-nosplash', '-r',
+            'matlab',
+            '-nodisplay',
+            '-nosplash',
+            '-r',
             (
                 f"addpath(genpath('{matlab_script_dir}')); "
                 f"process_qsm_chisep('{input_file}','{sepia_folder}','{r2p_path}','{outputa}'"
                 f",{echo_start},{have_r2prime},{is_scaling},'{r2s_path}'); "
-                "exit;"
+                'exit;'
             ),
         ]
         print(f'Running chi-sep: {label}', flush=True)

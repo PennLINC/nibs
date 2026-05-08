@@ -25,8 +25,12 @@ if __name__ == '__main__':
     out_dir = os.path.join(_script_dir, '..', 'figures', 'scalars')
     PERCENTILE = False
 
-    template = tflow.get('MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='T1w', extension='nii.gz')
-    mask = tflow.get('MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='mask', extension='nii.gz')
+    template = tflow.get(
+        'MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='T1w', extension='nii.gz'
+    )
+    mask = tflow.get(
+        'MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='mask', extension='nii.gz'
+    )
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -125,9 +129,11 @@ if __name__ == '__main__':
                     cbar.set_ticks([vmin, 0, vmax0])
 
                 exponent = int(math.floor(math.log10(abs(vmax0)))) if vmax0 != 0 else 0
-                scale = 10 ** exponent
+                scale = 10**exponent
                 cbar.ax.xaxis.set_major_formatter(
-                    mpl.ticker.FuncFormatter(lambda val, _, s=scale: '0' if val == 0 else f'{val / s:.3f}')
+                    mpl.ticker.FuncFormatter(
+                        lambda val, _, s=scale: '0' if val == 0 else f'{val / s:.3f}'
+                    )
                 )
                 if exponent != 0:
                     cbar.ax.text(

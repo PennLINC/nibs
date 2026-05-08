@@ -195,7 +195,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
 
         run_data[key] = files
 
-    print(f"Collected run data:\n{pformat(run_data, indent=4)}", flush=True)
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 
