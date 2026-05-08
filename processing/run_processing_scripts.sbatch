@@ -14,7 +14,7 @@
 pwd; hostname; date
 set -e
 
-module load matlab/2023a
+module load matlab/R2023A
 
 # Parse the participants.tsv file and extract one subject ID from the line corresponding to this SLURM task.
 BIDS_DIR="/cbica/projects/nibs/dset"
