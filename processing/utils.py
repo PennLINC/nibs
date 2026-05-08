@@ -300,13 +300,13 @@ def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
     masksum = np.full(data_cat.shape[0], len(echo_times))
 
     echo_times_ms = [te * 1000 for te in echo_times]
-    t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
+    t2s_limited, s0_limited = decay.fit_monoexponential(
         data_cat=data_cat,
         echo_times=echo_times_ms,
         adaptive_mask=masksum,
         report=False,
         n_threads=4,
-    )
+    )[:2]
     # Limit positive infinite values to maximum finite value
     t2s_limited[np.isinf(t2s_limited) & (t2s_limited > 0)] = np.nanmax(
         t2s_limited[np.isfinite(t2s_limited)]
