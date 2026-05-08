@@ -26,7 +26,7 @@
 %   have_r2prime - 1: use precomputed R2' map; 0: compute R2' from R2* internally
 %   is_scaling_flag - 0: use R2pnet to predict R2' from R2*; 1: use scaling factor
 %   r2starpath  - path to precomputed R2* NIfTI (used only when have_r2prime==1)
-function run_chisep(input,output,r2primepath,outputa,echo_start,have_r2prime,is_scaling_flag,r2starpath)
+function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2prime,is_scaling_flag,r2starpath)
     delete(gcp('nocreate'));
 
 % % Detect how many CPUs were assigned by a scheduler (e.g., SLURM, PBS)
@@ -52,16 +52,16 @@ function run_chisep(input,output,r2primepath,outputa,echo_start,have_r2prime,is_
 
 % fprintf('✅ Parallel pool started with %d workers.\n', cluster.NumWorkers);
 % Set x-separation tool directory path
-home_directory = '/project/ftdc_misc/spandey/sepia/Chisep_Toolbox_v1.2.1_09172025latest';
+home_directory = '/cbica/projects/nibs/software/Chisep_Toolbox_v1.2';
 addpath(genpath(home_directory))
 if exist(outputa,'dir') ~= 7
     mkdir(outputa);
 end
 % Set MATLAB tool directory path
 % xiangruili/dicm2nii (https://kr.mathworks.com/matlabcentral/fileexchange/42997-xiangruili-dicm2nii)
-addpath(genpath('/project/ftdc_misc/spandey/sepia/xiangruili-dicm2nii-3fe1a27'))
+% addpath(genpath('/cbica/projects/nibs/software/xiangruili-dicm2nii-3fe1a27'))
 % Tools for NIfTI and ANALYZE image (https://kr.mathworks.com/matlabcentral/fileexchange/8797-tools-for-nifti-and-analyze-image)
-addpath(genpath('/project/ftdc_misc/spandey/sepia/NIfTI_20140122'))
+addpath(genpath('/cbica/projects/nibs/software/NIfTI_20140122'))
 
 % Download onnxconverter Add-on, and then install it.
 % Deep Learning Toolbox Converter for ONNX Model Format
@@ -69,16 +69,16 @@ addpath(genpath('/project/ftdc_misc/spandey/sepia/NIfTI_20140122'))
 
 % Set QSM tool directory path
 % STI Suite (Version 3.0) (https://people.eecs.berkeley.edu/~chunlei.liu/software.html)
-addpath(genpath('/project/ftdc_misc/spandey/sepia/STISuite_V3.0'))
+addpath(genpath('/cbica/projects/nibs/software/STISuite_V3.0'))
 
 % MEDI toolbox (http://pre.weill.cornell.edu/mri/pages/qsm.html)
-addpath(genpath('/project/ftdc_misc/spandey/sepia/MEDI_toolbox'))
+addpath(genpath('/cbica/projects/nibs/software/MEDI'))
 
 % SEGUE toolbox (https://xip.uclb.com/product/SEGUE)
-addpath(genpath('/project/ftdc_misc/spandey/sepia/SEGUE_28012021'))
+addpath(genpath('/cbica/projects/nibs/software/SEGUE_28012021'))
 
 % mritools toolbox (https://github.com/korbinian90/CompileMRI.jl/releases)
-addpath(genpath('/project/ftdc_misc/spandey/sepia/mritools_ubuntu-20.04_3.6.4'))
+addpath(genpath('/cbica/projects/nibs/software/mritools'))
 info = niftiinfo(input);
 % Extract subject
 subMatch = regexp(output, 'sub-([^/]+)', 'tokens', 'once');
