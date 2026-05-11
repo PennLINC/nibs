@@ -18,9 +18,18 @@ from pprint import pformat
 
 from bids.layout import BIDSLayout, Query
 
-from utils import load_config, run_command
+from utils import run_command
 
-CFG = load_config()
+PROJECT_ROOT = '/home/tsalo/nibs'
+CFG = {
+    'project_root': PROJECT_ROOT,
+    'bids_dir': os.path.join(PROJECT_ROOT, 'dset'),
+    'code_dir': os.path.join(PROJECT_ROOT, 'code'),
+    'work_dir': os.path.join(PROJECT_ROOT, 'work'),
+    'derivatives': {
+        'qsm': os.path.join(PROJECT_ROOT, 'derivatives', 'qsm'),
+    },
+}
 CODE_DIR = CFG['code_dir']
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REMOTE="${REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/home/tsalo/nibs/derivatives}"
+REMOTE="${REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/home/tsalo/nibs}"
 PROJECT_ROOT="${PROJECT_ROOT:-/cbica/projects/nibs}"
 INCLUDE_SOFTWARE=0
 JOBS=1
@@ -22,7 +22,7 @@ Arguments:
 
 Options:
   -r, --remote REMOTE     rsync destination
-                          default: tsalo@bblsub2.pmacs.upenn.edu:/home/tsalo/nibs/derivatives
+                          default: tsalo@bblsub2.pmacs.upenn.edu:/home/tsalo/nibs
   -p, --project-root DIR  source project root
                           default: /cbica/projects/nibs
   --include-software      also copy MATLAB toolbox folders referenced by

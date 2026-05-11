@@ -1,0 +1,43 @@
+#!/bin/bash
+#BSUB -J "qsm_chisep[1-26]"
+#BSUB -n 1
+#BSUB -R "span[hosts=1]"
+#BSUB -R "rusage[mem=20000]"
+#BSUB -M 20000
+#BSUB -W 48:00
+# Outputs ----------------------------------
+#BSUB -o /home/tsalo/nibs/logs/qsm_chisep_%J-%I.out
+#BSUB -e /home/tsalo/nibs/logs/qsm_chisep_%J-%I.err
+# ------------------------------------------
+
+pwd; hostname; date
+set -euo pipefail
+
+module load matlab/2023a
+
+if command -v conda >/dev/null 2>&1; then
+    eval "$(conda shell.bash hook)"
+elif [ -f "${HOME}/miniconda3/etc/profile.d/conda.sh" ]; then
+    source "${HOME}/miniconda3/etc/profile.d/conda.sh"
+elif [ -f "${HOME}/anaconda3/etc/profile.d/conda.sh" ]; then
+    source "${HOME}/anaconda3/etc/profile.d/conda.sh"
+else
+    echo "Could not find conda initialization script" >&2
+    exit 1
+fi
+conda activate processing
+
+CODE_DIR="/home/tsalo/nibs/code"
+BIDS_DIR="/home/tsalo/nibs/dset"
+
+cd "${CODE_DIR}/processing"
+
+# Parse participants.tsv and extract the subject ID for this LSF array index.
+subject=$(sed -n -E "$((${LSB_JOBINDEX} + 1))s/sub-(\S*)\>.*/\1/gp" "${BIDS_DIR}/participants.tsv")
+
+if [ -z "${subject}" ]; then
+    echo "No subject found for LSB_JOBINDEX=${LSB_JOBINDEX}" >&2
+    exit 1
+fi
+
+python process_qsm_chisep.py --subject-id "${subject}"
