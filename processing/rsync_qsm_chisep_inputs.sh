@@ -44,7 +44,7 @@ Example:
 USAGE
 }
 
-RSYNC_OPTS=(-avh --relative --prune-empty-dirs)
+RSYNC_OPTS=(-avh --copy-links --relative --prune-empty-dirs)
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
