@@ -52,33 +52,24 @@ function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2p
 
 % fprintf('✅ Parallel pool started with %d workers.\n', cluster.NumWorkers);
 % Set x-separation tool directory path
-home_directory = '/cbica/projects/nibs/software/Chisep_Toolbox_v1.2';
-addpath(genpath(home_directory))
+software_root = '/home/tsalo/nibs/software';
+home_directory = fullfile(software_root, 'Chisep_Toolbox_v1.2');
+toolbox_dirs = { ...
+    home_directory, ...
+    fullfile(software_root, 'NIfTI_20140122'), ...
+    fullfile(software_root, 'STISuite_V3.0'), ...
+    fullfile(software_root, 'MEDI'), ...
+    fullfile(software_root, 'SEGUE_28012021'), ...
+    fullfile(software_root, 'mritools')};
+for k = 1:numel(toolbox_dirs)
+    if exist(toolbox_dirs{k}, 'dir') ~= 7
+        error('Required toolbox not found: %s', toolbox_dirs{k});
+    end
+    addpath(genpath(toolbox_dirs{k}));
+end
 if exist(outputa,'dir') ~= 7
     mkdir(outputa);
 end
-% Set MATLAB tool directory path
-% xiangruili/dicm2nii (https://kr.mathworks.com/matlabcentral/fileexchange/42997-xiangruili-dicm2nii)
-% addpath(genpath('/cbica/projects/nibs/software/xiangruili-dicm2nii-3fe1a27'))
-% Tools for NIfTI and ANALYZE image (https://kr.mathworks.com/matlabcentral/fileexchange/8797-tools-for-nifti-and-analyze-image)
-addpath(genpath('/cbica/projects/nibs/software/NIfTI_20140122'))
-
-% Download onnxconverter Add-on, and then install it.
-% Deep Learning Toolbox Converter for ONNX Model Format
-% (https://kr.mathworks.com/matlabcentral/fileexchange/67296-deep-learning-toolbox-converter-for-onnx-model-format)
-
-% Set QSM tool directory path
-% STI Suite (Version 3.0) (https://people.eecs.berkeley.edu/~chunlei.liu/software.html)
-addpath(genpath('/cbica/projects/nibs/software/STISuite_V3.0'))
-
-% MEDI toolbox (http://pre.weill.cornell.edu/mri/pages/qsm.html)
-addpath(genpath('/cbica/projects/nibs/software/MEDI'))
-
-% SEGUE toolbox (https://xip.uclb.com/product/SEGUE)
-addpath(genpath('/cbica/projects/nibs/software/SEGUE_28012021'))
-
-% mritools toolbox (https://github.com/korbinian90/CompileMRI.jl/releases)
-addpath(genpath('/cbica/projects/nibs/software/mritools'))
 info = niftiinfo(input);
 % Extract subject
 subMatch = regexp(output, 'sub-([^/]+)', 'tokens', 'once');
