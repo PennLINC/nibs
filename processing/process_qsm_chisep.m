@@ -22,7 +22,7 @@
 %   output      - SEPIA output folder containing part-mag.nii.gz, part-phase.nii.gz, header.mat
 %   r2primepath - path to precomputed R2' NIfTI (used only when have_r2prime==1)
 %   outputa     - chi-sep output folder (final NIfTIs and temp files written here)
-%   echo_start  - first echo index to use: 1 for E12345, 2 for E2345
+%   echo_start  - first echo index to use when the concat input still has unsliced echoes
 %   have_r2prime - 1: use precomputed R2' map; 0: compute R2' from R2* internally
 %   is_scaling_flag - 0: use R2pnet to predict R2' from R2*; 1: use scaling factor
 %   r2starpath  - path to precomputed R2* NIfTI (used only when have_r2prime==1)
@@ -206,25 +206,42 @@ elseif strcmp(RunOptions.InputType, 'nifti')
     pathNifti_mag = sprintf('%s/sub-%s_ses-%s_part-mag_desc-concat_MEGRE.nii.gz', output, subjectID, sessionID);
     pathNifti_phs = sprintf('%s/sub-%s_ses-%s_part-phase_desc-concat_MEGRE.nii.gz', output, subjectID, sessionID);
     pathheader  = sprintf('%s/sub-%s_ses-%s_header.mat', output, subjectID, sessionID);
-    % magnitude
+    % magnitude and phase
     magnitudedata = niftiread(pathNifti_mag);
-    magnitudedata = magnitudedata(:,:,:,echo_start:5);
-    Data.MGRE_Mag = rot90(double(magnitudedata));
     phasedata = niftiread(pathNifti_phs);
-    phasedata=phasedata(:,:,:,echo_start:5);
+    raw_echo_count = size(magnitudedata, 4);
+    if size(phasedata, 4) ~= raw_echo_count
+        error('Magnitude and phase concat files have different echo counts.');
+    end
+    if echo_start > raw_echo_count
+        error('echo_start (%d) exceeds concat echo count (%d).', echo_start, raw_echo_count);
+    end
+    if raw_echo_count < 5 && echo_start > 1
+        echo_indices = 1:raw_echo_count;
+    else
+        echo_indices = echo_start:raw_echo_count;
+    end
+    magnitudedata = magnitudedata(:,:,:,echo_indices);
+    Data.MGRE_Mag = rot90(double(magnitudedata));
+    phasedata = phasedata(:,:,:,echo_indices);
     maxval = max(double(    phasedata(:)));
     minval = min(double(    phasedata(:)));
     Data.MGRE_Phs = rot90(double(phasedata));%(rot90(double(  phasedata))-(minval+maxval)/2)/(maxval-minval)*2*pi;
     load(pathheader);
-    TE=TE(1,echo_start:5);
-    Data.VoxelSize = voxelSize;
+    TE = double(TE(:)');
+    if numel(TE) == raw_echo_count
+        TE = TE(echo_indices);
+    elseif numel(TE) ~= numel(echo_indices)
+        error('Header TE count (%d) does not match selected echo count (%d).', numel(TE), numel(echo_indices));
+    end
+    Data.VoxelSize = double(voxelSize(:)');
     Data.Necho = length(TE);
-    Data.CF = CF;
-    Data.B0_strength = B0;
-    Data.TE = TE;
-    Data.MatrixSize = matrixSize;
+    Data.CF = double(CF);
+    Data.B0_strength = double(B0);
+    Data.TE = double(TE);
+    Data.MatrixSize = double(matrixSize);
     Data.nifti_template = magnitudedata;
-    Data.B0dir=B0_dir;
+    Data.B0dir = double(B0_dir(:)');
 
 %     nii_file = load_untouch_nii(pathNifti_mag);
 %     Data.MGRE_Mag = rot90(double(nii_file.img));
@@ -434,7 +451,7 @@ end
 % [local_field_hz [hz]]
 disp("============< Background field removal >============")
 if(strcmp(RunOptions.BFR,'V-SHARP'))
-    [Data.local_field, Data.mask_brain_new]=V_SHARP(Data.UnwrappedPhase, Data.Mask,'voxelsize', Data.VoxelSize,'smvsize', 12);
+    [Data.local_field, Data.mask_brain_new]=V_SHARP(double(Data.UnwrappedPhase), double(Data.Mask),'voxelsize', double(Data.VoxelSize),'smvsize', double(12));
     Data.delta_TE = (Data.TE(2)-Data.TE(1))%/1000; % commented by spandey
     Data.local_field_hz = double(Data.local_field) / (2*pi*Data.delta_TE); % rad to hz
 end

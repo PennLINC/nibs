@@ -120,6 +120,8 @@ def process_run(run_data: dict, subject_id: str, session: str) -> None:
         )
 
     combos = [
+        # SEPIA already writes echo-selected concat inputs for each variant, so
+        # chi-sep should read each concat file from its first stored volume.
         # (label, sepia_folder, r2p_path, outputa, echo_start, have_r2prime, is_scaling, r2s_path)
         (
             'E12345+chisep+r2p',
@@ -136,7 +138,7 @@ def process_run(run_data: dict, subject_id: str, session: str) -> None:
             sepia_e2345,
             run_data['r2prime_e2345'],
             out_dir('E2345+chisep+r2p'),
-            2,
+            1,
             1,
             0,
             run_data['r2star_e2345'],
@@ -156,7 +158,7 @@ def process_run(run_data: dict, subject_id: str, session: str) -> None:
             sepia_e2345,
             '',
             out_dir('E2345+chisep+r2primenet'),
-            2,
+            1,
             0,
             0,
             '',
@@ -176,7 +178,7 @@ def process_run(run_data: dict, subject_id: str, session: str) -> None:
             sepia_e2345,
             '',
             out_dir('E2345+chisep+r2s'),
-            2,
+            1,
             0,
             1,
             '',
@@ -199,10 +201,12 @@ def process_run(run_data: dict, subject_id: str, session: str) -> None:
             '-nosplash',
             '-r',
             (
+                'try; '
                 f"addpath(genpath('{matlab_script_dir}')); "
                 f"process_qsm_chisep('{input_file}','{sepia_folder}','{r2p_path}','{outputa}'"
                 f",{echo_start},{have_r2prime},{is_scaling},'{r2s_path}'); "
-                'exit;'
+                'exit(0); '
+                "catch ME; disp(getReport(ME, 'extended', 'hyperlinks', 'off')); exit(1); end;"
             ),
         ]
         print(f'Running chi-sep: {label}', flush=True)
