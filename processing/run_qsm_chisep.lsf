@@ -1,5 +1,6 @@
 #!/bin/bash
 #BSUB -J "qsm_chisep[1-26]"
+#BSUB -m galton
 #BSUB -n 1
 #BSUB -R "span[hosts=1]"
 #BSUB -R "rusage[mem=20000]"
