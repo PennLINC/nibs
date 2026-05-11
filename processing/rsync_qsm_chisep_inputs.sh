@@ -4,6 +4,7 @@ set -euo pipefail
 REMOTE="${REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/home/tsalo/nibs/derivatives}"
 PROJECT_ROOT="${PROJECT_ROOT:-/cbica/projects/nibs}"
 INCLUDE_SOFTWARE=0
+JOBS=1
 SUBJECTS=()
 
 usage() {
@@ -26,6 +27,8 @@ Options:
                           default: /cbica/projects/nibs
   --include-software      also copy MATLAB toolbox folders referenced by
                           process_qsm_chisep.m under software/
+  -j, --jobs N            number of parallel rsync workers
+                          default: 1
   -n, --dry-run           show what would be copied
   -h, --help              show this help
 
@@ -36,6 +39,7 @@ Environment:
 Example:
   ./processing/rsync_qsm_chisep_inputs.sh
   ./processing/rsync_qsm_chisep_inputs.sh sub-60526
+  ./processing/rsync_qsm_chisep_inputs.sh --jobs 4
   ./processing/rsync_qsm_chisep_inputs.sh --dry-run 60526 60522
 USAGE
 }
@@ -55,6 +59,10 @@ while [[ $# -gt 0 ]]; do
         --include-software)
             INCLUDE_SOFTWARE=1
             shift
+            ;;
+        -j|--jobs)
+            JOBS="$2"
+            shift 2
             ;;
         -n|--dry-run)
             RSYNC_OPTS+=(--dry-run)
@@ -81,6 +89,11 @@ if [[ ! -d "$PROJECT_ROOT" ]]; then
     exit 1
 fi
 
+if [[ ! "$JOBS" =~ ^[1-9][0-9]*$ ]]; then
+    echo "--jobs must be a positive integer, got: $JOBS" >&2
+    exit 2
+fi
+
 if [[ ${#SUBJECTS[@]} -eq 0 ]]; then
     while IFS= read -r -d '' subject_dir; do
         SUBJECTS+=("$(basename "$subject_dir" | sed 's/^sub-//')")
@@ -93,8 +106,10 @@ if [[ ${#SUBJECTS[@]} -eq 0 ]]; then
 fi
 
 tmp_filelist="$(mktemp)"
+tmp_chunk_dir="$(mktemp -d)"
 cleanup() {
     rm -f "$tmp_filelist"
+    rm -rf "$tmp_chunk_dir"
 }
 trap cleanup EXIT
 
@@ -141,7 +156,7 @@ fi
 
 for subject in "${SUBJECTS[@]}"; do
     # Raw BIDS file used for sessions, input metadata, and output NIfTI template.
-    add_matches "dset/sub-${subject}/ses-*/anat/sub-${subject}_ses-*_acq-QSM_run-*_echo-1_part-mag_MEGRE.nii.gz"
+    add_matches "dset/sub-${subject}/ses-*/anat/sub-${subject}_ses-*_acq-QSM_run-*_echo-1_part-mag_MEGRE.*"
 
     # R2' and R2* maps collected from derivatives/qsm.
     add_matches "derivatives/qsm/sub-${subject}/ses-*/anat/sub-${subject}_ses-*_run-*_space-MEGRE_desc-MEGRE+E12345_R2primemap.nii.gz"
@@ -163,5 +178,46 @@ if [[ ! -s "$tmp_filelist" ]]; then
     exit 1
 fi
 
-echo "Copying chi-sep inputs from $PROJECT_ROOT to $REMOTE"
-rsync "${RSYNC_OPTS[@]}" --files-from="$tmp_filelist" --from0 "$PROJECT_ROOT/" "$REMOTE/"
+echo "Copying chi-sep inputs from $PROJECT_ROOT to $REMOTE with $JOBS rsync worker(s)"
+if [[ "$JOBS" -eq 1 ]]; then
+    rsync "${RSYNC_OPTS[@]}" --files-from="$tmp_filelist" --from0 "$PROJECT_ROOT/" "$REMOTE/"
+else
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "python3 is required when --jobs is greater than 1." >&2
+        exit 1
+    fi
+
+    python3 - "$tmp_filelist" "$tmp_chunk_dir" "$JOBS" <<'PY'
+from __future__ import annotations
+
+import pathlib
+import sys
+
+filelist = pathlib.Path(sys.argv[1])
+chunk_dir = pathlib.Path(sys.argv[2])
+jobs = int(sys.argv[3])
+
+paths = [path for path in filelist.read_bytes().split(b"\0") if path]
+chunks = [bytearray() for _ in range(jobs)]
+for index, path in enumerate(paths):
+    chunks[index % jobs].extend(path + b"\0")
+
+for index, chunk in enumerate(chunks):
+    (chunk_dir / f"chunk_{index:03d}.lst").write_bytes(chunk)
+PY
+
+    pids=()
+    for chunk_file in "$tmp_chunk_dir"/chunk_*.lst; do
+        [[ -s "$chunk_file" ]] || continue
+        rsync "${RSYNC_OPTS[@]}" --files-from="$chunk_file" --from0 "$PROJECT_ROOT/" "$REMOTE/" &
+        pids+=("$!")
+    done
+
+    status=0
+    for pid in "${pids[@]}"; do
+        if ! wait "$pid"; then
+            status=1
+        fi
+    done
+    exit "$status"
+fi
