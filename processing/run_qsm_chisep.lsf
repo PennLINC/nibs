@@ -27,7 +27,7 @@ else
 fi
 conda activate processing
 
-CODE_DIR="/home/tsalo/nibs/code"
+CODE_DIR="/home/tsalo/nibs/code/nibs"
 BIDS_DIR="/home/tsalo/nibs/dset"
 
 cd "${CODE_DIR}/processing"

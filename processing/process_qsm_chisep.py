@@ -24,7 +24,7 @@ PROJECT_ROOT = '/home/tsalo/nibs'
 CFG = {
     'project_root': PROJECT_ROOT,
     'bids_dir': os.path.join(PROJECT_ROOT, 'dset'),
-    'code_dir': os.path.join(PROJECT_ROOT, 'code'),
+    'code_dir': os.path.join(PROJECT_ROOT, 'code', 'nibs'),
     'work_dir': os.path.join(PROJECT_ROOT, 'work'),
     'derivatives': {
         'qsm': os.path.join(PROJECT_ROOT, 'derivatives', 'qsm'),
