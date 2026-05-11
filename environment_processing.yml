@@ -92,7 +92,6 @@ dependencies:
     - h5py==3.14.0
     - heudiconv==1.3.3
     - idna==3.10
-    - ihmt-proc==0.1.dev31+g1c6f74a85
     - imageio==2.37.0
     - importlib-resources==6.5.2
     - interface-meta==1.3.0
@@ -139,7 +138,6 @@ dependencies:
     - pydot==4.0.0
     - pygments==2.19.1
     - pylibjpeg-libjpeg==2.2.0
-    - pymp2rage==0.1.dev90+gbbd9fbea0
     - pyparsing==3.2.3
     - python-dateutil==2.9.0.post0
     - pytz==2025.2
