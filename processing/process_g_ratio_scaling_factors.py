@@ -221,7 +221,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         name_source=run_data['isovf_acpc'],
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1w'},
+        entities={'space': 'T1w', 'param': 'isovf'},
     )
     ants.image_write(isovf_t1w_img, isovf_t1w_file)
 
@@ -235,7 +235,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         name_source=run_data['icvf_acpc'],
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1w'},
+        entities={'space': 'T1w', 'param': 'icvf'},
     )
     ants.image_write(icvf_t1w_img, icvf_t1w_file)
 
