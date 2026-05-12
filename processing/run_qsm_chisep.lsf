@@ -14,7 +14,12 @@
 pwd; hostname; date
 set -euo pipefail
 
+# Unload and load correct MATLAB versions
+module unload matlab/2022a
 module load matlab/2023a
+module list
+
+echo "Using MATLAB at: $(which matlab)"
 
 if command -v conda >/dev/null 2>&1; then
     eval "$(conda shell.bash hook)"
