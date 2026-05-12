@@ -89,6 +89,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'reconstruction': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
             'from': 'T1w',
             'to': 'MNI152NLin2009cAsym',
             'mode': 'image',
