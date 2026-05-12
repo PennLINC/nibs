@@ -21,16 +21,8 @@ module list
 
 echo "Using MATLAB at: $(which matlab)"
 
-if command -v conda >/dev/null 2>&1; then
-    eval "$(conda shell.bash hook)"
-elif [ -f "${HOME}/miniconda3/etc/profile.d/conda.sh" ]; then
-    source "${HOME}/miniconda3/etc/profile.d/conda.sh"
-elif [ -f "${HOME}/anaconda3/etc/profile.d/conda.sh" ]; then
-    source "${HOME}/anaconda3/etc/profile.d/conda.sh"
-else
-    echo "Could not find conda initialization script" >&2
-    exit 1
-fi
+module load miniconda
+eval "$(/appl/miniconda/bin/conda shell.bash hook)"
 conda activate processing
 
 CODE_DIR="/home/tsalo/nibs/code/nibs"
