@@ -51,8 +51,9 @@ cmd="apptainer run --cleanenv \
       --denoise-method dwidenoise \
       --output-resolution 1.7 \
       --subject-anatomical-reference unbiased \
-      --hmc-model 3dSHORE \
-      --pepolar-method DRBUDDI \
+      --hmc-model eddy \
+      --unringing-method rpg \
+      --pepolar-method TOPUP+DRBUDDI \
       --b1-biascorrect-stage none \
       --bids-filter-file /code/smriprep_filter.json \
       --ignore t2w"

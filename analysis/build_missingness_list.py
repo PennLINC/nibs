@@ -23,12 +23,12 @@ if __name__ == '__main__':
         'MPRAGE T1w': ['anat/*acq-MPRAGE*T1w.nii.gz'],
         'SPACE T1w': ['anat/*acq-SPACE*T1w.nii.gz'],
         'SPACE T2w': ['anat/*acq-SPACE*T2w.nii.gz'],
-        'MP2RAGE': ['anat/*part-mag*MP2RAGE.nii.gz'],
-        'dMRI': ['dwi/*dir-AP*dwi.nii.gz', 'dwi/*dir-PA*dwi.nii.gz'],
-        'MEGRE': ['anat/*MEGRE.nii.gz'],
-        'ihMTRAGE': ['anat/*ihMTRAGE.nii.gz'],
-        'MESE': ['anat/*dir-AP*MESE.nii.gz'],
         'B1+': ['fmap/*TB1TFL.nii.gz'],
+        'MP2RAGE': ['anat/*part-mag*MP2RAGE.nii.gz'],
+        'ihMTRAGE': ['anat/*ihMTRAGE.nii.gz'],
+        'dMRI': ['dwi/*dir-AP*dwi.nii.gz', 'dwi/*dir-PA*dwi.nii.gz'],
+        'MESE': ['anat/*dir-AP*MESE.nii.gz'],
+        'MEGRE': ['anat/*MEGRE.nii.gz'],
     }
     SESSIONS = {
         'Session 01': 'ses-01',
