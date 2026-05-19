@@ -37,7 +37,7 @@ cmd="apptainer run --cleanenv \
       -B ${DERIVS_DIR}:/deriv \
       -B ${SCRATCH_DIR}:/work \
       -B ${FS_LICENSE}:/license.txt \
-      /cbica/projects/nibs/apptainer/qsiprep-1.0.1.sif \
+      /cbica/projects/nibs/apptainer/qsiprep-26.0.0.sif \
       /data \
       /deriv/qsiprep \
       participant \

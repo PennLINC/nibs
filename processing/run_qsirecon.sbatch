@@ -30,11 +30,12 @@ FS_LICENSE="/cbica/projects/nibs/tokens/freesurfer_license.txt"
 subject=$( sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" ${BIDS_DIR}/participants.tsv )
 
 cmd="apptainer run --cleanenv \
+      --env DIPY_HOME=/home/qsirecon/.dipy \
       -B ${CODE_DIR}:/code \
       -B ${DERIV_DIR}:/data \
       -B ${SCRATCH_DIR}:/work \
       -B ${FS_LICENSE}:/license.txt \
-      /cbica/projects/nibs/apptainer/qsirecon-1.1.1.sif \
+      /cbica/projects/nibs/apptainer/qsirecon-26.0.0.sif \
       /data/qsiprep \
       /data/qsirecon \
       participant \
