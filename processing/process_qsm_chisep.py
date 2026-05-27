@@ -6,7 +6,7 @@ Steps:
 
 Notes:
 
-- Must be run after process_qsm_sepia.py.
+- Must be run after process_qsm_sepia.py and process_qsm_prep.py (brain mask).
 - Requires the chi-sep MATLAB toolbox and its dependencies.
 """
 
@@ -85,6 +85,16 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'desc': 'MEGRE+E2345',
             'suffix': 'R2starmap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'mask': {
+            'datatype': 'anat',
+            'acquisition': 'QSM',
+            'part': 'mag',
+            'echo': 1,
+            'space': 'MEGRE',
+            'desc': 'brain',
+            'suffix': 'mask',
             'extension': ['.nii', '.nii.gz'],
         },
     }
@@ -213,7 +223,8 @@ def process_run(run_data: dict, subject_id: str, session: str) -> None:
                 'try; '
                 f"addpath(genpath('{matlab_script_dir}')); "
                 f"process_qsm_chisep('{input_file}','{sepia_folder}','{r2p_path}','{outputa}'"
-                f",{echo_start},{have_r2prime},{is_scaling},'{r2s_path}'); "
+                f",{echo_start},{have_r2prime},{is_scaling},'{r2s_path}',"
+                f"'{run_data['mask']}'); "
                 'exit(0); '
                 "catch ME; disp(getReport(ME, 'extended', 'hyperlinks', 'off')); exit(1); end;"
             ),

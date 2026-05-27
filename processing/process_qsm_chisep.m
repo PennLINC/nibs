@@ -26,7 +26,11 @@
 %   have_r2prime - 1: use precomputed R2' map; 0: compute R2' from R2* internally
 %   is_scaling_flag - 0: use R2pnet to predict R2' from R2*; 1: use scaling factor
 %   r2starpath  - path to precomputed R2* NIfTI (used only when have_r2prime==1)
-function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2prime,is_scaling_flag,r2starpath)
+%   maskpath    - path to MEGRE-space brain mask NIfTI (from process_qsm_prep.py)
+function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2prime,is_scaling_flag,r2starpath,maskpath)
+    if nargin < 9
+        maskpath = '';
+    end
     delete(gcp('nocreate'));
 
 % % Detect how many CPUs were assigned by a scheduler (e.g., SLURM, PBS)
@@ -259,7 +263,7 @@ end
 Data.output_root = [RunOptions.OutputPath,filesep,'chisep_output_',char(datetime('now','Format',"MM-dd-yy_HH.mm.ss"))];
 mkdir(Data.output_root);
 
-clearvars -except Params Data type_dir subj subj_dir path type type_path RunOptions home_directory input output subjectID sessionID r2primepath outputa echo_start have_r2prime is_scaling_flag r2starpath
+clearvars -except Params Data type_dir subj subj_dir path type type_path RunOptions home_directory input output subjectID sessionID r2primepath outputa echo_start have_r2prime is_scaling_flag r2starpath maskpath
 
 %% Fill in necessary parameters if empty
 % Data.TE = [];                     % [ms]  [row vector]
@@ -305,7 +309,10 @@ clearvars imgc
 
 %% Brain mask (Range [0,1])
 disp("=================< Brain masking >=================")
-if RunOptions.Mask
+if ~isempty(maskpath)
+    Data.Mask = load_brain_mask_nifti(maskpath, size(Data.MGRE_Mag));
+    disp("Using MEGRE-space brain mask from QSM prep pipeline.");
+elseif RunOptions.Mask
     Data.Mask = load('mask.mat');
 else
     if strcmp(RunOptions.Mask_method,'MEDI')                                % Use MEDI BET
@@ -453,8 +460,8 @@ end
 
 %% Compute CSF mask
 % Needed for Chi-separation-MEDI, Chi-separation iLSQR,
-% and Region-growing algorithm-based vessel segmentation
-Data.mask_CSF = extract_CSF(Data.R2s, Data.mask_brain_new, Data.VoxelSize);
+% and Region-growing algorithm-based vessel segmentation.
+Data.mask_CSF = compute_mask_CSF(Data, RunOptions);
 
 %% QSM (required for MEDI / iLSQR chi-separation)
 if any(strcmp(RunOptions.Chisep, {'Chi-separation (MEDI)', 'Chi-separation (iLSQR)'}))
@@ -744,6 +751,69 @@ function [save_func, nii_file, save_name]=load_nii_template_and_make_nii(Data, d
     nii_file.hdr.dime.scl_slope = 1;
 
     nii_file.hdr.hist.magic = 'n+1';
+end
+
+function mask = load_brain_mask_nifti(maskpath, data_size)
+% Load a MEGRE-space brain mask, matching rot90 used for R2* derivative maps.
+    if ~isfile(maskpath)
+        error('process_qsm_chisep:MaskNotFound', 'Brain mask not found: %s', maskpath);
+    end
+    mask = rot90(double(niftiread(maskpath)) > 0, 1);
+    if ~isequal(size(mask), data_size(1:3))
+        error('process_qsm_chisep:MaskSizeMismatch', ...
+            'Brain mask size %s does not match MEGRE data size %s.', ...
+            mat2str(size(mask)), mat2str(data_size(1:3)));
+    end
+    mask = double(mask);
+end
+
+function mask_CSF = compute_mask_CSF(Data, RunOptions)
+% Build a CSF mask for MEDI/iLSQR and region-growing vessel segmentation.
+    mask_CSF = zeros(size(Data.mask_brain_new));
+    needs_csf = any(strcmp(RunOptions.Chisep, {'Chi-separation (MEDI)', 'Chi-separation (iLSQR)'})) ...
+        || strcmp(RunOptions.VesselSeg, 'Region-growing');
+    if ~needs_csf
+        return;
+    end
+
+    R2s = Data.R2s;
+    brain_mask = Data.Mask;
+    if ~isequal(size(R2s), size(brain_mask))
+        error('process_qsm_chisep:R2sMaskSizeMismatch', ...
+            'R2* map size %s does not match brain mask size %s.', ...
+            mat2str(size(R2s)), mat2str(size(brain_mask)));
+    end
+
+    min_voxels = 1000;
+    n_brain = nnz(brain_mask > 0);
+    if n_brain < min_voxels
+        warning('process_qsm_chisep:SmallBrainMask', ...
+            'Brain mask has only %d voxels; using empty CSF mask.', n_brain);
+        return;
+    end
+
+    % extract_CSF expects the BET mask; V-SHARP mask_brain_new can be too sparse.
+    try
+        mask_CSF = extract_CSF(R2s, brain_mask, Data.VoxelSize);
+    catch ME
+        warning('process_qsm_chisep:ExtractCSFFailed', ...
+            'extract_CSF failed (%s). Using R2* percentile CSF mask.', ME.message);
+        mask_CSF = fallback_csf_mask_from_r2star(R2s, brain_mask);
+    end
+
+    mask_CSF = double(mask_CSF > 0) .* double(Data.mask_brain_new > 0);
+end
+
+function mask_CSF = fallback_csf_mask_from_r2star(R2s, brain_mask)
+% Approximate CSF as low-R2* voxels when toolbox extract_CSF fails.
+    r2_vals = R2s(brain_mask > 0);
+    r2_vals = r2_vals(isfinite(r2_vals) & r2_vals > 0);
+    mask_CSF = zeros(size(R2s));
+    if isempty(r2_vals)
+        return;
+    end
+    threshold = prctile(r2_vals, 15);
+    mask_CSF = (R2s <= threshold) & (brain_mask > 0);
 end
 
 function Data = sync_chisep_total_maps(Data)
