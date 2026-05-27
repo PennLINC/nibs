@@ -121,7 +121,8 @@ RunOptions.BFR = 'V-SHARP';
 RunOptions.Chisep = 'Chi-separation (MEDI)';
 
 % 'Deep-learning' | 'Region-growing' | 'No'
-RunOptions.VesselSeg = 'Deep-learning';
+% Deep-learning requires ONNX (not available on PMACS matlab/2025a); use 'No' or 'Region-growing'.
+RunOptions.VesselSeg = 'No';
 
 % GRE smoothing: 0 ~ 0.4(Default)
 RunOptions.Tukey = double(0.4);
@@ -165,7 +166,10 @@ Data = struct();
 Data.RunOptions = RunOptions;
 
 if strcmp(RunOptions.Chisep, 'Chi-sepnet')
-    assert_chi_sepnet_dependencies();
+    assert_onnx_dependencies('Chi-sepnet');
+end
+if strcmp(RunOptions.VesselSeg, 'Deep-learning')
+    assert_onnx_dependencies('Deep-learning vessel segmentation');
 end
 
 %% Data input
@@ -546,6 +550,11 @@ end
 
 %% Vessel Segmentation
 disp("==============< Vessel segmentation >==============")
+if strcmp(RunOptions.VesselSeg, 'Deep-learning') && ~onnx_import_available()
+    warning('process_qsm_chisep:OnnxUnavailable', ...
+        'Deep-learning vessel segmentation requires ONNX support; skipping vessel segmentation.');
+    RunOptions.VesselSeg = 'No';
+end
 switch RunOptions.VesselSeg
     case 'Deep-learning'
         [Data.vesselMask_para, Data.vesselMask_dia] = vesselSegmentation_Chiseparation_DL(home_directory, Data.x_para, Data.x_dia, Data.mask_brain_new, Data.VoxelSize);
@@ -825,18 +834,19 @@ function Data = sync_chisep_total_maps(Data)
     end
 end
 
-function assert_chi_sepnet_dependencies()
-% Fail fast before ROMEO/V-SHARP if Chi-sepnet ONNX import is unavailable.
-    has_dl_toolbox = license('test', 'Deep_Learning_Toolbox');
-    has_import_onnx_legacy = exist('importONNXNetwork', 'file') == 2;
-    has_import_onnx_builtin = exist('importNetworkFromONNX', 'file') == 2;
+function available = onnx_import_available()
+    available = exist('importONNXNetwork', 'file') == 2 ...
+        || exist('importNetworkFromONNX', 'file') == 2;
+end
 
-    if has_import_onnx_legacy || has_import_onnx_builtin
+function assert_onnx_dependencies(feature_name)
+% Fail fast before long preprocessing if an ONNX-based step is requested.
+    if onnx_import_available()
         return;
     end
 
-    msg = ['Chi-sepnet requires ONNX model import (importONNXNetwork or ', ...
-        'importNetworkFromONNX), but neither is available in this MATLAB session.'];
+    has_dl_toolbox = license('test', 'Deep_Learning_Toolbox');
+    msg = sprintf('%s requires ONNX model import (importONNXNetwork or importNetworkFromONNX).', feature_name);
 
     if ~has_dl_toolbox
         license_msg = 'Deep Learning Toolbox is not licensed on this MATLAB (license(''test'',''Deep_Learning_Toolbox'') is false).';
@@ -847,6 +857,6 @@ function assert_chi_sepnet_dependencies()
     end
 
     error('process_qsm_chisep:MissingOnnxImport', ...
-        '%s\n%s\nMATLAB %s\nTo use optimization-based chi-separation instead, set RunOptions.Chisep to ''Chi-separation (MEDI)'' or ''Chi-separation (iLSQR)''.', ...
+        '%s\n%s\nMATLAB %s\nFor chi-separation without ONNX, set RunOptions.Chisep to ''Chi-separation (MEDI)'' and RunOptions.VesselSeg to ''No'' or ''Region-growing''.', ...
         msg, license_msg, version);
 end

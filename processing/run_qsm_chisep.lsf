@@ -1,5 +1,5 @@
 #!/bin/bash
-#BSUB -J "qsm_chisep[1-26]"
+#BSUB -J "qsm_chisep[1-3]"
 #BSUB -q matlab_normal
 #BSUB -n 1
 #BSUB -R "span[hosts=1]"
