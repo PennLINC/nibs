@@ -113,7 +113,8 @@ RunOptions.Unwrap = 'ROMEO + weighted echo averaging';
 RunOptions.BFR = 'V-SHARP';
 
 % 'Chi-sepnet' | 'Chi-separation (MEDI)' | 'Chi-separation (iLSQR)'
-RunOptions.Chisep = 'Chi-sepnet';
+% RunOptions.Chisep = 'Chi-sepnet';
+RunOptions.Chisep = 'Chi-separation (MEDI)';
 
 % 'Deep-learning' | 'Region-growing' | 'No'
 RunOptions.VesselSeg = 'Deep-learning';
