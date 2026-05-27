@@ -12,9 +12,8 @@
 # ------------------------------------------
 #
 # Run chi-separation on CUBIC after process_qsm_prep.py and process_qsm_sepia.py.
-# Submit from the processing/ directory with the processing conda env active, e.g.:
-#   cd /cbica/projects/nibs/code/processing
-#   sbatch run_qsm_chisep.sbatch
+# Submit from anywhere with the processing conda env active, e.g.:
+#   sbatch /cbica/projects/nibs/code/processing/run_qsm_chisep.sbatch
 
 pwd; hostname; date
 set -euo pipefail
@@ -22,7 +21,7 @@ set -euo pipefail
 module load matlab/R2023A
 echo "Using MATLAB at: $(which matlab)"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="/cbica/projects/nibs/code/processing"
 cd "${SCRIPT_DIR}"
 
 BIDS_DIR="/cbica/projects/nibs/dset"
