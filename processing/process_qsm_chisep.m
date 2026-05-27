@@ -159,6 +159,9 @@ RunOptions.tukey_pad = 0.1; %Recommend not to fix this
 Data = struct();
 Data.RunOptions = RunOptions;
 
+if strcmp(RunOptions.Chisep, 'Chi-sepnet')
+    assert_chi_sepnet_dependencies();
+end
 
 %% Data input
 if strcmp(RunOptions.multi, 'multi')
@@ -730,4 +733,30 @@ function [save_func, nii_file, save_name]=load_nii_template_and_make_nii(Data, d
     nii_file.hdr.dime.scl_slope = 1;
 
     nii_file.hdr.hist.magic = 'n+1';
+end
+
+function assert_chi_sepnet_dependencies()
+% Fail fast before ROMEO/V-SHARP if Chi-sepnet ONNX import is unavailable.
+    has_dl_toolbox = license('test', 'Deep_Learning_Toolbox');
+    has_import_onnx_legacy = exist('importONNXNetwork', 'file') == 2;
+    has_import_onnx_builtin = exist('importNetworkFromONNX', 'file') == 2;
+
+    if has_import_onnx_legacy || has_import_onnx_builtin
+        return;
+    end
+
+    msg = ['Chi-sepnet requires ONNX model import (importONNXNetwork or ', ...
+        'importNetworkFromONNX), but neither is available in this MATLAB session.'];
+
+    if ~has_dl_toolbox
+        license_msg = 'Deep Learning Toolbox is not licensed on this MATLAB (license(''test'',''Deep_Learning_Toolbox'') is false).';
+    else
+        license_msg = ['Deep Learning Toolbox is licensed, but the ONNX converter add-on is missing. ', ...
+            'Install "Deep Learning Toolbox Converter for ONNX Model Format" ', ...
+            '(File Exchange 67296) or ask your HPC admins to add it to the shared MATLAB install.'];
+    end
+
+    error('process_qsm_chisep:MissingOnnxImport', ...
+        '%s\n%s\nMATLAB %s\nTo use optimization-based chi-separation instead, set RunOptions.Chisep to ''Chi-separation (MEDI)'' or ''Chi-separation (iLSQR)''.', ...
+        msg, license_msg, version);
 end
