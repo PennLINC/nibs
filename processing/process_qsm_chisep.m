@@ -456,11 +456,16 @@ end
 % and Region-growing algorithm-based vessel segmentation
 Data.mask_CSF = extract_CSF(Data.R2s, Data.mask_brain_new, Data.VoxelSize);
 
-%% QSM
-% % 1. iLSQR from STI Suite
-% pad_size = [12, 12, 12];
-% Data.QSM = QSM_iLSQR(Data.local_field, Data.mask_brain_new,'TE',Data.delta_TE*1e3,'B0',Data.B0_strength,'H',Data.B0dir,'padsize',pad_size,'voxelsize',Data.VoxelSize');
-
+%% QSM (required for MEDI / iLSQR chi-separation)
+if any(strcmp(RunOptions.Chisep, {'Chi-separation (MEDI)', 'Chi-separation (iLSQR)'}))
+    pad_size = [12, 12, 12];
+    Data.QSM = QSM_iLSQR(Data.local_field, Data.mask_brain_new, ...
+        'TE', Data.delta_TE * 1e3, ...
+        'B0', Data.B0_strength, ...
+        'H', Data.B0dir, ...
+        'padsize', pad_size, ...
+        'voxelsize', Data.VoxelSize);
+end
 
 %% Chi separation
 disp("============< χ-separation processing >============")
@@ -513,19 +518,22 @@ switch RunOptions.Chisep
 
 end
 
+Data = sync_chisep_total_maps(Data);
 
 if strcmp(RunOptions.interp_method, 'sinc')
     tukey_strength = RunOptions.tukey_strength;
     tukey_pad = RunOptions.tukey_pad;
     Data.x_para = real(tukey_windowing(Data.x_para,tukey_strength,round(size(Data.x_para).*tukey_pad))) .* Data.mask_brain_new;
     Data.x_dia = real(tukey_windowing(Data.x_dia,tukey_strength,round(size(Data.x_dia).*tukey_pad))) .* Data.mask_brain_new;
-    Data.x_tot = real(tukey_windowing(Data.x_tot,tukey_strength,round(size(Data.x_tot).*tukey_pad))) .* Data.mask_brain_new;
     Data.qsm_map = real(tukey_windowing(Data.qsm_map,tukey_strength,round(size(Data.qsm_map).*tukey_pad))) .* Data.mask_brain_new;
-    Data.r2p_map = real(tukey_windowing(Data.r2p_map,tukey_strength,round(size(Data.r2p_map).*tukey_pad))) .* Data.mask_brain_new;
+    Data.x_tot = Data.qsm_map;
+    if isfield(Data, 'r2p_map')
+        Data.r2p_map = real(tukey_windowing(Data.r2p_map,tukey_strength,round(size(Data.r2p_map).*tukey_pad))) .* Data.mask_brain_new;
+        Data.r2p_map(Data.r2p_map < 0) = 0;
+    end
 
     Data.x_para(Data.x_para < 0) = 0;
     Data.x_dia(Data.x_dia < 0) = 0;
-    Data.r2p_map(Data.r2p_map < 0) = 0;
 end
 
 
@@ -602,10 +610,12 @@ end
  niftiwrite( Data.x_dia, dia_file, info);
  min_val=-0.1;
  max_val=0.1;
- Data.x_tot= Data.x_tot %* ( max_val - min_val) + min_val;
- Data.x_tot= rot90(Data.x_tot,-1);
+ % total_* NIfTI is the combined susceptibility map (Chi-sepnet qsm_map / MEDI x_tot).
+ Data.qsm_map = Data.qsm_map %* ( max_val - min_val) + min_val;
+ Data.qsm_map = rot90(Data.qsm_map, -1);
+ Data.x_tot = Data.qsm_map;
  total_file = sprintf('%s/sub-%s_ses-%s_total_%s.nii', outputa, subjectID, sessionID, map_label);
- niftiwrite( Data.x_tot, total_file, info);
+ niftiwrite(Data.qsm_map, total_file, info);
 %  Data.r2p_map= rot90(Data.r2p_map,-1);
 %  r2p_file = sprintf('%s/sub-%s_ses-%s_r2primenet.nii', outputa, subjectID, sessionID);
 %  niftiwrite( Data.r2p_map, r2p_file, info);
@@ -734,6 +744,15 @@ function [save_func, nii_file, save_name]=load_nii_template_and_make_nii(Data, d
     nii_file.hdr.dime.scl_slope = 1;
 
     nii_file.hdr.hist.magic = 'n+1';
+end
+
+function Data = sync_chisep_total_maps(Data)
+% Chi-sepnet exposes total susceptibility as qsm_map; MEDI/iLSQR use x_tot.
+    if ~isfield(Data, 'qsm_map')
+        Data.qsm_map = Data.x_tot;
+    elseif ~isfield(Data, 'x_tot')
+        Data.x_tot = Data.qsm_map;
+    end
 end
 
 function assert_chi_sepnet_dependencies()
