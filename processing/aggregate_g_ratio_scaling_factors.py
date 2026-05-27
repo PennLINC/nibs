@@ -73,6 +73,9 @@ def estimate_scaling_factors(splenium_df, target_g=0.7):
     if splenium_df[required_columns].isna().any().any():
         raise ValueError('Some splenium sidecars are missing required scalar values.')
 
+    # Drop PILOT* participants
+    splenium_df = splenium_df.loc[~splenium_df['subject_id'].str.contains('PILOT')]
+
     MTsat_ISOVF_ICVF_scalar = compute_scaling_factor(
         ICVF=splenium_df['ICVF'].mean(),
         MVF=splenium_df['ihMTsatB1sq'].mean(),
