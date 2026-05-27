@@ -640,16 +640,14 @@ r2s_file = sprintf('%s/sub-%s_ses-%s_r2s.nii', outputa, subjectID, sessionID);
 niftiwrite( Data.R2s, r2s_file, info);
 
 end
+% Remove temp chisep output (includes romeo_tmp subdirectory).
 folder_to_delete = fullfile(Data.output_root);
-sprintf(folder_to_delete);
-%cd ..
-% Check if it exists
 if exist(folder_to_delete, 'dir')
-    rmdir(folder_to_delete, 's');  % remove folder
-    folder_to_delete = fullfile(Data.output_root,'romeo_tmp');
-    rmdir(folder_to_delete, 's');  % remove folder
+    rmdir(folder_to_delete, 's');
+elseif exist(folder_to_delete, 'file')
+    delete(folder_to_delete);
 else
-    warning('Folder does not exist: %s', folder_to_delete);
+    warning('Temp output path does not exist: %s', folder_to_delete);
 end
 end
 
