@@ -28,5 +28,6 @@ subject=$( sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" ${BI
 #python process_qsm_sepia.py --subject-id ${subject}
 #python process_qsm_chisep.py --subject-id ${subject}
 #python process_qsm_post.py --subject-id ${subject}
+python process_g_ratio_scaling_factors.py --subject-id ${subject}
 python process_g_ratio.py --subject-id ${subject}
 #python generate_myelin_reports.py --subject-id ${subject}

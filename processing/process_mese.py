@@ -1,27 +1,17 @@
 """Calculate T2/R2/S0 maps from MESE data.
 
-This is still just a draft.
-I need to calculate SDC from the first echo and apply that to the T2 map.
-Plus we need proper output names.
-
 Steps:
 
-1.  Calculate T2 map from AP MESE data.
-2.  Calculate distortion map from AP and PA echo-1 data with SDCFlows.
-    -   topup vs. 3dQwarp vs. something else?
-    -   Currently disabled.
-3.  Apply SDC transform to AP echo-1 image.
-    - Currently disabled.  This is not needed for the T2 map.
-4.  Coregister SDCed AP echo-1 image to preprocessed T1w from sMRIPrep.
-    -   Currently using non-SDCed MESE data.
-5.  Write out coregistration transform to preprocessed T1w.
-6.  Warp T2 map to MNI152NLin2009cAsym (distortion map, coregistration transform,
+1.  Register all AP MESE echoes to first echo.
+2.  Calculate R2 map from AP MESE data.
+3.  Coregister AP echo-1 image to preprocessed T1w from sMRIPrep.
+4.  Write out coregistration transform to preprocessed T1w.
+5.  Warp R2, T2, S0 maps to MNI152NLin2009cAsym (coregistration transform,
     normalization transform from sMRIPrep).
-7.  Warp S0 map to MNI152NLin2009cAsym.
 
 Notes:
 
-- The T2 map will be used for QSM processing.
+- The R2 map will be used for QSM processing.
 - sMRIPrep's preprocessed T1w image is used as the "native T1w space".
 - This must be run after sMRIPrep.
 """

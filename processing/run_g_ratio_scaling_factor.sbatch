@@ -13,4 +13,4 @@
 pwd; hostname; date
 set -e
 
-python process_g_ratio_scaling_factors.py
+python aggregate_g_ratio_scaling_factors.py
