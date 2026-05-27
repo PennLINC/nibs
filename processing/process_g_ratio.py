@@ -29,8 +29,8 @@ from utils import get_filename, load_config, plot_scalar_map
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
 # Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
-MTsat_ISOVF_ICVF_scalar = 0.0966224286292623
-ihMTR_ISOVF_ICVF_scalar = 2.208547002794328
+MTsat_ISOVF_ICVF_scalar = 0.09716868784364516
+ihMTR_ISOVF_ICVF_scalar = 2.2210331218847843
 
 
 def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
