@@ -55,8 +55,8 @@ function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2p
 % parpool(cluster, cluster.NumWorkers);
 
 % fprintf('✅ Parallel pool started with %d workers.\n', cluster.NumWorkers);
-% Set x-separation tool directory path
-software_root = '/home/tsalo/nibs/software';
+% Set x-separation tool directory path (CUBIC default; override with NIBS_SOFTWARE_ROOT).
+software_root = get_chisep_software_root();
 home_directory = fullfile(software_root, 'Chisep_Toolbox_v1.2');
 toolbox_dirs = { ...
     home_directory, ...
@@ -758,6 +758,24 @@ function [save_func, nii_file, save_name]=load_nii_template_and_make_nii(Data, d
     nii_file.hdr.dime.scl_slope = 1;
 
     nii_file.hdr.hist.magic = 'n+1';
+end
+
+function software_root = get_chisep_software_root()
+% Resolve chi-sep toolbox location on CUBIC or PMACS.
+    software_root = strtrim(getenv('NIBS_SOFTWARE_ROOT'));
+    if ~isempty(software_root)
+        return;
+    end
+    candidates = {'/cbica/projects/nibs/software', '/home/tsalo/nibs/software'};
+    for i = 1:numel(candidates)
+        if isfolder(fullfile(candidates{i}, 'Chisep_Toolbox_v1.2'))
+            software_root = candidates{i};
+            return;
+        end
+    end
+    error('process_qsm_chisep:SoftwareNotFound', ...
+        ['chi-sep software not found. Install toolboxes under ', ...
+        '/cbica/projects/nibs/software or set NIBS_SOFTWARE_ROOT.']);
 end
 
 function mask = load_brain_mask_nifti(maskpath, data_size)

@@ -1,0 +1,36 @@
+#!/bin/bash
+#SBATCH --job-name=qsm_chisep
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --array=1-26
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=20gb
+#SBATCH --time=48:00:00
+# Outputs ----------------------------------
+#SBATCH --output=/cbica/projects/nibs/logs/qsm_chisep_%A-%a.out
+#SBATCH --error=/cbica/projects/nibs/logs/qsm_chisep_%A-%a.err
+# ------------------------------------------
+#
+# Run chi-separation on CUBIC after process_qsm_prep.py and process_qsm_sepia.py.
+# Submit from the processing/ directory with the processing conda env active, e.g.:
+#   cd /cbica/projects/nibs/code/processing
+#   sbatch run_qsm_chisep.sbatch
+
+pwd; hostname; date
+set -euo pipefail
+
+module load matlab/R2023A
+echo "Using MATLAB at: $(which matlab)"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
+
+BIDS_DIR="/cbica/projects/nibs/dset"
+subject=$(sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" "${BIDS_DIR}/participants.tsv")
+
+if [[ -z "${subject}" ]]; then
+    echo "No subject found for SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}" >&2
+    exit 1
+fi
+
+python process_qsm_chisep.py --subject-id "${subject}"
