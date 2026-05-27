@@ -121,6 +121,10 @@ def process_run(layout, run_data, out_dir, temp_dir, subject_id, session):
         BIDS session label (without 'ses-' prefix).
     """
     name_source = run_data['megre_mag'][0]
+    header_file = os.path.join(CODE_DIR, 'processing', 'sepia_header.mat')
+    header_struct = loadmat(header_file)
+    header_struct['B0_dir'] = header_struct['B0_dir'].astype(float)
+    header_struct['B0'] = header_struct['B0'].astype(float)
 
     # Create concatenated versions of files
     for version in ['E12345', 'E2345']:
@@ -130,11 +134,14 @@ def process_run(layout, run_data, out_dir, temp_dir, subject_id, session):
         else:
             mag_concat_img = image.concat_imgs(run_data['megre_mag'][1:])
             phase_concat_img = image.concat_imgs(run_data['megre_phase'][1:])
+            header_struct['TE'] = header_struct['TE'][:, 1:]
 
         sepia_work_dir = os.path.join(
             CFG['work_dir'], f'qsm-{version}+sepia', f'sub-{subject_id}', f'ses-{session}', 'anat'
         )
         os.makedirs(sepia_work_dir, exist_ok=True)
+        out_header_file = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_header.mat')
+        savemat(out_header_file, header_struct)
         mag_concat_file = os.path.join(
             sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-mag_desc-concat_MEGRE.nii.gz'
         )
