@@ -528,11 +528,15 @@ def main(subject_id):
     bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_qsm.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
+    search_pattern = os.path.join(CFG['work_dir'], 'qsm-*+chisep+*', f'sub-{subject_id}', 'ses-*')
+    print(f'searching: {search_pattern}', flush=True)
+
     sessions_to_rename = {
         os.path.basename(d).removeprefix('ses-')
-        for d in glob(os.path.join(CFG['work_dir'], 'qsm-*+chisep+*', f'sub-{subject_id}', 'ses-*'))
+        for d in glob(search_pattern)
         if os.path.isdir(d)
     }
+    print(f'sessions to rename: {sessions_to_rename}', flush=True)
     for session in sorted(sessions_to_rename):
         print(f'Renaming chi-sep outputs for session {session}')
         rename_chisep_outputs(subject_id, session)

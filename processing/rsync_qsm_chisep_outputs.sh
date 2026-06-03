@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REMOTE="${REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/home/tsalo/nibs}"
+REMOTE="${REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/project/nibs_data/chisep_20260522}"
 PROJECT_ROOT="${PROJECT_ROOT:-/cbica/projects/nibs}"
 JOBS=1
 SUBJECTS=()
