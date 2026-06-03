@@ -20,7 +20,7 @@ Arguments:
 
 Options:
   -r, --remote REMOTE     rsync source
-                          default: tsalo@bblsub2.pmacs.upenn.edu:/home/tsalo/nibs
+                          default: tsalo@bblsub2.pmacs.upenn.edu:/project/nibs_data/chisep_20260522
   -p, --project-root DIR  local CUBIC project root
                           default: /cbica/projects/nibs
   -j, --jobs N            number of parallel rsync workers
@@ -119,7 +119,30 @@ for subject in "${SUBJECTS[@]}"; do
     done
 done
 
-echo "Copying chi-sep outputs from $REMOTE to $PROJECT_ROOT with $JOBS rsync worker(s)"
+print_transfer_summary() {
+    local dry_run="no"
+    local rel_path
+
+    for opt in "${RSYNC_OPTS[@]}"; do
+        if [[ "$opt" == "--dry-run" ]]; then
+            dry_run="yes"
+            break
+        fi
+    done
+
+    echo "Preparing to copy chi-sep outputs"
+    echo "  Source root: $REMOTE/"
+    echo "  Target root: $PROJECT_ROOT/"
+    echo "  Workers: $JOBS"
+    echo "  Dry run: $dry_run"
+    echo "  Relative folders:"
+    while IFS= read -r -d '' rel_path; do
+        echo "    Source: $REMOTE/$rel_path/"
+        echo "    Target: $PROJECT_ROOT/$rel_path/"
+    done < "$tmp_filelist"
+}
+
+print_transfer_summary
 if [[ "$JOBS" -eq 1 ]]; then
     rsync "${RSYNC_OPTS[@]}" --files-from="$tmp_filelist" --from0 "$REMOTE/" "$PROJECT_ROOT/"
 else
