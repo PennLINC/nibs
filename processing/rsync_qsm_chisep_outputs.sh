@@ -45,7 +45,7 @@ USAGE
 
 # With --files-from, rsync does not let -a imply recursion, so --recursive is
 # required when the file list contains directories.
-RSYNC_OPTS=(-avh --recursive --copy-links --relative --prune-empty-dirs --ignore-missing-args)
+RSYNC_OPTS=(-avh --recursive --copy-links --relative --prune-empty-dirs --ignore-missing-args --exclude='chisep_output_*/')
 VARIANTS=(
     "E12345+chisep+r2p"
     "E2345+chisep+r2p"
@@ -142,6 +142,7 @@ print_transfer_summary() {
     echo "  Dry run: $dry_run"
     echo "  SSH command: $RSYNC_RSH"
     echo "  Missing source folders: skipped"
+    echo "  Excluded folders: chisep_output_*/"
     echo "  Relative folders:"
     while IFS= read -r -d '' rel_path; do
         echo "    Source: $REMOTE/$rel_path/"
