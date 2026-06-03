@@ -3,6 +3,7 @@ set -euo pipefail
 
 REMOTE="${REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/project/nibs_data/chisep_20260522}"
 PROJECT_ROOT="${PROJECT_ROOT:-/cbica/projects/nibs}"
+RSYNC_RSH="${RSYNC_RSH:-ssh -S none -o ServerAliveInterval=60 -o ServerAliveCountMax=5}"
 JOBS=1
 SUBJECTS=()
 
@@ -31,6 +32,8 @@ Options:
 Environment:
   REMOTE                  override the default remote source
   PROJECT_ROOT            override the default local destination root
+  RSYNC_RSH               override the SSH command used by rsync
+                          default: ssh -S none -o ServerAliveInterval=60 -o ServerAliveCountMax=5
 
 Example:
   ./processing/rsync_qsm_chisep_outputs.sh
@@ -40,7 +43,9 @@ Example:
 USAGE
 }
 
-RSYNC_OPTS=(-avh --copy-links --relative --prune-empty-dirs)
+# With --files-from, rsync does not let -a imply recursion, so --recursive is
+# required when the file list contains directories.
+RSYNC_OPTS=(-avh --recursive --copy-links --relative --prune-empty-dirs --ignore-missing-args)
 VARIANTS=(
     "E12345+chisep+r2p"
     "E2345+chisep+r2p"
@@ -135,6 +140,8 @@ print_transfer_summary() {
     echo "  Target root: $PROJECT_ROOT/"
     echo "  Workers: $JOBS"
     echo "  Dry run: $dry_run"
+    echo "  SSH command: $RSYNC_RSH"
+    echo "  Missing source folders: skipped"
     echo "  Relative folders:"
     while IFS= read -r -d '' rel_path; do
         echo "    Source: $REMOTE/$rel_path/"
@@ -142,9 +149,14 @@ print_transfer_summary() {
     done < "$tmp_filelist"
 }
 
+run_rsync() {
+    local filelist="$1"
+    rsync "${RSYNC_OPTS[@]}" -e "$RSYNC_RSH" --files-from="$filelist" --from0 "$REMOTE/" "$PROJECT_ROOT/"
+}
+
 print_transfer_summary
 if [[ "$JOBS" -eq 1 ]]; then
-    rsync "${RSYNC_OPTS[@]}" --files-from="$tmp_filelist" --from0 "$REMOTE/" "$PROJECT_ROOT/"
+    run_rsync "$tmp_filelist"
 else
     if ! command -v python3 >/dev/null 2>&1; then
         echo "python3 is required when --jobs is greater than 1." >&2
@@ -173,7 +185,7 @@ PY
     pids=()
     for chunk_file in "$tmp_chunk_dir"/chunk_*.lst; do
         [[ -s "$chunk_file" ]] || continue
-        rsync "${RSYNC_OPTS[@]}" --files-from="$chunk_file" --from0 "$REMOTE/" "$PROJECT_ROOT/" &
+        run_rsync "$chunk_file" &
         pids+=("$!")
     done
 
