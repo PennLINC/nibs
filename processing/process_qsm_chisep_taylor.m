@@ -26,11 +26,9 @@
 %   have_r2prime - 1: use precomputed R2' map; 0: compute R2' from R2* internally
 %   is_scaling_flag - 0: use R2pnet to predict R2' from R2*; 1: use scaling factor
 %   r2starpath  - path to precomputed R2* NIfTI (used only when have_r2prime==1)
-%   maskpath - path to precomputed brain mask NIfTI
-function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2prime,is_scaling_flag,r2starpath,maskpath)
-    %delete(gcp('nocreate'));
-    %which importONNXNetwork
-    %ver
+function process_qsm_chisep_taylor(input,output,r2primepath,outputa,echo_start,have_r2prime,is_scaling_flag,r2starpath)
+    delete(gcp('nocreate'));
+
 % % Detect how many CPUs were assigned by a scheduler (e.g., SLURM, PBS)
 % numCores = str2double(getenv('SLURM_CPUS_PER_TASK'));
 % if isnan(numCores)
@@ -54,23 +52,21 @@ function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2p
 
 % fprintf('✅ Parallel pool started with %d workers.\n', cluster.NumWorkers);
 % Set x-separation tool directory path
-% Add each toolbox explicitly (not genpath of the whole tree) so we don't
-% shadow intended functions with bundled/duplicate copies elsewhere under
-% software_root.
-%software_root = '/project/ftdc_misc/spandey/sepia';
-software_root = '/project/nibs_data/chisep_20260522/software';
-home_directory = fullfile(software_root, 'Chisep_Toolbox_v1.2');
-toolbox_dirs = { ...
-    fullfile(software_root, 'Chisep_Toolbox_v1.2'), ...
+software_root = '/project/ftdc_misc/spandey/sepia';
+home_directory = fullfile(software_root, 'Chisep_Toolbox_v1.2.1_09172025latest');
+toolbox_dirs = {fullfile(software_root, 'Chisep_Toolbox_v1.2.1_09172025latest'),...
     fullfile(software_root, 'NIfTI_20140122'), ...
     fullfile(software_root, 'STISuite_V3.0'), ...
-    fullfile(software_root, 'MEDI'), ...
-    fullfile(software_root, 'mritools'), ...
-    fullfile(software_root, 'SEGUE_28012021')
-};
+    %fullfile(software_root, 'MEDI'), ...
+    fullfile(software_root, 'SEGUE_28012021'), ...
+    %fullfile(software_root, 'mritools'),...
+    fullfile(software_root, 'MEDI_toolbox'), ...
+    fullfile(software_root, 'mritools_ubuntu-20.04_3.6.4')
+    };
 for k = 1:numel(toolbox_dirs)
     if exist(toolbox_dirs{k}, 'dir') ~= 7
-        error('Required toolbox not found: %s', toolbox_dirs{k});
+        disp('Required toolbox not found: %s', toolbox_dirs{k});
+        error('FAILED');
     end
     addpath(genpath(toolbox_dirs{k}));
 end
@@ -223,12 +219,9 @@ elseif strcmp(RunOptions.InputType, 'nifti')
     magnitudedata = magnitudedata(:,:,:,echo_indices);
     Data.MGRE_Mag = rot90(double(magnitudedata));
     phasedata = phasedata(:,:,:,echo_indices);
-    % The concat phase NIfTI is in scanner units, not radians, so rescale the
-    % full data range to [-pi, pi] before forming the complex signal. (The old
-    % script read phase already in radians, so it skipped this step.)
-    maxval = max(double(phasedata(:)));
-    minval = min(double(phasedata(:)));
-    Data.MGRE_Phs = (rot90(double(phasedata)) - (minval+maxval)/2) / (maxval-minval) * 2*pi;
+    maxval = max(double(    phasedata(:)));
+    minval = min(double(    phasedata(:)));
+    Data.MGRE_Phs = rot90(double(phasedata));%(rot90(double(  phasedata))-(minval+maxval)/2)/(maxval-minval)*2*pi;
     load(pathheader);
     TE = double(TE(:)');
     if numel(TE) == raw_echo_count
@@ -266,7 +259,7 @@ end
 Data.output_root = [RunOptions.OutputPath,filesep,'chisep_output_',char(datetime('now','Format',"MM-dd-yy_HH.mm.ss"))];
 mkdir(Data.output_root);
 
-clearvars -except Params Data type_dir subj subj_dir path type type_path RunOptions home_directory input output subjectID sessionID r2primepath outputa echo_start have_r2prime is_scaling_flag r2starpath maskpath
+clearvars -except Params Data type_dir subj subj_dir path type type_path RunOptions home_directory input output subjectID sessionID r2primepath outputa echo_start have_r2prime is_scaling_flag r2starpath
 
 %% Fill in necessary parameters if empty
 % Data.TE = [];                     % [ms]  [row vector]
@@ -313,8 +306,7 @@ clearvars imgc
 %% Brain mask (Range [0,1])
 disp("=================< Brain masking >=================")
 if RunOptions.Mask
-    % even_pad to match the padding applied to MGRE_Mag/MGRE_Phs above.
-    Data.Mask = even_pad(rot90(double(niftiread(maskpath)), 1));
+    Data.Mask = load('mask.mat');
 else
     if strcmp(RunOptions.Mask_method,'MEDI')                                % Use MEDI BET
         Data.Mask = BET(Data.MGRE_Mag_Tukey(:,:,:,1), Data.MatrixSize(1:3), Data.VoxelSize);
@@ -335,11 +327,10 @@ clearvars mask_brain
 %% R2* fitting (Range [0,100])
 disp("==================< R2* fitting >==================")
 if strcmp(RunOptions.R2sfit, 'Use preprocessed R2* or R2'' map')
-    % even_pad to match the padding applied to MGRE_Mag/MGRE_Phs above.
-    Data.R2s = even_pad(rot90(double(niftiread(r2starpath)), 1));
+    Data.R2s = rot90(double(niftiread(r2starpath)), 1);
 
     if RunOptions.HaveR2Prime == 1
-        Data.R2p = even_pad(rot90(double(niftiread(r2primepath)), 1));
+        Data.R2p = rot90(double(niftiread(r2primepath)), 1);
     end
 else
                                                                       % R2s fitting
@@ -470,7 +461,7 @@ Data.mask_CSF = extract_CSF(Data.R2s, Data.mask_brain_new, Data.VoxelSize);
 % pad_size = [12, 12, 12];
 % Data.QSM = QSM_iLSQR(Data.local_field, Data.mask_brain_new,'TE',Data.delta_TE*1e3,'B0',Data.B0_strength,'H',Data.B0dir,'padsize',pad_size,'voxelsize',Data.VoxelSize');
 
-home_directory = '/project/ftdc_misc/spandey/sepia/Chisep_Toolbox_v1.2.1_09172025latest';
+
 %% Chi separation
 disp("============< χ-separation processing >============")
 switch RunOptions.Chisep
@@ -627,13 +618,13 @@ folder_to_delete = fullfile(Data.output_root);
 sprintf(folder_to_delete);
 %cd ..
 % Check if it exists
-%if exist(folder_to_delete, 'dir')
- %   rmdir(folder_to_delete, 's');  % remove folder
- %   folder_to_delete = fullfile(Data.output_root,'romeo_tmp');
-  %  rmdir(folder_to_delete, 's');  % remove folder
-%else
- %   warning('Folder does not exist: %s', folder_to_delete);
-%end
+if exist(folder_to_delete, 'dir')
+    rmdir(folder_to_delete, 's');  % remove folder
+    folder_to_delete = fullfile(Data.output_root,'romeo_tmp');
+    rmdir(folder_to_delete, 's');  % remove folder
+else
+    warning('Folder does not exist: %s', folder_to_delete);
+end
 end
 
 function SaveData_Chisep(Data, RunOptions)

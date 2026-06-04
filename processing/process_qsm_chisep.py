@@ -15,16 +15,15 @@ from __future__ import annotations
 import argparse
 import os
 from pprint import pformat
-
 from bids.layout import BIDSLayout, Query
 
 from utils import run_command
 
-PROJECT_ROOT = '/home/tsalo/nibs'
+PROJECT_ROOT = '/project/nibs_data/chisep_20260522'
 CFG = {
     'project_root': PROJECT_ROOT,
     'bids_dir': os.path.join(PROJECT_ROOT, 'dset'),
-    'code_dir': os.path.join(PROJECT_ROOT, 'code', 'nibs'),
+    'code_dir': os.path.join(PROJECT_ROOT, 'nibs'),
     'work_dir': os.path.join(PROJECT_ROOT, 'work'),
     'derivatives': {
         'qsm': os.path.join(PROJECT_ROOT, 'derivatives', 'qsm'),
