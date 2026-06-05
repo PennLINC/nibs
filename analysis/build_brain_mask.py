@@ -85,6 +85,8 @@ if __name__ == '__main__':
                             if 'smriprep' in t:
                                 new_t = new_t.replace('/anat/', '/ses-01/anat/')
                                 new_t = new_t.replace('acq-MPRAGE', 'ses-01_acq-MPRAGE')
+                            else:
+                                raise Exception(t)
 
                             new_transforms.append(os.path.join(deriv_dir, new_t))
                         transforms = new_transforms
