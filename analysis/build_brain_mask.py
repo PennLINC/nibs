@@ -55,6 +55,9 @@ if __name__ == '__main__':
         sessions = [os.path.basename(d) for d in session_dirs]
         for session in sessions:
             print(session, flush=True)
+            if subject == 'sub-60522' and session == 'ses-02':
+                continue
+
             for modality, pattern in patterns.items():
                 in_file = os.path.join(deriv_dir, pattern.format(subject=subject, session=session))
                 if not os.path.exists(in_file):
@@ -81,16 +84,12 @@ if __name__ == '__main__':
                         new_transforms = []
                         for t in transforms:
                             new_t = t
-                            print(t)
                             new_t = new_t.format(subject=subject, session=session)
-                            print(new_t)
                             if 'smriprep' in t:
                                 new_t = new_t.replace('/anat/', '/ses-01/anat/')
                                 new_t = new_t.replace('acq-MPRAGE', 'ses-01_acq-MPRAGE')
-                                print(new_t)
 
                             new_transforms.append(os.path.join(deriv_dir, new_t))
-                            print(new_t)
                         transforms = new_transforms
                     else:
                         # Copy the template list so we don't overwrite the originals
