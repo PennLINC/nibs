@@ -21,7 +21,7 @@
         "DKI RD": "qsirecon/derivatives/qsirecon-DIPYDKI/{subject}/{session}/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rd_dwimap.nii.gz",
         "DKI RK": "qsirecon/derivatives/qsirecon-DIPYDKI/{subject}/{session}/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-rk_dwimap.nii.gz",
         "DKI Sphericity": "qsirecon/derivatives/qsirecon-DIPYDKI/{subject}/{session}/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-sphericity_dwimap.nii.gz",
-        "DKI Tensor FA": "qsirecon/derivatives/qsirecon-DIPYDKI/{subject}/{session}/dwi/*_space-MNI152NLin2009cAsym_model-tensor_param-fa_dwimap.nii.gz",
+        "DKI Tensor FA": "qsirecon/derivatives/qsirecon-DIPYDKI/{subject}/{session}/dwi/*_space-MNI152NLin2009cAsym_model-dki_param-fa_dwimap.nii.gz",
         "DSIStudio GQI GFA": "qsirecon/derivatives/qsirecon-DSIStudio/{subject}/{session}/dwi/*_space-MNI152NLin2009cAsym_model-gqi_param-gfa_dwimap.nii.gz",
         "DSIStudio GQI ISO": "qsirecon/derivatives/qsirecon-DSIStudio/{subject}/{session}/dwi/*_space-MNI152NLin2009cAsym_model-gqi_param-iso_dwimap.nii.gz",
         "DSIStudio GQI QA": "qsirecon/derivatives/qsirecon-DSIStudio/{subject}/{session}/dwi/*_space-MNI152NLin2009cAsym_model-gqi_param-qa_dwimap.nii.gz",
