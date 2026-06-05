@@ -82,7 +82,10 @@ if __name__ == '__main__':
                         for t in transforms:
                             new_t = t
                             if 'smriprep' in t:
-                                new_t = t.replace('/anat/', '/ses-01/anat/').format(subject=subject, session=session)
+                                new_t = new_t.format(subject=subject, session=session)
+                                new_t = t.replace('/anat/', '/ses-01/anat/')
+                                new_t = new_t.replace('acq-MPRAGE', 'ses-01_acq-MPRAGE')
+
                             new_transforms.append(new_t)
                         transforms = new_transforms
                     else:
