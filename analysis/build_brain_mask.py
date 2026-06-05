@@ -49,7 +49,7 @@ if __name__ == '__main__':
     masks = []
     target_img = None
     counter = 0
-    for subject in subjects:
+    for subject in subjects[::-1]:
         print(subject, flush=True)
         session_dirs = sorted(glob(os.path.join(bids_dir, subject, 'ses-*')))
         sessions = [os.path.basename(d) for d in session_dirs]
@@ -81,14 +81,16 @@ if __name__ == '__main__':
                         new_transforms = []
                         for t in transforms:
                             new_t = t
+                            print(t)
                             new_t = new_t.format(subject=subject, session=session)
+                            print(new_t)
                             if 'smriprep' in t:
                                 new_t = new_t.replace('/anat/', '/ses-01/anat/')
                                 new_t = new_t.replace('acq-MPRAGE', 'ses-01_acq-MPRAGE')
-                            else:
-                                raise Exception(t)
+                                print(new_t)
 
                             new_transforms.append(os.path.join(deriv_dir, new_t))
+                            print(new_t)
                         transforms = new_transforms
                     else:
                         # Copy the template list so we don't overwrite the originals
