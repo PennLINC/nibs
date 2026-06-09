@@ -83,8 +83,8 @@ def rename_qsm_outputs(subject_id: str, session: str) -> None:
         ('E2345+chisep+r2s', 'outputE2345', 'r2s'),
     ]
     suffix_map = {
-        'paramagnetic': 'ironw',
-        'diamagnetic': 'myelinw',
+        'paramagnetic': 'para',
+        'diamagnetic': 'dia',
         'total': 'Chimap',
     }
 
@@ -219,7 +219,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2p',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_iron_r2p_e2345': {
@@ -228,7 +228,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2p',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep myelin map with R2'
@@ -238,7 +238,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2p',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_myelin_r2p_e2345': {
@@ -247,7 +247,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2p',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep chi map with R2'
@@ -276,7 +276,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2primenet',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_iron_r2primenet_e2345': {
@@ -285,7 +285,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2primenet',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep myelin map with R2'
@@ -295,7 +295,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2primenet',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_myelin_r2primenet_e2345': {
@@ -304,7 +304,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2primenet',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep chi map with R2*
@@ -333,7 +333,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2s',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_iron_r2s_e2345': {
@@ -342,7 +342,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2s',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep myelin map with R2*
@@ -352,7 +352,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2s',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_myelin_r2s_e2345': {
@@ -361,7 +361,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2s',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         # Coregistration transform from process_qsm_prep.py
