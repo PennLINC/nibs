@@ -119,7 +119,7 @@ PATTERNS_MNI: Dict[str, str] = {
     'QSM-SEPIA-E5': 'qsm/sub-*/ses-*/anat/*_space-MNI152NLin2009cAsym_desc-E12345+sepia_Chimap.nii.gz',
     'QSM-X-R2p-E5-X': 'qsm/sub-*/ses-*/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_Chimap.nii.gz',
     'QSM-X-R2p-E5-Para': 'qsm/sub-*/ses-*/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_para.nii.gz',
-    'QSM-X-R2p-E5-Dia': 'qsm/sub-*/ses-*/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_myelinw.nii.gz',
+    'QSM-X-R2p-E5-Dia': 'qsm/sub-*/ses-*/anat/*_space-MNI152NLin2009cAsym_desc-E12345+chisep+r2p_dia.nii.gz',
     # ihMT
     'ihMTw': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-MNI152NLin2009cAsym_ihMTw.nii.gz',
     'ihMTR': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-MNI152NLin2009cAsym_ihMTR.nii.gz',
