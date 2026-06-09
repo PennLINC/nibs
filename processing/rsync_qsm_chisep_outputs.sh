@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REMOTE="${REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/project/nibs_data/chisep_20260522}"
+REMOTE="${REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/project/nibs_data/dsetcopy}"
+LEGACY_R2P_REMOTE="${LEGACY_R2P_REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/project/nibs_data/chisep_20260522}"
 PROJECT_ROOT="${PROJECT_ROOT:-/cbica/projects/nibs}"
+if [[ -n "${TARGET_ROOT:-}" ]]; then
+    TARGET_ROOT_WAS_SET=1
+else
+    TARGET_ROOT_WAS_SET=0
+    TARGET_ROOT="$PROJECT_ROOT/work/qsm-pmacs"
+fi
 RSYNC_RSH="${RSYNC_RSH:-ssh -S none -o ServerAliveInterval=60 -o ServerAliveCountMax=5}"
 JOBS=1
 SUBJECTS=()
@@ -12,8 +19,10 @@ usage() {
 Usage:
   rsync_qsm_chisep_outputs.sh [options] [<subject> ...]
 
-Copy chi-separation outputs generated on bblsub2 back to CUBIC while
-preserving paths relative to PROJECT_ROOT.
+Copy QSM outputs generated on bblsub2 back to CUBIC while preserving the
+PMACS subject/session QSM output layout under PROJECT_ROOT/work/qsm-pmacs.
+Legacy r2p chi-separation outputs are copied from their original PMACS source
+root back into the original PROJECT_ROOT/work/qsm-*+chisep+r2p paths.
 
 Arguments:
   subject                 BIDS subject label, with or without "sub-"
@@ -21,9 +30,14 @@ Arguments:
 
 Options:
   -r, --remote REMOTE     rsync source
+                          default: tsalo@bblsub2.pmacs.upenn.edu:/project/nibs_data/dsetcopy
+  --legacy-r2p-remote REMOTE
+                          rsync source for original r2p chi-sep output paths
                           default: tsalo@bblsub2.pmacs.upenn.edu:/project/nibs_data/chisep_20260522
   -p, --project-root DIR  local CUBIC project root
                           default: /cbica/projects/nibs
+  -t, --target-root DIR   local staging root for copied PMACS QSM outputs
+                          default: PROJECT_ROOT/work/qsm-pmacs
   -j, --jobs N            number of parallel rsync workers
                           default: 1
   -n, --dry-run           show what would be copied
@@ -31,7 +45,9 @@ Options:
 
 Environment:
   REMOTE                  override the default remote source
+  LEGACY_R2P_REMOTE       override the default r2p remote source
   PROJECT_ROOT            override the default local destination root
+  TARGET_ROOT             override the default local staging root
   RSYNC_RSH               override the SSH command used by rsync
                           default: ssh -S none -o ServerAliveInterval=60 -o ServerAliveCountMax=5
 
@@ -45,14 +61,16 @@ USAGE
 
 # With --files-from, rsync does not let -a imply recursion, so --recursive is
 # required when the file list contains directories.
-RSYNC_OPTS=(-avh --recursive --copy-links --relative --prune-empty-dirs --ignore-missing-args --exclude='chisep_output_*/')
-VARIANTS=(
+RSYNC_OPTS=(-avh --recursive --copy-links --relative --prune-empty-dirs --ignore-missing-args)
+QSM_OUTPUT_DIRS=(
+    "output"
+    "outputsepia_2345"
+    "outputE12345"
+    "outputE2345"
+)
+LEGACY_R2P_VARIANTS=(
     "E12345+chisep+r2p"
     "E2345+chisep+r2p"
-    "E12345+chisep+r2primenet"
-    "E2345+chisep+r2primenet"
-    "E12345+chisep+r2s"
-    "E2345+chisep+r2s"
 )
 
 while [[ $# -gt 0 ]]; do
@@ -61,8 +79,20 @@ while [[ $# -gt 0 ]]; do
             REMOTE="$2"
             shift 2
             ;;
+        --legacy-r2p-remote)
+            LEGACY_R2P_REMOTE="$2"
+            shift 2
+            ;;
         -p|--project-root)
             PROJECT_ROOT="$2"
+            if [[ "$TARGET_ROOT_WAS_SET" -eq 0 ]]; then
+                TARGET_ROOT="$PROJECT_ROOT/work/qsm-pmacs"
+            fi
+            shift 2
+            ;;
+        -t|--target-root)
+            TARGET_ROOT="$2"
+            TARGET_ROOT_WAS_SET=1
             shift 2
             ;;
         -j|--jobs)
@@ -110,17 +140,22 @@ if [[ ${#SUBJECTS[@]} -eq 0 ]]; then
     fi
 fi
 
+mkdir -p "$TARGET_ROOT"
+
 tmp_filelist="$(mktemp)"
+tmp_r2p_filelist="$(mktemp)"
 tmp_chunk_dir="$(mktemp -d)"
 cleanup() {
     rm -f "$tmp_filelist"
+    rm -f "$tmp_r2p_filelist"
     rm -rf "$tmp_chunk_dir"
 }
 trap cleanup EXIT
 
 for subject in "${SUBJECTS[@]}"; do
-    for variant in "${VARIANTS[@]}"; do
-        printf '%s\0' "work/qsm-${variant}/sub-${subject}" >> "$tmp_filelist"
+    printf '%s\0' "sub-${subject}" >> "$tmp_filelist"
+    for variant in "${LEGACY_R2P_VARIANTS[@]}"; do
+        printf '%s\0' "work/qsm-${variant}/sub-${subject}" >> "$tmp_r2p_filelist"
     done
 done
 
@@ -135,29 +170,59 @@ print_transfer_summary() {
         fi
     done
 
-    echo "Preparing to copy chi-sep outputs"
+    echo "Preparing to copy PMACS QSM outputs"
     echo "  Source root: $REMOTE/"
-    echo "  Target root: $PROJECT_ROOT/"
+    echo "  Target root: $TARGET_ROOT/"
+    echo "  Legacy r2p source root: $LEGACY_R2P_REMOTE/"
+    echo "  Legacy r2p target root: $PROJECT_ROOT/"
     echo "  Workers: $JOBS"
     echo "  Dry run: $dry_run"
     echo "  SSH command: $RSYNC_RSH"
     echo "  Missing source folders: skipped"
-    echo "  Excluded folders: chisep_output_*/"
-    echo "  Relative folders:"
+    echo "  Included output folders:"
+    for output_dir in "${QSM_OUTPUT_DIRS[@]}"; do
+        echo "    ses-*/anat/QSM/$output_dir/"
+    done
+    echo "  Subject folders:"
     while IFS= read -r -d '' rel_path; do
         echo "    Source: $REMOTE/$rel_path/"
-        echo "    Target: $PROJECT_ROOT/$rel_path/"
+        echo "    Target: $TARGET_ROOT/$rel_path/"
     done < "$tmp_filelist"
+    echo "  Legacy r2p folders:"
+    while IFS= read -r -d '' rel_path; do
+        echo "    Source: $LEGACY_R2P_REMOTE/$rel_path/"
+        echo "    Target: $PROJECT_ROOT/$rel_path/"
+    done < "$tmp_r2p_filelist"
 }
 
 run_rsync() {
     local filelist="$1"
-    rsync "${RSYNC_OPTS[@]}" -e "$RSYNC_RSH" --files-from="$filelist" --from0 "$REMOTE/" "$PROJECT_ROOT/"
+    rsync "${RSYNC_OPTS[@]}" \
+        -e "$RSYNC_RSH" \
+        --files-from="$filelist" \
+        --from0 \
+        --include='*/' \
+        --include='sub-*/ses-*/anat/QSM/output/***' \
+        --include='sub-*/ses-*/anat/QSM/outputsepia_2345/***' \
+        --include='sub-*/ses-*/anat/QSM/outputE12345/***' \
+        --include='sub-*/ses-*/anat/QSM/outputE2345/***' \
+        --exclude='*' \
+        "$REMOTE/" "$TARGET_ROOT/"
+}
+
+run_legacy_r2p_rsync() {
+    rsync "${RSYNC_OPTS[@]}" \
+        --exclude='chisep_output_*/' \
+        -e "$RSYNC_RSH" \
+        --files-from="$tmp_r2p_filelist" \
+        --from0 \
+        "$LEGACY_R2P_REMOTE/" "$PROJECT_ROOT/"
 }
 
 print_transfer_summary
 if [[ "$JOBS" -eq 1 ]]; then
     run_rsync "$tmp_filelist"
+    run_legacy_r2p_rsync
 else
     if ! command -v python3 >/dev/null 2>&1; then
         echo "python3 is required when --jobs is greater than 1." >&2
@@ -196,5 +261,8 @@ PY
             status=1
         fi
     done
+    if ! run_legacy_r2p_rsync; then
+        status=1
+    fi
     exit "$status"
 fi

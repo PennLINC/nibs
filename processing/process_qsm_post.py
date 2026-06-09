@@ -2,14 +2,14 @@
 
 Steps:
 
-1.  Rename chi-separation outputs from MATLAB to BIDS-compliant filenames.
+1.  Rename copied PMACS QSM outputs to BIDS-compliant filenames.
 2.  Warp QSM derivatives to T1w and MNI152NLin2009cAsym spaces.
 3.  Generate scalar reports for QSM derivatives.
 
 Notes:
 
 - The R2* map is calculated using the monoexponential fit.
-- This must be run after sMRIPrep, process_mese.py, and process_qsm_chisep.py.
+- This must be run after sMRIPrep, process_mese.py, and copying PMACS QSM outputs.
 """
 
 from __future__ import annotations
@@ -38,11 +38,23 @@ CFG = load_config()
 CODE_DIR = CFG['code_dir']
 
 
-def rename_chisep_outputs(subject_id: str, session: str) -> None:
-    """Rename chi-separation MATLAB outputs to BIDS-compliant filenames.
+def _find_one_file(pattern: str, description: str) -> str | None:
+    """Find a single file for an expected QSM output pattern."""
+    matches = sorted(glob(pattern))
+    if not matches:
+        print(f'{description} not found with pattern: {pattern}')
+        return None
+    if len(matches) > 1:
+        print(f'Multiple matches found for {description}; using {matches[0]}: {matches}')
+    return matches[0]
 
-    Reads uncompressed NIfTIs from each chi-sep work directory and writes
-    compressed, BIDS-named files to the QSM derivatives directory.
+
+def rename_qsm_outputs(subject_id: str, session: str) -> None:
+    """Rename PMACS QSM outputs to BIDS-compliant filenames.
+
+    Reads copied PMACS SEPIA/chi-separation NIfTIs and local r2p chi-separation
+    NIfTIs, then writes compressed, BIDS-named files to the QSM derivatives
+    directory.
 
     Parameters
     ----------
@@ -56,13 +68,19 @@ def rename_chisep_outputs(subject_id: str, session: str) -> None:
     ses_out_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}', 'anat')
     os.makedirs(ses_out_dir, exist_ok=True)
 
-    variants = [
-        ('E12345+chisep+r2p', 'r2p'),
-        ('E2345+chisep+r2p', 'r2p'),
-        ('E12345+chisep+r2primenet', 'r2primenet'),
-        ('E2345+chisep+r2primenet', 'r2primenet'),
-        ('E12345+chisep+r2s', 'r2s'),
-        ('E2345+chisep+r2s', 'r2s'),
+    qsm_dir = os.path.join(
+        work_dir, 'qsm-pmacs', f'sub-{subject_id}', f'ses-{session}', 'anat', 'QSM'
+    )
+
+    sepia_outputs = [
+        ('E12345+sepia', 'output'),
+        ('E2345+sepia', 'outputsepia_2345'),
+    ]
+    chisep_outputs = [
+        ('E12345+chisep+r2primenet', 'outputE12345', 'r2primenet'),
+        ('E2345+chisep+r2primenet', 'outputE2345', 'r2primenet'),
+        ('E12345+chisep+r2s', 'outputE12345', 'r2s'),
+        ('E2345+chisep+r2s', 'outputE2345', 'r2s'),
     ]
     suffix_map = {
         'paramagnetic': 'ironw',
@@ -70,14 +88,61 @@ def rename_chisep_outputs(subject_id: str, session: str) -> None:
         'total': 'Chimap',
     }
 
-    for variant, map_label in variants:
-        variant_dir = os.path.join(
-            work_dir, f'qsm-{variant}', f'sub-{subject_id}', f'ses-{session}', 'anat'
+    if os.path.isdir(qsm_dir):
+        for desc, sepia_dir in sepia_outputs:
+            in_file = _find_one_file(
+                os.path.join(qsm_dir, sepia_dir, '*Chimap.nii*'),
+                f'SEPIA output for {desc}',
+            )
+            if in_file is None:
+                continue
+            out_file = os.path.join(
+                ses_out_dir,
+                f'sub-{subject_id}_ses-{session}_run-01_space-MEGRE_desc-{desc}_Chimap.nii.gz',
+            )
+            nb.load(in_file).to_filename(out_file)
+    else:
+        print(f'PMACS QSM output directory not found: {qsm_dir}')
+
+    chisep_variant_dirs = [
+        (
+            desc,
+            os.path.join(qsm_dir, output_dir),
+            map_label,
         )
+        for desc, output_dir, map_label in chisep_outputs
+    ]
+    chisep_variant_dirs.extend(
+        [
+            (
+                'E12345+chisep+r2p',
+                os.path.join(
+                    work_dir,
+                    'qsm-E12345+chisep+r2p',
+                    f'sub-{subject_id}',
+                    f'ses-{session}',
+                    'anat',
+                ),
+                'r2p',
+            ),
+            (
+                'E2345+chisep+r2p',
+                os.path.join(
+                    work_dir,
+                    'qsm-E2345+chisep+r2p',
+                    f'sub-{subject_id}',
+                    f'ses-{session}',
+                    'anat',
+                ),
+                'r2p',
+            ),
+        ]
+    )
+
+    for desc, variant_dir, map_label in chisep_variant_dirs:
         if not os.path.isdir(variant_dir):
             print(f'Chi-sep output directory not found: {variant_dir}')
             continue
-
         for contrast, bids_suffix in suffix_map.items():
             in_file = os.path.join(
                 variant_dir,
@@ -85,7 +150,7 @@ def rename_chisep_outputs(subject_id: str, session: str) -> None:
             )
             out_file = os.path.join(
                 ses_out_dir,
-                f'sub-{subject_id}_ses-{session}_run-01_space-MEGRE_desc-{variant}_{bids_suffix}.nii.gz',
+                f'sub-{subject_id}_ses-{session}_run-01_space-MEGRE_desc-{desc}_{bids_suffix}.nii.gz',
             )
             if not os.path.isfile(in_file):
                 print(f'Chi-sep output not found: {in_file}')
@@ -528,18 +593,24 @@ def main(subject_id):
     bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_qsm.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
-    search_pattern = os.path.join(CFG['work_dir'], 'qsm-*+chisep+*', f'sub-{subject_id}', 'ses-*')
-    print(f'searching: {search_pattern}', flush=True)
+    session_search_patterns = [
+        os.path.join(CFG['work_dir'], 'qsm-pmacs', f'sub-{subject_id}', 'ses-*'),
+        os.path.join(CFG['work_dir'], 'qsm-E12345+chisep+r2p', f'sub-{subject_id}', 'ses-*'),
+        os.path.join(CFG['work_dir'], 'qsm-E2345+chisep+r2p', f'sub-{subject_id}', 'ses-*'),
+    ]
+    print(f'searching: {session_search_patterns}', flush=True)
 
-    sessions_to_rename = {
-        os.path.basename(d).removeprefix('ses-')
-        for d in glob(search_pattern)
-        if os.path.isdir(d)
-    }
+    sessions_to_rename = set()
+    for search_pattern in session_search_patterns:
+        sessions_to_rename.update(
+            os.path.basename(d).removeprefix('ses-')
+            for d in glob(search_pattern)
+            if os.path.isdir(d)
+        )
     print(f'sessions to rename: {sessions_to_rename}', flush=True)
     for session in sorted(sessions_to_rename):
-        print(f'Renaming chi-sep outputs for session {session}')
-        rename_chisep_outputs(subject_id, session)
+        print(f'Renaming QSM outputs for session {session}')
+        rename_qsm_outputs(subject_id, session)
 
     layout = BIDSLayout(
         in_dir,
