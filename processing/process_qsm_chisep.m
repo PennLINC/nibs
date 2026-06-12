@@ -149,7 +149,7 @@ RunOptions.resgen = false;
 % Temp files and final outputs both go to outputa so they stay out of the
 % shared SEPIA input folder.
 RunOptions.OutputPath = outputa;
-% Output path must not contatin ' '(spaces)
+% Output path must not contain ' '(spaces)
 
 % Interpolation options (for B0 direction, Resampling)
 % 'sinc' | 'spline'
