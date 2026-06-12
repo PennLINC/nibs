@@ -251,6 +251,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         temp_dir=temp_dir,
     )
 
+    # TODO: Use root mean square (RMS) instead of first echo for coregistration.
     mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
 
     mese_mag_ap_echo1_t1_file = get_filename(
