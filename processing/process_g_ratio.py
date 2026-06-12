@@ -303,10 +303,10 @@ def main(subject_id):
     os.makedirs(out_dir, exist_ok=True)
     temp_dir = os.path.join(CFG['work_dir'], 'g_ratio')
     os.makedirs(temp_dir, exist_ok=True)
-    print(f"in_dir: {in_dir}")
-    print(f"out_dir: {out_dir}")
-    print(f"ihmt_dir: {ihmt_dir}")
-    print(f"smriprep_dir: {smriprep_dir}")
+    print(f'in_dir: {in_dir}')
+    print(f'out_dir: {out_dir}')
+    print(f'ihmt_dir: {ihmt_dir}')
+    print(f'smriprep_dir: {smriprep_dir}')
 
     bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_g_ratio.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'

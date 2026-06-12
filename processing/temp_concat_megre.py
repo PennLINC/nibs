@@ -15,15 +15,13 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 from pprint import pformat
 
-import nibabel as nb
 from bids.layout import BIDSLayout, Query
 from nilearn import image
 from scipy.io import loadmat, savemat
 
-from utils import get_filename, load_config
+from utils import load_config
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
@@ -120,7 +118,6 @@ def process_run(layout, run_data, out_dir, temp_dir, subject_id, session):
     session : str
         BIDS session label (without 'ses-' prefix).
     """
-    name_source = run_data['megre_mag'][0]
     header_file = os.path.join(CODE_DIR, 'processing', 'sepia_header.mat')
     header_struct = loadmat(header_file)
     header_struct['B0_dir'] = header_struct['B0_dir'].astype(float)

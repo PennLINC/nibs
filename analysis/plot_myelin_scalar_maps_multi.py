@@ -19,7 +19,7 @@ MULTI_KEYS = [
     'MPRAGE-MyelinW',
     'R1-B1c',
     'ihMTsat-B1c',
-    "QSM-SEPIA-E5",
+    'QSM-SEPIA-E5',
 ]
 
 CUT_COORDS = [-30, -15, 0, 15, 30, 45, 60]
@@ -176,7 +176,7 @@ if __name__ == '__main__':
 
     for i, (mean_img, title, vmax0, vmin, kwargs) in enumerate(rows):
         if 'Chi Map' in title:
-            title += " (Inverted)"
+            title += ' (Inverted)'
 
         ax_map = axs[i, 0]
         cax = axs[i, 1]
