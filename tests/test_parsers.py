@@ -19,7 +19,7 @@ _PARSER_MODULES = [
     'process_t1wt2w_ratio',
     'process_qsm_prep',
     'process_qsm_post',
-    'process_qsm_sepia',
+    'process_qsm',
     'process_g_ratio',
     'generate_myelin_reports',
 ]

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=qsm_chisep
+#SBATCH --job-name=qsm
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1,4,18,19
@@ -7,13 +7,13 @@
 #SBATCH --mem-per-cpu=20gb
 #SBATCH --time=48:00:00
 # Outputs ----------------------------------
-#SBATCH --output=/cbica/projects/nibs/logs/qsm_chisep_%A-%a.out
-#SBATCH --error=/cbica/projects/nibs/logs/qsm_chisep_%A-%a.err
+#SBATCH --output=/cbica/projects/nibs/logs/qsm_%A-%a.out
+#SBATCH --error=/cbica/projects/nibs/logs/qsm_%A-%a.err
 # ------------------------------------------
 #
-# Run chi-separation on CUBIC after process_qsm_prep.py and process_qsm_sepia.py.
+# Run SEPIA + chi-separation on CUBIC after process_qsm_prep.py.
 # Submit from anywhere with the processing conda env active, e.g.:
-#   sbatch /cbica/projects/nibs/code/processing/run_qsm_chisep.sbatch
+#   sbatch /cbica/projects/nibs/code/processing/run_qsm.sbatch
 
 pwd; hostname; date
 set -euo pipefail
@@ -32,4 +32,4 @@ if [[ -z "${subject}" ]]; then
     exit 1
 fi
 
-python process_qsm_chisep.py --subject-id "${subject}"
+python process_qsm.py --subject-id "${subject}"
