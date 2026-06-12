@@ -18,19 +18,14 @@
 
 %% Necessary preparation
 % Arguments:
-%   input       - path to raw MEGRE echo-1 magnitude NIfTI (used for niftiinfo)
-%   output      - SEPIA output folder containing part-mag.nii.gz, part-phase.nii.gz, header.mat
-%   r2primepath - path to precomputed R2' NIfTI (used only when have_r2prime==1)
-%   outputa     - chi-sep output folder (final NIfTIs and temp files written here)
-%   echo_start  - first echo index to use when the concat input still has unsliced echoes
-%   have_r2prime - 1: use precomputed R2' map; 0: compute R2' from R2* internally
+%   example_nifti   - path to raw MEGRE echo-1 magnitude NIfTI (used for niftiinfo)
+%   in_dir          - SEPIA output folder containing part-mag.nii.gz, part-phase.nii.gz, header.mat
+%   out_dir         - chi-sep output folder (final NIfTIs and temp files written here)
 %   is_scaling_flag - 0: use R2pnet to predict R2' from R2*; 1: use scaling factor
-%   r2starpath  - path to precomputed R2* NIfTI (used only when have_r2prime==1)
-%   maskpath    - path to MEGRE-space brain mask NIfTI (from process_qsm_prep.py)
-function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2prime,is_scaling_flag,r2starpath,maskpath)
-    if nargin < 9
-        maskpath = '';
-    end
+%   have_r2prime    - 1: use precomputed R2' map; 0: compute R2' from R2* internally
+%   r2starpath      - path to precomputed R2* NIfTI (used only when have_r2prime==1)
+%   r2primepath     - path to precomputed R2' NIfTI (used only when have_r2prime==1)
+function process_qsm_chisep(example_nifti,in_dir,out_dir,is_scaling_flag,have_r2prime,r2starpath,r2primepath)
     delete(gcp('nocreate'));
 
 % % Detect how many CPUs were assigned by a scheduler (e.g., SLURM, PBS)
@@ -71,20 +66,20 @@ for k = 1:numel(toolbox_dirs)
     end
     addpath(genpath(toolbox_dirs{k}));
 end
-if exist(outputa,'dir') ~= 7
-    mkdir(outputa);
+if exist(out_dir,'dir') ~= 7
+    mkdir(out_dir);
 end
-info = niftiinfo(input);
+info = niftiinfo(example_nifti);
 % Extract subject
-subMatch = regexp(output, 'sub-([^/]+)', 'tokens', 'once');
+subMatch = regexp(in_dir, 'sub-([^/]+)', 'tokens', 'once');
 subjectID = subMatch{1};   % '1234'
 
 % Extract session
-sesMatch = regexp(output, 'ses-([^/]+)', 'tokens', 'once');
+sesMatch = regexp(in_dir, 'ses-([^/]+)', 'tokens', 'once');
 sessionID = sesMatch{1};   % '5678'
-% mag_file = sprintf('%s/sub-%s_ses-%s_part-mag.nii.gz', output, subjectID, sessionID);
-% phs_file = sprintf('%s/sub-%s_ses-%s_part-phase.nii.gz', output, subjectID, sessionID);
-% header_file = sprintf('%s/sub-%s_ses-%s_header.mat', output, subjectID, sessionID);
+% mag_file = sprintf('%s/sub-%s_ses-%s_part-mag.nii.gz', in_dir, subjectID, sessionID);
+% phs_file = sprintf('%s/sub-%s_ses-%s_part-phase.nii.gz', in_dir, subjectID, sessionID);
+% header_file = sprintf('%s/sub-%s_ses-%s_header.mat', in_dir, subjectID, sessionID);
 
 %% Run options - User define
 RunOptions = struct();
@@ -117,8 +112,7 @@ RunOptions.Unwrap = 'ROMEO + weighted echo averaging';
 RunOptions.BFR = 'V-SHARP';
 
 % 'Chi-sepnet' | 'Chi-separation (MEDI)' | 'Chi-separation (iLSQR)'
-% RunOptions.Chisep = 'Chi-sepnet';
-RunOptions.Chisep = 'Chi-separation (MEDI)';
+RunOptions.Chisep = 'Chi-sepnet';
 
 % 'Deep-learning' | 'Region-growing' | 'No'
 % Deep-learning requires ONNX (not available on PMACS matlab/2025a); use 'No' or 'Region-growing'.
@@ -146,9 +140,9 @@ RunOptions.resgen = false;
 % Determine whether to use resolution generalization pipeline or to interpolate to 1 mm isotropic resolution
 % 7T processing is available only with resolution generalization
 
-% Temp files and final outputs both go to outputa so they stay out of the
+% Temp files and final outputs both go to out_dir so they stay out of the
 % shared SEPIA input folder.
-RunOptions.OutputPath = outputa;
+RunOptions.OutputPath = out_dir;
 % Output path must not contain ' '(spaces)
 
 % Interpolation options (for B0 direction, Resampling)
@@ -178,7 +172,7 @@ if strcmp(RunOptions.multi, 'multi')
     multi_subj_path = 'Multi_subj_path';
     subj_dir = dir([multi_subj_path,'\subj*']);
 elseif strcmp(RunOptions.multi, 'single')
-    single_subj_path = output; %spandey
+    single_subj_path = in_dir; %spandey
     subj_dir(1).folder = single_subj_path; subj_dir(1).name = [];
 end
 
@@ -201,14 +195,10 @@ if strcmp(RunOptions.InputType, 'dicom')
     Data.MGRE_Mag = double(abs(meas));
     Data.MGRE_Phs = double(angle(meas));
 
-elseif strcmp(RunOptions.InputType, 'nifti')
-%     gunzip("C:\Users\pandesr\Desktop\Data\QSM\Chi_seperation\QSM\nibs\anat\output\sub-24037_ses-01_part-mag.nii.gz")% [fullfile(subj_dir(subj).folder,subj_dir(subj).name),'\Mag.nii'];
-%     gunzip("C:\Users\pandesr\Desktop\Data\QSM\Chi_seperation\QSM\nibs\anat\output\sub-24037_ses-01_part-phase.nii.gz")%[fullfile(subj_dir(subj).folder,subj_dir(subj).name),'\Phase.nii'];
-%     pathNifti_mag = "C:\Users\pandesr\Desktop\Data\QSM\Chi_seperation\QSM\nibs\anat\output\sub-24037_ses-01_part-mag.nii"% [fullfile(subj_dir(subj).folder,subj_dir(subj).name),'\Mag.nii'];
-%     pathNifti_phs = "C:\Users\pandesr\Desktop\Data\QSM\Chi_seperation\QSM\nibs\anat\output\sub-24037_ses-01_part-phase.nii"%[fullfile(subj_dir(subj).folder,subj_dir(subj).name),'\Phase.nii'];
-    pathNifti_mag = sprintf('%s/sub-%s_ses-%s_part-mag_desc-concat_MEGRE.nii.gz', output, subjectID, sessionID);
-    pathNifti_phs = sprintf('%s/sub-%s_ses-%s_part-phase_desc-concat_MEGRE.nii.gz', output, subjectID, sessionID);
-    pathheader  = sprintf('%s/sub-%s_ses-%s_header.mat', output, subjectID, sessionID);
+elseif strcmp(RunOptions.InputType, 'nifti')x
+    pathNifti_mag = sprintf('%s/sub-%s_ses-%s_part-mag_desc-concat_MEGRE.nii.gz', in_dir, subjectID, sessionID);
+    pathNifti_phs = sprintf('%s/sub-%s_ses-%s_part-phase_desc-concat_MEGRE.nii.gz', in_dir, subjectID, sessionID);
+    pathheader  = sprintf('%s/sub-%s_ses-%s_header.mat', in_dir, subjectID, sessionID);
     % magnitude and phase
     magnitudedata = niftiread(pathNifti_mag);
     phasedata = niftiread(pathNifti_phs);
@@ -216,26 +206,13 @@ elseif strcmp(RunOptions.InputType, 'nifti')
     if size(phasedata, 4) ~= raw_echo_count
         error('Magnitude and phase concat files have different echo counts.');
     end
-    if echo_start > raw_echo_count
-        error('echo_start (%d) exceeds concat echo count (%d).', echo_start, raw_echo_count);
-    end
-    if raw_echo_count < 5 && echo_start > 1
-        echo_indices = 1:raw_echo_count;
-    else
-        echo_indices = echo_start:raw_echo_count;
-    end
-    magnitudedata = magnitudedata(:,:,:,echo_indices);
+    % SEPIA writes echo-selected concat inputs, so use every stored volume.
     Data.MGRE_Mag = rot90(double(magnitudedata));
-    phasedata = phasedata(:,:,:,echo_indices);
-    maxval = max(double(    phasedata(:)));
-    minval = min(double(    phasedata(:)));
-    Data.MGRE_Phs = rot90(double(phasedata));%(rot90(double(  phasedata))-(minval+maxval)/2)/(maxval-minval)*2*pi;
+    Data.MGRE_Phs = rot90(double(phasedata));
     load(pathheader);
     TE = double(TE(:)');
-    if numel(TE) == raw_echo_count
-        TE = TE(echo_indices);
-    elseif numel(TE) ~= numel(echo_indices)
-        error('Header TE count (%d) does not match selected echo count (%d).', numel(TE), numel(echo_indices));
+    if numel(TE) ~= raw_echo_count
+        error('Header TE count (%d) does not match concat echo count (%d).', numel(TE), raw_echo_count);
     end
     Data.VoxelSize = double(voxelSize(:)');
     Data.Necho = length(TE);
@@ -267,7 +244,7 @@ end
 Data.output_root = [RunOptions.OutputPath,filesep,'chisep_output_',char(datetime('now','Format',"MM-dd-yy_HH.mm.ss"))];
 mkdir(Data.output_root);
 
-clearvars -except Params Data type_dir subj subj_dir path type type_path RunOptions home_directory input output subjectID sessionID r2primepath outputa echo_start have_r2prime is_scaling_flag r2starpath maskpath
+clearvars -except Params Data type_dir subj subj_dir path type type_path RunOptions home_directory example_nifti in_dir subjectID sessionID r2primepath out_dir have_r2prime is_scaling_flag r2starpath
 
 %% Fill in necessary parameters if empty
 % Data.TE = [];                     % [ms]  [row vector]
@@ -313,10 +290,7 @@ clearvars imgc
 
 %% Brain mask (Range [0,1])
 disp("=================< Brain masking >=================")
-if ~isempty(maskpath)
-    Data.Mask = load_brain_mask_nifti(maskpath, size(Data.MGRE_Mag));
-    disp("Using MEGRE-space brain mask from QSM prep pipeline.");
-elseif RunOptions.Mask
+if RunOptions.Mask
     Data.Mask = load('mask.mat');
 else
     if strcmp(RunOptions.Mask_method,'MEDI')                                % Use MEDI BET
@@ -536,8 +510,8 @@ if strcmp(RunOptions.interp_method, 'sinc')
     tukey_pad = RunOptions.tukey_pad;
     Data.x_para = real(tukey_windowing(Data.x_para,tukey_strength,round(size(Data.x_para).*tukey_pad))) .* Data.mask_brain_new;
     Data.x_dia = real(tukey_windowing(Data.x_dia,tukey_strength,round(size(Data.x_dia).*tukey_pad))) .* Data.mask_brain_new;
+    Data.x_tot = real(tukey_windowing(Data.x_tot,tukey_strength,round(size(Data.x_tot).*tukey_pad))) .* Data.mask_brain_new;
     Data.qsm_map = real(tukey_windowing(Data.qsm_map,tukey_strength,round(size(Data.qsm_map).*tukey_pad))) .* Data.mask_brain_new;
-    Data.x_tot = Data.qsm_map;
     if isfield(Data, 'r2p_map')
         Data.r2p_map = real(tukey_windowing(Data.r2p_map,tukey_strength,round(size(Data.r2p_map).*tukey_pad))) .* Data.mask_brain_new;
         Data.r2p_map(Data.r2p_map < 0) = 0;
@@ -612,31 +586,30 @@ end
      map_label = 'r2s';
  end
 
- info = niftiinfo(input)
+ info = niftiinfo(example_nifti)
  info.Datatype='double';
  min_val=0;  % scaling the results
  max_val=0.1;
  Data.x_para= Data.x_para %* ( max_val - min_val) + min_val;
  Data.x_para= rot90(Data.x_para,-1);
- para_file = sprintf('%s/sub-%s_ses-%s_paramagnetic_%s.nii', outputa, subjectID, sessionID, map_label);
+ para_file = sprintf('%s/sub-%s_ses-%s_paramagnetic_%s.nii', out_dir, subjectID, sessionID, map_label);
  niftiwrite( Data.x_para, para_file, info);
  Data.x_dia= Data.x_dia %* ( max_val - min_val) + min_val;
  Data.x_dia= rot90(Data.x_dia,-1);
- dia_file = sprintf('%s/sub-%s_ses-%s_diamagnetic_%s.nii', outputa, subjectID, sessionID, map_label);
+ dia_file = sprintf('%s/sub-%s_ses-%s_diamagnetic_%s.nii', out_dir, subjectID, sessionID, map_label);
  niftiwrite( Data.x_dia, dia_file, info);
  min_val=-0.1;
  max_val=0.1;
- % total_* NIfTI is the combined susceptibility map (Chi-sepnet qsm_map / MEDI x_tot).
- Data.qsm_map = Data.qsm_map %* ( max_val - min_val) + min_val;
- Data.qsm_map = rot90(Data.qsm_map, -1);
- Data.x_tot = Data.qsm_map;
- total_file = sprintf('%s/sub-%s_ses-%s_total_%s.nii', outputa, subjectID, sessionID, map_label);
- niftiwrite(Data.qsm_map, total_file, info);
+ % total_* NIfTI is the chi-separation net susceptibility map (x_tot), matching the working scripts.
+ Data.x_tot= Data.x_tot %* ( max_val - min_val) + min_val;
+ Data.x_tot= rot90(Data.x_tot,-1);
+ total_file = sprintf('%s/sub-%s_ses-%s_total_%s.nii', out_dir, subjectID, sessionID, map_label);
+ niftiwrite( Data.x_tot, total_file, info);
 %  Data.r2p_map= rot90(Data.r2p_map,-1);
-%  r2p_file = sprintf('%s/sub-%s_ses-%s_r2primenet.nii', outputa, subjectID, sessionID);
+%  r2p_file = sprintf('%s/sub-%s_ses-%s_r2primenet.nii', out_dir, subjectID, sessionID);
 %  niftiwrite( Data.r2p_map, r2p_file, info);
 Data.R2s= rot90(Data.R2s,-1);
-r2s_file = sprintf('%s/sub-%s_ses-%s_r2s.nii', outputa, subjectID, sessionID);
+r2s_file = sprintf('%s/sub-%s_ses-%s_r2s.nii', out_dir, subjectID, sessionID);
 niftiwrite( Data.R2s, r2s_file, info);
 
 end
@@ -776,20 +749,6 @@ function software_root = get_chisep_software_root()
     error('process_qsm_chisep:SoftwareNotFound', ...
         ['chi-sep software not found. Install toolboxes under ', ...
         '/cbica/projects/nibs/software or set NIBS_SOFTWARE_ROOT.']);
-end
-
-function mask = load_brain_mask_nifti(maskpath, data_size)
-% Load a MEGRE-space brain mask, matching rot90 used for R2* derivative maps.
-    if ~isfile(maskpath)
-        error('process_qsm_chisep:MaskNotFound', 'Brain mask not found: %s', maskpath);
-    end
-    mask = rot90(double(niftiread(maskpath)) > 0, 1);
-    if ~isequal(size(mask), data_size(1:3))
-        error('process_qsm_chisep:MaskSizeMismatch', ...
-            'Brain mask size %s does not match MEGRE data size %s.', ...
-            mat2str(size(mask)), mat2str(data_size(1:3)));
-    end
-    mask = double(mask);
 end
 
 function mask_CSF = compute_mask_CSF(Data, RunOptions)

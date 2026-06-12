@@ -136,38 +136,38 @@ def process_run(layout, run_data, out_dir, temp_dir, subject_id, session):
             phase_concat_img = image.concat_imgs(run_data['megre_phase'][1:])
             header_struct['TE'] = header_struct['TE'][:, 1:]
 
-        sepia_work_dir = os.path.join(
-            CFG['work_dir'], f'qsm-{version}+sepia', f'sub-{subject_id}', f'ses-{session}', 'anat'
+        qsm_work_dir = os.path.join(
+            CFG['work_dir'], 'qsm', f'sub-{subject_id}', f'ses-{session}', 'anat'
         )
-        os.makedirs(sepia_work_dir, exist_ok=True)
-        out_header_file = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_header.mat')
+        os.makedirs(qsm_work_dir, exist_ok=True)
+        out_header_file = os.path.join(qsm_work_dir, f'sub-{subject_id}_ses-{session}_desc-{version}_header.mat')
         savemat(out_header_file, header_struct)
         mag_concat_file = os.path.join(
-            sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-mag_desc-concat_MEGRE.nii.gz'
+            qsm_work_dir, f'sub-{subject_id}_ses-{session}_part-mag_desc-{version}+concat_MEGRE.nii.gz'
         )
         phase_concat_file = os.path.join(
-            sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-phase_desc-concat_MEGRE.nii.gz'
+            qsm_work_dir, f'sub-{subject_id}_ses-{session}_part-phase_desc-{version}+concat_MEGRE.nii.gz'
         )
         mag_concat_img.to_filename(mag_concat_file)
         phase_concat_img.to_filename(phase_concat_file)
 
         # Run SEPIA QSM estimation
-        sepia_dir = os.path.join(temp_dir, f'sepia_{version}')
-        os.makedirs(sepia_dir, exist_ok=True)
+        sepia_work_dir = os.path.join(CFG['work_dir'], f'qsm-{version}+sepia', f'sub-{subject_id}', f'ses-{session}', 'anat')
+        os.makedirs(sepia_work_dir, exist_ok=True)
+        prefix = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_')
         sepia_script = os.path.join(CODE_DIR, 'processing', 'process_qsm_sepia.m')
         with open(sepia_script, 'r') as fobj:
             base_sepia_script = fobj.read()
 
-        sepia_dir_prefix = os.path.join(sepia_dir, 'sepia')
         modified_sepia_script = (
             base_sepia_script.replace('{{ phase_file }}', phase_concat_file)
             .replace('{{ mag_file }}', mag_concat_file)
-            .replace('{{ output_dir }}', sepia_dir_prefix)
+            .replace('{{ output_dir }}', prefix)
             .replace('{{ header_file }}', out_header_file)
             .replace('{{ mask_file }}', run_data['mask'])
         )
 
-        out_sepia_script = os.path.join(sepia_dir, f'process_qsm_sepia_{version}.m')
+        out_sepia_script = os.path.join(sepia_work_dir, f'process_qsm_sepia_{version}.m')
         with open(out_sepia_script, 'w') as fobj:
             fobj.write(modified_sepia_script)
 
@@ -190,9 +190,17 @@ def process_run(layout, run_data, out_dir, temp_dir, subject_id, session):
                 f'stderr:\n{result.stderr}'
             )
 
-        sepia_chimap_file = f'{sepia_dir_prefix}_Chimap.nii.gz'
+        sepia_chimap_file = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_desc-{version}_Chimap.nii.gz')
         if not os.path.isfile(sepia_chimap_file):
             raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')
+
+        # Processed magnitude and phase images
+        sepia_mag_file = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-mag.nii.gz')
+        sepia_phase_file = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-phase.nii.gz')
+        if not os.path.isfile(sepia_mag_file):
+            raise FileNotFoundError(f'SEPIA magnitude output file {sepia_mag_file} not found')
+        if not os.path.isfile(sepia_phase_file):
+            raise FileNotFoundError(f'SEPIA phase output file {sepia_phase_file} not found')
 
         sepia_chimap_img = nb.load(sepia_chimap_file)
         sepia_chimap_filename = get_filename(

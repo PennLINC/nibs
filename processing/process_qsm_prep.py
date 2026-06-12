@@ -241,6 +241,7 @@ def process_run(layout, run_data, out_dir):
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
     # Average the magnitude images, to use for coregistration
+    # TODO: Switch to root mean square (RMS)
     mean_mag_img = image.mean_img(run_data['megre_mag'])
     mean_mag_filename = get_filename(
         name_source=name_source,
@@ -330,6 +331,7 @@ def process_run(layout, run_data, out_dir):
     ants.image_write(r2_qsm_img, r2_qsm_filename)
 
     # Calculate R2* and R2' maps
+    # TODO: Use dahnke correction and NLLS fitting
     _, r2s_hz_img, _, _ = fit_monoexponential(run_data['megre_mag'], echo_times)
     r2s_hz_filename = get_filename(
         name_source=r2_qsm_filename,
@@ -350,6 +352,7 @@ def process_run(layout, run_data, out_dir):
     ants.image_write(r2prime_hz_img, r2prime_hz_filename)
 
     # Calculate R2* and R2' maps from echo 2 onwards
+    # TODO: Use dahnke correction and NLLS fitting
     _, r2s_hz_img, _, _ = fit_monoexponential(run_data['megre_mag'][1:], echo_times[1:])
     r2s_hz_filename = get_filename(
         name_source=r2_qsm_filename,

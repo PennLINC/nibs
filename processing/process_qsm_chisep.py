@@ -50,42 +50,32 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'suffix': 'MEGRE',
             'extension': ['.nii', '.nii.gz'],
         },
-        'r2prime_e12345': {
+        'r2p_e12345': {
             'datatype': 'anat',
             'space': 'MEGRE',
             'desc': 'MEGRE+E12345',
             'suffix': 'R2primemap',
             'extension': ['.nii', '.nii.gz'],
         },
-        'r2prime_e2345': {
+        'r2p_e2345': {
             'datatype': 'anat',
             'space': 'MEGRE',
             'desc': 'MEGRE+E2345',
             'suffix': 'R2primemap',
             'extension': ['.nii', '.nii.gz'],
         },
-        'r2star_e12345': {
+        'r2s_e12345': {
             'datatype': 'anat',
             'space': 'MEGRE',
             'desc': 'MEGRE+E12345',
             'suffix': 'R2starmap',
             'extension': ['.nii', '.nii.gz'],
         },
-        'r2star_e2345': {
+        'r2s_e2345': {
             'datatype': 'anat',
             'space': 'MEGRE',
             'desc': 'MEGRE+E2345',
             'suffix': 'R2starmap',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        'mask': {
-            'datatype': 'anat',
-            'acquisition': 'QSM',
-            'part': 'mag',
-            'echo': 1,
-            'space': 'MEGRE',
-            'desc': 'brain',
-            'suffix': 'mask',
             'extension': ['.nii', '.nii.gz'],
         },
     }
@@ -115,114 +105,48 @@ def process_run(run_data: dict, subject_id: str, session: str) -> None:
         BIDS session label (without 'ses-' prefix).
     """
     work_dir = CFG['work_dir']
-    input_file = run_data['megre_echo1_mag']
+    example_nifti = run_data['megre_echo1_mag']
 
-    sepia_e12345 = os.path.join(
-        work_dir, 'qsm-E12345+sepia', f'sub-{subject_id}', f'ses-{session}', 'anat'
-    )
-    sepia_e2345 = os.path.join(
-        work_dir, 'qsm-E2345+sepia', f'sub-{subject_id}', f'ses-{session}', 'anat'
-    )
-
-    def out_dir(variant):
-        return os.path.join(
-            work_dir, f'qsm-{variant}', f'sub-{subject_id}', f'ses-{session}', 'anat'
+    for version in ['E12345', 'E2345']:
+        sepia_work_dir = os.path.join(
+            work_dir, f'qsm-{version}+sepia', f'sub-{subject_id}', f'ses-{session}', 'anat'
         )
 
-    combos = [
-        # SEPIA already writes echo-selected concat inputs for each variant, so
-        # chi-sep should read each concat file from its first stored volume.
-        # (label, sepia_folder, r2p_path, outputa, echo_start, have_r2prime, is_scaling, r2s_path)
-        (
-            'E12345+chisep+r2p',
-            sepia_e12345,
-            run_data['r2prime_e12345'],
-            out_dir('E12345+chisep+r2p'),
-            1,
-            1,
-            0,
-            run_data['r2star_e12345'],
-        ),
-        (
-            'E2345+chisep+r2p',
-            sepia_e2345,
-            run_data['r2prime_e2345'],
-            out_dir('E2345+chisep+r2p'),
-            1,
-            1,
-            0,
-            run_data['r2star_e2345'],
-        ),
-        (
-            'E12345+chisep+r2primenet',
-            sepia_e12345,
-            '',
-            out_dir('E12345+chisep+r2primenet'),
-            1,
-            0,
-            0,
-            '',
-        ),
-        (
-            'E2345+chisep+r2primenet',
-            sepia_e2345,
-            '',
-            out_dir('E2345+chisep+r2primenet'),
-            1,
-            0,
-            0,
-            '',
-        ),
-        (
-            'E12345+chisep+r2s',
-            sepia_e12345,
-            '',
-            out_dir('E12345+chisep+r2s'),
-            1,
-            0,
-            1,
-            '',
-        ),
-        (
-            'E2345+chisep+r2s',
-            sepia_e2345,
-            '',
-            out_dir('E2345+chisep+r2s'),
-            1,
-            0,
-            1,
-            '',
-        ),
-    ]
-    matlab_script_dir = os.path.join(CODE_DIR, 'processing')
-    for (
-        label,
-        sepia_folder,
-        r2p_path,
-        outputa,
-        echo_start,
-        have_r2prime,
-        is_scaling,
-        r2s_path,
-    ) in combos:
-        cmd = [
-            'matlab',
-            '-nodisplay',
-            '-nosplash',
-            '-r',
-            (
-                'try; '
-                f"addpath(genpath('{matlab_script_dir}')); "
-                f"process_qsm_chisep('{input_file}','{sepia_folder}','{r2p_path}','{outputa}'"
-                f",{echo_start},{have_r2prime},{is_scaling},'{r2s_path}',"
-                f"'{run_data['mask']}'); "
-                'exit(0); '
-                "catch ME; disp(getReport(ME, 'extended', 'hyperlinks', 'off')); exit(1); end;"
-            ),
+        def get_out_dir(variant):
+            return os.path.join(
+                work_dir, f'qsm-{variant}', f'sub-{subject_id}', f'ses-{session}', 'anat'
+            )
+
+        combos = [
+            # SEPIA already writes echo-selected concat inputs for each variant, so
+            # chi-sep reads every stored volume of each concat file.
+            # (label, is_scaling, have_r2prime, r2s_path, r2p_path)
+            ('chisep+r2p', 0, 1, run_data['r2s_e12345'], run_data['r2p_e12345']),
+            ('chisep+r2primenet', 0, 0, '', ''),
+            ('chisep+r2s', 1, 0, '', ''),
         ]
-        print(f'Running chi-sep: {label}', flush=True)
-        run_command(cmd)
-        print(f'Finished chi-sep: {label}', flush=True)
+        matlab_script_dir = os.path.join(CODE_DIR, 'processing')
+        for (label, is_scaling, have_r2prime, r2s_path, r2p_path) in combos:
+            out_dir = get_out_dir(f'{version}+{label}')
+            os.makedirs(out_dir, exist_ok=True)
+
+            cmd = [
+                'matlab',
+                '-nodisplay',
+                '-nosplash',
+                '-r',
+                (
+                    'try; '
+                    f"addpath(genpath('{matlab_script_dir}')); "
+                    f"process_qsm_chisep('{example_nifti}','{sepia_work_dir}','{out_dir}',"
+                    f"{is_scaling},{have_r2prime},'{r2s_path}','{r2p_path}'); "
+                    'exit(0); '
+                    "catch ME; disp(getReport(ME, 'extended', 'hyperlinks', 'off')); exit(1); end;"
+                ),
+            ]
+            print(f'Running chi-sep: {label}', flush=True)
+            run_command(cmd)
+            print(f'Finished chi-sep: {label}', flush=True)
 
 
 def _get_parser() -> argparse.ArgumentParser:

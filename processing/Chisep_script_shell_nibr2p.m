@@ -17,7 +17,7 @@
 % Code by Byeongpil Moon (mbpil7044@snu.ac.kr)
 
 %% Necessary preparation
-function Chisep_script_shell_nibr2prime(input,output,r2primepath,outputa)
+function Chisep_script_shell_nibr2p(input,output,r2primepath,outputa)
     delete(gcp('nocreate'));
 
 % % Detect how many CPUs were assigned by a scheduler (e.g., SLURM, PBS)
@@ -95,7 +95,7 @@ RunOptions.Mask = false;
 RunOptions.Mask_method = 'MEDI';
 
 % 'ARLO' | 'NNLS fitting' | 'Use preprocessed R2* or R2'' map'
-RunOptions.R2sfit = 'ARLO' ;   % changed from 'ARLO' spandey
+RunOptions.R2sfit = 'Use preprocessed R2* or R2'' map' ;
 
 % 'ROMEO + weighted echo averaging' | 'nonlinear complex fitting + SEGUE' | 'Laplacian'
 RunOptions.Unwrap = 'ROMEO + weighted echo averaging';
@@ -116,11 +116,11 @@ RunOptions.Tukey = double(0.4);
 RunOptions.PhaseInverse = 0;
 
 % 1: have R2' | 0: don't have R2'
-RunOptions.HaveR2Prime = 0;
+RunOptions.HaveR2Prime = 1;
 % r2prime - R2' map in Hz unit (x, y, z). If you don't have R2' map, use chi-sepnet-R2* which doesn't require R2' map.
 
 % 0: generate R2' from R2* using R2pnet | 1: generate R2' from R2* using scaling
-RunOptions.is_scaling = 1;
+RunOptions.is_scaling = 0;
 RunOptions.scaling_factor = 0.19;
 
 % false: No denoising for R2s | true: denosing for R2s
