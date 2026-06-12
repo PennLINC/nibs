@@ -98,12 +98,11 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     if len(run_data['megre_mag']) != len(run_data['megre_phase']):
         raise ValueError('Expected same number of magnitude and phase images')
 
-    print(pformat(run_data), flush=True)
-
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 
-def process_run(layout, run_data, out_dir, temp_dir):
+def process_run(layout, run_data, out_dir, temp_dir, subject_id, session):
     """Process a single run of QSM data.
 
     Parameters
@@ -116,6 +115,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
         Path to the output directory.
     temp_dir : str
         Path to the temporary directory.
+    subject_id : str
+        BIDS subject label (without 'sub-' prefix).
+    session : str
+        BIDS session label (without 'ses-' prefix).
     """
     name_source = run_data['megre_mag'][0]
     header_file = os.path.join(CODE_DIR, 'processing', 'sepia_header.mat')
@@ -133,10 +136,18 @@ def process_run(layout, run_data, out_dir, temp_dir):
             phase_concat_img = image.concat_imgs(run_data['megre_phase'][1:])
             header_struct['TE'] = header_struct['TE'][:, 1:]
 
-        out_header_file = os.path.join(temp_dir, f'python_header_{version}.mat')
+        sepia_work_dir = os.path.join(
+            CFG['work_dir'], f'qsm-{version}+sepia', f'sub-{subject_id}', f'ses-{session}', 'anat'
+        )
+        os.makedirs(sepia_work_dir, exist_ok=True)
+        out_header_file = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_header.mat')
         savemat(out_header_file, header_struct)
-        mag_concat_file = os.path.join(temp_dir, f'python_mag_{version}.nii.gz')
-        phase_concat_file = os.path.join(temp_dir, f'python_phase_{version}.nii.gz')
+        mag_concat_file = os.path.join(
+            sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-mag_desc-concat_MEGRE.nii.gz'
+        )
+        phase_concat_file = os.path.join(
+            sepia_work_dir, f'sub-{subject_id}_ses-{session}_part-phase_desc-concat_MEGRE.nii.gz'
+        )
         mag_concat_img.to_filename(mag_concat_file)
         phase_concat_img.to_filename(phase_concat_file)
 
@@ -222,7 +233,7 @@ def main(subject_id):
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir, mese_dir, out_dir],
     )
@@ -254,7 +265,7 @@ def main(subject_id):
             fname = os.path.basename(megre_file.path).split('.')[0]
             run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
             os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir)
+            process_run(layout, run_data, out_dir, run_temp_dir, subject_id, session)
 
     print('DONE!', flush=True)
 

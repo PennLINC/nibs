@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from pprint import pprint
+from pprint import pformat
 
 import ants
 import nibabel as nb
@@ -187,8 +187,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     if len(run_data['megre_mag']) != len(run_data['megre_phase']):
         raise ValueError('Expected same number of magnitude and phase images')
 
-    pprint(run_data)
-
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 
@@ -218,6 +217,7 @@ def process_run(layout, run_data, out_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
     wm_seg_img.to_filename(wm_seg_file)
@@ -235,6 +235,7 @@ def process_run(layout, run_data, out_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
     del wm_seg_img, wm_seg_t1w_img, wm_seg
@@ -265,7 +266,7 @@ def process_run(layout, run_data, out_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(mean_mag_filename),
         transformlist=[coreg_transform],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1_megre_ref_filename = get_filename(
         name_source=mean_mag_filename,
@@ -290,7 +291,7 @@ def process_run(layout, run_data, out_dir):
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(mean_mag_filename),
         transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     mni_megre_ref_filename = get_filename(
         name_source=t1_megre_ref_filename,
@@ -324,7 +325,7 @@ def process_run(layout, run_data, out_dir):
         moving=ants.image_read(run_data['r2_map']),
         transformlist=[coreg_transform],
         whichtoinvert=[True],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(r2_qsm_img, r2_qsm_filename)
 
@@ -334,7 +335,7 @@ def process_run(layout, run_data, out_dir):
         name_source=r2_qsm_filename,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MEGRE', 'desc': 'MEGRE', 'suffix': 'R2starmap'},
+        entities={'space': 'MEGRE', 'desc': 'MEGRE+E12345', 'suffix': 'R2starmap'},
     )
     r2s_hz_img.to_filename(r2s_hz_filename)
 
@@ -342,7 +343,7 @@ def process_run(layout, run_data, out_dir):
         name_source=r2_qsm_filename,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MEGRE', 'suffix': 'R2primemap'},
+        entities={'space': 'MEGRE', 'desc': 'MEGRE+E12345', 'suffix': 'R2primemap'},
     )
     r2s_hz_img = ants.image_read(r2s_hz_filename)
     r2prime_hz_img = r2s_hz_img - r2_qsm_img
@@ -412,7 +413,7 @@ def main(subject_id):
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(code_dir, 'nibs_bids_config.json'),
+        config=os.path.join(code_dir, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir, mese_dir, out_dir],
     )

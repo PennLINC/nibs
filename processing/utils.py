@@ -9,14 +9,12 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import numpy as np
+import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from config import load_config  # noqa: E402, F401
+from configuration.config import load_config  # noqa: E402, F401
 
 
 def run_command(command: str | list[str], env: dict[str, str] | None = None) -> None:
@@ -158,7 +156,7 @@ def coregister_to_t1(
         layout=layout,
         out_dir=out_dir,
         entities={'space': target_space, 'desc': 't1threetissue', 'suffix': 'dseg'},
-        dismiss_entities=['echo', 'inv', 'reconstruction'],
+        dismiss_entities=['echo', 'inv', 'reconstruction', 'part'],
     )
     ants.image_write(dseg_img, dseg_file)
 
@@ -176,7 +174,7 @@ def coregister_to_t1(
         layout=layout,
         out_dir=out_dir,
         entities={'space': target_space, 'desc': 'brain', 'suffix': 'mask'},
-        dismiss_entities=['echo', 'inv', 'reconstruction'],
+        dismiss_entities=['echo', 'inv', 'reconstruction', 'part'],
     )
     ants.image_write(mask_img, mask_file)
 
@@ -200,7 +198,7 @@ def coregister_to_t1(
             'suffix': 'xfm',
             'extension': 'txt' if transform.endswith('.txt') else 'mat',
         },
-        dismiss_entities=['acquisition', 'inv', 'reconstruction', 'mt', 'echo', 'part'],
+        dismiss_entities=['acquisition', 'desc', 'inv', 'reconstruction', 'mt', 'echo', 'part', 'space'],
     )
     shutil.copyfile(transform, transform_file)
 
@@ -287,22 +285,28 @@ def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
     s0_img : nibabel.Nifti1Image
         S0 map in arbitrary units.
     """
+    import nibabel as nb
     import numpy as np
-    from tedana import io, decay
+    from nilearn import masking
+    from tedana import decay
 
-    data_cat, ref_img = io.load_data(in_files, n_echos=len(echo_times))
+    in_img = nb.load(in_files[0])
+    mask = np.ones(in_img.shape[:3], dtype=int)
+    mask_img = nb.Nifti1Image(mask, in_img.affine, in_img.header)
+    data_arrays = [masking.apply_mask(nb.load(f), mask_img)[:, None] for f in in_files]
+    data_cat = np.stack(data_arrays, axis=1)
 
     # Fit model on all voxels, using all echoes
-    mask = np.ones(data_cat.shape[0], dtype=int)
-    masksum = mask * len(echo_times)
+    masksum = np.full(data_cat.shape[0], len(echo_times))
 
     echo_times_ms = [te * 1000 for te in echo_times]
-    t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
+    t2s_limited, s0_limited = decay.fit_monoexponential(
         data_cat=data_cat,
         echo_times=echo_times_ms,
         adaptive_mask=masksum,
         report=False,
-    )
+        n_threads=4,
+    )[:2]
     # Limit positive infinite values to maximum finite value
     t2s_limited[np.isinf(t2s_limited) & (t2s_limited > 0)] = np.nanmax(
         t2s_limited[np.isfinite(t2s_limited)]
@@ -328,10 +332,14 @@ def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
     r2s_hz = np.zeros_like(t2s_s)
     np.divide(1, t2s_s, out=r2s_hz, where=t2s_s != 0)
 
-    t2s_s_img = io.new_nii_like(ref_img, t2s_s)
-    r2s_hz_img = io.new_nii_like(ref_img, r2s_hz)
-    s0_img = io.new_nii_like(ref_img, s0_limited)
-    r_squared_img = io.new_nii_like(ref_img, r_squared)
+    t2s_s_img = masking.unmask(t2s_limited, mask_img)
+    t2s_s_img.header.set_data_dtype(np.float32)
+    r2s_hz_img = masking.unmask(r2s_hz, mask_img)
+    r2s_hz_img.header.set_data_dtype(np.float32)
+    s0_img = masking.unmask(s0_limited, mask_img)
+    s0_img.header.set_data_dtype(np.float32)
+    r_squared_img = masking.unmask(r_squared, mask_img)
+    r_squared_img.header.set_data_dtype(np.float32)
     return t2s_s_img, r2s_hz_img, s0_img, r_squared_img
 
 

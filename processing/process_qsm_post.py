@@ -2,13 +2,14 @@
 
 Steps:
 
-1.  Warp QSM derivatives to T1w and MNI152NLin2009cAsym spaces.
-2.  Generate scalar reports for QSM derivatives.
+1.  Rename copied PMACS QSM outputs to BIDS-compliant filenames.
+2.  Warp QSM derivatives to T1w and MNI152NLin2009cAsym spaces.
+3.  Generate scalar reports for QSM derivatives.
 
 Notes:
 
 - The R2* map is calculated using the monoexponential fit.
-- This must be run after sMRIPrep and process_mese.py.
+- This must be run after sMRIPrep, process_mese.py, and copying PMACS QSM outputs.
 """
 
 from __future__ import annotations
@@ -16,9 +17,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pprint import pprint
+from glob import glob
+from pprint import pformat
 
 import ants
+import nibabel as nb
 import numpy as np
 from bids.layout import BIDSLayout, Query
 from nilearn import masking
@@ -33,6 +36,126 @@ from utils import (
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
+
+
+def _find_one_file(pattern: str, description: str) -> str | None:
+    """Find a single file for an expected QSM output pattern."""
+    matches = sorted(glob(pattern))
+    if not matches:
+        print(f'{description} not found with pattern: {pattern}')
+        return None
+    if len(matches) > 1:
+        print(f'Multiple matches found for {description}; using {matches[0]}: {matches}')
+    return matches[0]
+
+
+def rename_qsm_outputs(subject_id: str, session: str) -> None:
+    """Rename PMACS QSM outputs to BIDS-compliant filenames.
+
+    Reads copied PMACS SEPIA/chi-separation NIfTIs and local r2p chi-separation
+    NIfTIs, then writes compressed, BIDS-named files to the QSM derivatives
+    directory.
+
+    Parameters
+    ----------
+    subject_id : str
+        BIDS subject label (without 'sub-' prefix).
+    session : str
+        BIDS session label (without 'ses-' prefix).
+    """
+    work_dir = CFG['work_dir']
+    out_dir = CFG['derivatives']['qsm']
+    ses_out_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}', 'anat')
+    os.makedirs(ses_out_dir, exist_ok=True)
+
+    qsm_dir = os.path.join(
+        work_dir, 'qsm-pmacs', f'sub-{subject_id}', f'ses-{session}', 'anat', 'QSM'
+    )
+
+    sepia_outputs = [
+        ('E12345+sepia', 'output'),
+        ('E2345+sepia', 'outputsepia_2345'),
+    ]
+    chisep_outputs = [
+        ('E12345+chisep+r2primenet', 'outputE12345', 'r2primenet'),
+        ('E2345+chisep+r2primenet', 'outputE2345', 'r2primenet'),
+        ('E12345+chisep+r2s', 'outputE12345', 'r2s'),
+        ('E2345+chisep+r2s', 'outputE2345', 'r2s'),
+    ]
+    suffix_map = {
+        'paramagnetic': 'para',
+        'diamagnetic': 'dia',
+        'total': 'Chimap',
+    }
+
+    if os.path.isdir(qsm_dir):
+        for desc, sepia_dir in sepia_outputs:
+            in_file = _find_one_file(
+                os.path.join(qsm_dir, sepia_dir, '*Chimap.nii*'),
+                f'SEPIA output for {desc}',
+            )
+            if in_file is None:
+                continue
+            out_file = os.path.join(
+                ses_out_dir,
+                f'sub-{subject_id}_ses-{session}_run-01_space-MEGRE_desc-{desc}_Chimap.nii.gz',
+            )
+            nb.load(in_file).to_filename(out_file)
+    else:
+        print(f'PMACS QSM output directory not found: {qsm_dir}')
+
+    chisep_variant_dirs = [
+        (
+            desc,
+            os.path.join(qsm_dir, output_dir),
+            map_label,
+        )
+        for desc, output_dir, map_label in chisep_outputs
+    ]
+    chisep_variant_dirs.extend(
+        [
+            (
+                'E12345+chisep+r2p',
+                os.path.join(
+                    work_dir,
+                    'qsm-E12345+chisep+r2p',
+                    f'sub-{subject_id}',
+                    f'ses-{session}',
+                    'anat',
+                ),
+                'r2p',
+            ),
+            (
+                'E2345+chisep+r2p',
+                os.path.join(
+                    work_dir,
+                    'qsm-E2345+chisep+r2p',
+                    f'sub-{subject_id}',
+                    f'ses-{session}',
+                    'anat',
+                ),
+                'r2p',
+            ),
+        ]
+    )
+
+    for desc, variant_dir, map_label in chisep_variant_dirs:
+        if not os.path.isdir(variant_dir):
+            print(f'Chi-sep output directory not found: {variant_dir}')
+            continue
+        for contrast, bids_suffix in suffix_map.items():
+            in_file = os.path.join(
+                variant_dir,
+                f'sub-{subject_id}_ses-{session}_{contrast}_{map_label}.nii',
+            )
+            out_file = os.path.join(
+                ses_out_dir,
+                f'sub-{subject_id}_ses-{session}_run-01_space-MEGRE_desc-{desc}_{bids_suffix}.nii.gz',
+            )
+            if not os.path.isfile(in_file):
+                print(f'Chi-sep output not found: {in_file}')
+                continue
+            nb.load(in_file).to_filename(out_file)
 
 
 def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
@@ -96,7 +219,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2p',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_iron_r2p_e2345': {
@@ -105,7 +228,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2p',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep myelin map with R2'
@@ -115,7 +238,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2p',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_myelin_r2p_e2345': {
@@ -124,7 +247,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2p',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep chi map with R2'
@@ -153,7 +276,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2primenet',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_iron_r2primenet_e2345': {
@@ -162,7 +285,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2primenet',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep myelin map with R2'
@@ -172,7 +295,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2primenet',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_myelin_r2primenet_e2345': {
@@ -181,7 +304,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2primenet',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep chi map with R2*
@@ -210,7 +333,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2s',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_iron_r2s_e2345': {
@@ -219,7 +342,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2s',
-            'suffix': 'ironw',
+            'suffix': 'para',
             'extension': ['.nii', '.nii.gz'],
         },
         # Chisep myelin map with R2*
@@ -229,7 +352,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E12345+chisep+r2s',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         'chisep_myelin_r2s_e2345': {
@@ -238,7 +361,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'res': Query.NONE,
             'desc': 'E2345+chisep+r2s',
-            'suffix': 'myelinw',
+            'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
         # Coregistration transform from process_qsm_prep.py
@@ -317,8 +440,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
         file = files[0]
         run_data[key] = file.path
 
-    pprint(run_data)
-
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 
@@ -384,7 +506,7 @@ def process_run(layout, run_data, out_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=[coreg_transform],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(reg_img, t1w_file)
 
@@ -400,7 +522,7 @@ def process_run(layout, run_data, out_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(reg_img, mni_file)
 
@@ -468,12 +590,31 @@ def main(subject_id):
     temp_dir = os.path.join(CFG['work_dir'], 'qsm')
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_qsm.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_qsm.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
+
+    session_search_patterns = [
+        os.path.join(CFG['work_dir'], 'qsm-pmacs', f'sub-{subject_id}', 'ses-*'),
+        os.path.join(CFG['work_dir'], 'qsm-E12345+chisep+r2p', f'sub-{subject_id}', 'ses-*'),
+        os.path.join(CFG['work_dir'], 'qsm-E2345+chisep+r2p', f'sub-{subject_id}', 'ses-*'),
+    ]
+    print(f'searching: {session_search_patterns}', flush=True)
+
+    sessions_to_rename = set()
+    for search_pattern in session_search_patterns:
+        sessions_to_rename.update(
+            os.path.basename(d).removeprefix('ses-')
+            for d in glob(search_pattern)
+            if os.path.isdir(d)
+        )
+    print(f'sessions to rename: {sessions_to_rename}', flush=True)
+    for session in sorted(sessions_to_rename):
+        print(f'Renaming QSM outputs for session {session}')
+        rename_qsm_outputs(subject_id, session)
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir, out_dir],
     )

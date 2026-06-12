@@ -59,7 +59,8 @@ Each module in `processing/` is a standalone script. All share a common `utils.p
 | `process_qsm_chisep.py` | QSM estimation via Chi-separation toolbox (MATLAB/SPM) |
 | `process_qsm_post.py` | QSM post-processing and chi-separation |
 | `process_g_ratio.py` | G-ratio computation from myelin and axon volume fractions |
-| `process_g_ratio_scaling_factors.py` | Scaling factor calibration for g-ratio inputs |
+| `process_g_ratio_scaling_factors.py` | Per-subject splenium scalar extraction for g-ratio scaling |
+| `aggregate_g_ratio_scaling_factors.py` | Aggregate splenium sidecars and print g-ratio scaling factors |
 | `generate_myelin_reports.py` | HTML reports with scalar map overlays |
 | `rename_chisep_outputs.py` | Rename chi-separation output files to BIDS conventions |
 
@@ -102,7 +103,7 @@ conda activate test
 
 ### Configuration
 
-All paths are configured in `paths.yaml` at the repository root.
+All paths are configured in `paths.yml` at the repository root.
 Update `project_root` to match your local or cluster mount point:
 
 ```yaml

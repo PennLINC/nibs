@@ -1,27 +1,17 @@
 """Calculate T2/R2/S0 maps from MESE data.
 
-This is still just a draft.
-I need to calculate SDC from the first echo and apply that to the T2 map.
-Plus we need proper output names.
-
 Steps:
 
-1.  Calculate T2 map from AP MESE data.
-2.  Calculate distortion map from AP and PA echo-1 data with SDCFlows.
-    -   topup vs. 3dQwarp vs. something else?
-    -   Currently disabled.
-3.  Apply SDC transform to AP echo-1 image.
-    - Currently disabled.  This is not needed for the T2 map.
-4.  Coregister SDCed AP echo-1 image to preprocessed T1w from sMRIPrep.
-    -   Currently using non-SDCed MESE data.
-5.  Write out coregistration transform to preprocessed T1w.
-6.  Warp T2 map to MNI152NLin2009cAsym (distortion map, coregistration transform,
+1.  Register all AP MESE echoes to first echo.
+2.  Calculate R2 map from AP MESE data.
+3.  Coregister AP echo-1 image to preprocessed T1w from sMRIPrep.
+4.  Write out coregistration transform to preprocessed T1w.
+5.  Warp R2, T2, S0 maps to MNI152NLin2009cAsym (coregistration transform,
     normalization transform from sMRIPrep).
-7.  Warp S0 map to MNI152NLin2009cAsym.
 
 Notes:
 
-- The T2 map will be used for QSM processing.
+- The R2 map will be used for QSM processing.
 - sMRIPrep's preprocessed T1w image is used as the "native T1w space".
 - This must be run after sMRIPrep.
 """
@@ -32,7 +22,7 @@ import argparse
 import json
 import os
 import shutil
-from pprint import pprint
+from pprint import pformat
 
 import ants
 import nibabel as nb
@@ -195,8 +185,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
 
         run_data[key] = files
 
-    pprint(run_data)
-
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 
@@ -230,6 +219,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
     wm_seg_img.to_filename(wm_seg_file)
@@ -247,6 +237,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
     del wm_seg_img, wm_seg_t1w_img, wm_seg
@@ -327,7 +318,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         '--output',
         xfm_prefix,
         '--interpolation',
-        'LanczosWindowedSinc',
+        'nearestNeighbor',
         '--winsorize-image-intensities',
         '[0.005,0.995]',
         '--initial-moving-transform',
@@ -369,7 +360,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(mese_mag_ap_echo1),
         transformlist=[mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(mese_mag_ap_echo1_t1_img, mese_mag_ap_echo1_t1_file)
 
@@ -396,7 +387,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(mese_mag_ap_echo1),
         transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(mese_mag_ap_echo1_mni_img, mese_mag_ap_echo1_mni_file)
     plot_coregistration(
@@ -448,7 +439,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=mese_to_smriprep,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -463,7 +454,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -609,7 +600,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             fixed=ants.image_read(ref_file),
             moving=ants.image_read(in_file),
             transformlist=[transform_file],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(out_img, out_file)
 
@@ -653,12 +644,12 @@ def main(subject_id):
     temp_dir = os.path.join(CFG['work_dir'], 'mese')
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_mese.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_mese.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir],
     )

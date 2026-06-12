@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import shutil
+from pprint import pformat
 
 import ants
 import nibabel as nb
@@ -173,6 +174,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
         file = files[0]
         run_data[key] = file.path
 
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 
@@ -199,6 +201,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
     wm_seg_img.to_filename(wm_seg_file)
@@ -216,6 +219,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
     del wm_seg_img, wm_seg_t1w_img, wm_seg
@@ -294,7 +298,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=space_t1w_img,
         transformlist=fwd_transform,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1w_space_t1w_file = get_filename(
         name_source=run_data['space_t1w'],
@@ -310,7 +314,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=scaled_space_t1w_img,
         transformlist=fwd_transform,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1w_scaled_space_t1w_file = get_filename(
         name_source=run_data['space_t1w'],
@@ -376,7 +380,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=space_t2w_img,
         transformlist=fwd_transform,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1w_space_t2w_file = get_filename(
         name_source=run_data['space_t2w'],
@@ -393,7 +397,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=scaled_space_t2w_img,
         transformlist=fwd_transform,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
     t1w_scaled_space_t2w_file = get_filename(
         name_source=run_data['space_t2w'],
@@ -416,13 +420,13 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=fixed_img,
             moving=mprage_t1w_img,
             transformlist=fwd_transform,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         t1w_scaled_mprage_t1w_img = ants.apply_transforms(
             fixed=fixed_img,
             moving=scaled_mprage_t1w_img,
             transformlist=fwd_transform,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
 
     t1w_mprage_t1w_file = get_filename(
@@ -516,7 +520,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -556,7 +560,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -612,12 +616,12 @@ def main(subject_id):
     temp_dir = os.path.join(CFG['work_dir'], 't1wt2w_ratio')
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_t1wt2w_ratio.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_t1wt2w_ratio.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir],
     )

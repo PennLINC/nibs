@@ -1,4 +1,4 @@
-"""Plot correlation matrices between myelin measures.
+"""Extract voxel-wise scalar values within tissue masks and save as numpy arrays.
 
 Parallelized across subjects/sessions with a process pool.
 """
@@ -134,7 +134,7 @@ def process_subject(
             resampled_file = None
             if brain_mask_img.header.get_zooms() != nb.load(files[0]).header.get_zooms():
                 print(f'Resampling {files[0]} to same resolution as brain mask', flush=True)
-                # Resample image to same resolution as dseg
+                # Resample image to same resolution as dMRI derivatives
                 resampled_ants_img = ants.apply_transforms(
                     fixed=target_scalar,
                     moving=ants.image_read(files[0]),
@@ -194,7 +194,7 @@ def process_subject(
 if __name__ == '__main__':
     _script_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, os.path.join(_script_dir, '..'))
-    from config import load_config
+    from configuration.config import load_config
 
     _cfg = load_config()
 

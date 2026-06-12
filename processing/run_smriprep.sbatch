@@ -55,7 +55,7 @@ cmd="apptainer run --home $HOME --cleanenv --containall --writable-tmpfs \
       --skip_bids_validation \
       --level full \
       --longitudinal \
-      --bids-filter-file /code/fmriprep_filter.json \
+      --bids-filter-file /code/smriprep_filter.json \
       --ignore t2w"
 
 # Setup done, run the command

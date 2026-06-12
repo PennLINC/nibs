@@ -37,7 +37,7 @@ cmd="apptainer run --cleanenv \
       -B ${DERIVS_DIR}:/deriv \
       -B ${SCRATCH_DIR}:/work \
       -B ${FS_LICENSE}:/license.txt \
-      /cbica/projects/nibs/apptainer/qsiprep-1.0.1.sif \
+      /cbica/projects/nibs/apptainer/qsiprep-26.0.0.sif \
       /data \
       /deriv/qsiprep \
       participant \
@@ -51,10 +51,11 @@ cmd="apptainer run --cleanenv \
       --denoise-method dwidenoise \
       --output-resolution 1.7 \
       --subject-anatomical-reference unbiased \
-      --hmc-model 3dSHORE \
-      --pepolar-method DRBUDDI \
+      --hmc-model eddy \
+      --unringing-method rpg \
+      --pepolar-method TOPUP+DRBUDDI \
       --b1-biascorrect-stage none \
-      --bids-filter-file /code/fmriprep_filter.json \
+      --bids-filter-file /code/smriprep_filter.json \
       --ignore t2w"
 
 # Setup done, run the command

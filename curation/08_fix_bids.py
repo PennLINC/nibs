@@ -22,7 +22,7 @@ from glob import glob
 
 if __name__ == '__main__':
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-    from config import load_config
+    from configuration.config import load_config
 
     _cfg = load_config()
 
@@ -67,7 +67,7 @@ if __name__ == '__main__':
                 with open(mp2rage_json, 'r') as f:
                     data = json.load(f)
                 data['NumberShots'] = 176  # SlicesPerSlab
-                data['RepetitionTimeExcitation'] = 0.0063  # 6.3 ms
+                data['RepetitionTimeExcitation'] = 0.0068  # 6.8 ms
                 data['RepetitionTimePreparation'] = data['RepetitionTime']
                 with open(mp2rage_json, 'w') as f:
                     json.dump(data, f, indent=4, sort_keys=True)

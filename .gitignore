@@ -2,6 +2,7 @@
 processing/myelin_atlas/MYATLAS*
 processing/jobs/
 .DS_Store
+figures/scalars_individual/
 
 # Python gitignore
 # Byte-compiled / optimized / DLL files
