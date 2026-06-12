@@ -26,11 +26,13 @@
 %   have_r2prime - 1: use precomputed R2' map; 0: compute R2' from R2* internally
 %   is_scaling_flag - 0: use R2pnet to predict R2' from R2*; 1: use scaling factor
 %   r2starpath  - path to precomputed R2* NIfTI (used only when have_r2prime==1)
-%   maskpath - path to precomputed brain mask NIfTI
+%   maskpath    - path to MEGRE-space brain mask NIfTI (from process_qsm_prep.py)
 function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2prime,is_scaling_flag,r2starpath,maskpath)
-    %delete(gcp('nocreate'));
-    %which importONNXNetwork
-    %ver
+    if nargin < 9
+        maskpath = '';
+    end
+    delete(gcp('nocreate'));
+
 % % Detect how many CPUs were assigned by a scheduler (e.g., SLURM, PBS)
 % numCores = str2double(getenv('SLURM_CPUS_PER_TASK'));
 % if isnan(numCores)
@@ -53,21 +55,16 @@ function process_qsm_chisep(input,output,r2primepath,outputa,echo_start,have_r2p
 % parpool(cluster, cluster.NumWorkers);
 
 % fprintf('✅ Parallel pool started with %d workers.\n', cluster.NumWorkers);
-% Set x-separation tool directory path
-% Add each toolbox explicitly (not genpath of the whole tree) so we don't
-% shadow intended functions with bundled/duplicate copies elsewhere under
-% software_root.
-%software_root = '/project/ftdc_misc/spandey/sepia';
-software_root = '/project/nibs_data/chisep_20260522/software';
+% Set x-separation tool directory path (CUBIC default; override with NIBS_SOFTWARE_ROOT).
+software_root = get_chisep_software_root();
 home_directory = fullfile(software_root, 'Chisep_Toolbox_v1.2');
 toolbox_dirs = { ...
-    fullfile(software_root, 'Chisep_Toolbox_v1.2'), ...
+    home_directory, ...
     fullfile(software_root, 'NIfTI_20140122'), ...
     fullfile(software_root, 'STISuite_V3.0'), ...
     fullfile(software_root, 'MEDI'), ...
-    fullfile(software_root, 'mritools'), ...
-    fullfile(software_root, 'SEGUE_28012021')
-};
+    fullfile(software_root, 'SEGUE_28012021'), ...
+    fullfile(software_root, 'mritools')};
 for k = 1:numel(toolbox_dirs)
     if exist(toolbox_dirs{k}, 'dir') ~= 7
         error('Required toolbox not found: %s', toolbox_dirs{k});
@@ -77,7 +74,6 @@ end
 if exist(outputa,'dir') ~= 7
     mkdir(outputa);
 end
-disp('Running the code point 1');
 info = niftiinfo(input);
 % Extract subject
 subMatch = regexp(output, 'sub-([^/]+)', 'tokens', 'once');
@@ -121,10 +117,12 @@ RunOptions.Unwrap = 'ROMEO + weighted echo averaging';
 RunOptions.BFR = 'V-SHARP';
 
 % 'Chi-sepnet' | 'Chi-separation (MEDI)' | 'Chi-separation (iLSQR)'
-RunOptions.Chisep = 'Chi-sepnet';
+% RunOptions.Chisep = 'Chi-sepnet';
+RunOptions.Chisep = 'Chi-separation (MEDI)';
 
 % 'Deep-learning' | 'Region-growing' | 'No'
-RunOptions.VesselSeg = 'Deep-learning';
+% Deep-learning requires ONNX (not available on PMACS matlab/2025a); use 'No' or 'Region-growing'.
+RunOptions.VesselSeg = 'No';
 
 % GRE smoothing: 0 ~ 0.4(Default)
 RunOptions.Tukey = double(0.4);
@@ -151,7 +149,7 @@ RunOptions.resgen = false;
 % Temp files and final outputs both go to outputa so they stay out of the
 % shared SEPIA input folder.
 RunOptions.OutputPath = outputa;
-% Output path must not contatin ' '(spaces)
+% Output path must not contain ' '(spaces)
 
 % Interpolation options (for B0 direction, Resampling)
 % 'sinc' | 'spline'
@@ -167,6 +165,12 @@ RunOptions.tukey_pad = 0.1; %Recommend not to fix this
 Data = struct();
 Data.RunOptions = RunOptions;
 
+if strcmp(RunOptions.Chisep, 'Chi-sepnet')
+    assert_onnx_dependencies('Chi-sepnet');
+end
+if strcmp(RunOptions.VesselSeg, 'Deep-learning')
+    assert_onnx_dependencies('Deep-learning vessel segmentation');
+end
 
 %% Data input
 if strcmp(RunOptions.multi, 'multi')
@@ -223,12 +227,9 @@ elseif strcmp(RunOptions.InputType, 'nifti')
     magnitudedata = magnitudedata(:,:,:,echo_indices);
     Data.MGRE_Mag = rot90(double(magnitudedata));
     phasedata = phasedata(:,:,:,echo_indices);
-    % The concat phase NIfTI is in scanner units, not radians, so rescale the
-    % full data range to [-pi, pi] before forming the complex signal. (The old
-    % script read phase already in radians, so it skipped this step.)
-    maxval = max(double(phasedata(:)));
-    minval = min(double(phasedata(:)));
-    Data.MGRE_Phs = (rot90(double(phasedata)) - (minval+maxval)/2) / (maxval-minval) * 2*pi;
+    maxval = max(double(    phasedata(:)));
+    minval = min(double(    phasedata(:)));
+    Data.MGRE_Phs = rot90(double(phasedata));%(rot90(double(  phasedata))-(minval+maxval)/2)/(maxval-minval)*2*pi;
     load(pathheader);
     TE = double(TE(:)');
     if numel(TE) == raw_echo_count
@@ -312,9 +313,11 @@ clearvars imgc
 
 %% Brain mask (Range [0,1])
 disp("=================< Brain masking >=================")
-if RunOptions.Mask
-    % even_pad to match the padding applied to MGRE_Mag/MGRE_Phs above.
-    Data.Mask = even_pad(rot90(double(niftiread(maskpath)), 1));
+if ~isempty(maskpath)
+    Data.Mask = load_brain_mask_nifti(maskpath, size(Data.MGRE_Mag));
+    disp("Using MEGRE-space brain mask from QSM prep pipeline.");
+elseif RunOptions.Mask
+    Data.Mask = load('mask.mat');
 else
     if strcmp(RunOptions.Mask_method,'MEDI')                                % Use MEDI BET
         Data.Mask = BET(Data.MGRE_Mag_Tukey(:,:,:,1), Data.MatrixSize(1:3), Data.VoxelSize);
@@ -335,11 +338,10 @@ clearvars mask_brain
 %% R2* fitting (Range [0,100])
 disp("==================< R2* fitting >==================")
 if strcmp(RunOptions.R2sfit, 'Use preprocessed R2* or R2'' map')
-    % even_pad to match the padding applied to MGRE_Mag/MGRE_Phs above.
-    Data.R2s = even_pad(rot90(double(niftiread(r2starpath)), 1));
+    Data.R2s = rot90(double(niftiread(r2starpath)), 1);
 
     if RunOptions.HaveR2Prime == 1
-        Data.R2p = even_pad(rot90(double(niftiread(r2primepath)), 1));
+        Data.R2p = rot90(double(niftiread(r2primepath)), 1);
     end
 else
                                                                       % R2s fitting
@@ -462,15 +464,20 @@ end
 
 %% Compute CSF mask
 % Needed for Chi-separation-MEDI, Chi-separation iLSQR,
-% and Region-growing algorithm-based vessel segmentation
-Data.mask_CSF = extract_CSF(Data.R2s, Data.mask_brain_new, Data.VoxelSize);
+% and Region-growing algorithm-based vessel segmentation.
+Data.mask_CSF = compute_mask_CSF(Data, RunOptions);
 
-%% QSM
-% % 1. iLSQR from STI Suite
-% pad_size = [12, 12, 12];
-% Data.QSM = QSM_iLSQR(Data.local_field, Data.mask_brain_new,'TE',Data.delta_TE*1e3,'B0',Data.B0_strength,'H',Data.B0dir,'padsize',pad_size,'voxelsize',Data.VoxelSize');
+%% QSM (required for MEDI / iLSQR chi-separation)
+if any(strcmp(RunOptions.Chisep, {'Chi-separation (MEDI)', 'Chi-separation (iLSQR)'}))
+    pad_size = [12, 12, 12];
+    Data.QSM = QSM_iLSQR(Data.local_field, Data.mask_brain_new, ...
+        'TE', Data.delta_TE * 1e3, ...
+        'B0', Data.B0_strength, ...
+        'H', Data.B0dir, ...
+        'padsize', pad_size, ...
+        'voxelsize', Data.VoxelSize);
+end
 
-home_directory = '/project/ftdc_misc/spandey/sepia/Chisep_Toolbox_v1.2.1_09172025latest';
 %% Chi separation
 disp("============< χ-separation processing >============")
 switch RunOptions.Chisep
@@ -522,24 +529,32 @@ switch RunOptions.Chisep
 
 end
 
+Data = sync_chisep_total_maps(Data);
 
 if strcmp(RunOptions.interp_method, 'sinc')
     tukey_strength = RunOptions.tukey_strength;
     tukey_pad = RunOptions.tukey_pad;
     Data.x_para = real(tukey_windowing(Data.x_para,tukey_strength,round(size(Data.x_para).*tukey_pad))) .* Data.mask_brain_new;
     Data.x_dia = real(tukey_windowing(Data.x_dia,tukey_strength,round(size(Data.x_dia).*tukey_pad))) .* Data.mask_brain_new;
-    Data.x_tot = real(tukey_windowing(Data.x_tot,tukey_strength,round(size(Data.x_tot).*tukey_pad))) .* Data.mask_brain_new;
     Data.qsm_map = real(tukey_windowing(Data.qsm_map,tukey_strength,round(size(Data.qsm_map).*tukey_pad))) .* Data.mask_brain_new;
-    Data.r2p_map = real(tukey_windowing(Data.r2p_map,tukey_strength,round(size(Data.r2p_map).*tukey_pad))) .* Data.mask_brain_new;
+    Data.x_tot = Data.qsm_map;
+    if isfield(Data, 'r2p_map')
+        Data.r2p_map = real(tukey_windowing(Data.r2p_map,tukey_strength,round(size(Data.r2p_map).*tukey_pad))) .* Data.mask_brain_new;
+        Data.r2p_map(Data.r2p_map < 0) = 0;
+    end
 
     Data.x_para(Data.x_para < 0) = 0;
     Data.x_dia(Data.x_dia < 0) = 0;
-    Data.r2p_map(Data.r2p_map < 0) = 0;
 end
 
 
 %% Vessel Segmentation
 disp("==============< Vessel segmentation >==============")
+if strcmp(RunOptions.VesselSeg, 'Deep-learning') && ~onnx_import_available()
+    warning('process_qsm_chisep:OnnxUnavailable', ...
+        'Deep-learning vessel segmentation requires ONNX support; skipping vessel segmentation.');
+    RunOptions.VesselSeg = 'No';
+end
 switch RunOptions.VesselSeg
     case 'Deep-learning'
         [Data.vesselMask_para, Data.vesselMask_dia] = vesselSegmentation_Chiseparation_DL(home_directory, Data.x_para, Data.x_dia, Data.mask_brain_new, Data.VoxelSize);
@@ -611,10 +626,12 @@ end
  niftiwrite( Data.x_dia, dia_file, info);
  min_val=-0.1;
  max_val=0.1;
- Data.x_tot= Data.x_tot %* ( max_val - min_val) + min_val;
- Data.x_tot= rot90(Data.x_tot,-1);
+ % total_* NIfTI is the combined susceptibility map (Chi-sepnet qsm_map / MEDI x_tot).
+ Data.qsm_map = Data.qsm_map %* ( max_val - min_val) + min_val;
+ Data.qsm_map = rot90(Data.qsm_map, -1);
+ Data.x_tot = Data.qsm_map;
  total_file = sprintf('%s/sub-%s_ses-%s_total_%s.nii', outputa, subjectID, sessionID, map_label);
- niftiwrite( Data.x_tot, total_file, info);
+ niftiwrite(Data.qsm_map, total_file, info);
 %  Data.r2p_map= rot90(Data.r2p_map,-1);
 %  r2p_file = sprintf('%s/sub-%s_ses-%s_r2primenet.nii', outputa, subjectID, sessionID);
 %  niftiwrite( Data.r2p_map, r2p_file, info);
@@ -623,17 +640,15 @@ r2s_file = sprintf('%s/sub-%s_ses-%s_r2s.nii', outputa, subjectID, sessionID);
 niftiwrite( Data.R2s, r2s_file, info);
 
 end
+% Remove temp chisep output (includes romeo_tmp subdirectory).
 folder_to_delete = fullfile(Data.output_root);
-sprintf(folder_to_delete);
-%cd ..
-% Check if it exists
-%if exist(folder_to_delete, 'dir')
- %   rmdir(folder_to_delete, 's');  % remove folder
- %   folder_to_delete = fullfile(Data.output_root,'romeo_tmp');
-  %  rmdir(folder_to_delete, 's');  % remove folder
-%else
- %   warning('Folder does not exist: %s', folder_to_delete);
-%end
+if exist(folder_to_delete, 'dir')
+    rmdir(folder_to_delete, 's');
+elseif exist(folder_to_delete, 'file')
+    delete(folder_to_delete);
+else
+    warning('Temp output path does not exist: %s', folder_to_delete);
+end
 end
 
 function SaveData_Chisep(Data, RunOptions)
@@ -743,4 +758,121 @@ function [save_func, nii_file, save_name]=load_nii_template_and_make_nii(Data, d
     nii_file.hdr.dime.scl_slope = 1;
 
     nii_file.hdr.hist.magic = 'n+1';
+end
+
+function software_root = get_chisep_software_root()
+% Resolve chi-sep toolbox location on CUBIC or PMACS.
+    software_root = strtrim(getenv('NIBS_SOFTWARE_ROOT'));
+    if ~isempty(software_root)
+        return;
+    end
+    candidates = {'/cbica/projects/nibs/software', '/home/tsalo/nibs/software'};
+    for i = 1:numel(candidates)
+        if isfolder(fullfile(candidates{i}, 'Chisep_Toolbox_v1.2'))
+            software_root = candidates{i};
+            return;
+        end
+    end
+    error('process_qsm_chisep:SoftwareNotFound', ...
+        ['chi-sep software not found. Install toolboxes under ', ...
+        '/cbica/projects/nibs/software or set NIBS_SOFTWARE_ROOT.']);
+end
+
+function mask = load_brain_mask_nifti(maskpath, data_size)
+% Load a MEGRE-space brain mask, matching rot90 used for R2* derivative maps.
+    if ~isfile(maskpath)
+        error('process_qsm_chisep:MaskNotFound', 'Brain mask not found: %s', maskpath);
+    end
+    mask = rot90(double(niftiread(maskpath)) > 0, 1);
+    if ~isequal(size(mask), data_size(1:3))
+        error('process_qsm_chisep:MaskSizeMismatch', ...
+            'Brain mask size %s does not match MEGRE data size %s.', ...
+            mat2str(size(mask)), mat2str(data_size(1:3)));
+    end
+    mask = double(mask);
+end
+
+function mask_CSF = compute_mask_CSF(Data, RunOptions)
+% Build a CSF mask for MEDI/iLSQR and region-growing vessel segmentation.
+    mask_CSF = zeros(size(Data.mask_brain_new));
+    needs_csf = any(strcmp(RunOptions.Chisep, {'Chi-separation (MEDI)', 'Chi-separation (iLSQR)'})) ...
+        || strcmp(RunOptions.VesselSeg, 'Region-growing');
+    if ~needs_csf
+        return;
+    end
+
+    R2s = Data.R2s;
+    brain_mask = Data.Mask;
+    if ~isequal(size(R2s), size(brain_mask))
+        error('process_qsm_chisep:R2sMaskSizeMismatch', ...
+            'R2* map size %s does not match brain mask size %s.', ...
+            mat2str(size(R2s)), mat2str(size(brain_mask)));
+    end
+
+    min_voxels = 1000;
+    n_brain = nnz(brain_mask > 0);
+    if n_brain < min_voxels
+        warning('process_qsm_chisep:SmallBrainMask', ...
+            'Brain mask has only %d voxels; using empty CSF mask.', n_brain);
+        return;
+    end
+
+    % extract_CSF expects the BET mask; V-SHARP mask_brain_new can be too sparse.
+    try
+        mask_CSF = extract_CSF(R2s, brain_mask, Data.VoxelSize);
+    catch ME
+        warning('process_qsm_chisep:ExtractCSFFailed', ...
+            'extract_CSF failed (%s). Using R2* percentile CSF mask.', ME.message);
+        mask_CSF = fallback_csf_mask_from_r2star(R2s, brain_mask);
+    end
+
+    mask_CSF = double(mask_CSF > 0) .* double(Data.mask_brain_new > 0);
+end
+
+function mask_CSF = fallback_csf_mask_from_r2star(R2s, brain_mask)
+% Approximate CSF as low-R2* voxels when toolbox extract_CSF fails.
+    r2_vals = R2s(brain_mask > 0);
+    r2_vals = r2_vals(isfinite(r2_vals) & r2_vals > 0);
+    mask_CSF = zeros(size(R2s));
+    if isempty(r2_vals)
+        return;
+    end
+    threshold = prctile(r2_vals, 15);
+    mask_CSF = (R2s <= threshold) & (brain_mask > 0);
+end
+
+function Data = sync_chisep_total_maps(Data)
+% Chi-sepnet exposes total susceptibility as qsm_map; MEDI/iLSQR use x_tot.
+    if ~isfield(Data, 'qsm_map')
+        Data.qsm_map = Data.x_tot;
+    elseif ~isfield(Data, 'x_tot')
+        Data.x_tot = Data.qsm_map;
+    end
+end
+
+function available = onnx_import_available()
+    available = exist('importONNXNetwork', 'file') == 2 ...
+        || exist('importNetworkFromONNX', 'file') == 2;
+end
+
+function assert_onnx_dependencies(feature_name)
+% Fail fast before long preprocessing if an ONNX-based step is requested.
+    if onnx_import_available()
+        return;
+    end
+
+    has_dl_toolbox = license('test', 'Deep_Learning_Toolbox');
+    msg = sprintf('%s requires ONNX model import (importONNXNetwork or importNetworkFromONNX).', feature_name);
+
+    if ~has_dl_toolbox
+        license_msg = 'Deep Learning Toolbox is not licensed on this MATLAB (license(''test'',''Deep_Learning_Toolbox'') is false).';
+    else
+        license_msg = ['Deep Learning Toolbox is licensed, but the ONNX converter add-on is missing. ', ...
+            'Install "Deep Learning Toolbox Converter for ONNX Model Format" ', ...
+            '(File Exchange 67296) or ask your HPC admins to add it to the shared MATLAB install.'];
+    end
+
+    error('process_qsm_chisep:MissingOnnxImport', ...
+        '%s\n%s\nMATLAB %s\nFor chi-separation without ONNX, set RunOptions.Chisep to ''Chi-separation (MEDI)'' and RunOptions.VesselSeg to ''No'' or ''Region-growing''.', ...
+        msg, license_msg, version);
 end

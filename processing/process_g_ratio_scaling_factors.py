@@ -1,20 +1,21 @@
-"""Calculate the scaling factors for the MTsat and ihMTR measures to achieve a mean g-ratio of
-0.7 in the splenium.
+"""Prepare per-run splenium values for g-ratio scaling factor estimation.
 
 The g-ratio formula is
 
 g-ratio = sqrt(FVF / (FVF + (MVF * scaling_factor)))
 
-where MVF is the MTsat or ihMTR value. FVF is held constant, so we need to solve for the scaling factor.
+where MVF is the ihMTsatB1sq or ihMTR value. FVF is held constant, so we need to solve for the scaling factor.
 
-The equation is solved using the mean g-ratio in the splenium across subjects.
-I need to solve for scaling_factor so that g = 0.7.
-The first step is to calculate the splenium mask,
-then calculate mean FVF and MVF in the splenium across subjects.
+This script runs the expensive image processing for one subject at a time. It writes T1w-space
+ISOVF/ICVF derivatives and a sidecar JSON with splenium means for each subject/session/run.
+Use aggregate_g_ratio_scaling_factors.py afterward to aggregate the JSON files, write
+data/splenium_values.tsv, and estimate the scaling factors.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
 from pprint import pformat
 
@@ -48,7 +49,7 @@ def collect_run_data(layout: object, bids_filters: dict, smriprep_dir: str) -> d
         Mapping of descriptive keys to resolved file paths.
     """
     queries = {
-        # T1w-space MTsat and ihMTR maps from process_ihmt.py
+        # T1w-space ihMTsatB1sq and ihMTR maps from process_ihmt.py
         'mtsat_t1w': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
@@ -176,6 +177,65 @@ def collect_run_data(layout: object, bids_filters: dict, smriprep_dir: str) -> d
     return run_data
 
 
+def _as_json_value(value):
+    """Convert NumPy/pandas scalar values to JSON-serializable Python values."""
+    if pd.isna(value):
+        return None
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def write_splenium_values_sidecar(
+    layout,
+    name_source,
+    out_dir,
+    splenium_values,
+    run_data,
+):
+    """Write splenium values to a per-run derivative sidecar JSON file."""
+    sidecar_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'datatype': 'dwi',
+            'desc': 'splenium',
+            'suffix': 'scalarstats',
+            'extension': '.json',
+        },
+        dismiss_entities=['model', 'param'],
+    )
+
+    value_dict = {
+        key: _as_json_value(value)
+        for key, value in splenium_values.items()
+        if key not in {'subject_id', 'session_id', 'run'}
+    }
+    sidecar = {
+        'Description': 'Mean scalar values in the FreeSurfer splenium label for g-ratio scaling.',
+        'subject_id': _as_json_value(splenium_values['subject_id']),
+        'session_id': _as_json_value(splenium_values['session_id']),
+        'run': _as_json_value(splenium_values['run']),
+        'Region': {
+            'Name': 'Splenium of corpus callosum',
+            'FreeSurferAsegLabel': 251,
+        },
+        'SpleniumValues': value_dict,
+        'Sources': {
+            'isovf_acpc': run_data['isovf_acpc'],
+            'icvf_acpc': run_data['icvf_acpc'],
+            'ihMTsatB1sq_t1w': run_data['mtsat_t1w'],
+            'ihMTR_t1w': run_data['ihmtr_t1w'],
+        },
+    }
+    with open(sidecar_file, 'w') as fobj:
+        json.dump(sidecar, fobj, sort_keys=True, indent=4)
+
+    print(f'Wrote splenium values sidecar: {sidecar_file}', flush=True)
+    return sidecar_file
+
+
 def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     """Calculate mean splenium values for g-ratio scaling factor estimation.
 
@@ -195,7 +255,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     Returns
     -------
     splenium_values : pandas.Series
-        Mean values of ISOVF, ICVF, MTsat, and ihMTR in the splenium.
+        Mean values of ISOVF, ICVF, ihMTsatB1sq, and ihMTR in the splenium.
     """
     # Register ACPC-space T1w (QSIPrep) to native T1w (sMRIPrep) and use that transform
     # to warp ISOVF and ICVF into T1w space, writing the results for downstream use.
@@ -250,7 +310,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     splenium_mask_file = os.path.join(temp_dir, 'splenium_mask_t1w_dwires.nii.gz')
     ants.image_write(splenium_mask_t1w, splenium_mask_file)
 
-    # Resample T1w-space MTsat and ihMTR to DWI resolution
+    # Resample T1w-space ihMTsatB1sq and ihMTR to DWI resolution
     mtsat_t1w = ants.image_read(run_data['mtsat_t1w']).resample_image_to_target(
         isovf_t1w_img, interp_type='nearestNeighbor'
     )
@@ -296,13 +356,20 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     splenium_values = pd.Series(
         data={
             'subject_id': bids_filters['subject'],
-            'session_id': bids_filters['session'],
-            'run': bids_filters['run'],
+            'session_id': bids_filters.get('session'),
+            'run': bids_filters.get('run'),
             'ISOVF': np.nanmean(isovf_splenium),
             'ICVF': np.nanmean(icvf_splenium),
-            'MTsat': np.nanmean(mtsat_splenium),
+            'ihMTsatB1sq': np.nanmean(mtsat_splenium),
             'ihMTR': np.nanmean(ihmtr_splenium),
         },
+    )
+    write_splenium_values_sidecar(
+        layout=layout,
+        name_source=isovf_t1w_file,
+        out_dir=out_dir,
+        splenium_values=splenium_values,
+        run_data=run_data,
     )
 
     return splenium_values
@@ -338,7 +405,53 @@ def compute_scaling_factor(ICVF, MVF, ISOVF, g=0.7):
     return numerator / denominator
 
 
-def main():
+def write_dataset_description(in_dir, smriprep_dir, qsiprep_dir, noddi_dir, ihmt_dir, out_dir):
+    """Write the g-ratio derivative dataset description if it is missing."""
+    dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
+    if os.path.isfile(dataset_description_file):
+        return
+
+    dataset_description = {
+        'Name': 'NIBS G-Ratio Derivatives',
+        'BIDSVersion': '1.10.0',
+        'DatasetType': 'derivative',
+        'DatasetLinks': {
+            'raw': in_dir,
+            'smriprep': smriprep_dir,
+            'qsiprep': qsiprep_dir,
+            'qsirecon_noddi': noddi_dir,
+            'ihmt': ihmt_dir,
+        },
+        'GeneratedBy': [
+            {
+                'Name': 'Custom code',
+                'Description': 'Custom Python code. Per-subject splenium scaling inputs.',
+                'CodeURL': 'https://github.com/PennLINC/nibs',
+            }
+        ],
+    }
+    with open(dataset_description_file, 'w') as fobj:
+        json.dump(dataset_description, fobj, sort_keys=True, indent=4)
+
+
+def _get_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--subject-id',
+        type=lambda label: label.removeprefix('sub-'),
+        required=True,
+    )
+    return parser
+
+
+def _main(argv=None):
+    """Run the per-subject g-ratio scaling input workflow."""
+    options = _get_parser().parse_args(argv)
+    kwargs = vars(options)
+    main(**kwargs)
+
+
+def main(subject_id):
     in_dir = CFG['bids_dir']
     smriprep_dir = CFG['derivatives']['smriprep']
     qsiprep_dir = CFG['derivatives']['qsiprep']
@@ -355,69 +468,45 @@ def main():
         validate=False,
         derivatives=[smriprep_dir, qsiprep_dir, noddi_dir, ihmt_dir],
     )
+    write_dataset_description(in_dir, smriprep_dir, qsiprep_dir, noddi_dir, ihmt_dir, out_dir)
 
     base_query = {
         'space': 'T1w',
         'suffix': 'ihMTR',
         'extension': ['.nii', '.nii.gz'],
     }
-    subject_ids = layout.get_subjects(**base_query)
-    print(f'Found {len(subject_ids)} subjects', flush=True)
-    splenium_dfs = []
-    for subject_id in subject_ids:
-        print(f'Processing subject {subject_id}', flush=True)
-        sessions = layout.get_sessions(subject=subject_id, **base_query)
-        for session in sessions:
-            print(f'Processing session {session}', flush=True)
-            base_files = layout.get(
-                subject=subject_id,
-                session=session,
-                **base_query,
+    print(f'Processing subject {subject_id}', flush=True)
+    sessions = layout.get_sessions(subject=subject_id, **base_query)
+    for session in sessions:
+        print(f'Processing session {session}', flush=True)
+        base_files = layout.get(
+            subject=subject_id,
+            session=session,
+            **base_query,
+        )
+        if not base_files:
+            print(
+                f'No ihMTR files found for subject {subject_id} and session {session}',
+                flush=True,
             )
-            if not base_files:
-                print(
-                    f'No ihMTR files found for subject {subject_id} and session {session}',
-                    flush=True,
-                )
+            continue
+
+        for base_file in base_files:
+            entities = base_file.get_entities()
+            try:
+                run_data = collect_run_data(layout, entities, smriprep_dir=smriprep_dir)
+            except ValueError as e:
+                print(f'Failed {base_file}', flush=True)
+                print(e, flush=True)
                 continue
 
-            for base_file in base_files:
-                entities = base_file.get_entities()
-                try:
-                    run_data = collect_run_data(layout, entities, smriprep_dir=smriprep_dir)
-                except ValueError as e:
-                    print(f'Failed {base_file}', flush=True)
-                    print(e, flush=True)
-                    continue
-
-                fname = os.path.basename(base_file.path).split('.')[0]
-                run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-                os.makedirs(run_temp_dir, exist_ok=True)
-                splenium_values = process_run(layout, run_data, out_dir, run_temp_dir, entities)
-                splenium_dfs.append(splenium_values)
-
-    splenium_df = pd.DataFrame(splenium_dfs)
-    splenium_df.to_csv(os.path.join(CODE_DIR, 'data/splenium_values.tsv'), sep='\t', index=False)
-
-    # Calculate the scaling factors
-    MTsat_ISOVF_ICVF_scalar = compute_scaling_factor(
-        ICVF=splenium_df['ICVF'].mean(),
-        MVF=splenium_df['MTsat'].mean(),
-        ISOVF=splenium_df['ISOVF'].mean(),
-        g=0.7,
-    )
-    ihMTR_ISOVF_ICVF_scalar = compute_scaling_factor(
-        ICVF=splenium_df['ICVF'].mean(),
-        MVF=splenium_df['ihMTR'].mean(),
-        ISOVF=splenium_df['ISOVF'].mean(),
-        g=0.7,
-    )
-
-    print(f'MTsat_ISOVF_ICVF_scalar: {MTsat_ISOVF_ICVF_scalar}', flush=True)
-    print(f'ihMTR_ISOVF_ICVF_scalar: {ihMTR_ISOVF_ICVF_scalar}', flush=True)
+            fname = os.path.basename(base_file.path).split('.')[0]
+            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+            os.makedirs(run_temp_dir, exist_ok=True)
+            process_run(layout, run_data, out_dir, run_temp_dir, entities)
 
     print('DONE!', flush=True)
 
 
 if __name__ == '__main__':
-    main()
+    _main()

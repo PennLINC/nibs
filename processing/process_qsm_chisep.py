@@ -6,7 +6,7 @@ Steps:
 
 Notes:
 
-- Must be run after process_qsm_sepia.py.
+- Must be run after process_qsm_sepia.py and process_qsm_prep.py (brain mask).
 - Requires the chi-sep MATLAB toolbox and its dependencies.
 """
 
@@ -15,20 +15,12 @@ from __future__ import annotations
 import argparse
 import os
 from pprint import pformat
+
 from bids.layout import BIDSLayout, Query
 
-from utils import run_command
+from utils import load_config, run_command
 
-PROJECT_ROOT = '/project/nibs_data/chisep_20260522'
-CFG = {
-    'project_root': PROJECT_ROOT,
-    'bids_dir': os.path.join(PROJECT_ROOT, 'dset'),
-    'code_dir': os.path.join(PROJECT_ROOT, 'nibs'),
-    'work_dir': os.path.join(PROJECT_ROOT, 'work'),
-    'derivatives': {
-        'qsm': os.path.join(PROJECT_ROOT, 'derivatives', 'qsm'),
-    },
-}
+CFG = load_config()
 CODE_DIR = CFG['code_dir']
 
 
@@ -84,6 +76,16 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'space': 'MEGRE',
             'desc': 'MEGRE+E2345',
             'suffix': 'R2starmap',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'mask': {
+            'datatype': 'anat',
+            'acquisition': 'QSM',
+            'part': 'mag',
+            'echo': 1,
+            'space': 'MEGRE',
+            'desc': 'brain',
+            'suffix': 'mask',
             'extension': ['.nii', '.nii.gz'],
         },
     }
@@ -212,7 +214,8 @@ def process_run(run_data: dict, subject_id: str, session: str) -> None:
                 'try; '
                 f"addpath(genpath('{matlab_script_dir}')); "
                 f"process_qsm_chisep('{input_file}','{sepia_folder}','{r2p_path}','{outputa}'"
-                f",{echo_start},{have_r2prime},{is_scaling},'{r2s_path}'); "
+                f",{echo_start},{have_r2prime},{is_scaling},'{r2s_path}',"
+                f"'{run_data['mask']}'); "
                 'exit(0); '
                 "catch ME; disp(getReport(ME, 'extended', 'hyperlinks', 'off')); exit(1); end;"
             ),

@@ -29,8 +29,8 @@ from utils import get_filename, load_config, plot_scalar_map
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
 # Scaling factors to be adjusted so that mean g-ratios in splenium are 0.7 across the sample.
-MTsat_ISOVF_ICVF_scalar = 0.0966224286292623
-ihMTR_ISOVF_ICVF_scalar = 2.208547002794328
+MTsat_ISOVF_ICVF_scalar = 0.09696293901605979
+ihMTR_ISOVF_ICVF_scalar = 2.2137054628974355
 
 
 def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
@@ -303,10 +303,10 @@ def main(subject_id):
     os.makedirs(out_dir, exist_ok=True)
     temp_dir = os.path.join(CFG['work_dir'], 'g_ratio')
     os.makedirs(temp_dir, exist_ok=True)
-    print(f"in_dir: {in_dir}")
-    print(f"out_dir: {out_dir}")
-    print(f"ihmt_dir: {ihmt_dir}")
-    print(f"smriprep_dir: {smriprep_dir}")
+    print(f'in_dir: {in_dir}')
+    print(f'out_dir: {out_dir}')
+    print(f'ihmt_dir: {ihmt_dir}')
+    print(f'smriprep_dir: {smriprep_dir}')
 
     bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_g_ratio.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'

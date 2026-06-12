@@ -2,11 +2,13 @@
 
 import os
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy.cluster.hierarchy import linkage, leaves_list
+from scipy.spatial.distance import squareform
 
 
 SELECTED_SCALARS = [
@@ -63,7 +65,16 @@ def save_clustermap(df, linkage_matrix, title, out_file, color_mapper=None):
     if color_mapper is not None:
         ax.ax_row_colors.set_xticks([])
     ax.figure.suptitle(title, fontsize=36, y=1.02)
+    cbar_ax = ax.figure.add_axes([0.25, -0.04, 0.5, 0.02])
+    sm = mpl.cm.ScalarMappable(cmap=cmap, norm=mpl.colors.Normalize(vmin=-1, vmax=1))
+    sm.set_array([])
+    cbar = ax.figure.colorbar(sm, cax=cbar_ax, orientation='horizontal', label='Pearson $r$')
+    cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
+    cbar.set_ticklabels(['-1', '-0.5', '0', '0.5', '1'])
+    cbar.ax.tick_params(labelsize=20)
+    cbar.set_label('Pearson $r$', size=20)
     ax.figure.savefig(out_file, bbox_inches='tight')
+    ax.figure.savefig(out_file.replace('.pdf', '.png'), bbox_inches='tight')
     plt.close()
 
 
@@ -108,8 +119,13 @@ if __name__ == '__main__':
             else:
                 df_reduced = df.loc[SELECTED_SCALARS, SELECTED_SCALARS]
 
-            linkage_matrix = linkage(np.abs(df_reduced.values), optimal_ordering=True)
-            # linkage_matrix = linkage(df_reduced.values, optimal_ordering=True)
+            # Cluster on the pairwise distance d_ij = 1 - |r_ij|. Passing the
+            # condensed distance vector (via squareform) makes scipy treat the
+            # input as precomputed distances rather than as an observation matrix.
+            dist = 1 - np.abs(df_reduced.values)
+            np.fill_diagonal(dist, 0)
+            condensed = squareform(dist, checks=False)
+            linkage_matrix = linkage(condensed, method='average', optimal_ordering=True)
             leaves = leaves_list(linkage_matrix)
 
             if i_name == 0:
@@ -127,7 +143,7 @@ if __name__ == '__main__':
 
             stem = filename.split('.')[0]
             stem = stem.replace('_corr_mat', '').replace('mean_', '')
-            out_file = os.path.join(out_dir, f'group-{group}_tissue-{stem}_corrmat.png')
+            out_file = os.path.join(out_dir, f'group-{group}_tissue-{stem}_corrmat.pdf')
 
             if reversed_order:
                 linkage_matrix = mirror_linkage(linkage_matrix)

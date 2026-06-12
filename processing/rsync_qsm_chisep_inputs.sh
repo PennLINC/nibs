@@ -134,14 +134,6 @@ add_matches() {
     fi
 }
 
-# Code and config required by process_qsm_chisep.py.
-add_if_exists "processing/process_qsm_chisep.py"
-add_if_exists "processing/process_qsm_chisep.m"
-add_if_exists "processing/utils.py"
-add_if_exists "configuration/config.py"
-add_if_exists "configuration/paths.yml"
-add_if_exists "configuration/nibs_bids_config.json"
-
 # MATLAB toolbox folders hard-coded in process_qsm_chisep.m. These can be
 # large, so copy them only when the destination machine does not already have
 # compatible installations.
@@ -157,6 +149,9 @@ fi
 for subject in "${SUBJECTS[@]}"; do
     # Raw BIDS file used for sessions, input metadata, and output NIfTI template.
     add_matches "dset/sub-${subject}/ses-*/anat/sub-${subject}_ses-*_acq-QSM_run-*_echo-1_part-mag_MEGRE.*"
+
+    # Brain mask in MEGRE space (from process_qsm_prep.py, used by SEPIA and chi-sep).
+    add_matches "derivatives/qsm/sub-${subject}/ses-*/anat/sub-${subject}_ses-*_run-*_space-MEGRE_desc-brain_mask.nii.gz"
 
     # R2' and R2* maps collected from derivatives/qsm.
     add_matches "derivatives/qsm/sub-${subject}/ses-*/anat/sub-${subject}_ses-*_run-*_space-MEGRE_desc-MEGRE+E12345_R2primemap.nii.gz"

@@ -19,7 +19,7 @@ MULTI_KEYS = [
     'MPRAGE-MyelinW',
     'R1-B1c',
     'ihMTsat-B1c',
-    "QSM-X-R2'-E5-Dia",
+    'QSM-SEPIA-E5',
 ]
 
 CUT_COORDS = [-30, -15, 0, 15, 30, 45, 60]
@@ -131,6 +131,9 @@ if __name__ == '__main__':
 
         scalar_maps = sorted(glob(os.path.join(in_dir, temp_pattern)))
         scalar_maps = [f for f in scalar_maps if 'PILOT' not in f]
+        if len(scalar_maps) > 44:
+            raise Exception(temp_pattern)
+
         if not scalar_maps:
             raise FileNotFoundError(f'No scalar maps found for {key!r} ({title})')
 
@@ -143,6 +146,10 @@ if __name__ == '__main__':
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             mean_arr = masker.fit_transform(mean_img)
+
+        if 'Chi Map' in title:
+            # Invert chi maps
+            mean_arr *= -1
 
         mean_arr[np.isnan(mean_arr)] = 0
         mean_arr[np.isinf(mean_arr)] = 0
@@ -168,6 +175,9 @@ if __name__ == '__main__':
     cmap = mpl.cm.viridis
 
     for i, (mean_img, title, vmax0, vmin, kwargs) in enumerate(rows):
+        if 'Chi Map' in title:
+            title += ' (Inverted)'
+
         ax_map = axs[i, 0]
         cax = axs[i, 1]
         plotting.plot_stat_map(
@@ -192,6 +202,7 @@ if __name__ == '__main__':
         )
         _colorbar_ticks(cbar, vmin, vmax0, PERCENTILE)
 
-    fname = 'multi_panel_scalars.png'
-    fig.savefig(os.path.join(out_dir, fname), bbox_inches='tight')
+    fname = 'multi_panel_scalars'
+    fig.savefig(os.path.join(out_dir, f'{fname}.png'), bbox_inches='tight')
+    fig.savefig(os.path.join(out_dir, f'{fname}.pdf'), bbox_inches='tight')
     plt.close()

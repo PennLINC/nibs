@@ -20,11 +20,11 @@ from utils import convert_to_multindex, matrix
 if __name__ == '__main__':
     df = pd.read_table('../data/missingness_list.tsv', index_col='participant_id')
     df = df.fillna(0)
-    #df['Session 01--MP2RAGE'] = df[['Session 01--MP2RAGE', 'Session 01--MP2RAGE-P']].mean(axis=1)
-    #df['Session 02--MP2RAGE'] = df[['Session 02--MP2RAGE', 'Session 02--MP2RAGE-P']].mean(axis=1)
+    df['Session 01--MP2RAGE'] = df[['Session 01--MP2RAGE', 'Session 01--MP2RAGE-P']].mean(axis=1)
+    df['Session 02--MP2RAGE'] = df[['Session 02--MP2RAGE', 'Session 02--MP2RAGE-P']].mean(axis=1)
     columns = df.columns.tolist()
-    #columns = [c for c in columns if not c.endswith('MP2RAGE-P')]
-    # Harcode column order until I re-run build_missingness_list.py
+    columns = [c for c in columns if not c.endswith('MP2RAGE-P')]
+    # Hardcode column order until I re-run build_missingness_list.py
     columns = [
         'Session 01--MPRAGE T1w',
         'Session 01--SPACE T1w',

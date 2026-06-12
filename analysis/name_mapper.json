@@ -20,7 +20,7 @@
     "DKI RD": "Radial Diffusivity",
     "DKI RK": "Radial Kurtosis",
     "DKI Sphericity": "Tensor Sphericity",
-    "DKI Tensor FA": "Fractional Anisotropy",
+    "DKI FA": "Fractional Anisotropy",
     "DSIStudio GQI GFA": "Generalized Fractional Anisotropy",
     "DSIStudio GQI ISO": "Isotropic Component",
     "DSIStudio GQI QA": "Quantitative Anisotropy",

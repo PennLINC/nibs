@@ -13,7 +13,7 @@ import ants
 patterns = {
     'qsirecon': 'qsirecon/derivatives/qsirecon-DSIStudio/{subject}/{session}/dwi/{subject}_{session}_acq-HBCD75_run-01_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz',
     'ihmt': 'ihmt/{subject}/{session}/anat/{subject}_{session}_run-01_space-ihMTRAGEref_desc-brain_mask.nii.gz',
-    'pymp2rage': 'pymp2rage/{subject}/{session}/anat/{subject}_{session}_run-01_part-mag_space-T1w_desc-brain_mask.nii.gz',
+    'pymp2rage': 'pymp2rage/{subject}/{session}/anat/{subject}_{session}_run-01_space-T1w_desc-brain_mask.nii.gz',
     'smriprep': 'smriprep/{subject}/anat/{subject}_acq-MPRAGE_rec-refaced_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz',
     'qsm': 'qsm/{subject}/{session}/anat/{subject}_{session}_acq-QSM_run-01_echo-1_part-mag_space-MEGRE_desc-brain_mask.nii.gz',
 }
@@ -49,12 +49,15 @@ if __name__ == '__main__':
     masks = []
     target_img = None
     counter = 0
-    for subject in subjects:
+    for subject in subjects[::-1]:
         print(subject, flush=True)
         session_dirs = sorted(glob(os.path.join(bids_dir, subject, 'ses-*')))
         sessions = [os.path.basename(d) for d in session_dirs]
         for session in sessions:
             print(session, flush=True)
+            if subject == 'sub-60522' and session == 'ses-02':
+                continue
+
             for modality, pattern in patterns.items():
                 in_file = os.path.join(deriv_dir, pattern.format(subject=subject, session=session))
                 if not os.path.exists(in_file):
@@ -76,11 +79,24 @@ if __name__ == '__main__':
 
                 transforms = mod_transforms[modality]
                 if transforms is not None:
-                    # Copy the template list so we don't overwrite the originals
-                    transforms = [
-                        os.path.join(deriv_dir, t.format(subject=subject, session=session))
-                        for t in transforms
-                    ]
+                    # sub-60522 only has ses-01
+                    if subject == 'sub-60522' and session == 'ses-01':
+                        new_transforms = []
+                        for t in transforms:
+                            new_t = t
+                            new_t = new_t.format(subject=subject, session=session)
+                            if 'smriprep' in t:
+                                new_t = new_t.replace('/anat/', '/ses-01/anat/')
+                                new_t = new_t.replace('acq-MPRAGE', 'ses-01_acq-MPRAGE')
+
+                            new_transforms.append(os.path.join(deriv_dir, new_t))
+                        transforms = new_transforms
+                    else:
+                        # Copy the template list so we don't overwrite the originals
+                        transforms = [
+                            os.path.join(deriv_dir, t.format(subject=subject, session=session))
+                            for t in transforms
+                        ]
 
                     mask = ants.apply_transforms(
                         fixed=target_img,

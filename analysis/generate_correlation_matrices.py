@@ -48,7 +48,12 @@ if __name__ == '__main__':
                     continue
 
                 arr = np.load(in_file)
-                corr_mat = np.arctanh(np.corrcoef(arr))
+                r = np.corrcoef(arr)
+                # Clip to (-1, 1) before Fisher z-transforming. arctanh(±1) = ±inf,
+                # and a single perfect within-session correlation would otherwise
+                # propagate +/-inf into every subsequent nanmean for that cell.
+                r = np.clip(r, -0.9999, 0.9999)
+                corr_mat = np.arctanh(r)
                 np.fill_diagonal(corr_mat, 0)
                 subject_arrs.append(corr_mat)
 

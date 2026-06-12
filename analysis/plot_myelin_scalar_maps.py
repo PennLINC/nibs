@@ -49,6 +49,11 @@ if __name__ == '__main__':
             scalar_maps = sorted(glob(os.path.join(in_dir, temp_pattern)))
             scalar_maps = [f for f in scalar_maps if 'PILOT' not in f]
             print(f'{title}: {len(scalar_maps)}')
+            if len(scalar_maps) > 44:
+                raise Exception(temp_pattern)
+
+            if len(scalar_maps) == 0:
+                raise Exception(temp_pattern)
 
             # Mask out non-brain voxels
             with warnings.catch_warnings():
@@ -66,7 +71,7 @@ if __name__ == '__main__':
             mean_arr[np.isinf(mean_arr)] = 0
             mean_img = masker.inverse_transform(mean_arr)
             vmax0 = np.percentile(mean_arr, 98)
-            print(f'\t{vmax0}')
+
             if 'Chi Map' in title:
                 # Use two-directional colorbar
                 kwargs = {'symmetric_cbar': True, 'vmin': None}
@@ -74,6 +79,8 @@ if __name__ == '__main__':
             else:
                 kwargs = {'symmetric_cbar': False, 'vmin': 0}
                 vmin = 0
+
+            print(f'\t{vmax0}')
 
             # Plot mean from each session
             fig, axs = plt.subplots(2, 1, figsize=(17.5, 5), height_ratios=[2, 0.25])
