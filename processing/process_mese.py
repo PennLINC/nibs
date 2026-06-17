@@ -429,7 +429,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         in_files=hmced_files,
         echo_times=echo_times,
         mask=brain_mask_meseref_file,
-        n_threads=16,
+        n_threads=os.cpu_count(),
     )
 
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform

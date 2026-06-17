@@ -547,43 +547,45 @@ def process_run(layout, run_data, out_dir):
             vmax=vmax,
         )
 
-    # Head-to-head comparisons: process_megre complex-NLLS R2*/R2' (reference,
-    # x-axis) vs the chi-sep R2*/R2' (y-axis) for each echo set and R2 variant.
-    # Both live in MEGRE space; the scatter is restricted to the MEGRE brain
-    # mask. Skipped when either map or the mask is unavailable.
-    megre_mask = run_data.get('megre_brain_mask')
-    for version in ('E12345', 'E2345'):
-        vl = version.lower()
-        for map_suffix, ref_label in (('R2starmap', 'R2*'), ('R2primemap', "R2'")):
-            ref_file = run_data.get(f'megreref_{map_suffix.lower()}_{vl}')
-            if ref_file is None or megre_mask is None:
-                continue
-            for map_label in ('r2p', 'r2primenet', 'r2s'):
-                chisep_file = run_data.get(f'chisep_{map_suffix.lower()}_{map_label}_{vl}')
-                if chisep_file is None:
+    do_comparisons = False
+    if do_comparisons:
+        # Head-to-head comparisons: process_megre complex-NLLS R2*/R2' (reference,
+        # x-axis) vs the chi-sep R2*/R2' (y-axis) for each echo set and R2 variant.
+        # Both live in MEGRE space; the scatter is restricted to the MEGRE brain
+        # mask. Skipped when either map or the mask is unavailable.
+        megre_mask = run_data.get('megre_brain_mask')
+        for version in ('E12345', 'E2345'):
+            vl = version.lower()
+            for map_suffix, ref_label in (('R2starmap', 'R2*'), ('R2primemap', "R2'")):
+                ref_file = run_data.get(f'megreref_{map_suffix.lower()}_{vl}')
+                if ref_file is None or megre_mask is None:
                     continue
-                comparison_report = get_filename(
-                    name_source=chisep_file,
-                    layout=layout,
-                    out_dir=out_dir,
-                    entities={
-                        'datatype': 'figures',
-                        'space': 'MEGRE',
-                        'desc': f'{version}chisep{map_label}{map_suffix.lower()}comparison',
-                        'suffix': map_suffix,
-                        'extension': '.svg',
-                    },
-                    dismiss_entities=['echo', 'part'],
-                )
-                plot_scalar_comparison(
-                    x_file=ref_file,
-                    y_file=chisep_file,
-                    mask_file=megre_mask,
-                    out_file=comparison_report,
-                    x_label=f'{ref_label} complex-NLLS (MEGRE {version})',
-                    y_label=f'{ref_label} chi-sep {map_label} ({version})',
-                    title=f'{ref_label}: complex-NLLS vs chi-sep ({map_label}, {version})',
-                )
+                for map_label in ('r2p', 'r2primenet', 'r2s'):
+                    chisep_file = run_data.get(f'chisep_{map_suffix.lower()}_{map_label}_{vl}')
+                    if chisep_file is None:
+                        continue
+                    comparison_report = get_filename(
+                        name_source=chisep_file,
+                        layout=layout,
+                        out_dir=out_dir,
+                        entities={
+                            'datatype': 'figures',
+                            'space': 'MEGRE',
+                            'desc': f'{version}chisep{map_label}{map_suffix.lower()}comparison',
+                            'suffix': map_suffix,
+                            'extension': '.svg',
+                        },
+                        dismiss_entities=['echo', 'part'],
+                    )
+                    plot_scalar_comparison(
+                        x_file=ref_file,
+                        y_file=chisep_file,
+                        mask_file=megre_mask,
+                        out_file=comparison_report,
+                        x_label=f'{ref_label} complex-NLLS (MEGRE {version})',
+                        y_label=f'{ref_label} chi-sep {map_label} ({version})',
+                        title=f'{ref_label}: complex-NLLS vs chi-sep ({map_label}, {version})',
+                    )
 
 
 def _get_parser() -> argparse.ArgumentParser:

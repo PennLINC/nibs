@@ -13,7 +13,7 @@ Steps:
 
 Notes:
 
-- Must be run after process_qsm_prep.py (brain mask and R2*/R2' maps).
+- Must be run after process_qsm_prep.py (R2*/R2' maps).
 - Requires SEPIA and the chi-sep MATLAB toolbox along with their dependencies.
 - Chimap outputs are in parts per million (ppm).
 """
@@ -144,17 +144,6 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'suffix': 'MEGRE',
             'extension': ['.nii', '.nii.gz'],
         },
-        # Brain mask in MEGRE space (from process_qsm_prep.py).
-        'mask': {
-            'datatype': 'anat',
-            'acquisition': 'QSM',
-            'part': 'mag',
-            'echo': 1,
-            'space': 'MEGRE',
-            'desc': 'brain',
-            'suffix': 'mask',
-            'extension': ['.nii', '.nii.gz'],
-        },
         # R2*/R2' maps per echo set (for the chi-separation R2' variant).
         'r2s_e12345': {
             'datatype': 'anat',
@@ -216,9 +205,8 @@ def run_sepia(
     mag_file: str,
     phase_file: str,
     header_file: str,
-    mask_file: str,
-) -> str:
-    """Run SEPIA QSM estimation on one echo set and return the Chimap path.
+) -> tuple[str, str]:
+    """Run SEPIA QSM estimation on one echo set and return output paths.
 
     Parameters
     ----------
@@ -226,13 +214,15 @@ def run_sepia(
         BIDS subject/session labels and echo-set label (e.g., ``E12345``).
     sepia_work_dir : str
         Directory holding the concatenated inputs and receiving SEPIA outputs.
-    mag_file, phase_file, header_file, mask_file : str
-        Concatenated magnitude/phase NIfTIs, SEPIA header, and brain mask.
+    mag_file, phase_file, header_file : str
+        Concatenated magnitude/phase NIfTIs and SEPIA header.
 
     Returns
     -------
     sepia_chimap_file : str
         Path to the SEPIA Chimap output.
+    sepia_mask_file : str
+        Path to the BET brain mask produced by SEPIA.
     """
     # SEPIA treats this as an output basename prefix and appends '_<map>.nii.gz'
     # (e.g. '_Chimap.nii.gz'), so it must not end in '_' or the outputs get a
@@ -252,7 +242,6 @@ def run_sepia(
         .replace('{{ mag_file }}', to_windows_path(mag_file, sep='\\'))
         .replace('{{ output_dir }}', to_windows_path(out_prefix, sep='\\'))
         .replace('{{ header_file }}', to_windows_path(header_file, sep='\\'))
-        .replace('{{ mask_file }}', to_windows_path(mask_file, sep='\\'))
     )
 
     out_sepia_script = os.path.join(sepia_work_dir, f'process_qsm_sepia_{version}.m')
@@ -287,10 +276,16 @@ def run_sepia(
         )
 
     sepia_chimap_file = f'{out_prefix}_Chimap.nii.gz'
-    if not os.path.isfile(sepia_chimap_file):
-        raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')
+    sepia_mask_file = f'{out_prefix}_mask_brain.nii.gz'
+    expected_outputs = {
+        'SEPIA QSM output': sepia_chimap_file,
+        'SEPIA BET brain mask': sepia_mask_file,
+    }
+    for label, path in expected_outputs.items():
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f'{label} file {path} not found')
 
-    return sepia_chimap_file
+    return sepia_chimap_file, sepia_mask_file
 
 
 def run_chisep(
@@ -298,6 +293,7 @@ def run_chisep(
     version: str,
     example_nifti: str,
     sepia_work_dir: str,
+    brain_mask_file: str,
     subject_id: str,
     session: str,
 ) -> None:
@@ -314,6 +310,8 @@ def run_chisep(
     sepia_work_dir : str
         SEPIA working directory holding the concatenated MEGRE data and header
         that chi-separation reads as input.
+    brain_mask_file : str
+        BET brain mask produced by SEPIA for this echo set.
     subject_id, session : str
         BIDS subject/session labels.
     """
@@ -355,7 +353,7 @@ def run_chisep(
                 f"'{to_windows_path(sepia_work_dir)}','{to_windows_path(out_dir)}',"
                 f"{is_scaling},{have_r2prime},"
                 f"'{to_windows_path(r2s)}','{to_windows_path(r2p)}',"
-                f"'{to_windows_path(run_data['mask'])}','{version}'); "
+                f"'{to_windows_path(brain_mask_file)}','{version}'); "
                 "catch ME; disp(getReport(ME, 'extended', 'hyperlinks', 'off')); exit(1); end;"
             ),
         ]
@@ -419,7 +417,7 @@ def process_run(layout, run_data, out_dir, subject_id, session):
         savemat(header_concat_file, header_struct)
 
         # Run SEPIA once for this echo set.
-        sepia_chimap_file = run_sepia(
+        sepia_chimap_file, sepia_mask_file = run_sepia(
             subject_id=subject_id,
             session=session,
             version=version,
@@ -427,7 +425,6 @@ def process_run(layout, run_data, out_dir, subject_id, session):
             mag_file=mag_concat_file,
             phase_file=phase_concat_file,
             header_file=header_concat_file,
-            mask_file=run_data['mask'],
         )
 
         # Copy the SEPIA Chimap into the QSM derivatives.
@@ -447,6 +444,7 @@ def process_run(layout, run_data, out_dir, subject_id, session):
             version=version,
             example_nifti=example_nifti,
             sepia_work_dir=sepia_work_dir,
+            brain_mask_file=sepia_mask_file,
             subject_id=subject_id,
             session=session,
         )

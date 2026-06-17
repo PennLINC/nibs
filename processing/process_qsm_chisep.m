@@ -237,11 +237,10 @@ clearvars imgc
 %% Brain mask (Range [0,1])
 disp("=================< Brain masking >=================")
 if exist('brain_mask_path','var') && ~isempty(brain_mask_path)
-    % Use the provided (sMRIPrep-derived) brain mask instead of running BET.
-    % BET on the first volume of the echo set is unreliable on later echoes:
-    % for the E2345 set it collapsed to ~56 voxels, which made chi-sepnet's
-    % rotation_free_crop index out of bounds. Match the magnitude orientation
-    % (rot90) and the working grid size (the magnitude is even-padded earlier).
+    % Use the SEPIA-generated BET brain mask instead of running chi-sep's BET,
+    % which is unreliable on the first volume of some echo sets. Match the
+    % magnitude orientation (rot90) and the working grid size (the magnitude is
+    % even-padded earlier).
     bm = double(rot90(double(niftiread(brain_mask_path))) > 0);
     ref = size(Data.MGRE_Mag);
     ref = ref(1:3);
@@ -250,7 +249,7 @@ if exist('brain_mask_path','var') && ~isempty(brain_mask_path)
     Data.Mask(1:n(1), 1:n(2), 1:n(3)) = bm(1:n(1), 1:n(2), 1:n(3));
 elseif RunOptions.Mask
     Data.Mask = load('mask.mat');
-    elif strcmp(RunOptions.Mask_method,'MEDI')                                % Use MEDI BET
+elseif strcmp(RunOptions.Mask_method,'MEDI')                                % Use MEDI BET
     Data.Mask = BET(Data.MGRE_Mag_Tukey(:,:,:,1), Data.MatrixSize(1:3), Data.VoxelSize);
     %         Data.Mask = double(imerode(Data.Mask, strel('sphere',2)));
     Data.Mask = double(Data.Mask);
