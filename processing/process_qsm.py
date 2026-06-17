@@ -2,7 +2,9 @@
 
 Steps:
 
-0.  Load matlab (e.g., ``module load matlab/R2023A``).
+0.  Locate MATLAB. This pipeline runs under WSL and launches the Windows
+    ``matlab.exe`` (newest under ``C:/Program Files/MATLAB``, or ``MATLAB_CMD``),
+    translating WSL paths to Windows paths for MATLAB.
 1.  For each echo set (E12345, E2345):
     a.  Concatenate the magnitude and phase MEGRE echoes and build the SEPIA header.
     b.  Run SEPIA QSM estimation once on the concatenated data.
@@ -19,7 +21,9 @@ Notes:
 from __future__ import annotations
 
 import argparse
+import glob
 import os
+import re
 import subprocess
 from pprint import pformat
 
@@ -33,9 +37,63 @@ from utils import get_filename, load_config, run_command
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
 
+# This pipeline runs under WSL but MATLAB is a Windows install, so MATLAB is
+# launched as matlab.exe and every path handed to it (script paths, data files,
+# toolbox roots) is translated from the WSL mount (/mnt/<drive>/...) to a
+# Windows path (<DRIVE>:/...). MATLAB on Windows accepts forward slashes.
+# Override the MATLAB executable with MATLAB_CMD and the toolbox roots with
+# SEPIA_HOME / NIBS_SOFTWARE_ROOT (give them WSL paths; they are translated).
+SEPIA_HOME = os.environ.get(
+    'SEPIA_HOME', '/mnt/c/Users/tsalo/Documents/linc/qsm-software/sepia-1.2.2.6'
+)
+NIBS_SOFTWARE_ROOT = os.environ.get(
+    'NIBS_SOFTWARE_ROOT', '/mnt/c/Users/tsalo/Documents/linc/qsm-software'
+)
+
+_WSL_MOUNT_RE = re.compile(r'^/mnt/([a-zA-Z])/(.*)$')
+
+
+def to_windows_path(path: str, sep: str = '/') -> str:
+    """Translate a WSL mount path (``/mnt/c/...``) to a Windows path (``C:/...``).
+
+    Empty strings and paths not under ``/mnt/<drive>/`` are returned unchanged,
+    so it is safe to call on optional/empty arguments and already-Windows paths.
+
+    ``sep`` selects the path separator in the result. Use the default ``'/'``
+    for general MATLAB use; use ``'\\'`` for SEPIA, whose ``sepiaIO`` parses the
+    output path with ``filesep`` (a backslash on Windows) and fails on forward
+    slashes. The chi-sep script, in contrast, requires forward slashes because
+    it parses paths with ``regexp(..., 'sub-([^/]+)')`` and ``sprintf('%s/...')``.
+    """
+    if not path:
+        return path
+    match = _WSL_MOUNT_RE.match(path)
+    if not match:
+        return path
+    win_path = f'{match.group(1).upper()}:/{match.group(2)}'
+    if sep != '/':
+        win_path = win_path.replace('/', sep)
+    return win_path
+
+
+def find_matlab() -> str:
+    """Resolve the MATLAB executable to launch from WSL.
+
+    Honors ``MATLAB_CMD`` if set, otherwise picks the newest
+    ``matlab.exe`` under the standard Windows install location, falling back to
+    a bare ``matlab`` on PATH.
+    """
+    cmd = os.environ.get('MATLAB_CMD')
+    if cmd:
+        return cmd
+    matches = sorted(glob.glob('/mnt/c/Program Files/MATLAB/*/bin/matlab.exe'))
+    if matches:
+        return matches[-1]
+    return 'matlab'
+
 # Each echo set selects which MEGRE echoes feed SEPIA and chi-separation:
 # E12345 uses all five echoes, E2345 drops the first echo.
-ECHO_SETS = ['E12345', 'E2345']
+ECHO_SETS = ['E2345', 'E12345']
 
 # Chi-separation parameter combinations run within each echo set.
 # (label, is_scaling, have_r2prime) -- the R2*/R2' paths are filled in per echo
@@ -176,32 +234,47 @@ def run_sepia(
     sepia_chimap_file : str
         Path to the SEPIA Chimap output.
     """
-    out_prefix = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_desc-{version}_')
+    # SEPIA treats this as an output basename prefix and appends '_<map>.nii.gz'
+    # (e.g. '_Chimap.nii.gz'), so it must not end in '_' or the outputs get a
+    # doubled underscore.
+    out_prefix = os.path.join(sepia_work_dir, f'sub-{subject_id}_ses-{session}_desc-{version}')
 
     sepia_script = os.path.join(CODE_DIR, 'processing', 'process_qsm_sepia.m')
     with open(sepia_script) as fobj:
         base_sepia_script = fobj.read()
 
+    # Paths baked into the MATLAB script must be Windows paths for matlab.exe.
+    # SEPIA's sepiaIO derives the output directory by searching the output path
+    # for filesep (a backslash on Windows), so use backslash-separated Windows
+    # paths here; forward slashes make sepiaIO fail with an empty index.
     modified_sepia_script = (
-        base_sepia_script.replace('{{ phase_file }}', phase_file)
-        .replace('{{ mag_file }}', mag_file)
-        .replace('{{ output_dir }}', out_prefix)
-        .replace('{{ header_file }}', header_file)
-        .replace('{{ mask_file }}', mask_file)
+        base_sepia_script.replace('{{ phase_file }}', to_windows_path(phase_file, sep='\\'))
+        .replace('{{ mag_file }}', to_windows_path(mag_file, sep='\\'))
+        .replace('{{ output_dir }}', to_windows_path(out_prefix, sep='\\'))
+        .replace('{{ header_file }}', to_windows_path(header_file, sep='\\'))
+        .replace('{{ mask_file }}', to_windows_path(mask_file, sep='\\'))
     )
 
     out_sepia_script = os.path.join(sepia_work_dir, f'process_qsm_sepia_{version}.m')
     with open(out_sepia_script, 'w') as fobj:
         fobj.write(modified_sepia_script)
 
+    # Set SEPIA_HOME and NIBS_SOFTWARE_ROOT (as Windows paths) inside the MATLAB
+    # session so the script's getenv() calls resolve without hitting their WSL
+    # fallbacks. NIBS_SOFTWARE_ROOT lets the script add the MEDI toolbox, which
+    # provides the BET brain extraction used by SEPIA's isBET option. WSL does
+    # not forward env vars to Windows processes, so this is done via setenv in
+    # the command rather than the subprocess environment.
+    sepia_home_win = to_windows_path(SEPIA_HOME, sep='\\')
+    software_root_win = to_windows_path(NIBS_SOFTWARE_ROOT, sep='\\')
+    out_sepia_script_win = to_windows_path(out_sepia_script, sep='\\')
     result = subprocess.run(
         [
-            'matlab',
-            '-nodisplay',
-            '-nosplash',
-            '-nodesktop',
-            '-r',
-            f"run('{out_sepia_script}'); exit;",
+            find_matlab(),
+            '-batch',
+            f"setenv('SEPIA_HOME','{sepia_home_win}'); "
+            f"setenv('NIBS_SOFTWARE_ROOT','{software_root_win}'); "
+            f"run('{out_sepia_script_win}')",
         ],
         capture_output=True,
         text=True,
@@ -213,7 +286,7 @@ def run_sepia(
             f'stderr:\n{result.stderr}'
         )
 
-    sepia_chimap_file = f'{out_prefix}Chimap.nii.gz'
+    sepia_chimap_file = f'{out_prefix}_Chimap.nii.gz'
     if not os.path.isfile(sepia_chimap_file):
         raise FileNotFoundError(f'SEPIA QSM output file {sepia_chimap_file} not found')
 
@@ -251,6 +324,13 @@ def run_chisep(
     r2s_path = run_data[f'r2s_{version_key}']
     r2p_path = run_data[f'r2p_{version_key}']
 
+    # Set NIBS_SOFTWARE_ROOT (as a Windows path) inside the MATLAB session so the
+    # script's getenv('NIBS_SOFTWARE_ROOT') resolves without its WSL fallback.
+    # WSL does not forward env vars to Windows processes, so this is done via
+    # setenv in the command rather than the subprocess environment.
+    matlab_exe = find_matlab()
+    software_root_win = to_windows_path(NIBS_SOFTWARE_ROOT)
+
     for label, is_scaling, have_r2prime in CHISEP_COMBOS:
         r2s = r2s_path if have_r2prime else ''
         r2p = r2p_path if have_r2prime else ''
@@ -260,17 +340,22 @@ def run_chisep(
         )
         os.makedirs(out_dir, exist_ok=True)
 
+        # All paths handed to matlab.exe are translated to Windows paths.
+        # Keep forward slashes here: process_qsm_chisep.m parses the input dir
+        # with regexp(..., 'sub-([^/]+)') and builds paths with sprintf('%s/...'),
+        # both of which require '/' (unlike SEPIA, which needs backslashes).
         cmd = [
-            'matlab',
-            '-nodisplay',
-            '-nosplash',
-            '-r',
+            matlab_exe,
+            '-batch',
             (
                 'try; '
-                f"addpath(genpath('{matlab_script_dir}')); "
-                f"process_qsm_chisep('{example_nifti}','{sepia_work_dir}','{out_dir}',"
-                f"{is_scaling},{have_r2prime},'{r2s}','{r2p}'); "
-                'exit(0); '
+                f"setenv('NIBS_SOFTWARE_ROOT','{software_root_win}'); "
+                f"addpath(genpath('{to_windows_path(matlab_script_dir)}')); "
+                f"process_qsm_chisep('{to_windows_path(example_nifti)}',"
+                f"'{to_windows_path(sepia_work_dir)}','{to_windows_path(out_dir)}',"
+                f"{is_scaling},{have_r2prime},"
+                f"'{to_windows_path(r2s)}','{to_windows_path(r2p)}',"
+                f"'{to_windows_path(run_data['mask'])}','{version}'); "
                 "catch ME; disp(getReport(ME, 'extended', 'hyperlinks', 'off')); exit(1); end;"
             ),
         ]
@@ -302,16 +387,21 @@ def process_run(layout, run_data, out_dir, subject_id, session):
     header_struct = loadmat(header_file)
     header_struct['B0_dir'] = header_struct['B0_dir'].astype(float)
     header_struct['B0'] = header_struct['B0'].astype(float)
+    # Keep the full echo-time vector; the per-version TE is derived from this each
+    # iteration so the slice does not accumulate across echo sets (which broke
+    # E12345 whenever E2345 ran first and left TE with only 4 elements).
+    full_te = header_struct['TE']
 
     for version in ECHO_SETS:
         if version == 'E12345':
             mag_imgs = run_data['megre_mag']
             phase_imgs = run_data['megre_phase']
+            header_struct['TE'] = full_te
         else:
             # Drop the first echo for both the images and the header TE vector.
             mag_imgs = run_data['megre_mag'][1:]
             phase_imgs = run_data['megre_phase'][1:]
-            header_struct['TE'] = header_struct['TE'][:, 1:]
+            header_struct['TE'] = full_te[:, 1:]
 
         sepia_work_dir = os.path.join(
             CFG['work_dir'], f'qsm-{version}+sepia', f'sub-{subject_id}', f'ses-{session}', 'anat'
@@ -367,7 +457,8 @@ def _get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--subject-id',
         type=lambda label: label.removeprefix('sub-'),
-        required=True,
+        default=None,
+        help='Subject to process. If not provided, all subjects are processed.',
     )
     return parser
 
@@ -383,6 +474,7 @@ def main(subject_id):
     in_dir = CFG['bids_dir']
     smriprep_dir = CFG['derivatives']['smriprep']
     mese_dir = CFG['derivatives']['mese']
+    megre_dir = CFG['derivatives']['megre']
     out_dir = CFG['derivatives']['qsm']
     os.makedirs(out_dir, exist_ok=True)
 
@@ -390,39 +482,45 @@ def main(subject_id):
         in_dir,
         config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
-        derivatives=[smriprep_dir, mese_dir, out_dir],
+        derivatives=[smriprep_dir, mese_dir, megre_dir],
     )
 
-    print(f'Processing subject {subject_id}', flush=True)
-    sessions = layout.get_sessions(subject=subject_id, suffix='MEGRE')
-    for session in sessions:
-        print(f'Processing session {session}', flush=True)
-        megre_files = layout.get(
-            subject=subject_id,
-            session=session,
-            acquisition='QSM',
-            echo=1,
-            part='mag',
-            suffix='MEGRE',
-            extension=['.nii', '.nii.gz'],
-        )
-        if not megre_files:
-            print(f'No MEGRE files found for subject {subject_id} and session {session}')
-            continue
+    if subject_id:
+        subjects = [subject_id]
+    else:
+        subjects = layout.get_subjects(suffix='MEGRE')
 
-        for megre_file in megre_files:
-            entities = megre_file.get_entities()
-            entities.pop('echo')
-            entities.pop('part')
-            entities.pop('acquisition')
-            try:
-                run_data = collect_run_data(layout, entities)
-            except ValueError as e:
-                print(f'Failed {megre_file}', flush=True)
-                print(e, flush=True)
+    for subject_id in subjects:
+        print(f'Processing subject {subject_id}', flush=True)
+        sessions = layout.get_sessions(subject=subject_id, suffix='MEGRE')
+        for session in sessions:
+            print(f'Processing session {session}', flush=True)
+            megre_files = layout.get(
+                subject=subject_id,
+                session=session,
+                acquisition='QSM',
+                echo=1,
+                part='mag',
+                suffix='MEGRE',
+                extension=['.nii', '.nii.gz'],
+            )
+            if not megre_files:
+                print(f'No MEGRE files found for subject {subject_id} and session {session}')
                 continue
 
-            process_run(layout, run_data, out_dir, subject_id, session)
+            for megre_file in megre_files:
+                entities = megre_file.get_entities()
+                entities.pop('echo')
+                entities.pop('part')
+                entities.pop('acquisition')
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {megre_file}', flush=True)
+                    print(e, flush=True)
+                    continue
+
+                process_run(layout, run_data, out_dir, subject_id, session)
 
     print('DONE!', flush=True)
 
