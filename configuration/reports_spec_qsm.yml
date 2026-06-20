@@ -3,12 +3,24 @@ sections:
 - name: Processing Summary
   ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo
   reportlets:
-  - bids: {datatype: figures, space: T1w, suffix: .*, regex_search: True}
-    subtitle: Alignment of QSM data to sMRIPrep T1w space
-    static: false
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*coreg, suffix: .*, regex_search: True}
-    subtitle: Alignment of QSM data to MNI152NLin2009cAsym space
-    static: false
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: .*, regex_search: True}
-    subtitle: Scalar map of QSM data in MNI152NLin2009cAsym space
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: Chimap, regex_search: True}
+    subtitle: Scalar map of Chimap data in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: R2starmap, regex_search: True}
+    subtitle: Scalar map of R2* data in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: R2primemap, regex_search: True}
+    subtitle: Scalar map of R2' data in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: para, regex_search: True}
+    subtitle: Paramagnetic susceptibility estimates (iron) in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: dia, regex_search: True}
+    subtitle: Diamagnetic susceptibility estimates (myelin) in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MEGRE, desc: .*comparison, suffix: R2starmap, regex_search: True}
+    subtitle: R2* head-to-head - process_megre complex-NLLS (x) vs chi-sep (y), MEGRE space
+    static: true
+  - bids: {datatype: figures, space: MEGRE, desc: .*comparison, suffix: R2primemap, regex_search: True}
+    subtitle: R2' head-to-head - process_megre complex-NLLS (x) vs chi-sep (y), MEGRE space
     static: true
