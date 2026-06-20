@@ -96,9 +96,7 @@ def _rescale_phase_to_radians(phase_files: list[str], out_dir: str) -> list[str]
     return scaled_paths
 
 
-def _build_complex_megre(
-    mag_files: list[str], phase_rad_files: list[str], out_path: str
-) -> str:
+def _build_complex_megre(mag_files: list[str], phase_rad_files: list[str], out_path: str) -> str:
     """Build a 4D complex MEGRE array (x, y, z, echo) for dwidenoise input."""
     ref_img = nb.load(mag_files[0])
     ref_shape = ref_img.shape
@@ -126,9 +124,7 @@ def _split_complex_to_mag_phase(
     img = nb.load(denoised_path)
     data = np.asarray(img.dataobj)
     if data.shape[-1] != len(mag_files):
-        raise ValueError(
-            f'Denoised data has {data.shape[-1]} echoes; expected {len(mag_files)}.'
-        )
+        raise ValueError(f'Denoised data has {data.shape[-1]} echoes; expected {len(mag_files)}.')
 
     os.makedirs(mag_out_dir, exist_ok=True)
     os.makedirs(phase_out_dir, exist_ok=True)
@@ -174,9 +170,7 @@ def denoise_complex_megre(
     """
     dwidenoise = shutil.which(DWIDENOISE_EXE)
     if dwidenoise is None:
-        raise RuntimeError(
-            f'Could not find {DWIDENOISE_EXE!r}. Install MRtrix3 or set DWIDENOISE.'
-        )
+        raise RuntimeError(f'Could not find {DWIDENOISE_EXE!r}. Install MRtrix3 or set DWIDENOISE.')
 
     phase_rad_files = _rescale_phase_to_radians(phase_files, os.path.join(temp_dir, 'phase_rad'))
     complex_path = _build_complex_megre(

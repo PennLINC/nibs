@@ -15,6 +15,7 @@ Notes:
 - sMRIPrep's preprocessed T1w image is used as the "native T1w space".
 - This must be run after sMRIPrep.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -541,7 +542,9 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     # process_run, so this one is kept in the working directory only.
     brain_mask = os.path.join(temp_dir, 'synthstrip_brain_mask.nii.gz')
     skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_files[0])}')
-    vol_dirs = {os.path.dirname(os.path.abspath(p)) for p in [in_files[0], skullstripped_file, brain_mask]}
+    vol_dirs = {
+        os.path.dirname(os.path.abspath(p)) for p in [in_files[0], skullstripped_file, brain_mask]
+    }
     vol_args = ' '.join(f'-v {d}:{d}' for d in vol_dirs)
     cmd = f'docker run --rm {vol_args} {SYNTHSTRIP_IMAGE} -i {in_files[0]} -o {skullstripped_file} -m {brain_mask}'
     run_command(cmd)

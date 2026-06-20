@@ -396,19 +396,11 @@ def fit_monoexponential(
         n_threads=n_threads,
     )[:2]
     # Limit positive infinite values to maximum finite value
-    t2s[np.isinf(t2s) & (t2s > 0)] = np.nanmax(
-        t2s[np.isfinite(t2s)]
-    )
-    s0[np.isinf(s0) & (s0 > 0)] = np.nanmax(
-        s0[np.isfinite(s0)]
-    )
+    t2s[np.isinf(t2s) & (t2s > 0)] = np.nanmax(t2s[np.isfinite(t2s)])
+    s0[np.isinf(s0) & (s0 > 0)] = np.nanmax(s0[np.isfinite(s0)])
     # Set negative infinite values to minimum finite value
-    t2s[np.isinf(t2s) & (t2s < 0)] = np.nanmin(
-        t2s[np.isfinite(t2s)]
-    )
-    s0[np.isinf(s0) & (s0 < 0)] = np.nanmin(
-        s0[np.isfinite(s0)]
-    )
+    t2s[np.isinf(t2s) & (t2s < 0)] = np.nanmin(t2s[np.isfinite(t2s)])
+    s0[np.isinf(s0) & (s0 < 0)] = np.nanmin(s0[np.isfinite(s0)])
 
     # Set negative values to 0
     t2s[t2s < 0] = 0

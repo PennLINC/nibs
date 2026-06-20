@@ -481,8 +481,6 @@ def process_run(layout, run_data, out_dir):
         if file_ is None:
             continue
 
-        suffix = os.path.basename(file_).split('_')[-1].split('.')[0]
-
         # Coregister to T1w
         t1w_file = get_filename(
             name_source=file_,

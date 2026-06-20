@@ -91,6 +91,7 @@ def find_matlab() -> str:
         return matches[-1]
     return 'matlab'
 
+
 # Each echo set selects which MEGRE echoes feed SEPIA and chi-separation:
 # E12345 uses all five echoes, E2345 drops the first echo.
 ECHO_SETS = ['E2345', 'E12345']
@@ -351,7 +352,7 @@ def run_chisep(
                 f"addpath(genpath('{to_windows_path(matlab_script_dir)}')); "
                 f"process_qsm_chisep('{to_windows_path(example_nifti)}',"
                 f"'{to_windows_path(sepia_work_dir)}','{to_windows_path(out_dir)}',"
-                f"{is_scaling},{have_r2prime},"
+                f'{is_scaling},{have_r2prime},'
                 f"'{to_windows_path(r2s)}','{to_windows_path(r2p)}',"
                 f"'{to_windows_path(brain_mask_file)}','{version}'); "
                 "catch ME; disp(getReport(ME, 'extended', 'hyperlinks', 'off')); exit(1); end;"
