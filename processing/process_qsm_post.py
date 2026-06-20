@@ -29,7 +29,6 @@ from nireports.assembler.report import Report
 from utils import (
     get_filename,
     load_config,
-    plot_coregistration,
     plot_scalar_comparison,
     plot_scalar_map,
 )
@@ -593,7 +592,8 @@ def _get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--subject-id',
         type=lambda label: label.removeprefix('sub-'),
-        required=True,
+        default=None,
+        help='Subject to process. If not provided, all subjects are processed.',
     )
     return parser
 
@@ -605,19 +605,24 @@ def _main(argv=None):
     main(**kwargs)
 
 
-def main(subject_id):
-    in_dir = CFG['bids_dir']
-    smriprep_dir = CFG['derivatives']['smriprep']
-    mese_dir = CFG['derivatives']['mese']
-    megre_dir = CFG['derivatives']['megre']
-    out_dir = CFG['derivatives']['qsm']
-    os.makedirs(out_dir, exist_ok=True)
-    temp_dir = os.path.join(CFG['work_dir'], 'qsm')
-    os.makedirs(temp_dir, exist_ok=True)
+def _get_sessions_to_rename(subject_id: str) -> list[str]:
+    """Find sessions with chi-separation work directories for a subject.
 
-    bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_qsm.yml')
-    assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
+    process_qsm.py writes per-combination working directories at
+    work_dir/qsm-<version>+chisep+<map_label>/sub-<id>/ses-<session>/. This
+    enumerates the ses-* directories there so the chi-sep outputs can be
+    renamed before the processing layout is built.
 
+    Parameters
+    ----------
+    subject_id : str
+        BIDS subject label (without 'sub-' prefix).
+
+    Returns
+    -------
+    list of str
+        Sorted session labels (without 'ses-' prefix) that have chi-sep outputs.
+    """
     session_search_patterns = [
         os.path.join(
             CFG['work_dir'],
@@ -637,18 +642,23 @@ def main(subject_id):
             for d in glob(search_pattern)
             if os.path.isdir(d)
         )
-    print(f'sessions to rename: {sessions_to_rename}', flush=True)
-    for session in sorted(sessions_to_rename):
-        print(f'Renaming QSM outputs for session {session}')
-        rename_qsm_outputs(subject_id, session)
+    return sorted(sessions_to_rename)
 
-    layout = BIDSLayout(
-        in_dir,
-        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
-        validate=False,
-        derivatives=[smriprep_dir, megre_dir, out_dir],
-    )
 
+def process_subject(layout, subject_id: str, out_dir: str, bootstrap_file: str) -> None:
+    """Warp QSM derivatives and build reports for a single subject.
+
+    Parameters
+    ----------
+    layout : BIDSLayout
+        BIDSLayout indexing the dataset and derivatives (built after renaming).
+    subject_id : str
+        BIDS subject label (without 'sub-' prefix).
+    out_dir : str
+        Path to the QSM derivatives output directory.
+    bootstrap_file : str
+        Path to the nireports bootstrap YAML used to assemble the report.
+    """
     print(f'Processing subject {subject_id}')
     sessions = layout.get_sessions(subject=subject_id, suffix='MEGRE')
     for session in sessions:
@@ -693,6 +703,53 @@ def main(subject_id):
             session=session,
         )
         robj.generate_report()
+
+
+def main(subject_id=None):
+    in_dir = CFG['bids_dir']
+    smriprep_dir = CFG['derivatives']['smriprep']
+    mese_dir = CFG['derivatives']['mese']
+    megre_dir = CFG['derivatives']['megre']
+    out_dir = CFG['derivatives']['qsm']
+    os.makedirs(out_dir, exist_ok=True)
+    temp_dir = os.path.join(CFG['work_dir'], 'qsm')
+    os.makedirs(temp_dir, exist_ok=True)
+
+    bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_qsm.yml')
+    assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
+
+    bids_config = os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json')
+
+    if subject_id:
+        subjects = [subject_id]
+    else:
+        # MEGRE subjects come from the raw dataset, so a lightweight layout
+        # (no derivatives) is enough to enumerate them.
+        subjects = BIDSLayout(
+            in_dir,
+            config=bids_config,
+            validate=False,
+        ).get_subjects(suffix='MEGRE')
+    print(f'Processing subjects: {subjects}', flush=True)
+
+    # Rename chi-separation outputs first, for every subject/session, so they
+    # are indexed when the processing layout is built below.
+    for subject_id in subjects:
+        sessions_to_rename = _get_sessions_to_rename(subject_id)
+        print(f'sessions to rename for sub-{subject_id}: {sessions_to_rename}', flush=True)
+        for session in sessions_to_rename:
+            print(f'Renaming QSM outputs for sub-{subject_id} ses-{session}')
+            rename_qsm_outputs(subject_id, session)
+
+    layout = BIDSLayout(
+        in_dir,
+        config=bids_config,
+        validate=False,
+        derivatives=[smriprep_dir, megre_dir, out_dir],
+    )
+
+    for subject_id in subjects:
+        process_subject(layout, subject_id, out_dir, bootstrap_file)
 
     # Write out dataset_description.json
     dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
