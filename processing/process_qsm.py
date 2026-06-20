@@ -13,7 +13,7 @@ Steps:
 
 Notes:
 
-- Must be run after process_qsm_prep.py (R2*/R2' maps).
+- Must be run after process_megre.py (R2*/R2' maps).
 - Requires SEPIA and the chi-sep MATLAB toolbox along with their dependencies.
 - Chimap outputs are in parts per million (ppm).
 """
