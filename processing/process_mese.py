@@ -243,7 +243,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
     # Coregister echoes 2-4 of AP MESE data to echo 1. The returned reference is
-    # the RMS across the motion-corrected echoes.
+    # the first echo.
     hmced_files, brain_mask, mese_ref = iterative_motion_correction(
         name_sources=run_data['mese_mag_ap'],
         layout=layout,
@@ -261,7 +261,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     t1w_img = ants.image_read(run_data['t1w'])
 
-    # Coregister the MESE RMS reference to preprocessed T1w
+    # Coregister the MESE reference to preprocessed T1w
     mese_to_smriprep_warp_xfm = get_filename(
         name_source=name_source,
         layout=layout,
@@ -363,7 +363,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(mese_ref),
         transformlist=[mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
-        interpolator='linear',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(mese_ref_t1_img, mese_ref_t1_file)
 
@@ -410,7 +410,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(mese_ref),
         transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
-        interpolator='linear',
+        interpolator='nearestNeighbor',
     )
     ants.image_write(mese_ref_mni_img, mese_ref_mni_file)
     plot_coregistration(
@@ -465,7 +465,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=mese_to_smriprep,
-            interpolator='linear',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -480,7 +480,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
-            interpolator='linear',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -533,7 +533,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     brain_mask : str
         Path to the brain mask.
     ref_file : str
-        Path to the MESE reference image (RMS across the motion-corrected echoes).
+        Path to the MESE reference image (first echo).
     """
     # Step 1: Create a brain mask from the first image with SynthStrip. This
     # mask is used internally for skull-stripping the echoes during motion
@@ -612,14 +612,13 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             fixed=ref_img,
             moving=ants.image_read(in_file),
             transformlist=[transform_file],
-            interpolator='linear',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(out_img, out_file)
         hmced_files.append(out_file)
         mese_space_files.append(out_file)
 
-    # Step 5: The MESE reference is the root mean square (RMS) across the
-    # motion-corrected echoes.
+    # Step 5: The MESE reference is the first echo.
     ref_file = get_filename(
         name_source=name_sources[0],
         layout=layout,
@@ -628,20 +627,9 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         dismiss_entities=['echo', 'direction'],
     )
     grid_img = nb.load(hmced_files[0])
-    rms_data = np.sqrt(
-        np.mean(
-            np.stack(
-                [np.asanyarray(nb.load(f).dataobj, dtype=np.float64) ** 2 for f in hmced_files],
-                axis=-1,
-            ),
-            axis=-1,
-        )
-    )
-    ref_header = grid_img.header.copy()
-    ref_header.set_data_dtype(np.float32)
-    nb.Nifti1Image(rms_data.astype(np.float32), grid_img.affine, ref_header).to_filename(ref_file)
+    grid_img.to_filename(ref_file)
 
-    # Step 6: Plot each motion-corrected echo against the RMS reference.
+    # Step 6: Plot each motion-corrected echo against the reference.
     for i_file, mese_file in enumerate(mese_space_files):
         plot_coregistration(
             name_source=name_sources[i_file] if i_file == 0 else mese_file,
