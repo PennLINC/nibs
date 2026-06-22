@@ -20,14 +20,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 from pprint import pformat
 
 import ants
 import nibabel as nb
-import numpy as np
 from bids.layout import BIDSLayout, Query
-from nilearn import image, masking
+from nilearn import image
 from nireports.assembler.report import Report
 
 from utils import (
@@ -36,7 +34,6 @@ from utils import (
     get_filename,
     load_config,
     plot_coregistration,
-    plot_scalar_map,
 )
 
 CFG = load_config()

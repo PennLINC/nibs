@@ -23,7 +23,6 @@ import matplotlib
 matplotlib.use('Agg', force=True)
 
 import numpy as np
-import scipy.optimize
 
 try:
     from tqdm.auto import tqdm

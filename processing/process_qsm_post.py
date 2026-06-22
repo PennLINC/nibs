@@ -29,7 +29,6 @@ from nireports.assembler.report import Report
 from utils import (
     get_filename,
     load_config,
-    plot_scalar_comparison,
     plot_scalar_map,
 )
 
