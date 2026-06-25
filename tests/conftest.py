@@ -14,7 +14,7 @@ import pytest
 
 @pytest.fixture()
 def minimal_config_path(tmp_path):
-    """Write a small paths.yaml to *tmp_path* and return its path."""
+    """Write a small paths.yml to *tmp_path* and return its path."""
     yaml_text = """\
 project_root: /tmp/nibs_test
 
@@ -36,14 +36,14 @@ freesurfer:
   subjects_dir: derivatives/smriprep/sourcedata/freesurfer
   license: tokens/freesurfer_license.txt
 """
-    cfg_file = tmp_path / 'paths.yaml'
+    cfg_file = tmp_path / 'paths.yml'
     cfg_file.write_text(yaml_text)
     return str(cfg_file)
 
 
 @pytest.fixture()
 def minimal_config_no_sourcedata(tmp_path):
-    """A paths.yaml that lacks the optional ``sourcedata`` section."""
+    """A paths.yml that lacks the optional ``sourcedata`` section."""
     yaml_text = """\
 project_root: /tmp/nibs_test
 
@@ -61,7 +61,7 @@ freesurfer:
   subjects_dir: derivatives/smriprep/sourcedata/freesurfer
   license: tokens/freesurfer_license.txt
 """
-    cfg_file = tmp_path / 'paths.yaml'
+    cfg_file = tmp_path / 'paths.yml'
     cfg_file.write_text(yaml_text)
     return str(cfg_file)
 

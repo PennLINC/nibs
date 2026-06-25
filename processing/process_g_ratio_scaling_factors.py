@@ -1,21 +1,23 @@
-"""Calculate the scaling factors for the MTsat and ihMTR measures to achieve a mean g-ratio of
-0.7 in the splenium.
+"""Prepare per-run splenium values for g-ratio scaling factor estimation.
 
 The g-ratio formula is
 
 g-ratio = sqrt(FVF / (FVF + (MVF * scaling_factor)))
 
-where MVF is the MTsat or ihMTR value. FVF is held constant, so we need to solve for the scaling factor.
+where MVF is the ihMTsatB1sq or ihMTR value. FVF is held constant, so we need to solve for the scaling factor.
 
-The equation is solved using the mean g-ratio in the splenium across subjects.
-I need to solve for scaling_factor so that g = 0.7.
-The first step is to calculate the splenium mask,
-then calculate mean FVF and MVF in the splenium across subjects.
+This script runs the expensive image processing for one subject at a time. It writes T1w-space
+ISOVF/ICVF derivatives and a sidecar JSON with splenium means for each subject/session/run.
+Use aggregate_g_ratio_scaling_factors.py afterward to aggregate the JSON files, write
+data/splenium_values.tsv, and estimate the scaling factors.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
+from pprint import pformat
 
 import ants
 import numpy as np
@@ -23,7 +25,7 @@ import pandas as pd
 from bids.layout import BIDSLayout, Query
 from nilearn import masking, plotting
 
-from utils import get_filename, load_config
+from utils import coregister_to_t1, get_filename, load_config
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
@@ -47,58 +49,68 @@ def collect_run_data(layout: object, bids_filters: dict, smriprep_dir: str) -> d
         Mapping of descriptive keys to resolved file paths.
     """
     queries = {
-        # MNI-space ISOVF and ICVF maps from QSIRecon
-        'isovf_mni': {
+        # T1w-space ihMTsatB1sq and ihMTR maps from process_ihmt.py
+        'mtsat_t1w': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': 'T1w',
+            'suffix': 'ihMTsatB1sq',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        'ihmtr_t1w': {
+            'datatype': 'anat',
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': 'T1w',
+            'suffix': 'ihMTR',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # sMRIPrep preprocessed T1w in native space (ACPC registration target)
+        't1w': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
+            'res': Query.NONE,
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
+        },
+        # ACPC-space ISOVF and ICVF maps from QSIRecon
+        'isovf_acpc': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
             'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
+            'space': 'ACPC',
             'model': 'noddi',
             'param': 'isovf',
             'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
-        'icvf_mni': {
+        'icvf_acpc': {
             'datatype': 'dwi',
             'run': [Query.NONE, Query.ANY],
             'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
+            'space': 'ACPC',
             'model': 'noddi',
             'param': 'icvf',
             'desc': Query.NONE,
             'suffix': 'dwimap',
             'extension': ['.nii', '.nii.gz'],
         },
-        # ihMT-space MTsat and ihMTR maps from process_ihmt.py
-        'mtsat_mni': {
-            'datatype': 'anat',
-            'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
-            'suffix': 'ihMTsatB1sq',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        'ihmtr_mni': {
-            'datatype': 'anat',
-            'run': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],
-            'space': 'MNI152NLin2009cAsym',
-            'suffix': 'ihMTR',
-            'extension': ['.nii', '.nii.gz'],
-        },
-        # Transform from sMRIPrep T1w to MNI space
-        't1w2mni_xfm': {
+        # ACPC-space T1w from QSIPrep (used to compute the ACPC-to-T1w rigid transform)
+        't1w_acpc': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
-            'reconstruction': [Query.NONE, Query.ANY],
-            'space': Query.NONE,
             'run': [Query.NONE, Query.ANY],
-            'to': 'MNI152NLin2009cAsym',
-            'from': 'T1w',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.h5',
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': 'ACPC',
+            'desc': 'preproc',
+            'suffix': 'T1w',
+            'extension': ['.nii', '.nii.gz'],
         },
         # Transform from Freesurfer to sMRIPrep T1w space
         'fs2t1w_xfm': {
@@ -161,7 +173,67 @@ def collect_run_data(layout: object, bids_filters: dict, smriprep_dir: str) -> d
         f'Brain file {run_data["brain_fsnative"]} not found'
     )
 
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
+
+
+def _as_json_value(value):
+    """Convert NumPy/pandas scalar values to JSON-serializable Python values."""
+    if pd.isna(value):
+        return None
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def write_splenium_values_sidecar(
+    layout,
+    name_source,
+    out_dir,
+    splenium_values,
+    run_data,
+):
+    """Write splenium values to a per-run derivative sidecar JSON file."""
+    sidecar_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'datatype': 'dwi',
+            'desc': 'splenium',
+            'suffix': 'scalarstats',
+            'extension': '.json',
+        },
+        dismiss_entities=['model', 'param'],
+    )
+
+    value_dict = {
+        key: _as_json_value(value)
+        for key, value in splenium_values.items()
+        if key not in {'subject_id', 'session_id', 'run'}
+    }
+    sidecar = {
+        'Description': 'Mean scalar values in the FreeSurfer splenium label for g-ratio scaling.',
+        'subject_id': _as_json_value(splenium_values['subject_id']),
+        'session_id': _as_json_value(splenium_values['session_id']),
+        'run': _as_json_value(splenium_values['run']),
+        'Region': {
+            'Name': 'Splenium of corpus callosum',
+            'FreeSurferAsegLabel': 251,
+        },
+        'SpleniumValues': value_dict,
+        'Sources': {
+            'isovf_acpc': run_data['isovf_acpc'],
+            'icvf_acpc': run_data['icvf_acpc'],
+            'ihMTsatB1sq_t1w': run_data['mtsat_t1w'],
+            'ihMTR_t1w': run_data['ihmtr_t1w'],
+        },
+    }
+    with open(sidecar_file, 'w') as fobj:
+        json.dump(sidecar, fobj, sort_keys=True, indent=4)
+
+    print(f'Wrote splenium values sidecar: {sidecar_file}', flush=True)
+    return sidecar_file
 
 
 def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
@@ -183,60 +255,99 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     Returns
     -------
     splenium_values : pandas.Series
-        Mean values of ISOVF, ICVF, MTsat, and ihMTR in the splenium.
+        Mean values of ISOVF, ICVF, ihMTsatB1sq, and ihMTR in the splenium.
     """
-    # Load images for target resolutions
-    isovf = ants.image_read(run_data['isovf_mni'])  # DWI resolution (1.7 mm isotropic)
+    # Register ACPC-space T1w (QSIPrep) to native T1w (sMRIPrep) and use that transform
+    # to warp ISOVF and ICVF into T1w space, writing the results for downstream use.
+    acpc2t1w_xfm = coregister_to_t1(
+        name_source=run_data['t1w_acpc'],
+        layout=layout,
+        in_file=run_data['t1w_acpc'],
+        t1_file=run_data['t1w'],
+        out_dir=out_dir,
+        source_space='ACPC',
+        target_space='T1w',
+    )
 
-    # Select only the splenium voxels
-    splenium_mask = ants.image_read(run_data['aseg_fsnative']) == 251
-    splenium_mask_dwires = ants.apply_transforms(
-        fixed=isovf,
-        moving=splenium_mask,
-        transformlist=[run_data['t1w2mni_xfm'], run_data['fs2t1w_xfm']],
+    t1w_img = ants.image_read(run_data['t1w'])
+
+    isovf_t1w_img = ants.apply_transforms(
+        fixed=t1w_img,
+        moving=ants.image_read(run_data['isovf_acpc']),
+        transformlist=[acpc2t1w_xfm],
         interpolator='nearestNeighbor',
     )
-    splenium_mask_file_dwires = os.path.join(temp_dir, 'splenium_mask_mni_dwires.nii.gz')
-    ants.image_write(splenium_mask_dwires, splenium_mask_file_dwires)
+    isovf_t1w_file = get_filename(
+        name_source=run_data['isovf_acpc'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'param': 'isovf'},
+    )
+    ants.image_write(isovf_t1w_img, isovf_t1w_file)
 
-    # Warp ihMTRAGEref-space MTsat and ihMTR to MNI space
-    mtsat_mni = ants.image_read(run_data['mtsat_mni']).resample_image_to_target(
-        splenium_mask_dwires, interp_type='nearestNeighbor'
+    icvf_t1w_img = ants.apply_transforms(
+        fixed=t1w_img,
+        moving=ants.image_read(run_data['icvf_acpc']),
+        transformlist=[acpc2t1w_xfm],
+        interpolator='nearestNeighbor',
     )
-    mtsat_mni_file = os.path.join(temp_dir, 'mtsat_mni.nii.gz')
-    ants.image_write(mtsat_mni, mtsat_mni_file)
-    ihmtr_mni = ants.image_read(run_data['ihmtr_mni']).resample_image_to_target(
-        splenium_mask_dwires, interp_type='nearestNeighbor'
+    icvf_t1w_file = get_filename(
+        name_source=run_data['icvf_acpc'],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w', 'param': 'icvf'},
     )
-    ihmtr_mni_file = os.path.join(temp_dir, 'ihmtr_mni.nii.gz')
-    ants.image_write(ihmtr_mni, ihmtr_mni_file)
+    ants.image_write(icvf_t1w_img, icvf_t1w_file)
+
+    # Select only the splenium voxels and warp to T1w space at DWI resolution
+    splenium_mask = ants.image_read(run_data['aseg_fsnative']) == 251
+    splenium_mask_t1w = ants.apply_transforms(
+        fixed=isovf_t1w_img,
+        moving=splenium_mask,
+        transformlist=[run_data['fs2t1w_xfm']],
+        interpolator='nearestNeighbor',
+    )
+    splenium_mask_file = os.path.join(temp_dir, 'splenium_mask_t1w_dwires.nii.gz')
+    ants.image_write(splenium_mask_t1w, splenium_mask_file)
+
+    # Resample T1w-space ihMTsatB1sq and ihMTR to DWI resolution
+    mtsat_t1w = ants.image_read(run_data['mtsat_t1w']).resample_image_to_target(
+        isovf_t1w_img, interp_type='nearestNeighbor'
+    )
+    mtsat_t1w_file = os.path.join(temp_dir, 'mtsat_t1w_dwires.nii.gz')
+    ants.image_write(mtsat_t1w, mtsat_t1w_file)
+    ihmtr_t1w = ants.image_read(run_data['ihmtr_t1w']).resample_image_to_target(
+        isovf_t1w_img, interp_type='nearestNeighbor'
+    )
+    ihmtr_t1w_file = os.path.join(temp_dir, 'ihmtr_t1w_dwires.nii.gz')
+    ants.image_write(ihmtr_t1w, ihmtr_t1w_file)
 
     # Get the data in the splenium
-    isovf_splenium = masking.apply_mask(run_data['isovf_mni'], splenium_mask_file_dwires)
-    icvf_splenium = masking.apply_mask(run_data['icvf_mni'], splenium_mask_file_dwires)
-    mtsat_splenium = masking.apply_mask(mtsat_mni_file, splenium_mask_file_dwires)
-    ihmtr_splenium = masking.apply_mask(ihmtr_mni_file, splenium_mask_file_dwires)
+    isovf_splenium = masking.apply_mask(isovf_t1w_file, splenium_mask_file)
+    icvf_splenium = masking.apply_mask(icvf_t1w_file, splenium_mask_file)
+    mtsat_splenium = masking.apply_mask(mtsat_t1w_file, splenium_mask_file)
+    ihmtr_splenium = masking.apply_mask(ihmtr_t1w_file, splenium_mask_file)
 
-    # Plot the splenium mask on top of the brain
+    # Plot the splenium mask on top of the T1w brain
     brain_img = ants.image_read(run_data['brain_fsnative'])
-    brain_img_dwires = ants.apply_transforms(
-        fixed=isovf,
+    brain_img_t1w = ants.apply_transforms(
+        fixed=isovf_t1w_img,
         moving=brain_img,
-        transformlist=[run_data['t1w2mni_xfm'], run_data['fs2t1w_xfm']],
-        interpolator='lanczosWindowedSinc',
+        transformlist=[run_data['fs2t1w_xfm']],
+        interpolator='nearestNeighbor',
     )
-    ants.image_write(brain_img_dwires, os.path.join(temp_dir, 'brain_mni_dwires.nii.gz'))
+    ants.image_write(brain_img_t1w, os.path.join(temp_dir, 'brain_t1w_dwires.nii.gz'))
 
     splenium_plot = get_filename(
-        name_source=run_data['isovf_mni'],
+        name_source=isovf_t1w_file,
         layout=layout,
         out_dir=out_dir,
         entities={'datatype': 'figures', 'desc': 'splenium', 'suffix': 'mask', 'extension': '.svg'},
         dismiss_entities=['model', 'param'],
     )
     plotting.plot_roi(
-        splenium_mask_file_dwires,
-        bg_img=os.path.join(temp_dir, 'brain_mni_dwires.nii.gz'),
+        splenium_mask_file,
+        bg_img=os.path.join(temp_dir, 'brain_t1w_dwires.nii.gz'),
         output_file=splenium_plot,
         display_mode='mosaic',
     )
@@ -245,13 +356,20 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     splenium_values = pd.Series(
         data={
             'subject_id': bids_filters['subject'],
-            'session_id': bids_filters['session'],
-            'run': bids_filters['run'],
+            'session_id': bids_filters.get('session'),
+            'run': bids_filters.get('run'),
             'ISOVF': np.nanmean(isovf_splenium),
             'ICVF': np.nanmean(icvf_splenium),
-            'MTsat': np.nanmean(mtsat_splenium),
+            'ihMTsatB1sq': np.nanmean(mtsat_splenium),
             'ihMTR': np.nanmean(ihmtr_splenium),
         },
+    )
+    write_splenium_values_sidecar(
+        layout=layout,
+        name_source=isovf_t1w_file,
+        out_dir=out_dir,
+        splenium_values=splenium_values,
+        run_data=run_data,
     )
 
     return splenium_values
@@ -287,10 +405,56 @@ def compute_scaling_factor(ICVF, MVF, ISOVF, g=0.7):
     return numerator / denominator
 
 
-def main():
+def write_dataset_description(in_dir, smriprep_dir, qsiprep_dir, noddi_dir, ihmt_dir, out_dir):
+    """Write the g-ratio derivative dataset description if it is missing."""
+    dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
+    if os.path.isfile(dataset_description_file):
+        return
+
+    dataset_description = {
+        'Name': 'NIBS G-Ratio Derivatives',
+        'BIDSVersion': '1.10.0',
+        'DatasetType': 'derivative',
+        'DatasetLinks': {
+            'raw': in_dir,
+            'smriprep': smriprep_dir,
+            'qsiprep': qsiprep_dir,
+            'qsirecon_noddi': noddi_dir,
+            'ihmt': ihmt_dir,
+        },
+        'GeneratedBy': [
+            {
+                'Name': 'Custom code',
+                'Description': 'Custom Python code. Per-subject splenium scaling inputs.',
+                'CodeURL': 'https://github.com/PennLINC/nibs',
+            }
+        ],
+    }
+    with open(dataset_description_file, 'w') as fobj:
+        json.dump(dataset_description, fobj, sort_keys=True, indent=4)
+
+
+def _get_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--subject-id',
+        type=lambda label: label.removeprefix('sub-'),
+        required=True,
+    )
+    return parser
+
+
+def _main(argv=None):
+    """Run the per-subject g-ratio scaling input workflow."""
+    options = _get_parser().parse_args(argv)
+    kwargs = vars(options)
+    main(**kwargs)
+
+
+def main(subject_id):
     in_dir = CFG['bids_dir']
     smriprep_dir = CFG['derivatives']['smriprep']
-    dipydki_dir = CFG['derivatives']['qsirecon_dipydki']
+    qsiprep_dir = CFG['derivatives']['qsiprep']
     noddi_dir = CFG['derivatives']['qsirecon_noddi']
     ihmt_dir = CFG['derivatives']['ihmt']
     out_dir = CFG['derivatives']['g_ratio']
@@ -300,73 +464,49 @@ def main():
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
-        derivatives=[smriprep_dir, dipydki_dir, noddi_dir, ihmt_dir],
+        derivatives=[smriprep_dir, qsiprep_dir, noddi_dir, ihmt_dir],
     )
+    write_dataset_description(in_dir, smriprep_dir, qsiprep_dir, noddi_dir, ihmt_dir, out_dir)
 
     base_query = {
         'space': 'T1w',
         'suffix': 'ihMTR',
         'extension': ['.nii', '.nii.gz'],
     }
-    subject_ids = layout.get_subjects(**base_query)
-    print(f'Found {len(subject_ids)} subjects', flush=True)
-    splenium_dfs = []
-    for subject_id in subject_ids:
-        print(f'Processing subject {subject_id}', flush=True)
-        sessions = layout.get_sessions(subject=subject_id, **base_query)
-        for session in sessions:
-            print(f'Processing session {session}', flush=True)
-            base_files = layout.get(
-                subject=subject_id,
-                session=session,
-                **base_query,
+    print(f'Processing subject {subject_id}', flush=True)
+    sessions = layout.get_sessions(subject=subject_id, **base_query)
+    for session in sessions:
+        print(f'Processing session {session}', flush=True)
+        base_files = layout.get(
+            subject=subject_id,
+            session=session,
+            **base_query,
+        )
+        if not base_files:
+            print(
+                f'No ihMTR files found for subject {subject_id} and session {session}',
+                flush=True,
             )
-            if not base_files:
-                print(
-                    f'No ihMTR files found for subject {subject_id} and session {session}',
-                    flush=True,
-                )
+            continue
+
+        for base_file in base_files:
+            entities = base_file.get_entities()
+            try:
+                run_data = collect_run_data(layout, entities, smriprep_dir=smriprep_dir)
+            except ValueError as e:
+                print(f'Failed {base_file}', flush=True)
+                print(e, flush=True)
                 continue
 
-            for base_file in base_files:
-                entities = base_file.get_entities()
-                try:
-                    run_data = collect_run_data(layout, entities, smriprep_dir=smriprep_dir)
-                except ValueError as e:
-                    print(f'Failed {base_file}', flush=True)
-                    print(e, flush=True)
-                    continue
-
-                fname = os.path.basename(base_file.path).split('.')[0]
-                run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-                os.makedirs(run_temp_dir, exist_ok=True)
-                splenium_values = process_run(layout, run_data, out_dir, run_temp_dir, entities)
-                splenium_dfs.append(splenium_values)
-
-    splenium_df = pd.DataFrame(splenium_dfs)
-    splenium_df.to_csv(os.path.join(CODE_DIR, 'data/splenium_values.tsv'), sep='\t', index=False)
-
-    # Calculate the scaling factors
-    MTsat_ISOVF_ICVF_scalar = compute_scaling_factor(
-        ICVF=splenium_df['ICVF'].mean(),
-        MVF=splenium_df['MTsat'].mean(),
-        ISOVF=splenium_df['ISOVF'].mean(),
-        g=0.7,
-    )
-    ihMTR_ISOVF_ICVF_scalar = compute_scaling_factor(
-        ICVF=splenium_df['ICVF'].mean(),
-        MVF=splenium_df['ihMTR'].mean(),
-        ISOVF=splenium_df['ISOVF'].mean(),
-        g=0.7,
-    )
-
-    print(f'MTsat_ISOVF_ICVF_scalar: {MTsat_ISOVF_ICVF_scalar}', flush=True)
-    print(f'ihMTR_ISOVF_ICVF_scalar: {ihMTR_ISOVF_ICVF_scalar}', flush=True)
+            fname = os.path.basename(base_file.path).split('.')[0]
+            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+            os.makedirs(run_temp_dir, exist_ok=True)
+            process_run(layout, run_data, out_dir, run_temp_dir, entities)
 
     print('DONE!', flush=True)
 
 
 if __name__ == '__main__':
-    main()
+    _main()

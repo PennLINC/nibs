@@ -1,0 +1,32 @@
+package: MEGRE Derivatives
+sections:
+- name: Processing Summary
+  ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo
+  reportlets:
+  - bids: {datatype: figures, desc: denoise, suffix: .*, regex_search: True}
+    subtitle: Complex MP-PCA denoising (dwidenoise) of MEGRE data, raw vs denoised
+    static: false
+  - bids: {datatype: figures, desc: residual, suffix: .*, regex_search: True}
+    subtitle: Denoising residual (|raw - denoised|) - should look like noise, not anatomy
+    static: true
+  - bids: {datatype: figures, space: T1w, suffix: .*, regex_search: True}
+    subtitle: Alignment of MEGRE data to sMRIPrep T1w space
+    static: false
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*coreg, suffix: .*, regex_search: True}
+    subtitle: Alignment of MEGRE data to MNI152NLin2009cAsym space
+    static: false
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: R2starmap, regex_search: True}
+    subtitle: R2* map (complex-NLLS) in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: R2primemap, regex_search: True}
+    subtitle: R2' map (R2* - R2) in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: S0map, regex_search: True}
+    subtitle: S0 map (complex-NLLS) in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: T2starmap, regex_search: True}
+    subtitle: T2* map (complex-NLLS) in MNI152NLin2009cAsym space
+    static: true
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: .*scalar, suffix: Rsquaredmap, regex_search: True}
+    subtitle: R-squared (goodness of fit) map in MNI152NLin2009cAsym space
+    static: true

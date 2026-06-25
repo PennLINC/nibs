@@ -1,27 +1,17 @@
 """Calculate T2/R2/S0 maps from MESE data.
 
-This is still just a draft.
-I need to calculate SDC from the first echo and apply that to the T2 map.
-Plus we need proper output names.
-
 Steps:
 
-1.  Calculate T2 map from AP MESE data.
-2.  Calculate distortion map from AP and PA echo-1 data with SDCFlows.
-    -   topup vs. 3dQwarp vs. something else?
-    -   Currently disabled.
-3.  Apply SDC transform to AP echo-1 image.
-    - Currently disabled.  This is not needed for the T2 map.
-4.  Coregister SDCed AP echo-1 image to preprocessed T1w from sMRIPrep.
-    -   Currently using non-SDCed MESE data.
-5.  Write out coregistration transform to preprocessed T1w.
-6.  Warp T2 map to MNI152NLin2009cAsym (distortion map, coregistration transform,
+1.  Register all AP MESE echoes to first echo.
+2.  Calculate R2 map from AP MESE data.
+3.  Coregister AP echo-1 image to preprocessed T1w from sMRIPrep.
+4.  Write out coregistration transform to preprocessed T1w.
+5.  Warp R2, T2, S0 maps to MNI152NLin2009cAsym (coregistration transform,
     normalization transform from sMRIPrep).
-7.  Warp S0 map to MNI152NLin2009cAsym.
 
 Notes:
 
-- The T2 map will be used for QSM processing.
+- The R2 map will be used for QSM processing.
 - sMRIPrep's preprocessed T1w image is used as the "native T1w space".
 - This must be run after sMRIPrep.
 """
@@ -32,7 +22,7 @@ import argparse
 import json
 import os
 import shutil
-from pprint import pprint
+from pprint import pformat
 
 import ants
 import nibabel as nb
@@ -50,13 +40,13 @@ from utils import (
     run_command,
 )
 
-os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
-SYNTHSTRIP_SIF = CFG['apptainer']['synthstrip']
+SYNTHSTRIP_IMAGE = 'freesurfer/synthstrip:1.7'
 
 os.environ['SUBJECTS_DIR'] = CFG['freesurfer']['subjects_dir']
+os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
 os.environ['FS_LICENSE'] = CFG['freesurfer']['license']
 
 
@@ -195,8 +185,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
 
         run_data[key] = files
 
-    pprint(run_data)
-
+    print(f'Collected run data:\n{pformat(run_data, indent=4)}', flush=True)
     return run_data
 
 
@@ -230,6 +219,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MNI152NLin2009cAsym', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
     wm_seg_img.to_filename(wm_seg_file)
@@ -247,12 +237,14 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
+        dismiss_entities=['reconstruction'],
     )
     ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
-    # Coregister echoes 2-4 of AP MESE data to echo 1
-    hmced_files, brain_mask = iterative_motion_correction(
+    # Coregister echoes 2-4 of AP MESE data to echo 1. The returned reference is
+    # the first echo.
+    hmced_files, brain_mask, mese_ref = iterative_motion_correction(
         name_sources=run_data['mese_mag_ap'],
         layout=layout,
         in_files=run_data['mese_mag_ap'],
@@ -260,9 +252,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         temp_dir=temp_dir,
     )
 
-    mese_mag_ap_echo1 = run_data['mese_mag_ap'][0]
-
-    mese_mag_ap_echo1_t1_file = get_filename(
+    mese_ref_t1_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
@@ -271,7 +261,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     t1w_img = ants.image_read(run_data['t1w'])
 
-    # Coregister AP echo-1 data to preprocessed T1w
+    # Coregister the MESE reference to preprocessed T1w
     mese_to_smriprep_warp_xfm = get_filename(
         name_source=name_source,
         layout=layout,
@@ -327,7 +317,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         '--output',
         xfm_prefix,
         '--interpolation',
-        'LanczosWindowedSinc',
+        'Linear',
         '--winsorize-image-intensities',
         '[0.005,0.995]',
         '--initial-moving-transform',
@@ -337,7 +327,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         '--transform',
         'Rigid[0.1]',
         '--metric',
-        f'Mattes[{run_data["t1w"]},{mese_mag_ap_echo1},1,32]',
+        f'Mattes[{run_data["t1w"]},{mese_ref},1,32]',
         '--convergence',
         '[50x50x50,1e-8,10]',
         '--shrink-factors',
@@ -347,7 +337,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         '--transform',
         'SyN[0.2,3,0.5]',
         '--metric',
-        f'CC[{run_data["t1w"]},{mese_mag_ap_echo1},1,2]',
+        f'CC[{run_data["t1w"]},{mese_ref},1,2]',
         '--convergence',
         '[20x10,1e-6,10]',
         '--shrink-factors',
@@ -358,27 +348,51 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.registration(args, None)
     in_mese_to_smriprep_affine_xfm = f'{xfm_prefix}0GenericAffine.mat'
     in_mese_to_smriprep_warp_xfm = f'{xfm_prefix}1Warp.nii.gz'
+    in_mese_to_smriprep_inverse_warp_xfm = f'{xfm_prefix}1InverseWarp.nii.gz'
     assert os.path.isfile(in_mese_to_smriprep_warp_xfm), f'{in_mese_to_smriprep_warp_xfm} not found'
     assert os.path.isfile(in_mese_to_smriprep_affine_xfm), (
         f'{in_mese_to_smriprep_affine_xfm} not found'
     )
+    assert os.path.isfile(in_mese_to_smriprep_inverse_warp_xfm), (
+        f'{in_mese_to_smriprep_inverse_warp_xfm} not found'
+    )
     shutil.copyfile(in_mese_to_smriprep_warp_xfm, mese_to_smriprep_warp_xfm)
     shutil.copyfile(in_mese_to_smriprep_affine_xfm, mese_to_smriprep_affine_xfm)
 
-    mese_mag_ap_echo1_t1_img = ants.apply_transforms(
+    mese_ref_t1_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w']),
-        moving=ants.image_read(mese_mag_ap_echo1),
+        moving=ants.image_read(mese_ref),
         transformlist=[mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm],
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
-    ants.image_write(mese_mag_ap_echo1_t1_img, mese_mag_ap_echo1_t1_file)
+    ants.image_write(mese_ref_t1_img, mese_ref_t1_file)
 
     mese_to_smriprep = [mese_to_smriprep_warp_xfm, mese_to_smriprep_affine_xfm]
 
-    plot_coregistration(
-        name_source=mese_mag_ap_echo1_t1_file,
+    # Brain mask in MESEref space, derived from the sMRIPrep T1w brain mask by
+    # applying the inverse MESEref->T1w coregistration (inverse warp + inverse
+    # affine). This is the published brain mask and is used to restrict the
+    # R2/T2/S0 fit, rather than a mask computed directly from the MESE data.
+    brain_mask_meseref_file = get_filename(
+        name_source=name_source,
         layout=layout,
-        in_file=mese_mag_ap_echo1_t1_file,
+        out_dir=out_dir,
+        entities={'space': 'MESEref', 'desc': 'brain', 'suffix': 'mask'},
+        dismiss_entities=['echo', 'direction'],
+    )
+    brain_mask_meseref_img = ants.apply_transforms(
+        fixed=ants.image_read(mese_ref),
+        moving=ants.image_read(run_data['t1w_mask']),
+        transformlist=[in_mese_to_smriprep_affine_xfm, in_mese_to_smriprep_inverse_warp_xfm],
+        whichtoinvert=[True, False],
+        interpolator='nearestNeighbor',
+    )
+    ants.image_write(brain_mask_meseref_img, brain_mask_meseref_file)
+
+    plot_coregistration(
+        name_source=mese_ref_t1_file,
+        layout=layout,
+        in_file=mese_ref_t1_file,
         t1_file=run_data['t1w'],
         out_dir=out_dir,
         source_space='MESEref',
@@ -386,23 +400,23 @@ def process_run(layout, run_data, out_dir, temp_dir):
         wm_seg=wm_seg_t1w_file,
     )
 
-    mese_mag_ap_echo1_mni_file = get_filename(
+    mese_ref_mni_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MNI152NLin2009cAsym', 'suffix': 'MESE'},
     )
-    mese_mag_ap_echo1_mni_img = ants.apply_transforms(
+    mese_ref_mni_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w_mni']),
-        moving=ants.image_read(mese_mag_ap_echo1),
+        moving=ants.image_read(mese_ref),
         transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
-        interpolator='lanczosWindowedSinc',
+        interpolator='nearestNeighbor',
     )
-    ants.image_write(mese_mag_ap_echo1_mni_img, mese_mag_ap_echo1_mni_file)
+    ants.image_write(mese_ref_mni_img, mese_ref_mni_file)
     plot_coregistration(
-        name_source=mese_mag_ap_echo1_mni_file,
+        name_source=mese_ref_mni_file,
         layout=layout,
-        in_file=mese_mag_ap_echo1_mni_file,
+        in_file=mese_ref_mni_file,
         t1_file=run_data['t1w_mni'],
         out_dir=out_dir,
         source_space='MESEref',
@@ -410,10 +424,13 @@ def process_run(layout, run_data, out_dir, temp_dir):
         wm_seg=wm_seg_file,
     )
 
-    # Calculate T2 map from AP MESE data
+    # Calculate T2 map from AP MESE data, restricted to the sMRIPrep-derived
+    # brain mask so the maps are zero outside the brain.
     t2_img, r2_img, s0_img, r_squared_img = fit_monoexponential(
         in_files=hmced_files,
         echo_times=echo_times,
+        mask=brain_mask_meseref_file,
+        n_threads=os.cpu_count(),
     )
 
     # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
@@ -448,7 +465,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=mese_to_smriprep,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -463,7 +480,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']] + mese_to_smriprep,
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -515,19 +532,21 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         List of paths to the motion-corrected images.
     brain_mask : str
         Path to the brain mask.
+    ref_file : str
+        Path to the MESE reference image (first echo).
     """
-    # Step 1: Create a brain mask from the first image with SynthStrip.
-    brain_mask = get_filename(
-        name_source=in_files[0],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MESEref', 'desc': 'brain', 'suffix': 'mask'},
-        dismiss_entities=['echo', 'direction'],
-    )
+    # Step 1: Create a brain mask from the first image with SynthStrip. This
+    # mask is used internally for skull-stripping the echoes during motion
+    # correction and as the moving mask for the MESEref->T1w coregistration; the
+    # published brain mask derivative is derived from the sMRIPrep mask in
+    # process_run, so this one is kept in the working directory only.
+    brain_mask = os.path.join(temp_dir, 'synthstrip_brain_mask.nii.gz')
     skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_files[0])}')
-    cmd = (
-        f'singularity run {SYNTHSTRIP_SIF} -i {in_files[0]} -o {skullstripped_file} -m {brain_mask}'
-    )
+    vol_dirs = {
+        os.path.dirname(os.path.abspath(p)) for p in [in_files[0], skullstripped_file, brain_mask]
+    }
+    vol_args = ' '.join(f'-v {d}:{d}' for d in vol_dirs)
+    cmd = f'docker run --rm {vol_args} {SYNTHSTRIP_IMAGE} -i {in_files[0]} -o {skullstripped_file} -m {brain_mask}'
     run_command(cmd)
 
     # Step 2: Skull-strip each image.
@@ -537,7 +556,9 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             continue
 
         skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_file)}')
-        cmd = f'singularity run {SYNTHSTRIP_SIF} -i {in_file} -o {skullstripped_file}'
+        vol_dirs = {os.path.dirname(os.path.abspath(p)) for p in [in_file, skullstripped_file]}
+        vol_args = ' '.join(f'-v {d}:{d}' for d in vol_dirs)
+        cmd = f'docker run --rm {vol_args} {SYNTHSTRIP_IMAGE} -i {in_file} -o {skullstripped_file}'
         run_command(cmd)
         skullstripped_files.append(skullstripped_file)
 
@@ -572,30 +593,12 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         shutil.copyfile(transform, transform_file)
         transforms.append(transform_file)
 
-    # Step 4: Write out first image as MESEref.nii.gz
-    ref_file = get_filename(
-        name_source=name_sources[0],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'suffix': 'MESEref'},
-        dismiss_entities=['echo', 'direction'],
-    )
-    ants.image_write(ref_img, ref_file)
-
-    # Step 5: Apply transforms to original images.
+    # Step 4: Apply transforms to bring each echo into MESEref space. Echo 1 is
+    # the registration target (identity); the others are resampled to its grid.
     hmced_files = [in_files[0]]
+    mese_space_files = [in_files[0]]
     for i_file, in_file in enumerate(in_files):
         if i_file == 0:
-            plot_coregistration(
-                name_source=in_file,
-                layout=layout,
-                in_file=in_file,
-                t1_file=ref_file,
-                out_dir=out_dir,
-                source_space='MESE',
-                target_space='MESEref',
-                wm_seg=brain_mask,
-            )
             continue
 
         transform_file = transforms[i_file]
@@ -606,26 +609,40 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             entities={'space': 'MESEref'},
         )
         out_img = ants.apply_transforms(
-            fixed=ants.image_read(ref_file),
+            fixed=ref_img,
             moving=ants.image_read(in_file),
             transformlist=[transform_file],
-            interpolator='lanczosWindowedSinc',
+            interpolator='nearestNeighbor',
         )
         ants.image_write(out_img, out_file)
+        hmced_files.append(out_file)
+        mese_space_files.append(out_file)
 
+    # Step 5: The MESE reference is the first echo.
+    ref_file = get_filename(
+        name_source=name_sources[0],
+        layout=layout,
+        out_dir=out_dir,
+        entities={'suffix': 'MESEref'},
+        dismiss_entities=['echo', 'direction'],
+    )
+    grid_img = nb.load(hmced_files[0])
+    grid_img.to_filename(ref_file)
+
+    # Step 6: Plot each motion-corrected echo against the reference.
+    for i_file, mese_file in enumerate(mese_space_files):
         plot_coregistration(
-            name_source=out_file,
+            name_source=name_sources[i_file] if i_file == 0 else mese_file,
             layout=layout,
-            in_file=out_file,
+            in_file=mese_file,
             t1_file=ref_file,
             out_dir=out_dir,
             source_space='MESE',
             target_space='MESEref',
             wm_seg=brain_mask,
         )
-        hmced_files.append(out_file)
 
-    return hmced_files, brain_mask
+    return hmced_files, brain_mask, ref_file
 
 
 def _get_parser() -> argparse.ArgumentParser:
@@ -633,7 +650,8 @@ def _get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--subject-id',
         type=lambda label: label.removeprefix('sub-'),
-        required=True,
+        default=None,
+        help='Subject to process. If not provided, all subjects are processed.',
     )
     return parser
 
@@ -653,66 +671,80 @@ def main(subject_id):
     temp_dir = os.path.join(CFG['work_dir'], 'mese')
     os.makedirs(temp_dir, exist_ok=True)
 
-    bootstrap_file = os.path.join(CODE_DIR, 'processing', 'reports_spec_mese.yml')
+    bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_mese.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
     layout = BIDSLayout(
         in_dir,
-        config=os.path.join(CODE_DIR, 'nibs_bids_config.json'),
+        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         derivatives=[smriprep_dir],
     )
 
-    print(f'Processing subject {subject_id}')
-    sessions = layout.get_sessions(subject=subject_id, suffix='MESE')
-    for session in sessions:
-        print(f'Processing session {session}')
-        mese_files = layout.get(
-            subject=subject_id,
-            session=session,
-            echo=1,
-            part=['mag', Query.NONE],
-            direction='AP',
-            run='01',
-            suffix='MESE',
-            extension=['.nii', '.nii.gz'],
-        )
-        if not mese_files:
-            print(f'No MESE files found for subject {subject_id} and session {session}')
-            continue
+    if subject_id:
+        subjects = [subject_id]
+    else:
+        subjects = layout.get_subjects(suffix='MESE')
 
-        for mese_file in mese_files:
-            print(f'Processing MESE file {mese_file.path}')
-            entities = mese_file.get_entities()
-            entities.pop('echo')
-            if 'part' in entities:
-                entities.pop('part')
-
-            entities.pop('direction')
-            try:
-                run_data = collect_run_data(layout, entities)
-            except ValueError as e:
-                print(f'Failed {mese_file}')
-                print(e)
+    for subject_id in subjects:
+        print(f'Processing subject {subject_id}')
+        sessions = layout.get_sessions(subject=subject_id, suffix='MESE')
+        for session in sessions:
+            print(f'Processing session {session}')
+            # The per-session report is generated last, so its presence marks a
+            # session that has already been processed successfully.
+            report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
+            report_filename = f'sub-{subject_id}_ses-{session}.html'
+            report_file = os.path.join(report_dir, report_filename)
+            if os.path.isfile(report_file):
+                print(f'Skipping already-processed session {session} for subject {subject_id}')
                 continue
-            fname = os.path.basename(mese_file.path).split('.')[0]
-            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-            os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir)
 
-        report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
-        robj = Report(
-            report_dir,
-            run_uuid=None,
-            bootstrap_file=bootstrap_file,
-            out_filename=f'sub-{subject_id}_ses-{session}.html',
-            reportlets_dir=out_dir,
-            plugins=None,
-            plugin_meta=None,
-            subject=subject_id,
-            session=session,
-        )
-        robj.generate_report()
+            mese_files = layout.get(
+                subject=subject_id,
+                session=session,
+                echo=1,
+                part=['mag', Query.NONE],
+                direction='AP',
+                run='01',
+                suffix='MESE',
+                extension=['.nii', '.nii.gz'],
+            )
+            if not mese_files:
+                print(f'No MESE files found for subject {subject_id} and session {session}')
+                continue
+
+            for mese_file in mese_files:
+                print(f'Processing MESE file {mese_file.path}')
+                entities = mese_file.get_entities()
+                entities.pop('echo')
+                if 'part' in entities:
+                    entities.pop('part')
+
+                entities.pop('direction')
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {mese_file}')
+                    print(e)
+                    continue
+                fname = os.path.basename(mese_file.path).split('.')[0]
+                run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+                os.makedirs(run_temp_dir, exist_ok=True)
+                process_run(layout, run_data, out_dir, run_temp_dir)
+
+            robj = Report(
+                report_dir,
+                run_uuid=None,
+                bootstrap_file=bootstrap_file,
+                out_filename=report_filename,
+                reportlets_dir=out_dir,
+                plugins=None,
+                plugin_meta=None,
+                subject=subject_id,
+                session=session,
+            )
+            robj.generate_report()
 
     # Write out dataset_description.json
     dataset_description_file = os.path.join(out_dir, 'dataset_description.json')

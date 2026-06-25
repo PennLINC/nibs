@@ -1,22 +1,55 @@
 """Shared utilities for processing pipelines.
 
 Provides ``load_config``, ``run_command``, ``get_filename``,
-``coregister_to_t1``, ``fit_monoexponential``, ``plot_scalar_map``,
-and ``calculate_r_squared``.
+``coregister_to_t1``, ``fit_monoexponential``, ``fit_complex_r2star``,
+``plot_scalar_map``, ``plot_denoise``, ``plot_residual``, and ``calculate_r_squared``.
 """
 
 from __future__ import annotations
 
 import os
 import sys
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import numpy as np
+# Force matplotlib's non-interactive Agg backend. The default interactive
+# backend (e.g. TkAgg) starts a Tk interpreter whose figure destructors run
+# from joblib's loky result-handler threads during GC; a Tk __del__ outside the
+# main loop blocks and deadlocks the worker pool used by fit_complex_r2star
+# (and spams "main thread is not in main loop"). Setting MPLBACKEND only works
+# if matplotlib has not been imported yet, so we also force=True to override a
+# backend that an earlier import (nilearn, nireports, ...) may have selected.
+os.environ.setdefault('MPLBACKEND', 'Agg')
+import matplotlib
+
+matplotlib.use('Agg', force=True)
+
+import numpy as np
+
+try:
+    from tqdm.auto import tqdm
+except ImportError:  # pragma: no cover - tqdm is an optional progress dependency
+
+    class tqdm:  # noqa: N801 - mimic tqdm's lowercase public name
+        """Minimal no-op fallback used when tqdm is unavailable."""
+
+        def __init__(self, iterable=None, total=None, desc=None, **kwargs):
+            self._iterable = iterable
+
+        def __iter__(self):
+            return iter(self._iterable or [])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def update(self, n=1):
+            pass
+
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from config import load_config  # noqa: E402, F401
+from configuration.config import load_config  # noqa: E402, F401
 
 
 def run_command(command: str | list[str], env: dict[str, str] | None = None) -> None:
@@ -158,7 +191,7 @@ def coregister_to_t1(
         layout=layout,
         out_dir=out_dir,
         entities={'space': target_space, 'desc': 't1threetissue', 'suffix': 'dseg'},
-        dismiss_entities=['echo', 'inv', 'reconstruction'],
+        dismiss_entities=['echo', 'inv', 'reconstruction', 'part'],
     )
     ants.image_write(dseg_img, dseg_file)
 
@@ -176,7 +209,7 @@ def coregister_to_t1(
         layout=layout,
         out_dir=out_dir,
         entities={'space': target_space, 'desc': 'brain', 'suffix': 'mask'},
-        dismiss_entities=['echo', 'inv', 'reconstruction'],
+        dismiss_entities=['echo', 'inv', 'reconstruction', 'part'],
     )
     ants.image_write(mask_img, mask_file)
 
@@ -200,11 +233,44 @@ def coregister_to_t1(
             'suffix': 'xfm',
             'extension': 'txt' if transform.endswith('.txt') else 'mat',
         },
-        dismiss_entities=['acquisition', 'inv', 'reconstruction', 'mt', 'echo', 'part'],
+        dismiss_entities=[
+            'acquisition',
+            'desc',
+            'inv',
+            'reconstruction',
+            'mt',
+            'echo',
+            'part',
+            'space',
+        ],
     )
     shutil.copyfile(transform, transform_file)
 
     return transform_file
+
+
+def _ensure_valid_cwd() -> None:
+    """Restore a valid working directory if the current one became invalid.
+
+    On WSL/``/mnt/c`` (9p) the working-directory handle can go stale mid-run,
+    making ``os.getcwd()`` raise ``FileNotFoundError`` (nipype's ``indirectory``
+    and many libraries read it). Pin the cwd to a fixed ext4 path so it cannot be
+    invalidated again. The entry-point scripts do this at startup; this is a
+    defensive backstop.
+    """
+    try:
+        os.getcwd()
+        return
+    except (FileNotFoundError, OSError):
+        pass
+
+    for path in ('/tmp/nibs-cwd', '/tmp', '/'):
+        try:
+            os.makedirs(path, exist_ok=True)
+            os.chdir(path)
+            return
+        except OSError:
+            continue
 
 
 def plot_coregistration(
@@ -251,6 +317,8 @@ def plot_coregistration(
         out_dir=out_dir,
         entities={'datatype': 'figures', 'space': target_space, 'desc': desc, 'extension': '.svg'},
     )
+    out_dir = os.path.dirname(out_report)
+    os.makedirs(out_dir, exist_ok=True)
     if wm_seg is not None:
         kwargs = {'wm_seg': wm_seg}
     else:
@@ -265,10 +333,19 @@ def plot_coregistration(
         out_report=out_report,
         **kwargs,
     )
+    # nipype reads os.getcwd() to save/restore the working directory; if that
+    # directory was removed mid-run (e.g. scratch cleanup) this raises
+    # FileNotFoundError before any work happens. Restore a stable cwd first.
+    _ensure_valid_cwd()
     coreg_report.run()
 
 
-def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
+def fit_monoexponential(
+    in_files: list[str],
+    echo_times: list[float],
+    mask: str | None = None,
+    n_threads: int = 4,
+) -> tuple:
     """Fit monoexponential decay model to MESE data.
 
     Parameters
@@ -276,62 +353,75 @@ def fit_monoexponential(in_files: list[str], echo_times: list[float]) -> tuple:
     in_files : list of str
         List of paths to MESE data.
     echo_times : list of float
-        List of echo times in milliseconds.
+        List of echo times in seconds.
+    mask : str or None
+        Path to a brain mask on the same grid as ``in_files``. The fit is
+        restricted to in-mask voxels and out-of-mask voxels are set to 0. If
+        None, every voxel is fit (legacy behavior).
+    n_threads : int
+        Number of threads to use.
 
     Returns
     -------
     t2s_s_img : nibabel.Nifti1Image
-        T2* map in seconds.
+        T2 map in seconds.
     r2s_hz_img : nibabel.Nifti1Image
-        R2* map in Hertz.
+        R2 map in Hertz.
     s0_img : nibabel.Nifti1Image
         S0 map in arbitrary units.
     """
+    import nibabel as nb
     import numpy as np
-    from tedana import io, decay
+    from nilearn import masking
+    from tedana import decay
 
-    data_cat, ref_img = io.load_data(in_files, n_echos=len(echo_times))
+    in_img = nb.load(in_files[0])
+    if mask is None:
+        mask_arr = np.ones(in_img.shape[:3], dtype=int)
+        mask_img = nb.Nifti1Image(mask_arr, in_img.affine, in_img.header)
+    else:
+        mask_img = nb.load(mask)
+    data_arrays = [masking.apply_mask(nb.load(f), mask_img)[:, None] for f in in_files]
+    data_cat = np.stack(data_arrays, axis=1)
 
     # Fit model on all voxels, using all echoes
-    mask = np.ones(data_cat.shape[0], dtype=int)
-    masksum = mask * len(echo_times)
+    masksum = np.full(data_cat.shape[0], len(echo_times))
 
-    echo_times_ms = [te * 1000 for te in echo_times]
-    t2s_limited, s0_limited, _, _ = decay.fit_monoexponential(
+    t2s, s0 = decay.fit_monoexponential(
         data_cat=data_cat,
-        echo_times=echo_times_ms,
+        echo_times=echo_times,
         adaptive_mask=masksum,
         report=False,
-    )
+        n_threads=n_threads,
+    )[:2]
     # Limit positive infinite values to maximum finite value
-    t2s_limited[np.isinf(t2s_limited) & (t2s_limited > 0)] = np.nanmax(
-        t2s_limited[np.isfinite(t2s_limited)]
-    )
-    s0_limited[np.isinf(s0_limited) & (s0_limited > 0)] = np.nanmax(
-        s0_limited[np.isfinite(s0_limited)]
-    )
+    t2s[np.isinf(t2s) & (t2s > 0)] = np.nanmax(t2s[np.isfinite(t2s)])
+    s0[np.isinf(s0) & (s0 > 0)] = np.nanmax(s0[np.isfinite(s0)])
     # Set negative infinite values to minimum finite value
-    t2s_limited[np.isinf(t2s_limited) & (t2s_limited < 0)] = np.nanmin(
-        t2s_limited[np.isfinite(t2s_limited)]
-    )
-    s0_limited[np.isinf(s0_limited) & (s0_limited < 0)] = np.nanmin(
-        s0_limited[np.isfinite(s0_limited)]
-    )
+    t2s[np.isinf(t2s) & (t2s < 0)] = np.nanmin(t2s[np.isfinite(t2s)])
+    s0[np.isinf(s0) & (s0 < 0)] = np.nanmin(s0[np.isfinite(s0)])
+
+    # Set negative values to 0
+    t2s[t2s < 0] = 0
+    s0[s0 < 0] = 0
+
     # Set nan values to 0
-    t2s_limited[np.isnan(t2s_limited)] = 0
-    s0_limited[np.isnan(s0_limited)] = 0
+    t2s[np.isnan(t2s)] = 0
+    s0[np.isnan(s0)] = 0
 
-    r_squared = calculate_r_squared(np.squeeze(data_cat), echo_times_ms, s0_limited, t2s_limited)
+    r_squared = calculate_r_squared(np.squeeze(data_cat), echo_times, s0, t2s)
 
-    t2s_s = t2s_limited / 1000
+    r2s_hz = np.zeros_like(t2s)
+    np.divide(1, t2s, out=r2s_hz, where=t2s != 0)
 
-    r2s_hz = np.zeros_like(t2s_s)
-    np.divide(1, t2s_s, out=r2s_hz, where=t2s_s != 0)
-
-    t2s_s_img = io.new_nii_like(ref_img, t2s_s)
-    r2s_hz_img = io.new_nii_like(ref_img, r2s_hz)
-    s0_img = io.new_nii_like(ref_img, s0_limited)
-    r_squared_img = io.new_nii_like(ref_img, r_squared)
+    t2s_s_img = masking.unmask(t2s, mask_img)
+    t2s_s_img.header.set_data_dtype(np.float32)
+    r2s_hz_img = masking.unmask(r2s_hz, mask_img)
+    r2s_hz_img.header.set_data_dtype(np.float32)
+    s0_img = masking.unmask(s0, mask_img)
+    s0_img.header.set_data_dtype(np.float32)
+    r_squared_img = masking.unmask(r_squared, mask_img)
+    r_squared_img.header.set_data_dtype(np.float32)
     return t2s_s_img, r2s_hz_img, s0_img, r_squared_img
 
 
@@ -344,6 +434,7 @@ def plot_scalar_map(
     vmin: float | None = None,
     vmax: float | None = None,
     cmap: str = 'Reds',
+    symmetric: bool = False,
 ) -> None:
     """Plot a scalar map overlaid on an anatomical underlay with a tissue-type histogram.
 
@@ -369,6 +460,10 @@ def plot_scalar_map(
         Maximum value for the color scale.
     cmap : str, optional
         Matplotlib colormap name. Default is ``'Reds'``.
+    symmetric : bool, optional
+        If True, force the color scale (and colorbar) to be symmetric about zero,
+        spanning ``[-bound, bound]`` with ``bound = max(|vmin|, |vmax|)``. Use for
+        signed maps (e.g. R2') with a diverging colormap. Default is False.
     """
     import matplotlib.pyplot as plt
     import nibabel as nb
@@ -441,6 +536,10 @@ def plot_scalar_map(
     if vmax is not None:
         xlim[1] = vmax
 
+    if symmetric:
+        bound = max(abs(xlim[0]), abs(xlim[1]))
+        xlim = [-bound, bound]
+
     ax0.set_xlim(xlim)
 
     xticks = [
@@ -475,6 +574,350 @@ def plot_scalar_map(
     cbar.set_ticks(xticks)
     cbar.set_ticklabels(xticklabels)
     fig.savefig(out_file, bbox_inches=0)
+    plt.close(fig)
+
+
+def plot_scalar_comparison(
+    x_file: str,
+    y_file: str,
+    mask_file: str,
+    out_file: str,
+    x_label: str,
+    y_label: str,
+    title: str | None = None,
+) -> None:
+    """Head-to-head voxelwise comparison of two scalar maps over a brain mask.
+
+    Renders a log-density hexbin scatter of the in-mask voxel values of two
+    maps (``x_file`` on the x-axis, ``y_file`` on the y-axis) with an identity
+    line and the Pearson correlation, for comparing two estimates of the same
+    quantity (e.g. R2* from two pipelines).
+
+    Parameters
+    ----------
+    x_file, y_file : str
+        Scalar maps to compare. ``y_file`` (and the mask) are resampled onto the
+        ``x_file`` grid if their shape/affine differ.
+    mask_file : str
+        Brain mask restricting the voxels that enter the scatter.
+    out_file : str
+        Path for the saved SVG figure.
+    x_label, y_label : str
+        Axis labels.
+    title : str, optional
+        Figure title.
+    """
+    import matplotlib.pyplot as plt
+    import nibabel as nb
+    import numpy as np
+    from nilearn import image
+
+    if not os.path.isdir(os.path.dirname(out_file)):
+        os.makedirs(os.path.dirname(out_file), exist_ok=True)
+
+    x_img = nb.load(x_file)
+    y_img = nb.load(y_file)
+    mask_img = nb.load(mask_file)
+    # Put y and the mask on the x grid if they differ (both are nominally in
+    # MEGRE space, but resample defensively so the voxels line up).
+    if y_img.shape != x_img.shape or not np.allclose(y_img.affine, x_img.affine):
+        y_img = image.resample_to_img(y_img, x_img, interpolation='linear')
+    if mask_img.shape != x_img.shape or not np.allclose(mask_img.affine, x_img.affine):
+        mask_img = image.resample_to_img(mask_img, x_img, interpolation='nearest')
+
+    x = np.asarray(x_img.dataobj, dtype=np.float64)
+    y = np.asarray(y_img.dataobj, dtype=np.float64)
+    m = np.asarray(mask_img.dataobj) > 0
+    # Drop non-finite and the zero-fill used for unfit/out-of-mask voxels.
+    sel = m & np.isfinite(x) & np.isfinite(y) & (x != 0) & (y != 0)
+    xv = x[sel]
+    yv = y[sel]
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+    if xv.size > 1:
+        lo = float(min(xv.min(), yv.min()))
+        hi = float(max(xv.max(), yv.max()))
+        hb = ax.hexbin(xv, yv, gridsize=80, bins='log', cmap='viridis', mincnt=1)
+        fig.colorbar(hb, ax=ax, label='log10(voxel count)')
+        ax.plot([lo, hi], [lo, hi], 'r--', linewidth=1, label='identity')
+        r = float(np.corrcoef(xv, yv)[0, 1])
+        ax.set_xlim(lo, hi)
+        ax.set_ylim(lo, hi)
+        ax.set_aspect('equal')
+        ax.text(
+            0.05,
+            0.95,
+            f'r = {r:.3f}\nn = {xv.size}',
+            transform=ax.transAxes,
+            va='top',
+            ha='left',
+            bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.7},
+        )
+        ax.legend(loc='lower right')
+    else:
+        ax.text(
+            0.5,
+            0.5,
+            'insufficient overlapping voxels',
+            ha='center',
+            va='center',
+            transform=ax.transAxes,
+        )
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    if title:
+        ax.set_title(title)
+    fig.savefig(out_file, bbox_inches='tight')
+    plt.close(fig)
+
+
+def _plot_denoise_panel(
+    short_te_img,
+    long_te_img,
+    div_id: str,
+    cuts: dict,
+    label: str,
+    contour_img=None,
+    contour_levels: list | None = None,
+    contour_colors: list | None = None,
+    cmap: str | None = None,
+    order: tuple = ('z', 'x', 'y'),
+) -> list:
+    """Render one denoising panel (a short-TE and a long-TE echo) as SVG figures.
+
+    Ported from qsiprep's ``plot_denoise``. Each echo is plotted along three
+    orientations, optionally with the noise map drawn as a few contour lines on
+    top, and returned as a list of :class:`SVGFigure` objects for
+    :func:`compose_view`.
+    """
+    from uuid import uuid4
+
+    import nireports._vendored.svgutils.transform as svgt
+    from lxml import etree
+    from nilearn import image, plotting
+    from nireports.reportlets.utils import SVGNS, extract_svg, robust_set_limits
+
+    out_files = []
+    panels = (
+        (short_te_img, f'{label}: short TE'),
+        (long_te_img, f'{label}: long TE'),
+    )
+    for echo_img, title in panels:
+        echo_data = echo_img.get_fdata(dtype='float32')
+        plot_params = robust_set_limits(echo_data.reshape(-1), {})
+        if cmap is not None:
+            plot_params['cmap'] = cmap
+        cropped = echo_img if np.all(echo_data <= 1e-8) else image.crop_img(echo_img)
+        for i, mode in enumerate(order):
+            plot_params['display_mode'] = mode
+            plot_params['cut_coords'] = cuts[mode]
+            plot_params['title'] = title if i == 0 else None
+            display = plotting.plot_anat(cropped, **plot_params)
+            if contour_img is not None and contour_levels:
+                display.add_contours(
+                    contour_img,
+                    levels=contour_levels,
+                    colors=contour_colors,
+                    linewidths=0.75,
+                )
+
+            svg = extract_svg(display, compress=False)
+            display.close()
+
+            # Make the figure id unique so multiple panels can coexist in one SVG.
+            xml_data = etree.fromstring(svg)  # noqa: S320
+            find_text = etree.ETXPath(f"//{{{SVGNS}}}g[@id='figure_1']")
+            find_text(xml_data)[0].set('id', f'{div_id}-{mode}-{uuid4()}')
+
+            svg_fig = svgt.SVGFigure()
+            svg_fig.root = xml_data
+            out_files.append(svg_fig)
+
+    return out_files
+
+
+def plot_denoise(
+    raw_file: str,
+    denoised_file: str,
+    out_file: str,
+    mask: str | None = None,
+    noise_file: str | None = None,
+    n_cuts: int = 7,
+) -> None:
+    """Generate a before/after dwidenoise reportlet as a flickering SVG.
+
+    Mirrors qsiprep's dwidenoise reportlet so the effect of MP-PCA denoising can
+    be evaluated visually. A bright (short-TE) and a dim (long-TE) echo are shown
+    before and after denoising as a flickering overlay. The estimated noise map
+    is drawn as a few clean contour lines (rather than per-voxel residual
+    speckle): if those contours follow anatomical boundaries the denoising window
+    is too large, and the raw/denoised flicker shows whether denoising changes
+    the images at all.
+
+    Parameters
+    ----------
+    raw_file : str
+        Path to the raw 4D multi-echo image (echoes along the 4th dimension).
+    denoised_file : str
+        Path to the denoised 4D multi-echo image, matching ``raw_file``.
+    out_file : str
+        Path for the saved SVG reportlet.
+    mask : str, optional
+        Brain mask (on the same grid as the inputs) used to place the slices and
+        to restrict the noise-contour levels. If omitted, a threshold of the
+        denoised short-TE echo is used for slice placement.
+    noise_file : str, optional
+        dwidenoise noise map (on the same grid as the inputs), contoured over the
+        flicker. If omitted, no contours are drawn.
+    n_cuts : int, optional
+        Number of slices per orientation. Default is 7.
+    """
+    import nibabel as nb
+    from nilearn.image import load_img, threshold_img
+    from nireports.reportlets.utils import compose_view, cuts_from_bbox
+
+    _ensure_valid_cwd()
+
+    if not os.path.isdir(os.path.dirname(out_file)):
+        os.makedirs(os.path.dirname(out_file), exist_ok=True)
+
+    raw_img = nb.load(raw_file)
+    denoised_img = nb.load(denoised_file)
+
+    # Use the brightest echo as "short TE" and the dimmest as "long TE".
+    raw_data = raw_img.get_fdata(dtype='float32')
+    echo_means = [raw_data[..., i].mean() for i in range(raw_data.shape[-1])]
+    short_te_index = int(np.argmax(echo_means))
+    long_te_index = int(np.argmin(echo_means))
+
+    raw_short = raw_img.slicer[..., short_te_index]
+    raw_long = raw_img.slicer[..., long_te_index]
+    denoised_short = denoised_img.slicer[..., short_te_index]
+    denoised_long = denoised_img.slicer[..., long_te_index]
+
+    # Place the slices using the brain mask when available.
+    mask_img = load_img(mask) if mask is not None else None
+    cuts_ref = mask_img if mask_img is not None else threshold_img(denoised_short, 50)
+    cuts = cuts_from_bbox(cuts_ref, cuts=n_cuts)
+
+    # Contour the noise map with a few iso-noise levels (clean, not speckle).
+    contour_img = contour_levels = contour_colors = None
+    if noise_file is not None:
+        contour_img = load_img(noise_file)
+        noise_data = contour_img.get_fdata()
+        finite = np.isfinite(noise_data) & (noise_data > 0)
+        if mask_img is not None:
+            finite &= np.asarray(mask_img.dataobj).astype(bool)
+        noise_vals = noise_data[finite]
+        if noise_vals.size:
+            contour_levels = sorted(set(np.percentile(noise_vals, [50, 75, 90]).tolist()))
+            # yellow -> red, increasing with noise level
+            contour_colors = ['#fee08b', '#fc8d59', '#d73027'][: len(contour_levels)]
+
+    compose_view(
+        _plot_denoise_panel(
+            raw_short,
+            raw_long,
+            'moving-image',
+            cuts=cuts,
+            label='Raw',
+            contour_img=contour_img,
+            contour_levels=contour_levels,
+            contour_colors=contour_colors,
+        ),
+        _plot_denoise_panel(
+            denoised_short,
+            denoised_long,
+            'fixed-image',
+            cuts=cuts,
+            label='Denoised',
+            contour_img=contour_img,
+            contour_levels=contour_levels,
+            contour_colors=contour_colors,
+        ),
+        out_file=out_file,
+    )
+
+
+def plot_residual(
+    raw_file: str,
+    denoised_file: str,
+    out_file: str,
+    mask: str | None = None,
+    n_cuts: int = 7,
+) -> None:
+    """Render the denoising residual (|raw - denoised|) as a static reportlet.
+
+    The signal removed by denoising should look like structureless noise. Any
+    anatomical structure here -- edges, gyri, vessels following tissue
+    boundaries -- means real signal was removed (over-denoising / window too
+    large). A bright (short-TE) and a dim (long-TE) echo are shown along three
+    orientations. This is more sensitive to signal leakage than the raw/denoised
+    flicker in :func:`plot_denoise`.
+
+    Parameters
+    ----------
+    raw_file : str
+        Path to the raw 4D multi-echo image (echoes along the 4th dimension).
+    denoised_file : str
+        Path to the denoised 4D multi-echo image, matching ``raw_file``.
+    out_file : str
+        Path for the saved SVG reportlet.
+    mask : str, optional
+        Brain mask (same grid as the inputs) used to place the slices. If
+        omitted, a threshold of the raw short-TE echo is used.
+    n_cuts : int, optional
+        Number of slices per orientation. Default is 7.
+    """
+    import nibabel as nb
+    from nilearn.image import load_img, threshold_img
+    from nireports.reportlets.utils import compose_view, cuts_from_bbox
+
+    _ensure_valid_cwd()
+
+    if not os.path.isdir(os.path.dirname(out_file)):
+        os.makedirs(os.path.dirname(out_file), exist_ok=True)
+
+    raw_img = nb.load(raw_file)
+    denoised_img = nb.load(denoised_file)
+
+    # Use the brightest echo as "short TE" and the dimmest as "long TE".
+    raw_data = raw_img.get_fdata(dtype='float32')
+    echo_means = [raw_data[..., i].mean() for i in range(raw_data.shape[-1])]
+    short_te_index = int(np.argmax(echo_means))
+    long_te_index = int(np.argmin(echo_means))
+
+    raw_short = raw_img.slicer[..., short_te_index]
+    raw_long = raw_img.slicer[..., long_te_index]
+    denoised_short = denoised_img.slicer[..., short_te_index]
+    denoised_long = denoised_img.slicer[..., long_te_index]
+
+    short_residual = nb.Nifti1Image(
+        np.abs(raw_short.get_fdata() - denoised_short.get_fdata()),
+        affine=raw_short.affine,
+    )
+    long_residual = nb.Nifti1Image(
+        np.abs(raw_long.get_fdata() - denoised_long.get_fdata()),
+        affine=raw_long.affine,
+    )
+
+    # Place the slices using the brain mask when available.
+    cuts_ref = load_img(mask) if mask is not None else threshold_img(raw_short, 50)
+    cuts = cuts_from_bbox(cuts_ref, cuts=n_cuts)
+
+    compose_view(
+        _plot_denoise_panel(
+            short_residual,
+            long_residual,
+            'residual-image',
+            cuts=cuts,
+            label='|Raw - Denoised|',
+            cmap='inferno',
+        ),
+        [],
+        out_file=out_file,
+    )
 
 
 def calculate_r_squared(

@@ -166,11 +166,12 @@ class TestCollectRunDataScalingFactors:
     @pytest.fixture()
     def expected_keys(self):
         return [
-            'isovf_mni',
-            'icvf_mni',
-            'mtsat_mni',
-            'ihmtr_mni',
-            't1w2mni_xfm',
+            'mtsat_t1w',
+            'ihmtr_t1w',
+            't1w',
+            'isovf_acpc',
+            'icvf_acpc',
+            't1w_acpc',
             'fs2t1w_xfm',
             'aseg_fsnative',
             'brain_fsnative',
@@ -188,17 +189,17 @@ class TestCollectRunDataScalingFactors:
 
         layout = MagicMock()
 
-        # The function iterates queries in dict insertion order.  The first two
-        # (isovf_mni, icvf_mni) have a ``param`` key that gets popped before
-        # calling layout.get, then used to filter files by filename.  The
-        # remaining four queries have no ``param``.  Return matching filenames.
+        # The function iterates queries in dict insertion order.  The NODDI
+        # queries have a ``param`` key that gets popped before calling
+        # layout.get, then used to filter files by filename.
         _responses = iter(
             [
-                [_make_bids_file('/fake/sub-01_param-isovf_dwimap.nii.gz')],
-                [_make_bids_file('/fake/sub-01_param-icvf_dwimap.nii.gz')],
                 [_make_bids_file('/fake/sub-01_ihMTsatB1sq.nii.gz')],
                 [_make_bids_file('/fake/sub-01_ihMTR.nii.gz')],
-                [_make_bids_file('/fake/sub-01_xfm.h5')],
+                [_make_bids_file('/fake/sub-01_desc-preproc_T1w.nii.gz')],
+                [_make_bids_file('/fake/sub-01_param-isovf_dwimap.nii.gz')],
+                [_make_bids_file('/fake/sub-01_param-icvf_dwimap.nii.gz')],
+                [_make_bids_file('/fake/sub-01_space-ACPC_desc-preproc_T1w.nii.gz')],
                 [_make_bids_file('/fake/sub-01_xfm.txt')],
             ]
         )
