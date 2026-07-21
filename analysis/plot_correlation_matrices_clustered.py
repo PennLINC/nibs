@@ -12,12 +12,16 @@ from scipy.spatial.distance import squareform
 
 
 SELECTED_SCALARS = [
-    'DKI MD',
-    'DKI MKT',
-    'DKI Tensor FA',
+    'DSIStudio Tensor MD',
+    'DSIStudio Tensor FA',
+    'DSIStudio Tensor RD',
+    'DSIStudio GQI GFA',
     'NODDI ICVF',
-    'NODDI ICVF Modulated',
+    'DKI MKT',
+    'DKI RK',
     'TORTOISE MAPMRI RTOP',
+    'TORTOISE MAPMRI RTAP',
+    'TORTOISE MAPMRI NG',
     'ihMTR',
     'ihMTsat-B1c',
     'R1',
@@ -44,10 +48,13 @@ def save_clustermap(df, linkage_matrix, title, out_file, color_mapper=None):
     n = df.shape[0]
     font_size = max(10, min(16, round(900 / n)))
     cmap = sns.diverging_palette(230, 20, as_cmap=True)
+    cmap.set_bad('black')
+    diagonal_mask = pd.DataFrame(np.eye(n, dtype=bool), index=df.index, columns=df.columns)
     ax = sns.clustermap(
         df,
         figsize=(20, 20),
         cmap=cmap,
+        mask=diagonal_mask,
         cbar_pos=None,
         dendrogram_ratio=(0.1, 0),
         row_colors=color_mapper,
