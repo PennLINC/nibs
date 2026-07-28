@@ -256,7 +256,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
     b1map_rescaled_file = os.path.join(temp_dir, os.path.basename(run_data['b1_famp']))
     b1map_rescaled.to_filename(b1map_rescaled_file)
 
-    # Get WM segmentation from sMRIPrep
+    # Get WM segmentation from sMRIPrep. The MP2RAGE pipeline creates the canonical
+    # T1w-space WM segmentation once here; the other processing scripts collect this
+    # file (space-T1w desc-wm mask) instead of regenerating it.
     wm_seg_img = nb.load(run_data['dseg_mni'])
     wm_seg = wm_seg_img.get_fdata()
     wm_seg = (wm_seg == 2).astype(int)

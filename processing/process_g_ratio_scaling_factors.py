@@ -25,7 +25,7 @@ import pandas as pd
 from bids.layout import BIDSLayout, Query
 from nilearn import masking, plotting
 
-from utils import coregister_to_t1, get_filename, load_config
+from utils import coregister_to_t1, get_filename, load_config, run_synthstrip
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
@@ -271,10 +271,18 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
     """
     # Register ACPC-space T1w (QSIPrep) to native T1w (sMRIPrep) and use that transform
     # to warp ISOVF and ICVF into T1w space, writing the results for downstream use.
+    # Skull-strip the ACPC T1w first so it is a brain-to-brain fit against the
+    # brain-extracted T1w target that coregister_to_t1 builds internally.
+    t1w_acpc_brain_file = os.path.join(temp_dir, 'space-ACPC_desc-brain_T1w.nii.gz')
+    run_synthstrip(
+        in_file=run_data['t1w_acpc'],
+        out_file=t1w_acpc_brain_file,
+        cfg=CFG,
+    )
     acpc2t1w_xfm = coregister_to_t1(
         name_source=run_data['t1w_acpc'],
         layout=layout,
-        in_file=run_data['t1w_acpc'],
+        in_file=t1w_acpc_brain_file,
         t1_file=run_data['t1w'],
         t1_mask=run_data['t1w_mask'],
         out_dir=out_dir,

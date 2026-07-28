@@ -202,6 +202,19 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'suffix': 'dseg',
             'extension': ['.nii', '.nii.gz'],
         },
+        # T1w-space WM segmentation, created once by process_mp2rage.py and reused here
+        'wm_seg_t1w': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'acquisition': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': 'T1w',
+            'res': Query.NONE,
+            'desc': 'wm',
+            'suffix': 'mask',
+            'extension': ['.nii', '.nii.gz'],
+        },
         # sMRIPrep MNI-space brain mask
         'mni_mask': {
             'datatype': 'anat',
@@ -247,7 +260,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
     t_r = 9500  # ms
     tfl_params = f'{echo_spacing},{flip_angle},{n_repetitions},{t_r}'
 
-    # Get WM segmentation from sMRIPrep
+    # Collect the T1w-space WM segmentation created once by process_mp2rage.py.
+    wm_seg_t1w_file = run_data['wm_seg_t1w']
+
+    # Create the MNI-space WM segmentation from the sMRIPrep dseg for the MNI plots.
     wm_seg_img = nb.load(run_data['dseg_mni'])
     wm_seg = wm_seg_img.get_fdata()
     wm_seg = (wm_seg == 2).astype(int)
@@ -260,24 +276,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     wm_seg_img = nb.Nifti1Image(wm_seg, wm_seg_img.affine, wm_seg_img.header)
     wm_seg_img.to_filename(wm_seg_file)
-
-    # Warp WM segmentation to T1w space
-    wm_seg_img = ants.image_read(wm_seg_file)
-    wm_seg_t1w_img = ants.apply_transforms(
-        fixed=ants.image_read(run_data['t1w']),
-        moving=wm_seg_img,
-        transformlist=[run_data['mni2t1w_xfm']],
-        interpolator='nearestNeighbor',
-    )
-    wm_seg_t1w_file = get_filename(
-        name_source=wm_seg_file,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'wm', 'suffix': 'mask'},
-        dismiss_entities=['reconstruction'],
-    )
-    ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
-    del wm_seg_img, wm_seg_t1w_img, wm_seg
+    del wm_seg_img, wm_seg
 
     # Concatenate ihMTRAGE files into one 4D file (has to be right order)
     # nosat_mt-off, singlepos_mt-on, dual1_mt-on, singleneg_mt-on, dual2_mt-on
