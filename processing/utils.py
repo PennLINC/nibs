@@ -52,6 +52,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 
 from configuration.config import load_config  # noqa: E402, F401
 
+# Tissue classes of sMRIPrep's discrete segmentation (``*_dseg.nii.gz``) and the
+# color used for each one across reportlets. The label values are sMRIPrep's, and
+# match the ``dseg == 2`` white-matter selection the processing scripts use.
+TISSUE_TYPES = ('GM', 'WM', 'CSF')
+TISSUE_VALUES = (1, 2, 3)
+TISSUE_COLORS = ('#1b60a5', '#2da467', '#9d8f25')
+
 
 def run_command(command: str | list[str], env: dict[str, str] | None = None) -> None:
     """Run a shell command, streaming stdout line-by-line.
@@ -216,6 +223,7 @@ def coregister_to_t1(
     layout: object,
     in_file: str,
     t1_file: str,
+    t1_mask: str,
     out_dir: str,
     source_space: str,
     target_space: str,
@@ -231,7 +239,9 @@ def coregister_to_t1(
     in_file : str
         Path to the input image.
     t1_file : str
-        Path to the T1w image.
+        Path to the sMRIPrep preprocessed (already INU/bias-corrected) T1w image.
+    t1_mask : str
+        Path to sMRIPrep's brain mask, on the same grid as ``t1_file``.
     out_dir : str
         Directory to write output files.
     source_space : str
@@ -247,46 +257,18 @@ def coregister_to_t1(
     import shutil
 
     import ants
-    import antspynet
 
-    # Step 1: Apply N4 bias field correction and skull-stripping to T1.
+    # Brain-extract the (already bias-corrected) sMRIPrep T1w using sMRIPrep's own
+    # brain mask, instead of recomputing N4 bias correction and skull-stripping on
+    # every call.
     t1_img = ants.image_read(t1_file)
-    n4_img = ants.n4_bias_field_correction(t1_img)
-    dseg_img = antspynet.utilities.brain_extraction(n4_img, modality='t1threetissue')
-    dseg_img = dseg_img['segmentation_image']
+    mask_img = ants.image_read(t1_mask)
 
-    dseg_file = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': target_space, 'desc': 't1threetissue', 'suffix': 'dseg'},
-        dismiss_entities=['echo', 'inv', 'reconstruction', 'part'],
-    )
-    ants.image_write(dseg_img, dseg_file)
+    t1_img_masked = t1_img * mask_img
 
-    # Binarize the brain mask
-    mask_img = ants.threshold_image(
-        dseg_img,
-        low_thresh=1,
-        high_thresh=1,
-        inval=1,
-        outval=0,
-        binary=True,
-    )
-    mask_file = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': target_space, 'desc': 'brain', 'suffix': 'mask'},
-        dismiss_entities=['echo', 'inv', 'reconstruction', 'part'],
-    )
-    ants.image_write(mask_img, mask_file)
-
-    n4_img_masked = n4_img * mask_img
-
-    # Step 2: Coregister the input image to the brain-extracted T1w image.
+    # Coregister the input image to the brain-extracted T1w image.
     registered_img = ants.registration(
-        fixed=n4_img_masked,
+        fixed=t1_img_masked,
         moving=ants.image_read(in_file),
         type_of_transform='Rigid',
     )
@@ -342,6 +324,138 @@ def _ensure_valid_cwd() -> None:
             continue
 
 
+def _tissue_contours(dseg: str) -> list[tuple[object, str]]:
+    """Build one nested tissue boundary per class from a discrete segmentation.
+
+    Parameters
+    ----------
+    dseg : str
+        Path to a discrete segmentation image using the label values in
+        :data:`TISSUE_VALUES`.
+
+    Returns
+    -------
+    contours : list of (nibabel.Nifti1Image, str)
+        One ``(image, color)`` pair per tissue class present in ``dseg``, each a
+        binary mask whose 0.5 iso-surface is that tissue's outer boundary.
+
+    Notes
+    -----
+    The masks are cumulative from the inside out, so the boundaries are the WM
+    surface, the pial surface and the outer CSF boundary. Contouring each class
+    on its own would draw the WM surface twice (as WM's boundary and again as
+    GM's inner boundary) and bury the anatomy under duplicated lines.
+
+    Binarizing also keeps the overlay independent of label ordering. sMRIPrep's
+    labels are not ordered by spatial adjacency (GM=1, WM=2, CSF=3), so
+    contouring the label image itself at intermediate levels (1.5, 2.5) would
+    trace boundaries that correspond to no tissue interface.
+    """
+    import nibabel as nb
+
+    dseg_img = nb.load(dseg)
+    dseg_data = np.asanyarray(dseg_img.dataobj)
+    values = dict(zip(TISSUE_TYPES, TISSUE_VALUES))
+    colors = dict(zip(TISSUE_TYPES, TISSUE_COLORS))
+
+    contours = []
+    enclosed = np.zeros(dseg_data.shape, dtype=bool)
+    for tissue_type in ('WM', 'GM', 'CSF'):
+        tissue_arr = dseg_data == values[tissue_type]
+        if not tissue_arr.any():
+            print(f'No {tissue_type} voxels (label {values[tissue_type]}) found in {dseg}')
+            continue
+
+        enclosed = enclosed | tissue_arr
+        contour_img = nb.Nifti1Image(enclosed.astype(np.uint8), dseg_img.affine)
+        contours.append((contour_img, colors[tissue_type]))
+
+    return contours
+
+
+def _plot_registration_panel(
+    anat_img: object,
+    div_id: str,
+    cuts: dict[str, list[float]],
+    label: str | None,
+    contours: list[tuple[object, str]],
+    dismiss_affine: bool = False,
+    compress: bool | str = 'auto',
+    order: tuple[str, str, str] = ('z', 'x', 'y'),
+) -> list[object]:
+    """Render one panel of a before/after registration report as SVG figures.
+
+    Parameters
+    ----------
+    anat_img : nibabel.spatialimages.SpatialImage
+        Image to render as the mosaic background.
+    div_id : str
+        Prefix used to make the SVG element ids unique across panels.
+    cuts : dict
+        Mapping of ``'x'``/``'y'``/``'z'`` to cut coordinates.
+    label : str or None
+        Title drawn on the first mosaic.
+    contours : list of (nibabel.spatialimages.SpatialImage, str)
+        ``(image, color)`` pairs, each drawn as a 0.5 iso-contour.
+    dismiss_affine : bool, optional
+        Rotate the image (and the contours) to cardinal axes before plotting.
+    compress : bool or {'auto'}, optional
+        Passed to :func:`nireports.reportlets.utils.extract_svg`.
+    order : tuple of str, optional
+        Order of the mosaic views.
+
+    Returns
+    -------
+    out_files : list of svgutils.transform.SVGFigure
+        One figure per view in ``order``, ready for ``compose_view``.
+
+    Notes
+    -----
+    This mirrors :func:`nireports.reportlets.mosaic.plot_registration`, which
+    accepts a single contour drawn in a single color. Taking a list of
+    ``(image, color)`` pairs instead is what allows a tissue segmentation to be
+    overlaid with one color per tissue class.
+    """
+    from uuid import uuid4
+
+    import nibabel as nb
+    from nilearn.plotting import plot_anat
+    from nireports._vendored.svgutils.transform import fromstring
+    from nireports.reportlets.utils import extract_svg, robust_set_limits
+    from nireports.tools.ndimage import rotate_affine, rotation2canonical
+
+    # nilearn's plotting is Nifti-specific.
+    anat_img = nb.Nifti1Image.from_image(anat_img)
+    contours = [(nb.Nifti1Image.from_image(img), color) for img, color in contours]
+
+    if dismiss_affine:
+        canonical_r = rotation2canonical(anat_img)
+        anat_img = rotate_affine(anat_img, rot=canonical_r)
+        contours = [(rotate_affine(img, rot=canonical_r), color) for img, color in contours]
+
+    plot_params = robust_set_limits(anat_img.get_fdata().reshape(-1), {})
+
+    out_files = []
+    for i_mode, mode in enumerate(order):
+        plot_params['display_mode'] = mode
+        plot_params['cut_coords'] = cuts[mode]
+        plot_params['title'] = label if i_mode == 0 else None
+
+        display = plot_anat(anat_img, **plot_params)
+        for contour_img, color in contours:
+            display.add_contours(contour_img, colors=color, levels=[0.5], linewidths=0.5)
+
+        svg = extract_svg(display, compress=compress)
+        display.close()
+
+        # matplotlib names every figure "figure_1"; the ids must be unique for
+        # the panels to coexist in the composed SVG.
+        svg = svg.replace('figure_1', f'{div_id}-{mode}-{uuid4()}', 1)
+        out_files.append(fromstring(svg))
+
+    return out_files
+
+
 def plot_coregistration(
     name_source: str,
     layout: object,
@@ -351,6 +465,7 @@ def plot_coregistration(
     source_space: str,
     target_space: str,
     wm_seg: str | None = None,
+    dseg: str | None = None,
     output_space: str | None = None,
 ) -> None:
     """Generate an SVG report comparing an image before and after coregistration to T1w.
@@ -372,14 +487,20 @@ def plot_coregistration(
     target_space : str
         Label for the target space (the "after" view).
     wm_seg : str, optional
-        Path to a white-matter segmentation for edge overlay.
+        Path to a binary white-matter segmentation, drawn as a single red edge
+        overlay. Ignored when ``dseg`` is provided.
+    dseg : str, optional
+        Path to a discrete segmentation (see :data:`TISSUE_VALUES`), drawn as one
+        edge overlay per tissue class using :data:`TISSUE_COLORS`.
     output_space : str, optional
         Value for the ``space`` entity of the output SVG. Defaults to
         ``target_space``. Use this when the "after" label is not a valid BIDS
         space value (e.g. a session label) or differs from the space the images
         actually live in.
     """
-    from nireports.interfaces.reporting.base import SimpleBeforeAfterRPT
+    import nibabel as nb
+    from nilearn.image import threshold_img
+    from nireports.reportlets.utils import compose_view, cuts_from_bbox
 
     if output_space is None:
         output_space = target_space
@@ -397,25 +518,46 @@ def plot_coregistration(
     )
     out_dir = os.path.dirname(out_report)
     os.makedirs(out_dir, exist_ok=True)
-    if wm_seg is not None:
-        kwargs = {'wm_seg': wm_seg}
-    else:
-        kwargs = {}
 
-    coreg_report = SimpleBeforeAfterRPT(
-        before_label=source_space,
-        after_label=target_space,
-        dismiss_affine=True,
-        before=in_file,
-        after=t1_file,
-        out_report=out_report,
-        **kwargs,
-    )
-    # nipype reads os.getcwd() to save/restore the working directory; if that
-    # directory was removed mid-run (e.g. scratch cleanup) this raises
-    # FileNotFoundError before any work happens. Restore a stable cwd first.
+    before_img = nb.load(in_file)
+    after_img = nb.load(t1_file)
+
+    # Cuts follow the segmentation when there is one, so the mosaic covers the
+    # brain rather than the full field of view.
+    if dseg is not None:
+        contours = _tissue_contours(dseg)
+        bbox_img = nb.load(dseg)
+    elif wm_seg is not None:
+        contours = [(nb.load(wm_seg), 'r')]
+        bbox_img = nb.load(wm_seg)
+    else:
+        contours = []
+        bbox_img = threshold_img(after_img, 1e-3, copy_header=True)
+
+    cuts = cuts_from_bbox(bbox_img, cuts=7)
+
+    # matplotlib and the SVG compositor both touch the working directory; if it
+    # was removed mid-run (e.g. scratch cleanup) restore a stable one first.
     _ensure_valid_cwd()
-    coreg_report.run()
+    compose_view(
+        _plot_registration_panel(
+            after_img,
+            'fixed-image',
+            cuts,
+            target_space,
+            contours,
+            dismiss_affine=True,
+        ),
+        _plot_registration_panel(
+            before_img,
+            'moving-image',
+            cuts,
+            source_space,
+            contours,
+            dismiss_affine=True,
+        ),
+        out_file=out_report,
+    )
 
 
 def fit_monoexponential(
@@ -609,9 +751,9 @@ def plot_scalar_map(
     underlay_masked = masking.unmask(masking.apply_mask(underlay, mask), mask)
 
     if dseg is not None:
-        tissue_types = ['GM', 'WM', 'CSF']
-        tissue_values = [1, 2, 3]
-        tissue_colors = ['#1b60a5', '#2da467', '#9d8f25']
+        tissue_types = list(TISSUE_TYPES)
+        tissue_values = list(TISSUE_VALUES)
+        tissue_colors = list(TISSUE_COLORS)
     else:
         tissue_types = ['Brain']
         tissue_values = [1]

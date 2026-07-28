@@ -142,6 +142,18 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
+        # sMRIPrep T1w-space brain mask
+        't1w_mask': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
+            'res': Query.NONE,
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': ['.nii', '.nii.gz'],
+        },
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
@@ -349,7 +361,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=b1_anat_img,
         transformlist=b1_to_mp2rage_xfm,
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     b1_anat_reg_file = get_filename(
         name_source=name_source,
@@ -509,6 +521,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         in_file=t1w_uni_b1c_skullstripped_file,
         t1_file=run_data['t1w'],
+        t1_mask=run_data['t1w_mask'],
         source_space='MP2RAGE',
         target_space='T1w',
         out_dir=out_dir,
@@ -525,7 +538,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(t1w_uni_b1c_skullstripped_file),
         transformlist=[mp2rage_to_smriprep_xfm],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     ants.image_write(t1w_t1w_uni_b1c_skullstripped_img, t1w_t1w_uni_b1c_skullstripped_file)
     plot_coregistration(
@@ -550,7 +563,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(t1w_uni_b1c_skullstripped_file),
         transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     ants.image_write(mni_t1w_uni_b1c_skullstripped_img, mni_t1w_uni_b1c_skullstripped_file)
     plot_coregistration(
@@ -586,7 +599,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=[mp2rage_to_smriprep_xfm],
-            interpolator='nearestNeighbor',
+            interpolator='linear',
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -601,7 +614,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm],
-            interpolator='nearestNeighbor',
+            interpolator='linear',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -646,7 +659,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ants.image_read(file_),
             transformlist=[mp2rage_to_smriprep_xfm, b1_to_mp2rage_xfm],
-            interpolator='gaussian' if suffix == 'TB1map' else 'nearestNeighbor',
+            interpolator='gaussian' if suffix == 'TB1map' else 'linear',
         )
         ants.image_write(t1w_img, t1w_file)
 
@@ -661,7 +674,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm, b1_to_mp2rage_xfm],
-            interpolator='gaussian' if suffix == 'TB1map' else 'nearestNeighbor',
+            interpolator='gaussian' if suffix == 'TB1map' else 'linear',
         )
         ants.image_write(mni_img, mni_file)
 

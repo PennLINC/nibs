@@ -146,6 +146,18 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
+        # sMRIPrep T1w-space brain mask
+        't1w_mask': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
+            'res': Query.NONE,
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': ['.nii', '.nii.gz'],
+        },
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
@@ -304,6 +316,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         in_file=ihmt_template,
         t1_file=run_data['t1w'],
+        t1_mask=run_data['t1w_mask'],
         out_dir=out_dir,
         source_space='ihMTRAGEref',
         target_space='T1w',
@@ -327,7 +340,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w']),
             moving=ihmt_img,
             transformlist=transform_list,
-            interpolator='nearestNeighbor',
+            interpolator='linear',
         )
         ihmt_file_t1space = get_filename(
             name_source=in_file,
@@ -496,7 +509,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']],
-            interpolator='nearestNeighbor',
+            interpolator='linear',
         )
         ants.image_write(reg_img, mni_file)
 
@@ -669,7 +682,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
             fixed=ants.image_read(template_file),
             moving=ants.image_read(in_file),
             transformlist=[transform_file],
-            interpolator='nearestNeighbor',
+            interpolator='linear',
         )
         ants.image_write(out_img, out_file)
 

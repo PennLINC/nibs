@@ -95,6 +95,18 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
+        # sMRIPrep T1w-space brain mask
+        't1w_mask': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
+            'res': Query.NONE,
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': ['.nii', '.nii.gz'],
+        },
         # MNI-space T1w image from sMRIPrep
         't1w_mni': {
             'datatype': 'anat',
@@ -264,6 +276,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         in_file=space_t1w_brain_file,
         t1_file=run_data['t1w'],
+        t1_mask=run_data['t1w_mask'],
         out_dir=out_dir,
         source_space='SPACET1w',
         target_space='T1w',
@@ -275,7 +288,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=space_t1w_img,
         transformlist=[space_t1w_to_t1w_xfm],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     t1w_space_t1w_file = get_filename(
         name_source=run_data['space_t1w'],
@@ -291,7 +304,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=scaled_space_t1w_img,
         transformlist=[space_t1w_to_t1w_xfm],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     t1w_scaled_space_t1w_file = get_filename(
         name_source=run_data['space_t1w'],
@@ -317,6 +330,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         in_file=space_t2w_brain_file,
         t1_file=run_data['t1w'],
+        t1_mask=run_data['t1w_mask'],
         out_dir=out_dir,
         source_space='SPACET2w',
         target_space='T1w',
@@ -327,7 +341,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=space_t2w_img,
         transformlist=[space_t2w_to_t1w_xfm],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     t1w_space_t2w_file = get_filename(
         name_source=run_data['space_t2w'],
@@ -344,7 +358,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=fixed_img,
         moving=scaled_space_t2w_img,
         transformlist=[space_t2w_to_t1w_xfm],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     t1w_scaled_space_t2w_file = get_filename(
         name_source=run_data['space_t2w'],
@@ -367,13 +381,13 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=fixed_img,
             moving=mprage_t1w_img,
             transformlist=fwd_transform,
-            interpolator='nearestNeighbor',
+            interpolator='linear',
         )
         t1w_scaled_mprage_t1w_img = ants.apply_transforms(
             fixed=fixed_img,
             moving=scaled_mprage_t1w_img,
             transformlist=fwd_transform,
-            interpolator='nearestNeighbor',
+            interpolator='linear',
         )
 
     t1w_mprage_t1w_file = get_filename(
@@ -467,7 +481,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']],
-            interpolator='nearestNeighbor',
+            interpolator='linear',
         )
         ants.image_write(mni_img, mni_file)
 
@@ -507,7 +521,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
             fixed=ants.image_read(run_data['t1w_mni']),
             moving=ants.image_read(file_),
             transformlist=[run_data['t1w2mni_xfm']],
-            interpolator='nearestNeighbor',
+            interpolator='linear',
         )
         ants.image_write(mni_img, mni_file)
 

@@ -313,16 +313,16 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         in_file=megre_ref_skullstripped_file,
         t1_file=run_data['t1w'],
+        t1_mask=run_data['t1w_mask'],
         source_space='MEGRE',
         target_space='T1w',
         out_dir=out_dir,
     )
-    # coreg_transform = run_data['megre2t1w_xfm']
     t1_megre_ref_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w']),
         moving=ants.image_read(megre_ref_skullstripped_file),
         transformlist=[coreg_transform],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     t1_megre_ref_skullstripped_file = get_filename(
         name_source=megre_ref_filename,
@@ -347,7 +347,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         fixed=ants.image_read(run_data['t1w_mni']),
         moving=ants.image_read(megre_ref_filename),
         transformlist=[run_data['t1w2mni_xfm'], coreg_transform],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     mni_megre_ref_filename = get_filename(
         name_source=t1_megre_ref_skullstripped_file,
@@ -381,7 +381,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         moving=ants.image_read(run_data['r2_map']),
         transformlist=[coreg_transform],
         whichtoinvert=[True],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     ants.image_write(r2_qsm_img, r2_qsm_filename)
 

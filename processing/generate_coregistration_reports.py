@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 
-from bids.layout import BIDSLayout
+from bids.layout import BIDSLayout, Query
 from nireports.assembler.report import Report
 
 from utils import (
@@ -17,6 +17,48 @@ from utils import (
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
+
+
+def get_tissue_segmentation(layout: object, subject_id: str) -> str | None:
+    """Find a subject's sMRIPrep tissue segmentation in native T1w space.
+
+    Parameters
+    ----------
+    layout : bids.BIDSLayout
+        BIDSLayout indexing the sMRIPrep derivatives.
+    subject_id : str
+        Subject label, without the ``sub-`` prefix.
+
+    Returns
+    -------
+    dseg : str or None
+        Path to the segmentation, or None if it could not be resolved
+        unambiguously.
+
+    Notes
+    -----
+    sMRIPrep writes a single subject-level segmentation on the same grid as the
+    preprocessed T1w image, which is the grid every session's derivatives are
+    resampled onto, so one segmentation applies to both sessions.
+    """
+    dseg_files = layout.get(
+        subject=subject_id,
+        datatype='anat',
+        session=[Query.NONE, Query.ANY],
+        run=[Query.NONE, Query.ANY],
+        space=Query.NONE,
+        desc=Query.NONE,
+        suffix='dseg',
+        extension=['.nii', '.nii.gz'],
+    )
+    if len(dseg_files) != 1:
+        print(
+            f'Expected 1 T1w-space dseg for subject {subject_id}, got {len(dseg_files)}. '
+            'Coregistration plots will omit the tissue overlay.'
+        )
+        return None
+
+    return dseg_files[0].path
 
 
 def _get_parser() -> argparse.ArgumentParser:
@@ -50,6 +92,7 @@ def main(subject_id):
         config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
         validate=False,
         derivatives=[
+            CFG['derivatives']['smriprep'],
             CFG['derivatives']['pymp2rage'],
             CFG['derivatives']['ihmt'],
             CFG['derivatives']['mese'],
@@ -95,6 +138,7 @@ def main(subject_id):
 
     for subject_id in subjects:
         print(f'Processing subject {subject_id}')
+        dseg = get_tissue_segmentation(layout, subject_id)
         for modality, query in query_dict.items():
             files = []
             for session in ['01', '02']:
@@ -131,6 +175,7 @@ def main(subject_id):
                 out_dir=out_dir,
                 source_space='ses-01',
                 target_space='ses-02',
+                dseg=dseg,
                 output_space='T1w',
             )
 

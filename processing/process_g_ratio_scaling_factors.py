@@ -78,6 +78,18 @@ def collect_run_data(layout: object, bids_filters: dict, smriprep_dir: str) -> d
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
+        # sMRIPrep T1w-space brain mask
+        't1w_mask': {
+            'datatype': 'anat',
+            'session': [Query.NONE, Query.ANY],
+            'run': [Query.NONE, Query.ANY],
+            'reconstruction': [Query.NONE, Query.ANY],
+            'space': Query.NONE,
+            'res': Query.NONE,
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': ['.nii', '.nii.gz'],
+        },
         # ACPC-space ISOVF and ICVF maps from QSIRecon
         'isovf_acpc': {
             'datatype': 'dwi',
@@ -264,6 +276,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         layout=layout,
         in_file=run_data['t1w_acpc'],
         t1_file=run_data['t1w'],
+        t1_mask=run_data['t1w_mask'],
         out_dir=out_dir,
         source_space='ACPC',
         target_space='T1w',
@@ -275,7 +288,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         fixed=t1w_img,
         moving=ants.image_read(run_data['isovf_acpc']),
         transformlist=[acpc2t1w_xfm],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     isovf_t1w_file = get_filename(
         name_source=run_data['isovf_acpc'],
@@ -289,7 +302,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         fixed=t1w_img,
         moving=ants.image_read(run_data['icvf_acpc']),
         transformlist=[acpc2t1w_xfm],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     icvf_t1w_file = get_filename(
         name_source=run_data['icvf_acpc'],
@@ -312,12 +325,12 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
 
     # Resample T1w-space ihMTsatB1sq and ihMTR to DWI resolution
     mtsat_t1w = ants.image_read(run_data['mtsat_t1w']).resample_image_to_target(
-        isovf_t1w_img, interp_type='nearestNeighbor'
+        isovf_t1w_img, interp_type='linear'
     )
     mtsat_t1w_file = os.path.join(temp_dir, 'mtsat_t1w_dwires.nii.gz')
     ants.image_write(mtsat_t1w, mtsat_t1w_file)
     ihmtr_t1w = ants.image_read(run_data['ihmtr_t1w']).resample_image_to_target(
-        isovf_t1w_img, interp_type='nearestNeighbor'
+        isovf_t1w_img, interp_type='linear'
     )
     ihmtr_t1w_file = os.path.join(temp_dir, 'ihmtr_t1w_dwires.nii.gz')
     ants.image_write(ihmtr_t1w, ihmtr_t1w_file)
@@ -334,7 +347,7 @@ def process_run(layout, run_data, out_dir, temp_dir, bids_filters):
         fixed=isovf_t1w_img,
         moving=brain_img,
         transformlist=[run_data['fs2t1w_xfm']],
-        interpolator='nearestNeighbor',
+        interpolator='linear',
     )
     ants.image_write(brain_img_t1w, os.path.join(temp_dir, 'brain_t1w_dwires.nii.gz'))
 
