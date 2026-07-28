@@ -3,12 +3,14 @@
 Steps:
 
 1.  Concatenate ihMTRAGE files into one 4D file (has to be right order).
-2.  Motion correct ihMTRAGE files using iterative motion correction algorithm.
-3.  Coregister ihMTRAGE reference image to T1w image from sMRIPrep.
-4.  Apply motion correction and coregistration transforms to ihMTRAGE files.
-5.  Concatenate T1w-space ihMTRAGE files into one 4D file (has to be right order)
-6.  Calculate T1w-space ihMT derivatives with ihmt_proc.
-7.  Warp T1w-space ihMT derivatives to MNI152NLin2009cAsym using normalization transform from
+3.  Run dwidenoise on concatenated data.
+4.  Motion correct ihMTRAGE files using iterative motion correction algorithm.
+5.  Coregister ihMTRAGE reference image to T1w image from sMRIPrep.
+6.  Apply motion correction and coregistration transforms to ihMTRAGE files.
+7.  Calculate subset of ihMT derivatives manually.
+8.  Concatenate T1w-space ihMTRAGE files into one 4D file (has to be right order)
+9.  Calculate T1w-space ihMT derivatives with ihmt_proc.
+10. Warp T1w-space ihMT derivatives to MNI152NLin2009cAsym using normalization transform from
     sMRIPrep.
 
 Notes:
@@ -40,11 +42,11 @@ from utils import (
     plot_coregistration,
     plot_scalar_map,
     run_command,
+    run_synthstrip,
 )
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
-SYNTHSTRIP_SIF = CFG['apptainer']['synthstrip']
 
 
 def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
@@ -569,6 +571,8 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
         Path to the template image in ihMTRAGEref space.
     transforms : list of str
         List of transform files.
+    brain_mask_file : str
+        Brain mask from sum image.
     """
     # Step 1: Skull-strip each image.
     skullstripped_files = []
@@ -585,7 +589,7 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
         n4_file = os.path.join(n4_dir, os.path.basename(in_file))
         ants.image_write(n4_img, n4_file)
 
-        # Step 1a: Create a brain mask from the first image with SynthStrip.
+        # Step 1a: Create a brain mask with SynthStrip.
         brain_mask = get_filename(
             name_source=in_file,
             layout=layout,
@@ -594,10 +598,12 @@ def iterative_motion_correction(name_sources, layout, in_files, filetypes, out_d
         )
         print(f'Creating brain mask: {brain_mask}')
         skullstripped_file = os.path.join(skullstripped_dir, os.path.basename(in_file))
-        cmd = (
-            f'singularity run {SYNTHSTRIP_SIF} -i {n4_file} -o {skullstripped_file} -m {brain_mask}'
+        run_synthstrip(
+            in_file=n4_file,
+            out_file=skullstripped_file,
+            mask_file=brain_mask,
+            cfg=CFG,
         )
-        run_command(cmd)
 
         skullstripped_files.append(skullstripped_file)
         brain_masks.append(brain_mask)
@@ -727,7 +733,8 @@ def _get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--subject-id',
         type=lambda label: label.removeprefix('sub-'),
-        required=True,
+        default=None,
+        help='Subject to process. If not provided, all subjects are processed.',
     )
     return parser
 
@@ -758,50 +765,56 @@ def main(subject_id):
         derivatives=[mp2rage_dir, smriprep_dir],
     )
 
-    print(f'Processing subject {subject_id}')
-    sessions = layout.get_sessions(subject=subject_id, suffix='ihMTRAGE')
-    for session in sessions:
-        print(f'Processing session {session}')
-        m0_files = layout.get(
-            subject=subject_id,
-            session=session,
-            acquisition='nosat',
-            mt='off',
-            suffix='ihMTRAGE',
-            extension=['.nii', '.nii.gz'],
-        )
-        if not m0_files:
-            print(f'No m0 files found for subject {subject_id} and session {session}')
-            continue
+    if subject_id:
+        subjects = [subject_id]
+    else:
+        subjects = layout.get_subjects(suffix='MP2RAGE')
 
-        for m0_file in m0_files:
-            entities = m0_file.get_entities()
-            entities.pop('acquisition')
-            entities.pop('mt')
-            try:
-                run_data = collect_run_data(layout, entities)
-            except ValueError as e:
-                print(f'Failed {m0_file}')
-                print(e)
+    for subject_id in subjects:
+        print(f'Processing subject {subject_id}')
+        sessions = layout.get_sessions(subject=subject_id, suffix='ihMTRAGE')
+        for session in sessions:
+            print(f'Processing session {session}')
+            m0_files = layout.get(
+                subject=subject_id,
+                session=session,
+                acquisition='nosat',
+                mt='off',
+                suffix='ihMTRAGE',
+                extension=['.nii', '.nii.gz'],
+            )
+            if not m0_files:
+                print(f'No m0 files found for subject {subject_id} and session {session}')
                 continue
-            fname = os.path.basename(m0_file.path).split('.')[0]
-            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-            os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir)
 
-        report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
-        robj = Report(
-            report_dir,
-            run_uuid=None,
-            bootstrap_file=bootstrap_file,
-            out_filename=f'sub-{subject_id}_ses-{session}.html',
-            reportlets_dir=out_dir,
-            plugins=None,
-            plugin_meta=None,
-            subject=subject_id,
-            session=session,
-        )
-        robj.generate_report()
+            for m0_file in m0_files:
+                entities = m0_file.get_entities()
+                entities.pop('acquisition')
+                entities.pop('mt')
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {m0_file}')
+                    print(e)
+                    continue
+                fname = os.path.basename(m0_file.path).split('.')[0]
+                run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+                os.makedirs(run_temp_dir, exist_ok=True)
+                process_run(layout, run_data, out_dir, run_temp_dir)
+
+            report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
+            robj = Report(
+                report_dir,
+                run_uuid=None,
+                bootstrap_file=bootstrap_file,
+                out_filename=f'sub-{subject_id}_ses-{session}.html',
+                reportlets_dir=out_dir,
+                plugins=None,
+                plugin_meta=None,
+                subject=subject_id,
+                session=session,
+            )
+            robj.generate_report()
 
     # Write out dataset_description.json
     dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
