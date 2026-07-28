@@ -460,7 +460,8 @@ def _get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--subject-id',
         type=lambda label: label.removeprefix('sub-'),
-        required=True,
+        default=None,
+        help='Subject to process. If not provided, all subjects are processed.',
     )
     return parser
 
@@ -496,35 +497,41 @@ def main(subject_id):
         'suffix': 'ihMTR',
         'extension': ['.nii', '.nii.gz'],
     }
-    print(f'Processing subject {subject_id}', flush=True)
-    sessions = layout.get_sessions(subject=subject_id, **base_query)
-    for session in sessions:
-        print(f'Processing session {session}', flush=True)
-        base_files = layout.get(
-            subject=subject_id,
-            session=session,
-            **base_query,
-        )
-        if not base_files:
-            print(
-                f'No ihMTR files found for subject {subject_id} and session {session}',
-                flush=True,
-            )
-            continue
+    if subject_id:
+        subjects = [subject_id]
+    else:
+        subjects = layout.get_subjects(**base_query)
 
-        for base_file in base_files:
-            entities = base_file.get_entities()
-            try:
-                run_data = collect_run_data(layout, entities, smriprep_dir=smriprep_dir)
-            except ValueError as e:
-                print(f'Failed {base_file}', flush=True)
-                print(e, flush=True)
+    for subject_id in subjects:
+        print(f'Processing subject {subject_id}', flush=True)
+        sessions = layout.get_sessions(subject=subject_id, **base_query)
+        for session in sessions:
+            print(f'Processing session {session}', flush=True)
+            base_files = layout.get(
+                subject=subject_id,
+                session=session,
+                **base_query,
+            )
+            if not base_files:
+                print(
+                    f'No ihMTR files found for subject {subject_id} and session {session}',
+                    flush=True,
+                )
                 continue
 
-            fname = os.path.basename(base_file.path).split('.')[0]
-            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-            os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir, entities)
+            for base_file in base_files:
+                entities = base_file.get_entities()
+                try:
+                    run_data = collect_run_data(layout, entities, smriprep_dir=smriprep_dir)
+                except ValueError as e:
+                    print(f'Failed {base_file}', flush=True)
+                    print(e, flush=True)
+                    continue
+
+                fname = os.path.basename(base_file.path).split('.')[0]
+                run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+                os.makedirs(run_temp_dir, exist_ok=True)
+                process_run(layout, run_data, out_dir, run_temp_dir, entities)
 
     print('DONE!', flush=True)
 

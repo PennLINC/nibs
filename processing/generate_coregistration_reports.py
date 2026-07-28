@@ -125,7 +125,7 @@ def main(subject_id):
         },
         'megre': {
             'space': 'T1w',
-            'desc': 'rms',
+            'desc': 'rmsbrain',
             'suffix': 'MEGRE',
             'extension': '.nii.gz',
         },

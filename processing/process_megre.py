@@ -335,10 +335,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=t1_megre_ref_skullstripped_file,
         layout=layout,
         in_file=t1_megre_ref_skullstripped_file,
-        t1_file=run_data['t1w_mni'],
+        t1_file=run_data['t1w'],
         out_dir=out_dir,
         source_space='MEGRE',
-        target_space='MNI152NLin2009cAsym',
+        target_space='T1w',
         wm_seg=wm_seg_t1w_file,
     )
 

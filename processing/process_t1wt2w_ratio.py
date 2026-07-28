@@ -556,7 +556,8 @@ def _get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--subject-id',
         type=lambda label: label.removeprefix('sub-'),
-        required=True,
+        default=None,
+        help='Subject to process. If not provided, all subjects are processed.',
     )
     return parser
 
@@ -580,58 +581,6 @@ def main(subject_id):
     bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_t1wt2w_ratio.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
-    layout = BIDSLayout(
-        in_dir,
-        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
-        validate=False,
-        derivatives=[mp2rage_dir, smriprep_dir],
-    )
-
-    print(f'Processing subject {subject_id}')
-    sessions = layout.get_sessions(subject=subject_id, acquisition='SPACE', suffix='T2w')
-    for session in sessions:
-        print(f'Processing session {session}')
-        space_t2w_files = layout.get(
-            subject=subject_id,
-            session=session,
-            acquisition='SPACE',
-            suffix='T2w',
-            extension=['.nii', '.nii.gz'],
-        )
-        if not space_t2w_files:
-            print(f'No SPACE T2w files found for subject {subject_id} and session {session}')
-            continue
-
-        for space_t2w_file in space_t2w_files:
-            entities = space_t2w_file.get_entities()
-            entities.pop('acquisition')
-            entities.pop('reconstruction')
-            try:
-                run_data = collect_run_data(layout, entities)
-            except ValueError as e:
-                print(f'Failed {space_t2w_file}')
-                print(e)
-                continue
-
-            fname = os.path.basename(space_t2w_file.path).split('.')[0]
-            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-            os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir)
-
-        report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
-        robj = Report(
-            report_dir,
-            run_uuid=None,
-            bootstrap_file=bootstrap_file,
-            out_filename=f'sub-{subject_id}_ses-{session}.html',
-            reportlets_dir=out_dir,
-            plugins=None,
-            plugin_meta=None,
-            subject=subject_id,
-            session=session,
-        )
-        robj.generate_report()
-
     # Write out dataset_description.json
     dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
     if not os.path.isfile(dataset_description_file):
@@ -653,6 +602,64 @@ def main(subject_id):
         }
         with open(dataset_description_file, 'w') as fobj:
             json.dump(dataset_description, fobj, sort_keys=True, indent=4)
+
+    layout = BIDSLayout(
+        in_dir,
+        config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
+        validate=False,
+        derivatives=[mp2rage_dir, smriprep_dir],
+    )
+
+    if subject_id:
+        subjects = [subject_id]
+    else:
+        subjects = layout.get_subjects(acquisition='SPACE', suffix='T2w')
+
+    for subject_id in subjects:
+        print(f'Processing subject {subject_id}')
+        sessions = layout.get_sessions(subject=subject_id, acquisition='SPACE', suffix='T2w')
+        for session in sessions:
+            print(f'Processing session {session}')
+            space_t2w_files = layout.get(
+                subject=subject_id,
+                session=session,
+                acquisition='SPACE',
+                suffix='T2w',
+                extension=['.nii', '.nii.gz'],
+            )
+            if not space_t2w_files:
+                print(f'No SPACE T2w files found for subject {subject_id} and session {session}')
+                continue
+
+            for space_t2w_file in space_t2w_files:
+                entities = space_t2w_file.get_entities()
+                entities.pop('acquisition')
+                entities.pop('reconstruction')
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {space_t2w_file}')
+                    print(e)
+                    continue
+
+                fname = os.path.basename(space_t2w_file.path).split('.')[0]
+                run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+                os.makedirs(run_temp_dir, exist_ok=True)
+                process_run(layout, run_data, out_dir, run_temp_dir)
+
+            report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
+            robj = Report(
+                report_dir,
+                run_uuid=None,
+                bootstrap_file=bootstrap_file,
+                out_filename=f'sub-{subject_id}_ses-{session}.html',
+                reportlets_dir=out_dir,
+                plugins=None,
+                plugin_meta=None,
+                subject=subject_id,
+                session=session,
+            )
+            robj.generate_report()
 
     print('DONE!')
 

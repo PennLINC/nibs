@@ -283,7 +283,8 @@ def _get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--subject-id',
         type=lambda label: label.removeprefix('sub-'),
-        required=True,
+        default=None,
+        help='Subject to process. If not provided, all subjects are processed.',
     )
     return parser
 
@@ -326,46 +327,52 @@ def main(subject_id):
         'extension': ['.nii', '.nii.gz'],
     }
 
-    print(f'Processing subject {subject_id}')
-    sessions = layout.get_sessions(subject=subject_id, **base_query)
-    for session in sessions:
-        print(f'Processing session {session}')
-        base_files = layout.get(
-            subject=subject_id,
-            session=session,
-            **base_query,
-        )
-        if not base_files:
-            print(f'No base files found for subject {subject_id} and session {session}')
-            continue
+    if subject_id:
+        subjects = [subject_id]
+    else:
+        subjects = layout.get_subjects(**base_query)
 
-        for base_file in base_files:
-            entities = base_file.get_entities()
-            try:
-                run_data = collect_run_data(layout, entities)
-            except ValueError as e:
-                print(f'Failed {base_file}')
-                print(e)
+    for subject_id in subjects:
+        print(f'Processing subject {subject_id}')
+        sessions = layout.get_sessions(subject=subject_id, **base_query)
+        for session in sessions:
+            print(f'Processing session {session}')
+            base_files = layout.get(
+                subject=subject_id,
+                session=session,
+                **base_query,
+            )
+            if not base_files:
+                print(f'No base files found for subject {subject_id} and session {session}')
                 continue
 
-            fname = os.path.basename(base_file.path).split('.')[0]
-            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-            os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir)
+            for base_file in base_files:
+                entities = base_file.get_entities()
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {base_file}')
+                    print(e)
+                    continue
 
-        report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
-        robj = Report(
-            report_dir,
-            run_uuid=None,
-            bootstrap_file=bootstrap_file,
-            out_filename=f'sub-{subject_id}_ses-{session}.html',
-            reportlets_dir=out_dir,
-            plugins=None,
-            plugin_meta=None,
-            subject=subject_id,
-            session=session,
-        )
-        robj.generate_report()
+                fname = os.path.basename(base_file.path).split('.')[0]
+                run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+                os.makedirs(run_temp_dir, exist_ok=True)
+                process_run(layout, run_data, out_dir, run_temp_dir)
+
+            report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
+            robj = Report(
+                report_dir,
+                run_uuid=None,
+                bootstrap_file=bootstrap_file,
+                out_filename=f'sub-{subject_id}_ses-{session}.html',
+                reportlets_dir=out_dir,
+                plugins=None,
+                plugin_meta=None,
+                subject=subject_id,
+                session=session,
+            )
+            robj.generate_report()
 
     # Write out dataset_description.json
     dataset_description_file = os.path.join(out_dir, 'dataset_description.json')

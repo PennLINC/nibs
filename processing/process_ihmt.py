@@ -770,6 +770,29 @@ def main(subject_id):
     bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_ihmt.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
+    # Write out dataset_description.json
+    dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
+    if not os.path.isfile(dataset_description_file):
+        dataset_description = {
+            'Name': 'NIBS ihMT Derivatives',
+            'BIDSVersion': '1.10.0',
+            'DatasetType': 'derivative',
+            'DatasetLinks': {
+                'raw': in_dir,
+                'mp2rage': mp2rage_dir,
+                'smriprep': smriprep_dir,
+            },
+            'GeneratedBy': [
+                {
+                    'Name': 'Custom code',
+                    'Description': 'Custom Python code to calculate ihMTw and MTR.',
+                    'CodeURL': 'https://github.com/PennLINC/nibs',
+                }
+            ],
+        }
+        with open(dataset_description_file, 'w') as fobj:
+            json.dump(dataset_description, fobj, sort_keys=True, indent=4)
+
     layout = BIDSLayout(
         in_dir,
         config=os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json'),
@@ -827,29 +850,6 @@ def main(subject_id):
                 session=session,
             )
             robj.generate_report()
-
-    # Write out dataset_description.json
-    dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
-    if not os.path.isfile(dataset_description_file):
-        dataset_description = {
-            'Name': 'NIBS ihMT Derivatives',
-            'BIDSVersion': '1.10.0',
-            'DatasetType': 'derivative',
-            'DatasetLinks': {
-                'raw': in_dir,
-                'mp2rage': mp2rage_dir,
-                'smriprep': smriprep_dir,
-            },
-            'GeneratedBy': [
-                {
-                    'Name': 'Custom code',
-                    'Description': 'Custom Python code to calculate ihMTw and MTR.',
-                    'CodeURL': 'https://github.com/PennLINC/nibs',
-                }
-            ],
-        }
-        with open(dataset_description_file, 'w') as fobj:
-            json.dump(dataset_description, fobj, sort_keys=True, indent=4)
 
     print('DONE!')
 

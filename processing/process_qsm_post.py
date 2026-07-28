@@ -676,37 +676,6 @@ def main(subject_id=None):
 
     bids_config = os.path.join(CODE_DIR, 'configuration', 'nibs_bids_config.json')
 
-    if subject_id:
-        subjects = [subject_id]
-    else:
-        # MEGRE subjects come from the raw dataset, so a lightweight layout
-        # (no derivatives) is enough to enumerate them.
-        subjects = BIDSLayout(
-            in_dir,
-            config=bids_config,
-            validate=False,
-        ).get_subjects(suffix='MEGRE')
-    print(f'Processing subjects: {subjects}', flush=True)
-
-    # Rename chi-separation outputs first, for every subject/session, so they
-    # are indexed when the processing layout is built below.
-    for subject_id in subjects:
-        sessions_to_rename = _get_sessions_to_rename(subject_id)
-        print(f'sessions to rename for sub-{subject_id}: {sessions_to_rename}', flush=True)
-        for session in sessions_to_rename:
-            print(f'Renaming QSM outputs for sub-{subject_id} ses-{session}')
-            rename_qsm_outputs(subject_id, session)
-
-    layout = BIDSLayout(
-        in_dir,
-        config=bids_config,
-        validate=False,
-        derivatives=[smriprep_dir, megre_dir, out_dir],
-    )
-
-    for subject_id in subjects:
-        process_subject(layout, subject_id, out_dir, bootstrap_file)
-
     # Write out dataset_description.json
     dataset_description_file = os.path.join(out_dir, 'dataset_description.json')
     if not os.path.isfile(dataset_description_file):
@@ -730,6 +699,38 @@ def main(subject_id=None):
         }
         with open(dataset_description_file, 'w') as fobj:
             json.dump(dataset_description, fobj, sort_keys=True, indent=4)
+
+    if subject_id:
+        subjects = [subject_id]
+    else:
+        # MEGRE subjects come from the raw dataset, so a lightweight layout
+        # (no derivatives) is enough to enumerate them.
+        subjects = BIDSLayout(
+            in_dir,
+            config=bids_config,
+            validate=False,
+        ).get_subjects(suffix='MEGRE')
+
+    print(f'Processing subjects: {subjects}', flush=True)
+
+    # Rename chi-separation outputs first, for every subject/session, so they
+    # are indexed when the processing layout is built below.
+    for subject_id in subjects:
+        sessions_to_rename = _get_sessions_to_rename(subject_id)
+        print(f'sessions to rename for sub-{subject_id}: {sessions_to_rename}', flush=True)
+        for session in sessions_to_rename:
+            print(f'Renaming QSM outputs for sub-{subject_id} ses-{session}')
+            rename_qsm_outputs(subject_id, session)
+
+    layout = BIDSLayout(
+        in_dir,
+        config=bids_config,
+        validate=False,
+        derivatives=[smriprep_dir, megre_dir, out_dir],
+    )
+
+    for subject_id in subjects:
+        process_subject(layout, subject_id, out_dir, bootstrap_file)
 
     print('DONE!')
 
