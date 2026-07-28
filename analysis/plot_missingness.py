@@ -46,6 +46,17 @@ if __name__ == '__main__':
         'Session 02--MEGRE',
     ]
     df = df[columns]
+    label_replacements = {
+        'T1w': 'T₁w',
+        'T2w': 'T₂w',
+        'B1+': 'B₁⁺',
+    }
+    df = df.rename(
+        columns=lambda column: next(
+            (column.replace(old, new) for old, new in label_replacements.items() if old in column),
+            column,
+        )
+    )
     subjects = df.index.tolist()
     pilot_subjects = [subj for subj in subjects if subj.startswith('sub-PILOT')]
     other_subjects = [subj for subj in subjects if not subj.startswith('sub-PILOT')]

@@ -1,8 +1,9 @@
 """Shared utilities for processing pipelines.
 
-Provides ``load_config``, ``run_command``, ``get_filename``,
-``coregister_to_t1``, ``fit_monoexponential``, ``fit_complex_r2star``,
-``plot_scalar_map``, ``plot_denoise``, ``plot_residual``, and ``calculate_r_squared``.
+Provides ``load_config``, ``run_command``, ``run_synthstrip``, ``get_filename``,
+``coregister_to_t1``, ``fit_monoexponential``,
+``plot_brain_mask_contour``, ``plot_scalar_map``, ``plot_denoise``,
+``plot_residual``, and ``calculate_r_squared``.
 """
 
 from __future__ import annotations
@@ -98,6 +99,74 @@ def run_command(command: str | list[str], env: dict[str, str] | None = None) -> 
             f'Non zero return code: {process.returncode}\n'
             f'{" ".join(command)}\n\n{"".join(output_lines)}'
         )
+
+
+def run_synthstrip(
+    in_file: str,
+    out_file: str | None = None,
+    mask_file: str | None = None,
+    *,
+    cfg: dict | None = None,
+    args=[]
+) -> None:
+    """Run FreeSurfer SynthStrip via Apptainer/Singularity or Docker.
+
+    The container runtime is chosen by the ``synthstrip_runtime`` key in the
+    project config (``"apptainer"`` or ``"docker"``). For ``"apptainer"`` the
+    image is taken from ``cfg['apptainer']['synthstrip']``; for ``"docker"`` it is
+    taken from ``cfg['docker']['synthstrip']`` and the parent directories of all
+    supplied files are bind-mounted at identical paths so the in-container
+    arguments match the host paths.
+
+    Parameters
+    ----------
+    in_file : str
+        Path to the input image to skull-strip (SynthStrip ``-i``).
+    out_file : str, optional
+        Path to write the skull-stripped image (SynthStrip ``-o``).
+    mask_file : str, optional
+        Path to write the binary brain mask (SynthStrip ``-m``).
+    cfg : dict, optional
+        Project config as returned by :func:`load_config`. Loaded on demand when
+        omitted.
+    args : list, optional
+        Arguments to pass into SynthStrip.
+
+    Raises
+    ------
+    ValueError
+        If ``synthstrip_runtime`` is not ``"apptainer"`` or ``"docker"``.
+    """
+    if cfg is None:
+        cfg = load_config()
+
+    runtime = cfg.get('synthstrip_runtime', 'apptainer')
+
+    args.append(f'-i {in_file}')
+    if out_file is not None:
+        args.append(f'-o {out_file}')
+    if mask_file is not None:
+        args.append(f'-m {mask_file}')
+
+    args = ' '.join(args)
+
+    if runtime == 'apptainer':
+        sif = cfg['apptainer']['synthstrip']
+        cmd = f'singularity run {sif} {args}'
+    elif runtime == 'docker':
+        image = cfg['docker']['synthstrip']
+        # Bind-mount the parent directory of each supplied file at the same path
+        # inside the container so the host paths in ``args`` resolve unchanged.
+        paths = [p for p in (in_file, out_file, mask_file) if p is not None]
+        vol_dirs = {os.path.dirname(os.path.abspath(p)) for p in paths}
+        vol_args = ' '.join(f'-v {d}:{d}' for d in sorted(vol_dirs))
+        cmd = f'docker run --rm {vol_args} {image} {args}'
+    else:
+        raise ValueError(
+            f"Unknown synthstrip_runtime {runtime!r}; expected 'apptainer' or 'docker'."
+        )
+
+    run_command(cmd)
 
 
 def get_filename(
@@ -215,7 +284,7 @@ def coregister_to_t1(
 
     n4_img_masked = n4_img * mask_img
 
-    # Step 2: Coregister the brain-extracted image to the T1w image.
+    # Step 2: Coregister the input image to the brain-extracted T1w image.
     registered_img = ants.registration(
         fixed=n4_img_masked,
         moving=ants.image_read(in_file),
@@ -282,6 +351,7 @@ def plot_coregistration(
     source_space: str,
     target_space: str,
     wm_seg: str | None = None,
+    output_space: str | None = None,
 ) -> None:
     """Generate an SVG report comparing an image before and after coregistration to T1w.
 
@@ -298,13 +368,21 @@ def plot_coregistration(
     out_dir : str
         Root directory for the output report.
     source_space : str
-        Label for the source image space.
+        Label for the source image space (the "before" view).
     target_space : str
-        Label for the T1w target space.
+        Label for the target space (the "after" view).
     wm_seg : str, optional
         Path to a white-matter segmentation for edge overlay.
+    output_space : str, optional
+        Value for the ``space`` entity of the output SVG. Defaults to
+        ``target_space``. Use this when the "after" label is not a valid BIDS
+        space value (e.g. a session label) or differs from the space the images
+        actually live in.
     """
     from nireports.interfaces.reporting.base import SimpleBeforeAfterRPT
+
+    if output_space is None:
+        output_space = target_space
 
     desc = 'coreg'
     if 'desc-' in name_source:
@@ -315,7 +393,7 @@ def plot_coregistration(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'datatype': 'figures', 'space': target_space, 'desc': desc, 'extension': '.svg'},
+        entities={'datatype': 'figures', 'space': output_space, 'desc': desc, 'extension': '.svg'},
     )
     out_dir = os.path.dirname(out_report)
     os.makedirs(out_dir, exist_ok=True)
@@ -369,6 +447,8 @@ def fit_monoexponential(
         R2 map in Hertz.
     s0_img : nibabel.Nifti1Image
         S0 map in arbitrary units.
+    r_squared_img : nibabel.Nifti1Image
+        R-squared.
     """
     import nibabel as nb
     import numpy as np
@@ -423,6 +503,51 @@ def fit_monoexponential(
     r_squared_img = masking.unmask(r_squared, mask_img)
     r_squared_img.header.set_data_dtype(np.float32)
     return t2s_s_img, r2s_hz_img, s0_img, r_squared_img
+
+
+def plot_brain_mask_contour(
+    underlay: str,
+    mask: str,
+    out_file: str,
+) -> None:
+    """Plot a brain-mask boundary over an anatomical image and save as SVG.
+
+    Renders the (typically un-skull-stripped) ``underlay`` as an axial mosaic
+    with the boundary of ``mask`` drawn as a contour, for QC of a brain
+    extraction (e.g. SynthStrip).
+
+    Parameters
+    ----------
+    underlay : str
+        Path to the anatomical underlay NIfTI image (whole head).
+    mask : str
+        Path to the binary brain mask NIfTI image to outline.
+    out_file : str
+        Path for the saved figure. The extension (e.g. ``.svg``) determines the
+        output format.
+    """
+    import matplotlib.pyplot as plt
+    import nibabel as nb
+    from nilearn import plotting
+    from nireports.reportlets.utils import cuts_from_bbox
+
+    out_parent = os.path.dirname(out_file)
+    if out_parent and not os.path.isdir(out_parent):
+        os.makedirs(out_parent, exist_ok=True)
+
+    cuts = cuts_from_bbox(nb.load(mask), cuts=7)
+
+    display = plotting.plot_anat(
+        underlay,
+        display_mode='z',
+        cut_coords=cuts['z'],
+        draw_cross=False,
+        black_bg=False,
+    )
+    display.add_contours(mask, levels=[0.5], colors='r', linewidths=0.75)
+    display.savefig(out_file)
+    display.close()
+    plt.close('all')
 
 
 def plot_scalar_map(
@@ -932,7 +1057,7 @@ def calculate_r_squared(
     data : numpy.ndarray of shape (n_samples, n_echos)
         Data to calculate R-squared for.
     echo_times : list of float
-        Echo times in milliseconds.
+        Echo times in seconds.
     s0 : numpy.ndarray of shape (n_samples,)
         S0 values from a monoexponential fit of echo times against the data.
     t2s : numpy.ndarray of shape (n_samples,)

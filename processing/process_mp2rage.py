@@ -13,8 +13,8 @@ Steps:
 9.  Coregister T1w image to sMRIPrep T1w image.
 10. Write out coregistration transform.
 11. Write out T1w-space T1map and T1w images.
-12. Warp original and B1-corrected T1 maps to MNI152NLin2009cAsym (distortion map,
-    coregistration transform, normalization transform from sMRIPrep).
+12. Warp original and B1-corrected T1 maps to MNI152NLin2009cAsym
+    (coregistration transform, normalization transform from sMRIPrep).
 
 Notes:
 
@@ -39,7 +39,15 @@ from nilearn import image, masking
 from nireports.assembler.report import Report
 from pymp2rage import MP2RAGE
 
-from utils import coregister_to_t1, get_filename, load_config, plot_coregistration, plot_scalar_map
+from utils import (
+    coregister_to_t1,
+    get_filename,
+    load_config,
+    plot_brain_mask_contour,
+    plot_coregistration,
+    plot_scalar_map,
+    run_synthstrip,
+)
 
 
 def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
@@ -381,7 +389,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     t1map = mp2rage.t1map
     t1map_arr = t1map.get_fdata()
-    t1map_arr = t1map_arr / 1000  # Convert from milliseconds to seconds
+    np.divide(t1map_arr, 1000, out=t1map_arr, where=t1map_arr != 0)  # Convert from milliseconds to seconds
     t1map = nb.Nifti1Image(t1map_arr, t1map.affine, t1map.header)
     t1map_file = get_filename(
         name_source=name_source,
@@ -418,44 +426,88 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
     t1map = mp2rage.t1map_b1_corrected
     t1map_arr = t1map.get_fdata()
-    t1map_arr = t1map_arr / 1000  # Convert from milliseconds to seconds
+    np.divide(t1map_arr, 1000, out=t1map_arr, where=t1map_arr != 0)  # Convert from milliseconds to seconds
     t1map = nb.Nifti1Image(t1map_arr, t1map.affine, t1map.header)
-    t1map_b1_corrected_file = get_filename(
+    t1map_b1c_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MP2RAGE', 'suffix': 'T1map', 'desc': 'B1corrected'},
         dismiss_entities=['inv', 'part', 'reconstruction'],
     )
-    t1map.to_filename(t1map_b1_corrected_file)
+    t1map.to_filename(t1map_b1c_file)
 
     r1map_arr = np.zeros_like(t1map_arr)
     np.divide(1, t1map_arr, out=r1map_arr, where=t1map_arr != 0)
     r1map = nb.Nifti1Image(r1map_arr, t1map.affine, t1map.header)
-    r1map_b1_corrected_file = get_filename(
+    r1map_b1c_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MP2RAGE', 'suffix': 'R1map', 'desc': 'B1corrected'},
         dismiss_entities=['inv', 'part', 'reconstruction'],
     )
-    r1map.to_filename(r1map_b1_corrected_file)
+    r1map.to_filename(r1map_b1c_file)
 
-    t1w_uni_b1_corrected_file = get_filename(
+    t1w_uni_b1c_file = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MP2RAGE', 'suffix': 'UNIT1', 'desc': 'B1corrected'},
         dismiss_entities=['inv', 'part', 'reconstruction'],
     )
-    mp2rage.t1w_uni_b1_corrected.to_filename(t1w_uni_b1_corrected_file)
+    mp2rage.t1w_uni_b1_corrected.to_filename(t1w_uni_b1c_file)
+
+    # Skullstrip t1w_uni_b1c_file and use that for coregistration.
+    brain_mask = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MP2RAGE', 'desc': 'brain', 'suffix': 'mask'},
+        dismiss_entities=['inv', 'part', 'reconstruction'],
+    )
+    print(f'Creating brain mask: {brain_mask}')
+
+    t1w_uni_b1c_skullstripped_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MP2RAGE', 'suffix': 'UNIT1', 'desc': 'B1correctedbrain'},
+        dismiss_entities=['inv', 'part', 'reconstruction'],
+    )
+    run_synthstrip(
+        in_file=t1w_uni_b1c_file,
+        out_file=t1w_uni_b1c_skullstripped_file,
+        mask_file=brain_mask,
+        args=['--no-csf'],
+    )
+
+    # QC reportlet: SynthStrip brain mask boundary over the un-skull-stripped UNIT1.
+    brain_mask_report = get_filename(
+        name_source=t1w_uni_b1c_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'datatype': 'figures',
+            'space': 'MP2RAGE',
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': '.svg',
+        },
+        dismiss_entities=['inv', 'part', 'reconstruction'],
+    )
+    plot_brain_mask_contour(
+        underlay=t1w_uni_b1c_file,
+        mask=brain_mask,
+        out_file=brain_mask_report,
+    )
 
     # Coregister MP2RAGE-space T1w image to sMRIPrep T1w image
-    print(f'Coregistering {t1w_uni_b1_corrected_file} to {run_data["t1w"]}', flush=True)
+    print(f'Coregistering {t1w_uni_b1c_file} to {run_data["t1w"]}', flush=True)
     mp2rage_to_smriprep_xfm = coregister_to_t1(
         name_source=name_source,
         layout=layout,
-        in_file=t1w_uni_b1_corrected_file,
+        in_file=t1w_uni_b1c_skullstripped_file,
         t1_file=run_data['t1w'],
         source_space='MP2RAGE',
         target_space='T1w',
@@ -463,59 +515,59 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
 
     # We only want the coregistration figures for the T1w_uni_b1_corrected file
-    t1w_t1w_uni_b1_corrected_file = get_filename(
-        name_source=t1w_uni_b1_corrected_file,
+    t1w_t1w_uni_b1c_skullstripped_file = get_filename(
+        name_source=t1w_uni_b1c_skullstripped_file,
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w'},
     )
-    t1w_t1w_uni_b1_corrected_img = ants.apply_transforms(
+    t1w_t1w_uni_b1c_skullstripped_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w']),
-        moving=ants.image_read(t1w_uni_b1_corrected_file),
+        moving=ants.image_read(t1w_uni_b1c_skullstripped_file),
         transformlist=[mp2rage_to_smriprep_xfm],
         interpolator='nearestNeighbor',
     )
-    ants.image_write(t1w_t1w_uni_b1_corrected_img, t1w_t1w_uni_b1_corrected_file)
+    ants.image_write(t1w_t1w_uni_b1c_skullstripped_img, t1w_t1w_uni_b1c_skullstripped_file)
     plot_coregistration(
-        name_source=t1w_t1w_uni_b1_corrected_file,
+        name_source=t1w_uni_b1c_skullstripped_file,
         layout=layout,
-        in_file=t1w_t1w_uni_b1_corrected_file,
+        in_file=t1w_t1w_uni_b1c_skullstripped_file,
         t1_file=run_data['t1w'],
         out_dir=out_dir,
         source_space='MP2RAGE',
         target_space='T1w',
         wm_seg=wm_seg_t1w_file,
     )
-    del t1w_t1w_uni_b1_corrected_img, t1w_t1w_uni_b1_corrected_file
+    del t1w_t1w_uni_b1c_skullstripped_img, t1w_t1w_uni_b1c_skullstripped_file
 
-    mni_t1w_uni_b1_corrected_file = get_filename(
-        name_source=t1w_uni_b1_corrected_file,
+    mni_t1w_uni_b1c_skullstripped_file = get_filename(
+        name_source=t1w_uni_b1c_skullstripped_file,
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'MNI152NLin2009cAsym'},
     )
-    mni_t1w_uni_b1_corrected_img = ants.apply_transforms(
+    mni_t1w_uni_b1c_skullstripped_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w_mni']),
-        moving=ants.image_read(t1w_uni_b1_corrected_file),
+        moving=ants.image_read(t1w_uni_b1c_skullstripped_file),
         transformlist=[run_data['t1w2mni_xfm'], mp2rage_to_smriprep_xfm],
         interpolator='nearestNeighbor',
     )
-    ants.image_write(mni_t1w_uni_b1_corrected_img, mni_t1w_uni_b1_corrected_file)
+    ants.image_write(mni_t1w_uni_b1c_skullstripped_img, mni_t1w_uni_b1c_skullstripped_file)
     plot_coregistration(
-        name_source=mni_t1w_uni_b1_corrected_file,
+        name_source=mni_t1w_uni_b1c_skullstripped_file,
         layout=layout,
-        in_file=mni_t1w_uni_b1_corrected_file,
+        in_file=mni_t1w_uni_b1c_skullstripped_file,
         t1_file=run_data['t1w_mni'],
         out_dir=out_dir,
         source_space='MP2RAGE',
         target_space='MNI152NLin2009cAsym',
         wm_seg=wm_seg_file,
     )
-    del mni_t1w_uni_b1_corrected_img, mni_t1w_uni_b1_corrected_file
+    del mni_t1w_uni_b1c_skullstripped_img, mni_t1w_uni_b1c_skullstripped_file
 
-    # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
+    # Warp MP2RAGE-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
     # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
-    files = [t1map_file, t1map_b1_corrected_file, r1map_file, r1map_b1_corrected_file]
+    files = [t1map_file, t1map_b1c_file, r1map_file, r1map_b1c_file]
     descs = [None, 'B1corrected', None, 'B1corrected']
     suffixes = ['T1map', 'T1map', 'R1map', 'R1map']
     for i_file, file_ in enumerate(files):
@@ -661,7 +713,8 @@ def _get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--subject-id',
         type=lambda label: label.removeprefix('sub-'),
-        required=True,
+        default=None,
+        help='Subject to process. If not provided, all subjects are processed.',
     )
     return parser
 
@@ -693,55 +746,61 @@ def main(subject_id):
         derivatives=[smriprep_dir],
     )
 
-    print(f'Processing subject {subject_id}', flush=True)
-    sessions = layout.get_sessions(subject=subject_id, suffix='MP2RAGE')
-    for session in sessions:
-        print(f'Processing session {session}', flush=True)
-        inv1_magnitude_files = layout.get(
-            subject=subject_id,
-            session=session,
-            inv=1,
-            part=['mag', Query.NONE],
-            suffix='MP2RAGE',
-            extension=['.nii', '.nii.gz'],
-        )
-        if not inv1_magnitude_files:
-            print(
-                f'No inv1 magnitude files found for subject {subject_id} and session {session}',
-                flush=True,
+    if subject_id:
+        subjects = [subject_id]
+    else:
+        subjects = layout.get_subjects(suffix='MP2RAGE')
+
+    for subject_id in subjects:
+        print(f'Processing subject {subject_id}', flush=True)
+        sessions = layout.get_sessions(subject=subject_id, suffix='MP2RAGE')
+        for session in sessions:
+            print(f'Processing session {session}', flush=True)
+            inv1_magnitude_files = layout.get(
+                subject=subject_id,
+                session=session,
+                inv=1,
+                part=['mag', Query.NONE],
+                suffix='MP2RAGE',
+                extension=['.nii', '.nii.gz'],
             )
-            continue
-
-        for inv1_magnitude_file in inv1_magnitude_files:
-            entities = inv1_magnitude_file.get_entities()
-            entities.pop('inv')
-            if 'part' in entities:
-                entities.pop('part')
-
-            try:
-                run_data = collect_run_data(layout, entities)
-            except ValueError as e:
-                print(f'Failed {inv1_magnitude_file}', flush=True)
-                print(e)
+            if not inv1_magnitude_files:
+                print(
+                    f'No inv1 magnitude files found for subject {subject_id} and session {session}',
+                    flush=True,
+                )
                 continue
-            fname = os.path.basename(inv1_magnitude_file.path).split('.')[0]
-            run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
-            os.makedirs(run_temp_dir, exist_ok=True)
-            process_run(layout, run_data, out_dir, run_temp_dir)
 
-        report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
-        robj = Report(
-            report_dir,
-            run_uuid=None,
-            bootstrap_file=bootstrap_file,
-            out_filename=f'sub-{subject_id}_ses-{session}.html',
-            reportlets_dir=out_dir,
-            plugins=None,
-            plugin_meta=None,
-            subject=subject_id,
-            session=session,
-        )
-        robj.generate_report()
+            for inv1_magnitude_file in inv1_magnitude_files:
+                entities = inv1_magnitude_file.get_entities()
+                entities.pop('inv')
+                if 'part' in entities:
+                    entities.pop('part')
+
+                try:
+                    run_data = collect_run_data(layout, entities)
+                except ValueError as e:
+                    print(f'Failed {inv1_magnitude_file}', flush=True)
+                    print(e)
+                    continue
+                fname = os.path.basename(inv1_magnitude_file.path).split('.')[0]
+                run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
+                os.makedirs(run_temp_dir, exist_ok=True)
+                process_run(layout, run_data, out_dir, run_temp_dir)
+
+            report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
+            robj = Report(
+                report_dir,
+                run_uuid=None,
+                bootstrap_file=bootstrap_file,
+                out_filename=f'sub-{subject_id}_ses-{session}.html',
+                reportlets_dir=out_dir,
+                plugins=None,
+                plugin_meta=None,
+                subject=subject_id,
+                session=session,
+            )
+            robj.generate_report()
 
     # Write out dataset_description.json
     dataset_description_file = os.path.join(out_dir, 'dataset_description.json')

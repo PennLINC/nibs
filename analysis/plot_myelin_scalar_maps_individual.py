@@ -15,16 +15,29 @@ import templateflow.api as tflow
 from nilearn import image, maskers, plotting
 from tqdm.auto import tqdm
 
+CUT_COORDS = [-30, -15, 0, 15, 30, 45, 60]
+
 
 def _plot_scalar_map(args):
     scalar_map, title, template, mask, out_dir, percentile = args
+
+    fname = title.lower().replace('/', '_').replace(' ', '_')
+    fname = fname.replace('*', 'star').replace("'", 'prime')
+    fname = fname.replace('(', '').replace(')', '')
+    fname += '_'
+    scalar_map_fname = os.path.basename(scalar_map).split('__')[-1]
+    fname += '_'.join(scalar_map_fname.split('_')[:2])
+    out_file = os.path.join(out_dir, f'{fname}.png')
+    if os.path.isfile(out_file):
+        print(f'Skipping {scalar_map}')
+        return
 
     # Mask out non-brain voxels for this scalar map.
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         mask_img = image.resample_to_img(mask, scalar_map, interpolation='nearest')
 
-    masker = maskers.NiftiMasker(mask_img, resampling_target='data')
+    masker = maskers.NiftiMasker(mask_img)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         mean_arr = masker.fit_transform(scalar_map)
@@ -108,12 +121,7 @@ def _plot_scalar_map(args):
 
     cbar.ax.tick_params(labelsize=14, length=0)
 
-    fname = title.lower().replace('/', '_').replace(' ', '_')
-    fname = fname.replace('*', 'star').replace("'", 'prime')
-    fname = fname.replace('(', '').replace(')', '')
-    fname += '_'
-    fname += '_'.join(os.path.basename(scalar_map).split('_')[:2])
-    fig.savefig(os.path.join(out_dir, f'{fname}.png'), bbox_inches='tight')
+    fig.savefig(out_file, bbox_inches='tight')
     plt.close(fig)
 
     return None
@@ -142,7 +150,7 @@ if __name__ == '__main__':
     with open('name_mapper.json', 'r') as fo:
         name_mapper = json.load(fo)
 
-    with open('patterns.json', 'r') as fo:
+    with open('patterns_local.json', 'r') as fo:
         filename_mapper = json.load(fo)
 
     for group, patterns in filename_mapper.items():

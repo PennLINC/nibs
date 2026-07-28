@@ -3,8 +3,8 @@
 Steps:
 
 1.  Register all AP MESE echoes to first echo.
-2.  Calculate R2 map from AP MESE data.
-3.  Coregister AP echo-1 image to preprocessed T1w from sMRIPrep.
+2.  Coregister RMS MESEref image to preprocessed T1w from sMRIPrep.
+3.  Calculate R2 map from AP MESE data.
 4.  Write out coregistration transform to preprocessed T1w.
 5.  Warp R2, T2, S0 maps to MNI152NLin2009cAsym (coregistration transform,
     normalization transform from sMRIPrep).
@@ -37,13 +37,12 @@ from utils import (
     load_config,
     plot_coregistration,
     plot_scalar_map,
-    run_command,
+    run_synthstrip,
 )
 
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
-SYNTHSTRIP_IMAGE = 'freesurfer/synthstrip:1.7'
 
 os.environ['SUBJECTS_DIR'] = CFG['freesurfer']['subjects_dir']
 os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
@@ -204,7 +203,6 @@ def process_run(layout, run_data, out_dir, temp_dir):
         Path to the output directory.
     temp_dir : str
         Path to the temporary directory.
-        Not currently used.
     """
     name_source = run_data['mese_mag_ap'][0]
     mese_ap_metadata = [layout.get_metadata(f) for f in run_data['mese_mag_ap']]
@@ -243,7 +241,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
     # Coregister echoes 2-4 of AP MESE data to echo 1. The returned reference is
-    # the first echo.
+    # the RMS of the motion-corrected echoes.
     hmced_files, brain_mask, mese_ref = iterative_motion_correction(
         name_sources=run_data['mese_mag_ap'],
         layout=layout,
@@ -256,7 +254,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1w', 'suffix': 'MESE'},
+        entities={'space': 'T1w', 'suffix': 'MESEref'},
     )
 
     t1w_img = ants.image_read(run_data['t1w'])
@@ -433,8 +431,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         n_threads=os.cpu_count(),
     )
 
-    # Warp T1w-space T1map and T1w image to MNI152NLin2009cAsym using normalization transform
-    # from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
+    # Warp MESEref-space scalars to MNI space.
     image_types = ['T2map', 'R2map', 'S0map', 'Rsquaredmap']
     images = [t2_img, r2_img, s0_img, r_squared_img]
     for i_file, img in enumerate(images):
@@ -533,7 +530,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     brain_mask : str
         Path to the brain mask.
     ref_file : str
-        Path to the MESE reference image (first echo).
+        Path to the MESE reference image (RMS of motion corrected echoes).
     """
     # Step 1: Create a brain mask from the first image with SynthStrip. This
     # mask is used internally for skull-stripping the echoes during motion
@@ -542,12 +539,12 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
     # process_run, so this one is kept in the working directory only.
     brain_mask = os.path.join(temp_dir, 'synthstrip_brain_mask.nii.gz')
     skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_files[0])}')
-    vol_dirs = {
-        os.path.dirname(os.path.abspath(p)) for p in [in_files[0], skullstripped_file, brain_mask]
-    }
-    vol_args = ' '.join(f'-v {d}:{d}' for d in vol_dirs)
-    cmd = f'docker run --rm {vol_args} {SYNTHSTRIP_IMAGE} -i {in_files[0]} -o {skullstripped_file} -m {brain_mask}'
-    run_command(cmd)
+    run_synthstrip(
+        in_file=in_files[0],
+        out_file=skullstripped_file,
+        mask_file=brain_mask,
+        cfg=CFG,
+    )
 
     # Step 2: Skull-strip each image.
     skullstripped_files = [skullstripped_file]
@@ -556,10 +553,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
             continue
 
         skullstripped_file = os.path.join(temp_dir, f'skullstripped_{os.path.basename(in_file)}')
-        vol_dirs = {os.path.dirname(os.path.abspath(p)) for p in [in_file, skullstripped_file]}
-        vol_args = ' '.join(f'-v {d}:{d}' for d in vol_dirs)
-        cmd = f'docker run --rm {vol_args} {SYNTHSTRIP_IMAGE} -i {in_file} -o {skullstripped_file}'
-        run_command(cmd)
+        run_synthstrip(in_file=in_file, out_file=skullstripped_file, cfg=CFG)
         skullstripped_files.append(skullstripped_file)
 
     # Step 3: Register each image to the first image.
@@ -618,7 +612,7 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         hmced_files.append(out_file)
         mese_space_files.append(out_file)
 
-    # Step 5: The MESE reference is the first echo.
+    # Step 5: Calculate RMS image as MESEref
     ref_file = get_filename(
         name_source=name_sources[0],
         layout=layout,
@@ -626,8 +620,11 @@ def iterative_motion_correction(name_sources, layout, in_files, out_dir, temp_di
         entities={'suffix': 'MESEref'},
         dismiss_entities=['echo', 'direction'],
     )
-    grid_img = nb.load(hmced_files[0])
-    grid_img.to_filename(ref_file)
+    ref_img = nb.load(hmced_files[0])
+    arrs = [nb.load(f).get_fdata() ** 2 for f in hmced_files]
+    rms_data = np.sqrt(np.mean(np.stack(arrs, axis=-1), axis=-1))
+    rms_img = nb.Nifti1Image(rms_data, ref_img.affine, ref_img.header)
+    rms_img.to_filename(ref_file)
 
     # Step 6: Plot each motion-corrected echo against the reference.
     for i_file, mese_file in enumerate(mese_space_files):

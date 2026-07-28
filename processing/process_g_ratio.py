@@ -8,7 +8,7 @@ Steps:
 Notes:
 
 - sMRIPrep's preprocessed T1w image is used as the "native T1w space".
-- This must be run after sMRIPrep and process_ihmt.py.
+- This must be run after sMRIPrep, QSIRecon, process_ihmt.py, and process_g_ratio_scaling_factors.py.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ ihMTR_ISOVF_ICVF_scalar = 2.2137054628974355
 
 
 def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
-    """Collect T1w-space myelin and ACPC-space microstructure maps for g-ratio computation.
+    """Collect T1w-space myelin and microstructure maps for g-ratio computation.
 
     Parameters
     ----------

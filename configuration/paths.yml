@@ -33,10 +33,19 @@ derivatives:
   qsirecon_noddi: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/qsirecon/derivatives/qsirecon-NODDI
   qsirecon_dsistudio: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/qsirecon/derivatives/qsirecon-DSIStudio
 
+# Container runtime used for SynthStrip skull-stripping. Either "apptainer"
+# (uses the apptainer.synthstrip .sif below) or "docker" (uses the
+# docker.synthstrip image tag below).
+synthstrip_runtime: docker
+
 apptainer:
   # Used by process_mese.py / process_ihmt.py for SynthStrip skull-stripping.
   # Requires a local singularity/apptainer install and this .sif image.
   synthstrip: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/apptainer/synthstrip-1.7.sif
+
+docker:
+  # Used to locally test processing on a machine without Apptainer
+  synthstrip: freesurfer/synthstrip:1.7
 
 freesurfer:
   subjects_dir: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/smriprep/sourcedata/freesurfer

@@ -1,0 +1,17 @@
+package: Myelin Derivatives
+sections:
+- name: Intersession Coregistration
+  ordering: task,acquisition,ceagent,reconstruction,direction,run,echo
+  reportlets:
+  - bids: {datatype: figures, space: T1w, desc: mp2ragecoreg, suffix: UNIT1}
+    subtitle: MP2RAGE
+    static: false
+  - bids: {datatype: figures, space: T1w, desc: ihmtcoreg, suffix: ihMTRAGE}
+    subtitle: ihMT
+    static: false
+  - bids: {datatype: figures, space: T1w, desc: mesecoreg, suffix: MESEref}
+    subtitle: MESE
+    static: false
+  - bids: {datatype: figures, space: T1w, desc: megrecoreg, suffix: MEGRE}
+    subtitle: MEGRE
+    static: false

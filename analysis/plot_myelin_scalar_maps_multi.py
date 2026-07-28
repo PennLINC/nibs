@@ -120,7 +120,7 @@ if __name__ == '__main__':
     with open('name_mapper.json', 'r') as fo:
         name_mapper = json.load(fo)
 
-    with open('patterns.json', 'r') as fo:
+    with open('patterns_local.json', 'r') as fo:
         filename_mapper = json.load(fo)
 
     rows = []
@@ -177,6 +177,8 @@ if __name__ == '__main__':
     for i, (mean_img, title, vmax0, vmin, kwargs) in enumerate(rows):
         if 'Chi Map' in title:
             title += ' (Inverted)'
+
+        title = title.translate(str.maketrans({'1': '₁', '2': '₂'}))
 
         ax_map = axs[i, 0]
         cax = axs[i, 1]

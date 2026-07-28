@@ -84,17 +84,42 @@ Each module in `processing/` is a standalone script. All share a common `utils.p
 Install the dependency set that matches your task:
 
 ```bash
-conda env create -f environment_curation.yml
-conda env create -f environment_processing.yml
-conda env create -f environment_test.yml
+micromamba env create -f environment_curation.yml --channel-priority=flexible
+micromamba env create -f environment_processing.yml --channel-priority=flexible
 ```
 
 Activate the environment you need to use:
 ```bash
-conda activate curation
-conda activate processing
-conda activate test
+micromamba activate curation
+micromamba activate processing
 ```
+
+**`--channel-priority=flexible` is required.** Both files were produced by
+`conda env export` on CUBIC, where packages were installed from a mix of
+`conda-forge` and `defaults`. Under the default strict channel priority, the
+solver will not fall back to `defaults` for any package name that `conda-forge`
+also publishes, so the ~39 `defaults`-only build strings (`python`,
+`_libgcc_mutex`, `qt-main`, the `xorg-*` packages, …) become unsatisfiable and
+the solve fails with a long "not installable because it conflicts with any
+installable versions previously reported" list. The flag lets the solver mix
+channels the same way the cluster environment was actually built.
+
+`conda` also works in place of `micromamba`, with the equivalent
+`--channel-priority flexible`.
+
+#### Deviations from the CUBIC export
+
+A few pins were relaxed because the exported set was internally contradictory —
+`conda env export` records whatever is installed, which on a long-lived
+environment is not necessarily anything a solver would produce:
+
+| File | Pin | Was | Why |
+| --- | --- | --- | --- |
+| `environment_processing.yml` | `nitransforms` | `25.0.0` | Requires `numpy>=2.1`, but `tensorflow==2.17.0` requires `numpy<2.0.0`. Unsatisfiable at any numpy. `24.1.4` is the last release before the numpy 2.1 floor; every other pin is unchanged. |
+| `environment_curation.yml` | `python` | `3.11.0=ha86cf86_0_cpython` | That build predates the conda-forge `xz`/`liblzma` split and requires `xz<5.3`, conflicting with the pinned `liblzma=5.8.1`. Floated to `3.11` (resolves to 3.11.8). |
+| `environment_curation.yml` | `xz` | `5.2.6=h166bdaf_0` | Must version-match `liblzma=5.8.1`. |
+
+Everything else matches the cluster environment exactly.
 
 ### Configuration
 

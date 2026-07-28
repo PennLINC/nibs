@@ -1,13 +1,13 @@
-"""Process QSM data.
+"""Process MEGRE data for later QSM modeling.
 
 Steps:
 
-1.  Compute the mean across the magnitude images as the MEGRE reference.
+1.  Compute the RMS across the magnitude images as the MEGRE reference.
 2.  Calculate R2* map with nonlinear model fit using monoexponential decay model.
-3.  Coregister the mean magnitude reference to the preprocessed T1w image from sMRIPrep.
-4.  Warp T1w mask from T1w space into the QSM space by applying the inverse of the coregistration
+3.  Coregister the reference to the preprocessed T1w image from sMRIPrep.
+4.  Warp T1w mask from T1w space into the MEGREref space by applying the inverse of the coregistration
     transform.
-5.  Apply the mask in QSM space to magnitude images.
+5.  Apply the mask in MEGREref space to magnitude images.
 
 Notes:
 
@@ -24,6 +24,7 @@ from pprint import pformat
 
 import ants
 import nibabel as nb
+import numpy as np
 from bids.layout import BIDSLayout, Query
 from nilearn import image
 from nireports.assembler.report import Report
@@ -33,7 +34,9 @@ from utils import (
     fit_monoexponential,
     get_filename,
     load_config,
+    plot_brain_mask_contour,
     plot_coregistration,
+    run_synthstrip,
 )
 
 CFG = load_config()
@@ -43,7 +46,7 @@ MEGRE_FIT_N_THREADS = int(os.environ.get('MEGRE_FIT_N_THREADS', str(os.cpu_count
 
 
 def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
-    """Collect required input files for QSM preparation processing.
+    """Collect required input files for MEGRE preparation processing.
 
     Parameters
     ----------
@@ -58,7 +61,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
         Mapping of descriptive keys to resolved file paths.
     """
     queries = {
-        # SWI images from raw BIDS dataset
+        # MEGRE images from raw BIDS dataset
         'megre_mag': {
             'datatype': 'anat',
             'acquisition': 'QSM',
@@ -196,7 +199,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
 
 
 def process_run(layout, run_data, out_dir, temp_dir):
-    """Process a single run of QSM data.
+    """Process a single run of MEGRE data.
 
     Parameters
     ----------
@@ -208,6 +211,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         Path to the output directory.
     temp_dir : str
         Path to the working directory for complex denoising and R2* fitting.
+        Currently unused.
     """
     name_source = run_data['megre_mag'][0]
 
@@ -246,22 +250,68 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
-    # Average the magnitude images, to use for coregistration
-    mean_mag_img = image.mean_img(run_data['megre_mag'])
+    # Compute RMS of the magnitude images, to use for coregistration
+    ref_img = nb.load(run_data['megre_mag'][0])
+    arrs = [nb.load(f).get_fdata() ** 2 for f in run_data['megre_mag']]
+    rms_data = np.sqrt(np.mean(np.stack(arrs, axis=-1), axis=-1))
+    rms_img = nb.Nifti1Image(rms_data, ref_img.affine, ref_img.header)
+
     megre_ref_filename = get_filename(
         name_source=name_source,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MEGRE', 'desc': 'mean', 'suffix': 'MEGRE'},
+        entities={'space': 'MEGRE', 'desc': 'rms', 'suffix': 'MEGRE'},
         dismiss_entities=['echo'],
     )
-    mean_mag_img.to_filename(megre_ref_filename)
+    rms_img.to_filename(megre_ref_filename)
+
+    # Skullstrip the reference image before coregistration
+    brain_mask = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'desc': 'brain', 'suffix': 'mask'},
+        dismiss_entities=['inv', 'part', 'reconstruction'],
+    )
+    megre_ref_skullstripped_file = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'suffix': 'MEGRE', 'desc': 'rmsbrain'},
+        dismiss_entities=['inv', 'part', 'reconstruction'],
+    )
+    run_synthstrip(
+        in_file=megre_ref_filename,
+        out_file=megre_ref_skullstripped_file,
+        mask_file=brain_mask,
+        args=['--no-csf'],
+    )
+
+    # QC reportlet: SynthStrip brain mask boundary over the un-skull-stripped reference image.
+    brain_mask_report = get_filename(
+        name_source=megre_ref_skullstripped_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={
+            'datatype': 'figures',
+            'space': 'MP2RAGE',
+            'desc': 'brain',
+            'suffix': 'mask',
+            'extension': '.svg',
+        },
+        dismiss_entities=['inv', 'part', 'reconstruction'],
+    )
+    plot_brain_mask_contour(
+        underlay=megre_ref_filename,
+        mask=brain_mask,
+        out_file=brain_mask_report,
+    )
 
     # Coregister MEGRE data to preprocessed T1w
     coreg_transform = coregister_to_t1(
         name_source=name_source,
         layout=layout,
-        in_file=megre_ref_filename,
+        in_file=megre_ref_skullstripped_file,
         t1_file=run_data['t1w'],
         source_space='MEGRE',
         target_space='T1w',
@@ -270,22 +320,22 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # coreg_transform = run_data['megre2t1w_xfm']
     t1_megre_ref_img = ants.apply_transforms(
         fixed=ants.image_read(run_data['t1w']),
-        moving=ants.image_read(megre_ref_filename),
+        moving=ants.image_read(megre_ref_skullstripped_file),
         transformlist=[coreg_transform],
         interpolator='nearestNeighbor',
     )
-    t1_megre_ref_filename = get_filename(
+    t1_megre_ref_skullstripped_file = get_filename(
         name_source=megre_ref_filename,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'rms', 'suffix': 'MEGRE'},
+        entities={'space': 'T1w', 'desc': 'rmsbrain', 'suffix': 'MEGRE'},
         dismiss_entities=['echo', 'part', 'reconstruction'],
     )
-    ants.image_write(t1_megre_ref_img, t1_megre_ref_filename)
+    ants.image_write(t1_megre_ref_img, t1_megre_ref_skullstripped_file)
     plot_coregistration(
-        name_source=t1_megre_ref_filename,
+        name_source=t1_megre_ref_skullstripped_file,
         layout=layout,
-        in_file=t1_megre_ref_filename,
+        in_file=t1_megre_ref_skullstripped_file,
         t1_file=run_data['t1w_mni'],
         out_dir=out_dir,
         source_space='MEGRE',
@@ -300,10 +350,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
         interpolator='nearestNeighbor',
     )
     mni_megre_ref_filename = get_filename(
-        name_source=t1_megre_ref_filename,
+        name_source=t1_megre_ref_skullstripped_file,
         layout=layout,
         out_dir=out_dir,
-        entities={'space': 'MNI152NLin2009cAsym', 'desc': 'rms', 'suffix': 'MEGRE'},
+        entities={'space': 'MNI152NLin2009cAsym', 'desc': 'rmsbrain', 'suffix': 'MEGRE'},
         dismiss_entities=['echo', 'part', 'reconstruction'],
     )
     ants.image_write(mni_megre_ref_img, mni_megre_ref_filename)
@@ -404,7 +454,7 @@ def _get_parser() -> argparse.ArgumentParser:
 
 
 def _main(argv=None):
-    """Run the process_qsm_prep workflow."""
+    """Run the process_megre workflow."""
     options = _get_parser().parse_args(argv)
     kwargs = vars(options)
     main(**kwargs)
@@ -441,8 +491,8 @@ def main(subject_id):
             'GeneratedBy': [
                 {
                     'Name': 'Custom code',
-                    'Description': 'Custom Python code combining ANTsPy, MRtrix3, and a '
-                    'complex-NLLS R2* fit.',
+                    'Description': 'Custom Python code combining ANTsPy and a '
+                    'nonlinear R2* fit.',
                     'CodeURL': 'https://github.com/PennLINC/nibs',
                 }
             ],

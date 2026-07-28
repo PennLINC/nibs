@@ -21,8 +21,8 @@ if __name__ == '__main__':
 
     _cfg = load_config()
 
-    in_dir = os.path.join(_cfg['project_root'], 'derivatives')
-    out_dir = os.path.join(_script_dir, '..', 'figures', 'scalars')
+    in_dir = os.path.join(_cfg['project_root'], 'scalars')
+    out_dir = os.path.abspath(os.path.join(_script_dir, '..', 'figures', 'scalars'))
     PERCENTILE = False
 
     template = tflow.get(
@@ -37,10 +37,10 @@ if __name__ == '__main__':
     with open('name_mapper.json', 'r') as fo:
         name_mapper = json.load(fo)
 
-    with open('patterns.json', 'r') as fo:
+    with open('patterns_local.json', 'r') as fo:
         filename_mapper = json.load(fo)
 
-    for group, patterns in filename_mapper.items():
+    for group, patterns in reversed(filename_mapper.items()):
         for key, pattern in patterns.items():
             title = name_mapper[key]
             temp_pattern = pattern.format(subject='*', session='*')

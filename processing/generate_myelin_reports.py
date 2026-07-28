@@ -94,7 +94,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
 
 
 def process_run(layout, run_data, out_dir):
-    """Process a single MP2RAGE run.
+    """Process a single subject/session's data.
 
     Parameters
     ----------
@@ -159,7 +159,7 @@ def _get_parser() -> argparse.ArgumentParser:
 
 
 def _main(argv=None):
-    """Run the process_mese workflow."""
+    """Run the generate_myelin_reports workflow."""
     options = _get_parser().parse_args(argv)
     kwargs = vars(options)
     main(**kwargs)
@@ -241,7 +241,7 @@ def main(subject_id):
             'GeneratedBy': [
                 {
                     'Name': 'Custom code',
-                    'Description': 'Custom Python code combining ANTsPy and pymp2rage.',
+                    'Description': 'Custom Python code.',
                     'CodeURL': 'https://github.com/PennLINC/nibs',
                 }
             ],

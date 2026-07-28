@@ -308,7 +308,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             'suffix': 'dia',
             'extension': ['.nii', '.nii.gz'],
         },
-        # Coregistration transform from process_qsm_prep.py
+        # Coregistration transform from process_megre.py
         'megre2t1w_xfm': {
             'datatype': 'anat',
             'run': [Query.NONE, Query.ANY],
@@ -437,10 +437,9 @@ def process_run(layout, run_data, out_dir):
     out_dir : str
         Path to the output directory.
     """
-    # Coregister MEGRE data to preprocessed T1w
     coreg_transform = run_data['megre2t1w_xfm']
 
-    # Warp T1w-space T2*map, R2*map, and S0map to MNI152NLin2009cAsym using normalization
+    # Warp MEGREref-space QSM outputs to MNI152NLin2009cAsym using normalization
     # transform from sMRIPrep and coregistration transform to sMRIPrep's T1w space.
     keys = [
         # SEPIA
@@ -480,7 +479,7 @@ def process_run(layout, run_data, out_dir):
         if file_ is None:
             continue
 
-        # Coregister to T1w
+        # Warp to T1w space
         t1w_file = get_filename(
             name_source=file_,
             layout=layout,
@@ -496,7 +495,7 @@ def process_run(layout, run_data, out_dir):
         )
         ants.image_write(reg_img, t1w_file)
 
-        # Coregister to MNI152NLin2009cAsym
+        # Warp to MNI152NLin2009cAsym
         mni_file = get_filename(
             name_source=file_,
             layout=layout,
@@ -724,7 +723,7 @@ def main(subject_id=None):
             'GeneratedBy': [
                 {
                     'Name': 'Custom code',
-                    'Description': 'Custom Python code combining ANTsPy and tedana.',
+                    'Description': 'Custom Python code.',
                     'CodeURL': 'https://github.com/PennLINC/nibs',
                 }
             ],

@@ -191,6 +191,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         Directory to write output files.
     temp_dir : str
         Directory to write temporary files.
+        Currently unused.
     """
     # Get WM segmentation from sMRIPrep
     wm_seg_img = nb.load(run_data['dseg_mni'])
@@ -224,7 +225,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.image_write(wm_seg_t1w_img, wm_seg_t1w_file)
     del wm_seg_img, wm_seg_t1w_img, wm_seg
 
-    # Create n4-corrected and scaled versions of the original T1w and T2w images
+    # Create scaled versions of the original T1w and T2w images
     space_t1w_img = ants.image_read(run_data['space_t1w'])
     space_t2w_img = ants.image_read(run_data['space_t2w'])
     mprage_t1w_img = ants.image_read(run_data['mprage_t1w'])

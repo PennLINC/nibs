@@ -388,7 +388,7 @@ def compute_scaling_factor(ICVF, MVF, ISOVF, g=0.7):
     ICVF : float or array-like
         Intra-cellular volume fraction.
     MVF : float or array-like
-        Myelin volume fraction.
+        Myelin volume fraction, operationalized as ihMTsatB1sq or ihMTR.
     ISOVF : float or array-like
         Isotropic volume fraction.
     g : float, optional

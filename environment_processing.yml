@@ -118,7 +118,7 @@ dependencies:
     - nilearn==0.11.1
     - nipype==1.10.0
     - nireports==25.2.0
-    - nitransforms==25.0.0
+    - nitransforms==24.1.4
     - niworkflows==1.13.5
     - num2words==0.5.14
     - numpy==1.26.4
