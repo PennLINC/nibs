@@ -18,7 +18,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 from pprint import pformat
 
 import ants
@@ -28,7 +27,14 @@ from bids.layout import BIDSLayout, Query
 from nilearn import masking
 from nireports.assembler.report import Report
 
-from utils import get_filename, load_config, plot_coregistration, plot_scalar_map
+from utils import (
+    coregister_to_t1,
+    get_filename,
+    load_config,
+    plot_coregistration,
+    plot_scalar_map,
+    run_synthstrip,
+)
 
 CFG = load_config()
 CODE_DIR = CFG['code_dir']
@@ -190,8 +196,8 @@ def process_run(layout, run_data, out_dir, temp_dir):
     out_dir : str
         Directory to write output files.
     temp_dir : str
-        Directory to write temporary files.
-        Currently unused.
+        Directory to write temporary files (skull-stripped moving images used for
+        coregistration).
     """
     # Get WM segmentation from sMRIPrep
     wm_seg_img = nb.load(run_data['dseg_mni'])
@@ -243,62 +249,32 @@ def process_run(layout, run_data, out_dir, temp_dir):
     scaled_space_t2w_img = space_t2w_img.new_image_like(scaled_space_t2w_data)
     scaled_mprage_t1w_img = mprage_t1w_img.new_image_like(scaled_mprage_t1w_data)
 
-    # Register SPACE T1w to sMRIPrep T1w with ANTs
+    # Coregister SPACE T1w to sMRIPrep T1w using the shared brain-extracted rigid
+    # approach. Skull-strip the moving image first so it is a brain-to-brain fit
+    # against the brain-extracted T1w target that coregister_to_t1 builds internally.
     fixed_img = ants.image_read(run_data['t1w'])
-    moving_img = ants.image_read(run_data['space_t1w'])
-    reg_output = ants.registration(
-        fixed=fixed_img,
-        moving=moving_img,
-        type_of_transform='Rigid',
+    space_t1w_brain_file = os.path.join(temp_dir, 'space-SPACE_desc-brain_T1w.nii.gz')
+    run_synthstrip(
+        in_file=run_data['space_t1w'],
+        out_file=space_t1w_brain_file,
+        cfg=CFG,
     )
-    if len(reg_output['fwdtransforms']) != 1:
-        print(
-            f'Expected 1 transform, got {len(reg_output["fwdtransforms"])}: '
-            f'{reg_output["fwdtransforms"]}'
-        )
-    fwd_transform = reg_output['fwdtransforms'][0]
-    inv_transform = reg_output['invtransforms'][0]
-    del moving_img, reg_output
-
-    # Write the transform to a file
-    fwd_transform_file = get_filename(
+    space_t1w_to_t1w_xfm = coregister_to_t1(
         name_source=run_data['space_t1w'],
         layout=layout,
+        in_file=space_t1w_brain_file,
+        t1_file=run_data['t1w'],
         out_dir=out_dir,
-        entities={
-            'from': 'SPACET1w',
-            'to': 'T1w',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.txt',
-        },
-        dismiss_entities=['reconstruction', 'acquisition'],
+        source_space='SPACET1w',
+        target_space='T1w',
     )
-    shutil.copyfile(fwd_transform, fwd_transform_file)
-
-    # Write the inverse transform to a file
-    inv_transform_file = get_filename(
-        name_source=run_data['space_t1w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'from': 'T1w',
-            'to': 'SPACET1w',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.txt',
-        },
-        dismiss_entities=['reconstruction', 'acquisition'],
-    )
-    shutil.copyfile(inv_transform, inv_transform_file)
-    del fwd_transform_file, inv_transform_file
 
     # Apply the transform to SPACE T1w
     space_t1w_img = ants.image_read(run_data['space_t1w'])
     t1w_space_t1w_img = ants.apply_transforms(
         fixed=fixed_img,
         moving=space_t1w_img,
-        transformlist=fwd_transform,
+        transformlist=[space_t1w_to_t1w_xfm],
         interpolator='nearestNeighbor',
     )
     t1w_space_t1w_file = get_filename(
@@ -314,7 +290,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     t1w_scaled_space_t1w_img = ants.apply_transforms(
         fixed=fixed_img,
         moving=scaled_space_t1w_img,
-        transformlist=fwd_transform,
+        transformlist=[space_t1w_to_t1w_xfm],
         interpolator='nearestNeighbor',
     )
     t1w_scaled_space_t1w_file = get_filename(
@@ -327,60 +303,30 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.image_write(t1w_scaled_space_t1w_img, t1w_scaled_space_t1w_file)
     del scaled_space_t1w_img
 
-    # Register SPACE T2w to sMRIPrep T1w with ANTs
-    moving_img = ants.image_read(run_data['space_t2w'])
-    reg_output = ants.registration(
-        fixed=fixed_img,
-        moving=moving_img,
-        type_of_transform='Rigid',
+    # Coregister SPACE T2w to sMRIPrep T1w using the shared brain-extracted rigid
+    # approach. Skull-strip the moving image first so it is a brain-to-brain fit
+    # against the brain-extracted T1w target that coregister_to_t1 builds internally.
+    space_t2w_brain_file = os.path.join(temp_dir, 'space-SPACE_desc-brain_T2w.nii.gz')
+    run_synthstrip(
+        in_file=run_data['space_t2w'],
+        out_file=space_t2w_brain_file,
+        cfg=CFG,
     )
-    if len(reg_output['fwdtransforms']) != 1:
-        print(
-            f'Expected 1 transform, got {len(reg_output["fwdtransforms"])}: '
-            f'{reg_output["fwdtransforms"]}'
-        )
-    fwd_transform = reg_output['fwdtransforms'][0]
-    inv_transform = reg_output['invtransforms'][0]
-    del moving_img, reg_output
-
-    # Write the forward transform to a file
-    fwd_transform_file = get_filename(
+    space_t2w_to_t1w_xfm = coregister_to_t1(
         name_source=run_data['space_t2w'],
         layout=layout,
+        in_file=space_t2w_brain_file,
+        t1_file=run_data['t1w'],
         out_dir=out_dir,
-        entities={
-            'from': 'SPACET2w',
-            'to': 'T1w',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.txt',
-        },
-        dismiss_entities=['reconstruction', 'acquisition'],
+        source_space='SPACET2w',
+        target_space='T1w',
     )
-    shutil.copyfile(fwd_transform, fwd_transform_file)
-
-    # Write the inverse transform to a file
-    inv_transform_file = get_filename(
-        name_source=run_data['space_t2w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={
-            'from': 'T1w',
-            'to': 'SPACET2w',
-            'mode': 'image',
-            'suffix': 'xfm',
-            'extension': '.txt',
-        },
-        dismiss_entities=['reconstruction', 'acquisition'],
-    )
-    shutil.copyfile(inv_transform, inv_transform_file)
-    del fwd_transform_file, inv_transform_file
 
     # Apply the transform to SPACE T2w
     t1w_space_t2w_img = ants.apply_transforms(
         fixed=fixed_img,
         moving=space_t2w_img,
-        transformlist=fwd_transform,
+        transformlist=[space_t2w_to_t1w_xfm],
         interpolator='nearestNeighbor',
     )
     t1w_space_t2w_file = get_filename(
@@ -397,7 +343,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
     t1w_scaled_space_t2w_img = ants.apply_transforms(
         fixed=fixed_img,
         moving=scaled_space_t2w_img,
-        transformlist=fwd_transform,
+        transformlist=[space_t2w_to_t1w_xfm],
         interpolator='nearestNeighbor',
     )
     t1w_scaled_space_t2w_file = get_filename(
