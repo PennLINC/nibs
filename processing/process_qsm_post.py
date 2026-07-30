@@ -9,6 +9,9 @@ Steps:
 Notes:
 
 - This must be run after sMRIPrep, process_mese.py, and process_qsm.py.
+- Every SEPIA/chi-separation input is optional, so a run whose R2' inputs were
+  missing (only the ``chisep+r2s`` and ``chisep+r2primenet`` variants ran in
+  process_qsm.py) is handled by skipping the absent ``chisep+r2p`` maps.
 """
 
 from __future__ import annotations
@@ -43,6 +46,9 @@ def rename_qsm_outputs(subject_id: str, session: str) -> None:
     working directories and writes compressed, BIDS-named files to the QSM
     derivatives directory. SEPIA Chimaps are written directly to the derivatives
     by process_qsm.py and are not handled here.
+
+    Variants that process_qsm.py did not run (e.g. ``chisep+r2p`` when no R2'
+    input was available) have no working directory and are skipped.
 
     Parameters
     ----------
@@ -115,7 +121,10 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     Returns
     -------
     run_data : dict
-        Mapping of descriptive keys to resolved file paths.
+        Mapping of descriptive keys to resolved file paths. All SEPIA,
+        chi-separation, and process_megre reference maps are optional and map to
+        ``None`` when absent, so echo sets whose chi-separation variants did not
+        run (e.g. ``chisep+r2p`` without an R2' input) are simply skipped.
     """
     queries = {
         # SEPIA Chimap

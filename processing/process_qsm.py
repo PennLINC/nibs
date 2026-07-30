@@ -14,6 +14,10 @@ Steps:
 Notes:
 
 - Must be run after process_megre.py (R2*/R2' maps).
+- The R2*/R2' maps are optional. When they are missing for an echo set, the
+  chi-separation R2' variant (``chisep+r2p``) is skipped for that echo set and
+  only the R2* (``chisep+r2s``) and R2'-net (``chisep+r2primenet``) variants are
+  run. SEPIA does not use them and always runs.
 - Requires SEPIA and the chi-sep MATLAB toolbox along with their dependencies.
 - Chimap outputs are in parts per million (ppm).
 """
@@ -121,7 +125,8 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     run_data : dict
         Mapping of descriptive keys to resolved file paths. ``megre_mag`` and
         ``megre_phase`` map to sorted lists of five echo paths; all other keys
-        map to a single path.
+        map to a single path, or to ``None`` when the optional R2*/R2' map is
+        missing.
     """
     queries = {
         # Multi-echo GRE magnitude/phase from the raw BIDS dataset (for SEPIA).
@@ -184,6 +189,13 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
             if len(files) != 5:
                 raise ValueError(f'Expected 5 files for {key}, got {len(files)}')
             run_data[key] = sorted([f.path for f in files])
+            continue
+
+        # The R2*/R2' maps only feed the chi-separation R2' variant, which is
+        # skipped when they are absent.
+        if key.startswith(('r2s_', 'r2p_')) and len(files) == 0:
+            print(f'No file found for {key} with query {query}')
+            run_data[key] = None
             continue
 
         if len(files) != 1:
@@ -306,6 +318,7 @@ def run_chisep(
         Input file paths from :func:`collect_run_data`.
     version : str
         Echo-set label (e.g., ``E12345``); selects the matching R2*/R2' maps.
+        The R2' variant is skipped when those maps are missing.
     example_nifti : str
         Raw MEGRE echo-1 magnitude NIfTI, used for the output NIfTI header.
     sepia_work_dir : str
@@ -331,6 +344,12 @@ def run_chisep(
     software_root_win = to_windows_path(NIBS_SOFTWARE_ROOT)
 
     for label, is_scaling, have_r2prime in CHISEP_COMBOS:
+        if have_r2prime and (r2s_path is None or r2p_path is None):
+            # Only this variant reads the precomputed maps, so the R2* and
+            # R2'-net variants still run without them.
+            print(f"Skipping chi-sep {version} {label}: no R2' input available.", flush=True)
+            continue
+
         r2s = r2s_path if have_r2prime else ''
         r2p = r2p_path if have_r2prime else ''
 

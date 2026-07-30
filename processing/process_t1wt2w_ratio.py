@@ -10,6 +10,9 @@ Steps:
 Notes:
 
 - sMRIPrep's preprocessed T1w image is used as the "native T1w space".
+- The MPRAGE T1w image is optional. When it is missing, steps 3 and the MPRAGE
+  part of step 4 are skipped and only the SPACE T1w/SPACE T2w ratio maps are
+  calculated.
 - This must be run after sMRIPrep and process_mp2rage.py.
 """
 
@@ -53,7 +56,8 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     Returns
     -------
     run_data : dict
-        Mapping of descriptive keys to resolved file paths.
+        Mapping of descriptive keys to resolved file paths. ``mprage_t1w`` and
+        ``mprage2t1w_xfm`` are ``None`` when the MPRAGE T1w image is missing.
     """
     queries = {
         'space_t1w': {
@@ -193,7 +197,14 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     for key, query in queries.items():
         query = {**bids_filters, **query}
         files = layout.get(**query)
-        if key == 'mprage2t1w_xfm' and len(files) == 0:
+        if key == 'mprage_t1w' and len(files) == 0:
+            print(
+                f'No MPRAGE T1w image found for {query}. '
+                'Only SPACE T1w/SPACE T2w ratio maps will be calculated.'
+            )
+            run_data[key] = None
+            continue
+        elif key == 'mprage2t1w_xfm' and len(files) == 0:
             print(
                 f'No MPRAGE T1w coregistration transform found for {query}. Using identity transform.'
             )
@@ -223,7 +234,17 @@ def process_run(layout, run_data, out_dir, temp_dir):
     temp_dir : str
         Directory to write temporary files (skull-stripped moving images used for
         coregistration).
+
+    Notes
+    -----
+    When ``run_data['mprage_t1w']`` is None, the MPRAGE T1w/SPACE T2w ratio maps
+    are skipped and only the SPACE T1w/SPACE T2w ratio maps are produced.
     """
+    # The MPRAGE T1w image is optional; without it only the SPACE ratio maps are made.
+    has_mprage = run_data['mprage_t1w'] is not None
+    if not has_mprage:
+        print('No MPRAGE T1w image; only calculating SPACE T1w/SPACE T2w ratio maps.', flush=True)
+
     # Collect the T1w-space WM segmentation created once by process_mp2rage.py.
     wm_seg_t1w_file = run_data['wm_seg_t1w']
 
@@ -245,20 +266,22 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Create scaled versions of the original T1w and T2w images
     space_t1w_img = ants.image_read(run_data['space_t1w'])
     space_t2w_img = ants.image_read(run_data['space_t2w'])
-    mprage_t1w_img = ants.image_read(run_data['mprage_t1w'])
     space_t1w_data = space_t1w_img.numpy()
     space_t2w_data = space_t2w_img.numpy()
-    mprage_t1w_data = mprage_t1w_img.numpy()
     # Scale the images to 0 - 100
     scaled_space_t1w_data = space_t1w_data - space_t1w_data.min()
     scaled_space_t1w_data = 100 * (scaled_space_t1w_data / scaled_space_t1w_data.max())
     scaled_space_t2w_data = space_t2w_data - space_t2w_data.min()
     scaled_space_t2w_data = 100 * (scaled_space_t2w_data / scaled_space_t2w_data.max())
-    scaled_mprage_t1w_data = mprage_t1w_data - mprage_t1w_data.min()
-    scaled_mprage_t1w_data = 100 * (scaled_mprage_t1w_data / scaled_mprage_t1w_data.max())
     scaled_space_t1w_img = space_t1w_img.new_image_like(scaled_space_t1w_data)
     scaled_space_t2w_img = space_t2w_img.new_image_like(scaled_space_t2w_data)
-    scaled_mprage_t1w_img = mprage_t1w_img.new_image_like(scaled_mprage_t1w_data)
+
+    if has_mprage:
+        mprage_t1w_img = ants.image_read(run_data['mprage_t1w'])
+        mprage_t1w_data = mprage_t1w_img.numpy()
+        scaled_mprage_t1w_data = mprage_t1w_data - mprage_t1w_data.min()
+        scaled_mprage_t1w_data = 100 * (scaled_mprage_t1w_data / scaled_mprage_t1w_data.max())
+        scaled_mprage_t1w_img = mprage_t1w_img.new_image_like(scaled_mprage_t1w_data)
 
     # Coregister SPACE T1w to sMRIPrep T1w using the shared brain-extracted rigid
     # approach. Skull-strip the moving image first so it is a brain-to-brain fit
@@ -369,43 +392,44 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.image_write(t1w_scaled_space_t2w_img, t1w_scaled_space_t2w_file)
     del scaled_space_t2w_img
 
-    # Apply the sMRIPrep coregistration transform to MPRAGE T1w
-    mprage_t1w_img = ants.image_read(run_data['mprage_t1w'])
-    if run_data['mprage2t1w_xfm'] is None:
-        t1w_mprage_t1w_img = mprage_t1w_img
-        t1w_scaled_mprage_t1w_img = scaled_mprage_t1w_img
-    else:
-        fwd_transform = run_data['mprage2t1w_xfm']
-        t1w_mprage_t1w_img = ants.apply_transforms(
-            fixed=fixed_img,
-            moving=mprage_t1w_img,
-            transformlist=fwd_transform,
-            interpolator='linear',
-        )
-        t1w_scaled_mprage_t1w_img = ants.apply_transforms(
-            fixed=fixed_img,
-            moving=scaled_mprage_t1w_img,
-            transformlist=fwd_transform,
-            interpolator='linear',
-        )
+    if has_mprage:
+        # Apply the sMRIPrep coregistration transform to MPRAGE T1w
+        mprage_t1w_img = ants.image_read(run_data['mprage_t1w'])
+        if run_data['mprage2t1w_xfm'] is None:
+            t1w_mprage_t1w_img = mprage_t1w_img
+            t1w_scaled_mprage_t1w_img = scaled_mprage_t1w_img
+        else:
+            fwd_transform = run_data['mprage2t1w_xfm']
+            t1w_mprage_t1w_img = ants.apply_transforms(
+                fixed=fixed_img,
+                moving=mprage_t1w_img,
+                transformlist=fwd_transform,
+                interpolator='linear',
+            )
+            t1w_scaled_mprage_t1w_img = ants.apply_transforms(
+                fixed=fixed_img,
+                moving=scaled_mprage_t1w_img,
+                transformlist=fwd_transform,
+                interpolator='linear',
+            )
 
-    t1w_mprage_t1w_file = get_filename(
-        name_source=run_data['mprage_t1w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'suffix': 'T1w'},
-    )
-    ants.image_write(t1w_mprage_t1w_img, t1w_mprage_t1w_file)
-    del mprage_t1w_img
+        t1w_mprage_t1w_file = get_filename(
+            name_source=run_data['mprage_t1w'],
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'suffix': 'T1w'},
+        )
+        ants.image_write(t1w_mprage_t1w_img, t1w_mprage_t1w_file)
+        del mprage_t1w_img
 
-    t1w_scaled_mprage_t1w_file = get_filename(
-        name_source=run_data['mprage_t1w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'MPRAGEscaled', 'suffix': 'T1w'},
-    )
-    ants.image_write(t1w_scaled_mprage_t1w_img, t1w_scaled_mprage_t1w_file)
-    del scaled_mprage_t1w_img
+        t1w_scaled_mprage_t1w_file = get_filename(
+            name_source=run_data['mprage_t1w'],
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'desc': 'MPRAGEscaled', 'suffix': 'T1w'},
+        )
+        ants.image_write(t1w_scaled_mprage_t1w_img, t1w_scaled_mprage_t1w_file)
+        del scaled_mprage_t1w_img
 
     # Calculate SPACE T1w/SPACE T2w ratio map for unscaled images
     t1w_unscaled_space_ratio_file = get_filename(
@@ -431,33 +455,41 @@ def process_run(layout, run_data, out_dir, temp_dir):
     ants.image_write(t1w_scaled_space_ratio_img, t1w_scaled_space_ratio_file)
     del t1w_scaled_space_t1w_img, t1w_scaled_space_ratio_img
 
-    # Calculate MPRAGE T1w/SPACE T2w ratio map for unscaled images
-    t1w_unscaled_mprage_ratio_file = get_filename(
-        name_source=run_data['mprage_t1w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'MPRAGEunscaled', 'suffix': 'myelinw'},
-        dismiss_entities=['reconstruction', 'acquisition'],
-    )
-    t1w_unscaled_mprage_ratio_img = t1w_mprage_t1w_img / t1w_space_t2w_img
-    ants.image_write(t1w_unscaled_mprage_ratio_img, t1w_unscaled_mprage_ratio_file)
-    del t1w_mprage_t1w_img, t1w_space_t2w_img, t1w_unscaled_mprage_ratio_img
+    if has_mprage:
+        # Calculate MPRAGE T1w/SPACE T2w ratio map for unscaled images
+        t1w_unscaled_mprage_ratio_file = get_filename(
+            name_source=run_data['mprage_t1w'],
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'desc': 'MPRAGEunscaled', 'suffix': 'myelinw'},
+            dismiss_entities=['reconstruction', 'acquisition'],
+        )
+        t1w_unscaled_mprage_ratio_img = t1w_mprage_t1w_img / t1w_space_t2w_img
+        ants.image_write(t1w_unscaled_mprage_ratio_img, t1w_unscaled_mprage_ratio_file)
+        del t1w_mprage_t1w_img, t1w_unscaled_mprage_ratio_img
 
-    # Calculate MPRAGE T1w/SPACE T2w ratio map for scaled images
-    t1w_scaled_mprage_ratio_file = get_filename(
-        name_source=run_data['mprage_t1w'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'T1w', 'desc': 'MPRAGEscaled', 'suffix': 'myelinw'},
-        dismiss_entities=['reconstruction', 'acquisition'],
-    )
-    t1w_scaled_mprage_ratio_img = t1w_scaled_mprage_t1w_img / t1w_scaled_space_t2w_img
-    ants.image_write(t1w_scaled_mprage_ratio_img, t1w_scaled_mprage_ratio_file)
-    del t1w_scaled_mprage_t1w_img, t1w_scaled_space_t2w_img, t1w_scaled_mprage_ratio_img
+        # Calculate MPRAGE T1w/SPACE T2w ratio map for scaled images
+        t1w_scaled_mprage_ratio_file = get_filename(
+            name_source=run_data['mprage_t1w'],
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'T1w', 'desc': 'MPRAGEscaled', 'suffix': 'myelinw'},
+            dismiss_entities=['reconstruction', 'acquisition'],
+        )
+        t1w_scaled_mprage_ratio_img = t1w_scaled_mprage_t1w_img / t1w_scaled_space_t2w_img
+        ants.image_write(t1w_scaled_mprage_ratio_img, t1w_scaled_mprage_ratio_file)
+        del t1w_scaled_mprage_t1w_img, t1w_scaled_mprage_ratio_img
+
+    del t1w_space_t2w_img, t1w_scaled_space_t2w_img
 
     # Plot coregistration of SPACE and MPRAGE files to sMRIPrep T1w
-    descs = ['SPACE', 'MPRAGE', 'SPACE']
-    for i_file, file_ in enumerate([t1w_space_t1w_file, t1w_mprage_t1w_file, t1w_space_t2w_file]):
+    coreg_files = [t1w_space_t1w_file, t1w_space_t2w_file]
+    descs = ['SPACE', 'SPACE']
+    if has_mprage:
+        coreg_files.insert(1, t1w_mprage_t1w_file)
+        descs.insert(1, 'MPRAGE')
+
+    for i_file, file_ in enumerate(coreg_files):
         plot_coregistration(
             name_source=file_,
             layout=layout,
@@ -496,17 +528,21 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         del mni_img, mni_file
 
-    del t1w_space_t1w_file, t1w_mprage_t1w_file, t1w_space_t2w_file
+    del coreg_files, t1w_space_t1w_file, t1w_space_t2w_file
 
     # Warp T1w-space SPACE T1w/SPACE T2w and MPRAGE T1w/SPACE T2w ratio maps to MNI152NLin2009cAsym
     # using normalization transform from sMRIPrep.
-    files = [
-        t1w_unscaled_space_ratio_file,
-        t1w_unscaled_mprage_ratio_file,
-        t1w_scaled_space_ratio_file,
-        t1w_scaled_mprage_ratio_file,
-    ]
-    descs = ['SPACEunscaled', 'MPRAGEunscaled', 'SPACEscaled', 'MPRAGEscaled']
+    files = [t1w_unscaled_space_ratio_file, t1w_scaled_space_ratio_file]
+    descs = ['SPACEunscaled', 'SPACEscaled']
+    if has_mprage:
+        files = [
+            t1w_unscaled_space_ratio_file,
+            t1w_unscaled_mprage_ratio_file,
+            t1w_scaled_space_ratio_file,
+            t1w_scaled_mprage_ratio_file,
+        ]
+        descs = ['SPACEunscaled', 'MPRAGEunscaled', 'SPACEscaled', 'MPRAGEscaled']
+
     for i_file, file_ in enumerate(files):
         desc = descs[i_file]
         mni_file = get_filename(

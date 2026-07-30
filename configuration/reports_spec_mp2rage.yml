@@ -4,12 +4,12 @@ sections:
   ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo
   reportlets:
   - bids: {datatype: figures, space: MP2RAGE, desc: brain, suffix: mask}
-    subtitle: SynthStrip brain mask on B1-corrected UNIT1
+    subtitle: SynthStrip brain mask on UNIT1 (B1-corrected when B1+ data are available)
     static: true
-  - bids: {datatype: figures, space: T1w, desc: [coreg, B1correctedbraincoreg], suffix: [TB1map, B1anat, T1w, T1map, UNIT1]}
+  - bids: {datatype: figures, space: T1w, desc: [coreg, B1correctedbraincoreg, braincoreg], suffix: [TB1map, B1anat, T1w, T1map, UNIT1]}
     subtitle: Alignment of data to sMRIPrep T1w space
     static: false
-  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [coreg, B1correctedbraincoreg], suffix: [TB1map, B1anat, T1w, T1map, UNIT1]}
+  - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [coreg, B1correctedbraincoreg, braincoreg], suffix: [TB1map, B1anat, T1w, T1map, UNIT1]}
     subtitle: Alignment of data to MNI152NLin2009cAsym space
     static: false
   - bids: {datatype: figures, space: MNI152NLin2009cAsym, desc: [scalar, B1correctedscalar], suffix: [TB1map, R1map, T1map]}

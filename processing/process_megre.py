@@ -12,6 +12,8 @@ Steps:
 Notes:
 
 - The R2* map is calculated using a magnitude-only nonlinear least squares fit.
+- The MESE-derived R2 map is optional. When it is missing, the R2' maps
+  (R2* - R2) are not calculated and only the R2* maps are written out.
 - This must be run after sMRIPrep and process_mese.py.
 """
 
@@ -58,7 +60,8 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     Returns
     -------
     run_data : dict
-        Mapping of descriptive keys to resolved file paths.
+        Mapping of descriptive keys to resolved file paths. ``r2_map`` is
+        ``None`` when no MESE-derived R2 map is available.
     """
     queries = {
         # MEGRE images from raw BIDS dataset
@@ -198,6 +201,10 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
                 run_data[key] = sorted([f.path for f in files])
                 continue
 
+        elif key == 'r2_map' and len(files) == 0:
+            print(f'No MESE R2 map found with query {query}. R2\' maps will not be calculated.')
+            run_data[key] = None
+            continue
         elif len(files) != 1:
             raise ValueError(f'Expected 1 file for {key}, got {len(files)} with query {query}')
 
@@ -225,11 +232,21 @@ def process_run(layout, run_data, out_dir, temp_dir):
     temp_dir : str
         Path to the working directory for complex denoising and R2* fitting.
         Currently unused.
+
+    Notes
+    -----
+    When ``run_data['r2_map']`` is None, the R2' maps (R2* - R2) are skipped and
+    only the R2* maps are written out.
     """
     name_source = run_data['megre_mag'][0]
 
     megre_metadata = [layout.get_metadata(f) for f in run_data['megre_mag']]
     echo_times = [m['EchoTime'] for m in megre_metadata]  # TEs in seconds
+
+    # The MESE-derived R2 map is optional; without it R2' cannot be calculated.
+    has_r2 = run_data['r2_map'] is not None
+    if not has_r2:
+        print("No MESE R2 map; calculating R2* maps only (no R2').", flush=True)
 
     # Collect the T1w-space WM segmentation created once by process_mp2rage.py.
     wm_seg_t1w_file = run_data['wm_seg_t1w']
@@ -367,62 +384,61 @@ def process_run(layout, run_data, out_dir, temp_dir):
         wm_seg=wm_seg_file,
     )
 
-    # Warp R2 map from T1w space to MEGRE space
-    r2_qsm_filename = get_filename(
-        name_source=run_data['r2_map'],
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MEGRE'},
-        dismiss_entities=['echo', 'part'],
-    )
-    r2_qsm_img = ants.apply_transforms(
-        fixed=ants.image_read(megre_ref_filename),
-        moving=ants.image_read(run_data['r2_map']),
-        transformlist=[coreg_transform],
-        whichtoinvert=[True],
-        interpolator='linear',
-    )
-    ants.image_write(r2_qsm_img, r2_qsm_filename)
+    if has_r2:
+        # Warp R2 map from T1w space to MEGRE space
+        r2_qsm_filename = get_filename(
+            name_source=run_data['r2_map'],
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MEGRE'},
+            dismiss_entities=['echo', 'part'],
+        )
+        r2_qsm_img = ants.apply_transforms(
+            fixed=ants.image_read(megre_ref_filename),
+            moving=ants.image_read(run_data['r2_map']),
+            transformlist=[coreg_transform],
+            whichtoinvert=[True],
+            interpolator='linear',
+        )
+        ants.image_write(r2_qsm_img, r2_qsm_filename)
 
-    # Calculate R2* and R2' maps
-    _, r2s_hz_img, _, _ = fit_monoexponential(run_data['megre_mag'], echo_times)
-    r2s_hz_filename = get_filename(
-        name_source=r2_qsm_filename,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MEGRE', 'desc': 'MEGRE+E12345', 'suffix': 'R2starmap'},
-    )
-    r2s_hz_img.to_filename(r2s_hz_filename)
+        # The MEGRE-space R2 map carries the entities the R2*/R2' outputs need.
+        r2s_name_source = r2_qsm_filename
+        r2s_dismiss_entities = []
+    else:
+        # Without an R2 map, name the R2* outputs from the raw MEGRE echoes.
+        r2s_name_source = name_source
+        r2s_dismiss_entities = ['echo', 'part', 'acquisition']
 
-    r2prime_hz_filename = get_filename(
-        name_source=r2_qsm_filename,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MEGRE', 'desc': 'MEGRE+E12345', 'suffix': 'R2primemap'},
-    )
-    r2s_hz_img = ants.image_read(r2s_hz_filename)
-    r2prime_hz_img = r2s_hz_img - r2_qsm_img
-    ants.image_write(r2prime_hz_img, r2prime_hz_filename)
+    # Calculate R2* maps, and R2' maps when an R2 map is available
+    for desc, mag_files, tes in (
+        ('MEGRE+E12345', run_data['megre_mag'], echo_times),
+        # From echo 2 onwards
+        ('MEGRE+E2345', run_data['megre_mag'][1:], echo_times[1:]),
+    ):
+        _, r2s_hz_img, _, _ = fit_monoexponential(mag_files, tes)
+        r2s_hz_filename = get_filename(
+            name_source=r2s_name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MEGRE', 'desc': desc, 'suffix': 'R2starmap'},
+            dismiss_entities=r2s_dismiss_entities,
+        )
+        r2s_hz_img.to_filename(r2s_hz_filename)
 
-    # Calculate R2* and R2' maps from echo 2 onwards
-    _, r2s_hz_img, _, _ = fit_monoexponential(run_data['megre_mag'][1:], echo_times[1:])
-    r2s_hz_filename = get_filename(
-        name_source=r2_qsm_filename,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MEGRE', 'desc': 'MEGRE+E2345', 'suffix': 'R2starmap'},
-    )
-    r2s_hz_img.to_filename(r2s_hz_filename)
+        if not has_r2:
+            continue
 
-    r2prime_hz_filename = get_filename(
-        name_source=r2_qsm_filename,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MEGRE', 'desc': 'MEGRE+E2345', 'suffix': 'R2primemap'},
-    )
-    r2s_hz_img = ants.image_read(r2s_hz_filename)
-    r2prime_hz_img = r2s_hz_img - r2_qsm_img
-    ants.image_write(r2prime_hz_img, r2prime_hz_filename)
+        r2prime_hz_filename = get_filename(
+            name_source=r2s_name_source,
+            layout=layout,
+            out_dir=out_dir,
+            entities={'space': 'MEGRE', 'desc': desc, 'suffix': 'R2primemap'},
+            dismiss_entities=r2s_dismiss_entities,
+        )
+        r2s_hz_img = ants.image_read(r2s_hz_filename)
+        r2prime_hz_img = r2s_hz_img - r2_qsm_img
+        ants.image_write(r2prime_hz_img, r2prime_hz_filename)
 
     # Warp brain mask from T1w space to MEGRE space
     mask_qsm_filename = get_filename(

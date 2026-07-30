@@ -123,7 +123,7 @@ nodes:
     input: qsirecon
     name: template_map
     parameters:
-        interpolation: NearestNeighbor
+        interpolation: Linear
     scalars_from:
     - fit_noddi
     - gqi_scalars
