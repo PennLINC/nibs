@@ -26,42 +26,132 @@ except Exception:
 
 
 PATH_RE = re.compile(r"sub-(?P<sub>[^_/]+).*(ses-(?P<ses>[^_/]+))")
-REQUIRED_COLUMNS = {"bundle", "variable_name", "mean", "median"}
+REQUIRED_COLUMNS = {"bundle", "variable_name", "masked_mean", "masked_median"}
+EXCLUDED_BUNDLE_PATTERNS = (
+    "AnteriorCommissure",
+    "DentatorubrothalamicTract-lr",
+    "DentatorubrothalamicTract-rl",
+    "DentatorubrothalamicTractlr",
+    "DentatorubrothalamicTractrl",
+)
+BUNDLE_NAME_ALIASES = {
+    "Association_CingulumLFrontalParahippocampal": "Association_CingulumL_FrontalParahippocampal",
+    "Association_CingulumLFrontalParietal": "Association_CingulumL_FrontalParietal",
+    "Association_CingulumLParahippocampal": "Association_CingulumL_Parahippocampal",
+    "Association_CingulumLParahippocampalParietal": "Association_CingulumL_ParahippocampalParietal",
+    "Association_CingulumLParolfactory": "Association_CingulumL_Parolfactory",
+    "Association_CingulumLSuperiorLongitudinalFasciculus1": "Association_CingulumL_SuperiorLongitudinalFasciculus1",
+    "Association_CingulumRFrontalParahippocampal": "Association_CingulumR_FrontalParahippocampal",
+    "Association_CingulumRFrontalParietal": "Association_CingulumR_FrontalParietal",
+    "Association_CingulumRParahippocampal": "Association_CingulumR_Parahippocampal",
+    "Association_CingulumRParahippocampalParietal": "Association_CingulumR_ParahippocampalParietal",
+    "Association_CingulumRParolfactory": "Association_CingulumR_Parolfactory",
+    "Association_CingulumRSuperiorLongitudinalFasciculus1": "Association_CingulumR_SuperiorLongitudinalFasciculus1",
+    "Association_SuperiorLongitudinalFasciculusL2": "Association_SuperiorLongitudinalFasciculusL_2",
+    "Association_SuperiorLongitudinalFasciculusL3": "Association_SuperiorLongitudinalFasciculusL_3",
+    "Association_SuperiorLongitudinalFasciculusR2": "Association_SuperiorLongitudinalFasciculusR_2",
+    "Association_SuperiorLongitudinalFasciculusR3": "Association_SuperiorLongitudinalFasciculusR_3",
+    "Commissure_AnteriorCommissureFrontal": "Commissure_AnteriorCommissure_Frontal",
+    "Commissure_AnteriorCommissureOccipital": "Commissure_AnteriorCommissure_Occipital",
+    "Commissure_AnteriorCommissureTemporal": "Commissure_AnteriorCommissure_Temporal",
+    "Commissure_CorpusCallosumBody": "Commissure_CorpusCallosum_Body",
+    "Commissure_CorpusCallosumForcepsMajor": "Commissure_CorpusCallosum_ForcepsMajor",
+    "Commissure_CorpusCallosumForcepsMinor": "Commissure_CorpusCallosum_ForcepsMinor",
+    "Commissure_CorpusCallosumTapetum": "Commissure_CorpusCallosum_Tapetum",
+    "ProjectionBasalGanglia_CorticostriatalTractLAnterior": "ProjectionBasalGanglia_CorticostriatalTractL_Anterior",
+    "ProjectionBasalGanglia_CorticostriatalTractLPosterior": "ProjectionBasalGanglia_CorticostriatalTractL_Posterior",
+    "ProjectionBasalGanglia_CorticostriatalTractLSuperior": "ProjectionBasalGanglia_CorticostriatalTractL_Superior",
+    "ProjectionBasalGanglia_CorticostriatalTractRAnterior": "ProjectionBasalGanglia_CorticostriatalTractR_Anterior",
+    "ProjectionBasalGanglia_CorticostriatalTractRPosterior": "ProjectionBasalGanglia_CorticostriatalTractR_Posterior",
+    "ProjectionBasalGanglia_CorticostriatalTractRSuperior": "ProjectionBasalGanglia_CorticostriatalTractR_Superior",
+    "ProjectionBasalGanglia_ThalamicRadiationLAnterior": "ProjectionBasalGanglia_ThalamicRadiationL_Anterior",
+    "ProjectionBasalGanglia_ThalamicRadiationLPosterior": "ProjectionBasalGanglia_ThalamicRadiationL_Posterior",
+    "ProjectionBasalGanglia_ThalamicRadiationLSuperior": "ProjectionBasalGanglia_ThalamicRadiationL_Superior",
+    "ProjectionBasalGanglia_ThalamicRadiationRAnterior": "ProjectionBasalGanglia_ThalamicRadiationR_Anterior",
+    "ProjectionBasalGanglia_ThalamicRadiationRPosterior": "ProjectionBasalGanglia_ThalamicRadiationR_Posterior",
+    "ProjectionBasalGanglia_ThalamicRadiationRSuperior": "ProjectionBasalGanglia_ThalamicRadiationR_Superior",
+    "ProjectionBrainstem_CorticopontineTractLFrontal": "ProjectionBrainstem_CorticopontineTractL_Frontal",
+    "ProjectionBrainstem_CorticopontineTractLOccipital": "ProjectionBrainstem_CorticopontineTractL_Occipital",
+    "ProjectionBrainstem_CorticopontineTractLParietal": "ProjectionBrainstem_CorticopontineTractL_Parietal",
+    "ProjectionBrainstem_CorticopontineTractRFrontal": "ProjectionBrainstem_CorticopontineTractR_Frontal",
+    "ProjectionBrainstem_CorticopontineTractROccipital": "ProjectionBrainstem_CorticopontineTractR_Occipital",
+    "ProjectionBrainstem_CorticopontineTractRParietal": "ProjectionBrainstem_CorticopontineTractR_Parietal",
+    "ProjectionBrainstem_DentatorubrothalamicTractlr": "ProjectionBrainstem_DentatorubrothalamicTract-lr",
+    "ProjectionBrainstem_DentatorubrothalamicTractrl": "ProjectionBrainstem_DentatorubrothalamicTract-rl",
+}
 DKI_METRICS = {
-    "FA",
-    "KFA",
-    "KFA-Micro",
-    "AD",
-    "AD-Micro",
-    "ADE-Micro",
-    "AWF-Micro",
-    "AxonALD-Micro",
-    "AK",
-    "MD",
-    "MD-Micro",
-    "MK",
-    "MKT",
-    "RD",
-    "RD-Micro",
-    "RDE-Micro",
-    "RK",
-    "Linearity",
-    "Planarity",
-    "Sphericity",
-    "Trace-Micro",
-    "Tortuosity-Micro",
+    "DKI-FA",
+    "DKI-KFA",
+    "DKI-KFA-Micro",
+    "DKI-AD",
+    "DKI-AD-Micro",
+    "DKI-ADE-Micro",
+    "DKI-AWF-Micro",
+    "DKI-AxonALD-Micro",
+    "DKI-AK",
+    "DKI-MD",
+    "DKI-MD-Micro",
+    "DKI-MK",
+    "DKI-MKT",
+    "DKI-RD",
+    "DKI-RD-Micro",
+    "DKI-RDE-Micro",
+    "DKI-RK",
+    "DKI-Linearity",
+    "DKI-Planarity",
+    "DKI-Sphericity",
+    "DKI-Trace-Micro",
+    "DKI-Tortuosity-Micro",
+    "DKI-MSDKI-AWF",
+    "DKI-MSDKI-DI",
+    "DKI-MSDKI-MFA",
+    "DKI-MSDKI-MSD",
+    "DKI-MSDKI-MSK",
 }
 NODDI_METRICS = {
-    "ICVF-Modulated",
-    "ICVF",
-    "ISOVF",
-    "NRMSE",
-    "RMSE",
-    "OD-Modulated",
-    "OD",
-    "TF",
+    "NODDI-ICVF-Modulated",
+    "NODDI-ICVF",
+    "NODDI-ISOVF",
+    "NODDI-NRMSE",
+    "NODDI-RMSE",
+    "NODDI-OD-Modulated",
+    "NODDI-OD",
+    "NODDI-TF",
 }
-MAPMRI_METRICS = {"NG", "NGPar", "NGPerp", "PA", "PAth", "RTAP", "RTOP", "RTPP"}
+MAPMRI_METRICS = {
+    "MAPMRI-NG",
+    "MAPMRI-NGPar",
+    "MAPMRI-NGPerp",
+    "MAPMRI-PA",
+    "MAPMRI-PAth",
+    "MAPMRI-RTAP",
+    "MAPMRI-RTOP",
+    "MAPMRI-RTPP",
+}
+DSISTUDIO_METRICS = {
+    "DSIStudio-GQI-GFA",
+    "DSIStudio-GQI-ISO",
+    "DSIStudio-GQI-QA",
+    "DSIStudio-GQI-RDI",
+    "DSIStudio-Tensor-AD",
+    "DSIStudio-Tensor-FA",
+    "DSIStudio-Tensor-MD",
+    "DSIStudio-Tensor-RD",
+    "DSIStudio-Tensor-RD1",
+    "DSIStudio-Tensor-RD2",
+}
+TORTOISE_TENSOR_METRICS = {
+    "TORTOISE-FullShell-AD",
+    "TORTOISE-FullShell-FA",
+    "TORTOISE-FullShell-LI",
+    "TORTOISE-FullShell-MD",
+    "TORTOISE-FullShell-RD",
+    "TORTOISE-InnerShell-AD",
+    "TORTOISE-InnerShell-FA",
+    "TORTOISE-InnerShell-LI",
+    "TORTOISE-InnerShell-MD",
+    "TORTOISE-InnerShell-RD",
+}
 MYELIN_METRICS = {
     "MEGRE",
     "QSM-SEPIA-E5",
@@ -79,52 +169,89 @@ MYELIN_METRICS = {
     "SPACE-MyelinW",
     "Scaled MPRAGE-MyelinW",
     "Scaled SPACE-MyelinW",
+    "G-ihMTsat",
+    "G-ihMTR",
 }
-ALL_ALLOWED_METRICS = DKI_METRICS | NODDI_METRICS | MAPMRI_METRICS | MYELIN_METRICS
+ALL_ALLOWED_METRICS = (
+    DKI_METRICS
+    | NODDI_METRICS
+    | MAPMRI_METRICS
+    | DSISTUDIO_METRICS
+    | TORTOISE_TENSOR_METRICS
+    | MYELIN_METRICS
+)
 
 DKI_STD_MAP = {
-    "fa": "FA",
-    "kfa": "KFA",
-    "ad": "AD",
-    "ak": "AK",
-    "md": "MD",
-    "mk": "MK",
-    "mkt": "MKT",
-    "rd": "RD",
-    "rk": "RK",
-    "linearity": "Linearity",
-    "planarity": "Planarity",
-    "sphericity": "Sphericity",
+    "fa": "DKI-FA",
+    "kfa": "DKI-KFA",
+    "ad": "DKI-AD",
+    "ak": "DKI-AK",
+    "md": "DKI-MD",
+    "mk": "DKI-MK",
+    "mkt": "DKI-MKT",
+    "rd": "DKI-RD",
+    "rk": "DKI-RK",
+    "linearity": "DKI-Linearity",
+    "planarity": "DKI-Planarity",
+    "sphericity": "DKI-Sphericity",
 }
 DKI_MICRO_MAP = {
-    "kfa": "KFA-Micro",
-    "ad": "AD-Micro",
-    "ade": "ADE-Micro",
-    "awf": "AWF-Micro",
-    "axonald": "AxonALD-Micro",
-    "md": "MD-Micro",
-    "rd": "RD-Micro",
-    "rde": "RDE-Micro",
-    "trace": "Trace-Micro",
-    "tortuosity": "Tortuosity-Micro",
+    "kfa": "DKI-KFA-Micro",
+    "ad": "DKI-AD-Micro",
+    "ade": "DKI-ADE-Micro",
+    "awf": "DKI-AWF-Micro",
+    "axonald": "DKI-AxonALD-Micro",
+    "md": "DKI-MD-Micro",
+    "rd": "DKI-RD-Micro",
+    "rde": "DKI-RDE-Micro",
+    "trace": "DKI-Trace-Micro",
+    "tortuosity": "DKI-Tortuosity-Micro",
+}
+DKI_MSDKI_MAP = {
+    "awf": "DKI-MSDKI-AWF",
+    "di": "DKI-MSDKI-DI",
+    "mfa": "DKI-MSDKI-MFA",
+    "msd": "DKI-MSDKI-MSD",
+    "msk": "DKI-MSDKI-MSK",
 }
 NODDI_MAP = {
-    "icvf": "ICVF",
-    "isovf": "ISOVF",
-    "nrmse": "NRMSE",
-    "rmse": "RMSE",
-    "od": "OD",
-    "tf": "TF",
+    "icvf": "NODDI-ICVF",
+    "isovf": "NODDI-ISOVF",
+    "nrmse": "NODDI-NRMSE",
+    "rmse": "NODDI-RMSE",
+    "od": "NODDI-OD",
+    "tf": "NODDI-TF",
 }
 MAPMRI_MAP = {
-    "ng": "NG",
-    "ngpar": "NGPar",
-    "ngperp": "NGPerp",
-    "pa": "PA",
-    "path": "PAth",
-    "rtap": "RTAP",
-    "rtop": "RTOP",
-    "rtpp": "RTPP",
+    "ng": "MAPMRI-NG",
+    "ngpar": "MAPMRI-NGPar",
+    "ngperp": "MAPMRI-NGPerp",
+    "pa": "MAPMRI-PA",
+    "path": "MAPMRI-PAth",
+    "rtap": "MAPMRI-RTAP",
+    "rtop": "MAPMRI-RTOP",
+    "rtpp": "MAPMRI-RTPP",
+}
+DSISTUDIO_GQI_MAP = {
+    "gfa": "DSIStudio-GQI-GFA",
+    "iso": "DSIStudio-GQI-ISO",
+    "qa": "DSIStudio-GQI-QA",
+    "rdi": "DSIStudio-GQI-RDI",
+}
+DSISTUDIO_TENSOR_MAP = {
+    "ad": "DSIStudio-Tensor-AD",
+    "fa": "DSIStudio-Tensor-FA",
+    "md": "DSIStudio-Tensor-MD",
+    "rd": "DSIStudio-Tensor-RD",
+    "rd1": "DSIStudio-Tensor-RD1",
+    "rd2": "DSIStudio-Tensor-RD2",
+}
+TORTOISE_TENSOR_MAP = {
+    "ad": "AD",
+    "fa": "FA",
+    "li": "LI",
+    "md": "MD",
+    "rd": "RD",
 }
 DIRECT_NAME_MAP = {metric.lower(): metric for metric in ALL_ALLOWED_METRICS}
 
@@ -181,6 +308,16 @@ def _norm_token(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", text.lower())
 
 
+def _param_from_variable_name(variable_name: str, *prefixes: str) -> str:
+    """Return a normalized metric token after stripping known prefixes."""
+    token = _norm_token(variable_name)
+    for prefix in prefixes:
+        norm_prefix = _norm_token(prefix)
+        if token.startswith(norm_prefix):
+            return token[len(norm_prefix) :]
+    return token
+
+
 def _infer_metric_name(row: pd.Series, source_tsv: str) -> str | None:
     var_name = str(row.get("variable_name", "")).strip()
     qsirecon_suffix = str(row.get("qsirecon_suffix", "")).strip()
@@ -205,46 +342,69 @@ def _infer_metric_name(row: pd.Series, source_tsv: str) -> str | None:
     )
     if is_dki:
         param = _extract_param_token(lowered_src)
+        var_param = _param_from_variable_name(var_name, "msdki", "dki", "dkimicro")
+        is_msdki = (
+            "model-msdki" in lowered_src
+            or "msdki" in lowered_suffix
+            or norm_var.startswith("msdki")
+        )
         is_micro = (
             "model-dkimicro" in lowered_src
             or "dkimicro" in lowered_suffix
             or "micro" in norm_var
         )
-        if is_micro:
-            metric = DKI_MICRO_MAP.get(param) or DKI_MICRO_MAP.get(lowered_var)
+        if is_msdki:
+            metric = (
+                DKI_MSDKI_MAP.get(param)
+                or DKI_MSDKI_MAP.get(var_param)
+                or DKI_MSDKI_MAP.get(lowered_var)
+            )
+            if metric is None:
+                for token, out_name in (
+                    ("awf", "DKI-MSDKI-AWF"),
+                    ("mfa", "DKI-MSDKI-MFA"),
+                    ("msd", "DKI-MSDKI-MSD"),
+                    ("msk", "DKI-MSDKI-MSK"),
+                    ("di", "DKI-MSDKI-DI"),
+                ):
+                    if token in norm_var:
+                        metric = out_name
+                        break
+        elif is_micro:
+            metric = DKI_MICRO_MAP.get(param) or DKI_MICRO_MAP.get(var_param) or DKI_MICRO_MAP.get(lowered_var)
             if metric is None:
                 micro_aliases = (
-                    ("axonald", "AxonALD-Micro"),
-                    ("tortuosity", "Tortuosity-Micro"),
-                    ("trace", "Trace-Micro"),
-                    ("awf", "AWF-Micro"),
-                    ("ade", "ADE-Micro"),
-                    ("rde", "RDE-Micro"),
-                    ("kfa", "KFA-Micro"),
-                    ("ad", "AD-Micro"),
-                    ("md", "MD-Micro"),
-                    ("rd", "RD-Micro"),
+                    ("axonald", "DKI-AxonALD-Micro"),
+                    ("tortuosity", "DKI-Tortuosity-Micro"),
+                    ("trace", "DKI-Trace-Micro"),
+                    ("awf", "DKI-AWF-Micro"),
+                    ("ade", "DKI-ADE-Micro"),
+                    ("rde", "DKI-RDE-Micro"),
+                    ("kfa", "DKI-KFA-Micro"),
+                    ("ad", "DKI-AD-Micro"),
+                    ("md", "DKI-MD-Micro"),
+                    ("rd", "DKI-RD-Micro"),
                 )
                 for token, out_name in micro_aliases:
                     if token in norm_var:
                         metric = out_name
                         break
         else:
-            metric = DKI_STD_MAP.get(param) or DKI_STD_MAP.get(lowered_var)
+            metric = DKI_STD_MAP.get(param) or DKI_STD_MAP.get(var_param) or DKI_STD_MAP.get(lowered_var)
             if metric is None:
                 std_aliases = (
-                    ("linearity", "Linearity"),
-                    ("planarity", "Planarity"),
-                    ("sphericity", "Sphericity"),
-                    ("mkt", "MKT"),
-                    ("kfa", "KFA"),
-                    ("fa", "FA"),
-                    ("ak", "AK"),
-                    ("mk", "MK"),
-                    ("rk", "RK"),
-                    ("ad", "AD"),
-                    ("md", "MD"),
-                    ("rd", "RD"),
+                    ("linearity", "DKI-Linearity"),
+                    ("planarity", "DKI-Planarity"),
+                    ("sphericity", "DKI-Sphericity"),
+                    ("mkt", "DKI-MKT"),
+                    ("kfa", "DKI-KFA"),
+                    ("fa", "DKI-FA"),
+                    ("ak", "DKI-AK"),
+                    ("mk", "DKI-MK"),
+                    ("rk", "DKI-RK"),
+                    ("ad", "DKI-AD"),
+                    ("md", "DKI-MD"),
+                    ("rd", "DKI-RD"),
                 )
                 for token, out_name in std_aliases:
                     if token in norm_var:
@@ -263,12 +423,12 @@ def _infer_metric_name(row: pd.Series, source_tsv: str) -> str | None:
         metric = NODDI_MAP.get(param)
         if metric is None:
             for token, out_name in (
-                ("isovf", "ISOVF"),
-                ("icvf", "ICVF"),
-                ("nrmse", "NRMSE"),
-                ("rmse", "RMSE"),
-                ("od", "OD"),
-                ("tf", "TF"),
+                ("isovf", "NODDI-ISOVF"),
+                ("icvf", "NODDI-ICVF"),
+                ("nrmse", "NODDI-NRMSE"),
+                ("rmse", "NODDI-RMSE"),
+                ("od", "NODDI-OD"),
+                ("tf", "NODDI-TF"),
             ):
                 if token in norm_var:
                     metric = out_name
@@ -279,9 +439,58 @@ def _infer_metric_name(row: pd.Series, source_tsv: str) -> str | None:
             or "modulated" in lowered_var
             or "modulated" in lowered_suffix
         )
-        if metric in {"ICVF", "OD"} and is_modulated:
+        if metric in {"NODDI-ICVF", "NODDI-OD"} and is_modulated:
             metric = f"{metric}-Modulated"
         return metric if metric in NODDI_METRICS else None
+
+    # DWI DSIStudio spreadsheet
+    is_dsistudio = (
+        "qsirecon-dsistudio" in lowered_tsv
+        or "qsirecon-dsistudio" in lowered_src
+        or "dsistudio" in lowered_suffix
+        or "gqi" in lowered_suffix
+    )
+    if is_dsistudio:
+        param = _extract_param_token(lowered_src) or _param_from_variable_name(var_name, "dti")
+        is_gqi = (
+            "model-gqi" in lowered_src
+            or "gqi" in lowered_suffix
+            or param in DSISTUDIO_GQI_MAP
+        )
+        is_tensor = (
+            "model-tensor" in lowered_src
+            or "tensor" in lowered_suffix
+            or param in DSISTUDIO_TENSOR_MAP
+        )
+        if is_gqi:
+            metric = DSISTUDIO_GQI_MAP.get(param) or DSISTUDIO_GQI_MAP.get(lowered_var)
+            return metric if metric in DSISTUDIO_METRICS else None
+        if is_tensor:
+            metric = DSISTUDIO_TENSOR_MAP.get(param) or DSISTUDIO_TENSOR_MAP.get(lowered_var)
+            return metric if metric in DSISTUDIO_METRICS else None
+
+    # DWI TORTOISE tensor spreadsheets
+    is_tortoise_full_shell = (
+        "qsirecon-tortoise_model-mapmri" in lowered_tsv
+        or "qsirecon-tortoise_model-mapmri" in lowered_src
+    )
+    is_tortoise_inner_shell = (
+        "qsirecon-tortoise_model-tensor" in lowered_tsv
+        or "qsirecon-tortoise_model-tensor" in lowered_src
+    )
+    tortoise_param = _extract_param_token(lowered_src) or lowered_var
+    is_tensor_metric = (
+        "model-tensor" in lowered_src
+        or "tensor" in lowered_suffix
+        or tortoise_param in TORTOISE_TENSOR_MAP
+    )
+    if is_tensor_metric and (is_tortoise_full_shell or is_tortoise_inner_shell):
+        suffix = TORTOISE_TENSOR_MAP.get(tortoise_param) or TORTOISE_TENSOR_MAP.get(lowered_var)
+        if suffix is None:
+            return None
+        prefix = "TORTOISE-FullShell" if is_tortoise_full_shell else "TORTOISE-InnerShell"
+        metric = f"{prefix}-{suffix}"
+        return metric if metric in TORTOISE_TENSOR_METRICS else None
 
     # DWI MAPMRI spreadsheet
     is_mapmri = (
@@ -291,17 +500,19 @@ def _infer_metric_name(row: pd.Series, source_tsv: str) -> str | None:
     )
     if is_mapmri:
         param = _extract_param_token(lowered_src) or lowered_var
+        if "model-mapmri" not in lowered_src and "mapmri" not in lowered_suffix:
+            return None
         metric = MAPMRI_MAP.get(param)
         if metric is None:
             for token, out_name in (
-                ("ngperp", "NGPerp"),
-                ("ngpar", "NGPar"),
-                ("ng", "NG"),
-                ("path", "PAth"),
-                ("pa", "PA"),
-                ("rtap", "RTAP"),
-                ("rtop", "RTOP"),
-                ("rtpp", "RTPP"),
+                ("ngperp", "MAPMRI-NGPerp"),
+                ("ngpar", "MAPMRI-NGPar"),
+                ("ng", "MAPMRI-NG"),
+                ("path", "MAPMRI-PAth"),
+                ("pa", "MAPMRI-PA"),
+                ("rtap", "MAPMRI-RTAP"),
+                ("rtop", "MAPMRI-RTOP"),
+                ("rtpp", "MAPMRI-RTPP"),
             ):
                 if token in norm_var:
                     metric = out_name
@@ -356,6 +567,16 @@ def collect_scalarstats(input_globs: list[str]) -> pd.DataFrame:
     all_df["session_id"] = all_df["session_id"].astype(str)
     all_df["bundle"] = all_df["bundle"].astype(str)
     all_df["metric"] = all_df["metric"].astype(str)
+    all_df["bundle"] = all_df["bundle"].replace(BUNDLE_NAME_ALIASES)
+    excluded_mask = all_df["bundle"].str.contains("|".join(EXCLUDED_BUNDLE_PATTERNS), regex=True, na=False)
+    if excluded_mask.any():
+        excluded_bundles = ", ".join(sorted(all_df.loc[excluded_mask, "bundle"].unique()))
+        print(
+            f"[INFO] Excluding {int(excluded_mask.sum())} rows from inconsistent bundles: "
+            f"{excluded_bundles}",
+            flush=True,
+        )
+        all_df = all_df.loc[~excluded_mask].copy()
     if dropped_counter:
         print("[WARN] Dropped rows with unmapped metrics (top 20):", flush=True)
         for (var_name, suffix), count in dropped_counter.most_common(20):
@@ -462,7 +683,7 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         default=[
             "/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-*/sub-*/ses-*/dwi/sub-*_ses-*_*_scalarstats.tsv",
-            "/cbica/projects/nibs/derivatives/bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-gqi_scalarstats.tsv",
+            "/cbica/projects/nibs/derivatives/bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-*_scalarstats.tsv",
         ],
         help="One or more globs for bundle scalarstats TSV files.",
     )
@@ -483,7 +704,7 @@ def main() -> None:
     if all_df.empty:
         raise RuntimeError(f"No scalarstats TSV files found for globs: {args.input_globs}")
 
-    for stat in ("mean", "median"):
+    for stat in ("masked_mean", "masked_median"):
         icc_df = compute_icc_table(all_df, value_col=stat)
         if icc_df.empty:
             raise RuntimeError(f"No valid ICC rows for {stat}. Check session coverage.")

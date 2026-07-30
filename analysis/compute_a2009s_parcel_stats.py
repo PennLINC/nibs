@@ -1,7 +1,9 @@
-"""Compute parcel-wise summary statistics for scalar maps.
+"""Compute parcel-wise summary statistics and coverage for scalar maps.
 
-Runs per subject, writing one CSV per subject/session/run with one row per
-aparc.a2009s parcel and columns of the form {METRIC}_{STAT}.
+Runs per subject, writing one statistics CSV and one long-format coverage CSV
+per subject/session/run for aparc.a2009s parcels. Scalar maps remain in their
+native grids; the corresponding label image is resampled to each map with
+generic-label interpolation.
 """
 
 from __future__ import annotations
@@ -19,52 +21,78 @@ import pandas as pd
 
 PATTERNS_SUBJECT: dict[str, str] = {
     # DWI DKI
-    "FA": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-fa_dwimap.nii.gz",
-    "KFA": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-kfa_dwimap.nii.gz",
-    "KFA-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-kfa_dwimap.nii.gz",
-    "AD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-ad_dwimap.nii.gz",
-    "AD-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-ad_dwimap.nii.gz",
-    "ADE-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-ade_dwimap.nii.gz",
-    "AWF-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-awf_dwimap.nii.gz",
-    "AxonALD-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-axonald_dwimap.nii.gz",
-    "AK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-ak_dwimap.nii.gz",
-    "MD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-md_dwimap.nii.gz",
-    "MD-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-md_dwimap.nii.gz",
-    "MK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-mk_dwimap.nii.gz",
-    "MKT": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-mkt_dwimap.nii.gz",
-    "RD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-rd_dwimap.nii.gz",
-    "RD-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-rd_dwimap.nii.gz",
-    "RDE-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-rde_dwimap.nii.gz",
-    "RK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-rk_dwimap.nii.gz",
-    "Linearity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-linearity_dwimap.nii.gz",
-    "Planarity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-planarity_dwimap.nii.gz",
-    "Sphericity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-sphericity_dwimap.nii.gz",
-    "Trace-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-trace_dwimap.nii.gz",
-    "Tortuosity-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-tortuosity_dwimap.nii.gz",
+    "DKI-FA": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-fa_dwimap.nii.gz",
+    "DKI-KFA": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-kfa_dwimap.nii.gz",
+    "DKI-KFA-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-kfa_dwimap.nii.gz",
+    "DKI-AD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-ad_dwimap.nii.gz",
+    "DKI-AD-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-ad_dwimap.nii.gz",
+    "DKI-ADE-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-ade_dwimap.nii.gz",
+    "DKI-AWF-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-awf_dwimap.nii.gz",
+    "DKI-AxonALD-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-axonald_dwimap.nii.gz",
+    "DKI-AK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-ak_dwimap.nii.gz",
+    "DKI-MD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-md_dwimap.nii.gz",
+    "DKI-MD-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-md_dwimap.nii.gz",
+    "DKI-MK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-mk_dwimap.nii.gz",
+    "DKI-MKT": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-mkt_dwimap.nii.gz",
+    "DKI-RD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-rd_dwimap.nii.gz",
+    "DKI-RD-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-rd_dwimap.nii.gz",
+    "DKI-RDE-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-rde_dwimap.nii.gz",
+    "DKI-RK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-rk_dwimap.nii.gz",
+    "DKI-Linearity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-linearity_dwimap.nii.gz",
+    "DKI-Planarity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-planarity_dwimap.nii.gz",
+    "DKI-Sphericity": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-sphericity_dwimap.nii.gz",
+    "DKI-Trace-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-trace_dwimap.nii.gz",
+    "DKI-Tortuosity-Micro": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-tortuosity_dwimap.nii.gz",
+    "DKI-MSDKI-AWF": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-awf_dwimap.nii.gz",
+    "DKI-MSDKI-DI": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-di_dwimap.nii.gz",
+    "DKI-MSDKI-MFA": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-mfa_dwimap.nii.gz",
+    "DKI-MSDKI-MSD": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-msd_dwimap.nii.gz",
+    "DKI-MSDKI-MSK": "qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-msk_dwimap.nii.gz",
+    # DWI DSIStudio
+    "DSIStudio-GQI-GFA": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-gqi_param-gfa_dwimap.nii.gz",
+    "DSIStudio-GQI-ISO": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-gqi_param-iso_dwimap.nii.gz",
+    "DSIStudio-GQI-QA": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-gqi_param-qa_dwimap.nii.gz",
+    "DSIStudio-GQI-RDI": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-gqi_param-rdi_dwimap.nii.gz",
+    "DSIStudio-Tensor-AD": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-ad_dwimap.nii.gz",
+    "DSIStudio-Tensor-FA": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-fa_dwimap.nii.gz",
+    "DSIStudio-Tensor-MD": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-md_dwimap.nii.gz",
+    "DSIStudio-Tensor-RD": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd_dwimap.nii.gz",
+    "DSIStudio-Tensor-RD1": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd1_dwimap.nii.gz",
+    "DSIStudio-Tensor-RD2": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd2_dwimap.nii.gz",
     # DWI NODDI
-    "ICVF-Modulated": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_desc-modulated_dwimap.nii.gz",
-    "ICVF": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_dwimap.nii.gz",
-    "ISOVF": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-isovf_dwimap.nii.gz",
-    "NRMSE": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-nrmse_dwimap.nii.gz",
-    "RMSE": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-rmse_dwimap.nii.gz",
-    "OD-Modulated": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_desc-modulated_dwimap.nii.gz",
-    "OD": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_dwimap.nii.gz",
-    "TF": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-tf_dwimap.nii.gz",
+    "NODDI-ICVF-Modulated": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_desc-modulated_dwimap.nii.gz",
+    "NODDI-ICVF": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_dwimap.nii.gz",
+    "NODDI-ISOVF": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-isovf_dwimap.nii.gz",
+    "NODDI-NRMSE": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-nrmse_dwimap.nii.gz",
+    "NODDI-RMSE": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-rmse_dwimap.nii.gz",
+    "NODDI-OD-Modulated": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_desc-modulated_dwimap.nii.gz",
+    "NODDI-OD": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_dwimap.nii.gz",
+    "NODDI-TF": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-tf_dwimap.nii.gz",
     # DWI MAPMRI
-    "NG": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ng_dwimap.nii.gz",
-    "NGPar": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ngpar_dwimap.nii.gz",
-    "NGPerp": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ngperp_dwimap.nii.gz",
-    "PA": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-pa_dwimap.nii.gz",
-    "PAth": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-path_dwimap.nii.gz",
-    "RTAP": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-rtap_dwimap.nii.gz",
-    "RTOP": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-rtop_dwimap.nii.gz",
-    "RTPP": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-rtpp_dwimap.nii.gz",
+    "MAPMRI-NG": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ng_dwimap.nii.gz",
+    "MAPMRI-NGPar": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ngpar_dwimap.nii.gz",
+    "MAPMRI-NGPerp": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ngperp_dwimap.nii.gz",
+    "MAPMRI-PA": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-pa_dwimap.nii.gz",
+    "MAPMRI-PAth": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-path_dwimap.nii.gz",
+    "MAPMRI-RTAP": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-rtap_dwimap.nii.gz",
+    "MAPMRI-RTOP": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-rtop_dwimap.nii.gz",
+    "MAPMRI-RTPP": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-rtpp_dwimap.nii.gz",
+    # DWI TORTOISE tensor
+    "TORTOISE-FullShell-AD": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-ad_dwimap.nii.gz",
+    "TORTOISE-FullShell-FA": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-fa_dwimap.nii.gz",
+    "TORTOISE-FullShell-LI": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-li_dwimap.nii.gz",
+    "TORTOISE-FullShell-MD": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-md_dwimap.nii.gz",
+    "TORTOISE-FullShell-RD": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd_dwimap.nii.gz",
+    "TORTOISE-InnerShell-AD": "qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-ad_dwimap.nii.gz",
+    "TORTOISE-InnerShell-FA": "qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-fa_dwimap.nii.gz",
+    "TORTOISE-InnerShell-LI": "qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-li_dwimap.nii.gz",
+    "TORTOISE-InnerShell-MD": "qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-md_dwimap.nii.gz",
+    "TORTOISE-InnerShell-RD": "qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd_dwimap.nii.gz",
     # QSM
-    "MEGRE": "qsm/sub-*/ses-*/anat/sub-*_ses-*_acq-QSM_run-01_space-T1w_desc-mean_MEGRE.nii.gz",
     "QSM-SEPIA-E5": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+sepia_Chimap.nii.gz",
     "QSM-X-R2p-E5-X": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_Chimap.nii.gz",
-    "QSM-X-R2p-E5-Para": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_ironw.nii.gz",
-    "QSM-X-R2p-E5-Dia": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_myelinw.nii.gz",
+    "QSM-X-R2p-E5-Para": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_para.nii.gz",
+    "QSM-X-R2p-E5-Dia": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_dia.nii.gz",
     # ihMT
     "ihMTw": "ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTw.nii.gz",
     "ihMTR": "ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTR.nii.gz",
@@ -80,10 +108,8 @@ PATTERNS_SUBJECT: dict[str, str] = {
     "Scaled MPRAGE-MyelinW": "t1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MPRAGEscaled_myelinw.nii.gz",
     "Scaled SPACE-MyelinW": "t1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACEscaled_myelinw.nii.gz",
     # g-ratio
-    #"G-MPRAGE-MyelinW": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MPRAGET1wT2w+ISOVF+ICVF_gratio.nii.gz",
-    #"G-SPACE-MyelinW": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACET1wT2w+ISOVF+ICVF_gratio.nii.gz",
-    #"G-ihMTsat": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
-    #"G-ihMTR": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
+    "G-ihMTsat": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
+    "G-ihMTR": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
 }
 
 STATS = ("mean", "median", "std", "min", "max")
@@ -187,6 +213,16 @@ def _expected_space_for_metric(metric_name: str) -> str:
     )
 
 
+def _images_share_grid(image_a: ants.ANTsImage, image_b: ants.ANTsImage) -> bool:
+    """Return True when two ANTs images use the same voxel grid."""
+    return (
+        image_a.shape == image_b.shape
+        and np.allclose(image_a.spacing, image_b.spacing)
+        and np.allclose(image_a.origin, image_b.origin)
+        and np.allclose(image_a.direction, image_b.direction)
+    )
+
+
 def _compute_stats(values: np.ndarray) -> dict[str, float]:
     if values.size == 0:
         return {
@@ -205,9 +241,13 @@ def _compute_stats(values: np.ndarray) -> dict[str, float]:
     }
 
 
-def process_subject(subject: str, deriv_dir: str) -> None:
+def process_subject(
+    subject: str,
+    deriv_dir: str,
+    zero_is_missing: bool = True,
+) -> None:
     t1w_reg_dir = os.path.join(deriv_dir, "t1w_registration", f"sub-{subject}", "anat")
-    out_dir = os.path.join(deriv_dir, "parcel_bundle_stats", f"sub-{subject}")
+    out_dir = os.path.join(deriv_dir, "parcel_myelin_stats", f"sub-{subject}")
     os.makedirs(out_dir, exist_ok=True)
 
     lut_file = os.path.normpath(
@@ -269,6 +309,9 @@ def process_subject(subject: str, deriv_dir: str) -> None:
             for stat in STATS:
                 out_df[f"{metric_name}_{stat}"] = np.nan
 
+        # Long-format coverage output: one row per metric and parcel.
+        coverage_rows: list[dict[str, object]] = []
+
         for metric_name, metric_file in metric_files.items():
             actual_space = _space_from_path(metric_file)
             expected_space = expected_space_by_metric[metric_name]
@@ -279,25 +322,62 @@ def process_subject(subject: str, deriv_dir: str) -> None:
                 )
             space = actual_space
             dseg_img = dseg_imgs[space]
-            dseg_data = dseg_arrays[space]
 
+            # Keep the quantitative scalar map in its native grid. Move only
+            # the categorical parcellation to that grid with label-aware
+            # interpolation. This avoids smoothing, ringing, and mixing of
+            # scalar values across parcel or missing-data boundaries.
             map_img = ants.image_read(metric_file)
-            if map_img.shape != dseg_img.shape:
-                map_img = ants.apply_transforms(
-                    fixed=dseg_img,
-                    moving=map_img,
-                    transformlist=[],
-                    interpolator="linear",
-                )
             map_data = map_img.numpy()
 
+            if _images_share_grid(dseg_img, map_img):
+                metric_dseg_img = dseg_img
+            else:
+                metric_dseg_img = ants.resample_image_to_target(
+                    image=dseg_img,
+                    target=map_img,
+                    interp_type="genericLabel",
+                )
+
+            # genericLabel should preserve integer labels. Rounding before
+            # conversion guards against floating-point storage artifacts.
+            metric_dseg_data = np.rint(metric_dseg_img.numpy()).astype(np.int64)
+
+            valid_data = np.isfinite(map_data)
+            if zero_is_missing:
+                valid_data &= map_data != 0
+
             for label_id in label_ids:
-                voxels = map_data[dseg_data == label_id]
-                voxels = voxels[np.isfinite(voxels)]
-                stats = _compute_stats(voxels)
                 row_idx = out_df["parcel_intensity"] == label_id
+                parcel_row = out_df.loc[row_idx].iloc[0]
+
+                parcel_mask = metric_dseg_data == label_id
+                parcel_values = map_data[parcel_mask]
+                parcel_valid = valid_data[parcel_mask]
+                valid_values = parcel_values[parcel_valid]
+                n_total = int(parcel_values.size)
+                n_valid = int(np.count_nonzero(parcel_valid))
+                coverage = n_valid / n_total if n_total > 0 else np.nan
+
+                stats = _compute_stats(valid_values)
                 for stat_name, stat_val in stats.items():
                     out_df.loc[row_idx, f"{metric_name}_{stat_name}"] = stat_val
+
+                coverage_rows.append(
+                    {
+                        "subject": f"sub-{subject}",
+                        "session": ses,
+                        "run": run,
+                        "metric": metric_name,
+                        "space": space,
+                        "parcel_intensity": int(label_id),
+                        "parcel_name": str(parcel_row["parcel_name"]),
+                        "parcel_hemi": str(parcel_row["parcel_hemi"]),
+                        "parcel_count": n_total,
+                        "valid_count": n_valid,
+                        "coverage": coverage,
+                    }
+                )
 
         out_file = os.path.join(
             out_dir,
@@ -305,6 +385,16 @@ def process_subject(subject: str, deriv_dir: str) -> None:
         )
         out_df.to_csv(out_file, index=False)
         print(f"Wrote {out_file}", flush=True)
+
+        coverage_file = os.path.join(
+            out_dir,
+            f"sub-{subject}_{ses}_{run}_desc-a2009s_coverage.csv",
+        )
+        coverage_df = pd.DataFrame(coverage_rows).sort_values(
+            ["metric", "parcel_intensity"]
+        )
+        coverage_df.to_csv(coverage_file, index=False)
+        print(f"Wrote {coverage_file}", flush=True)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -314,14 +404,26 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Subject ID without the sub- prefix",
     )
+    parser.add_argument(
+        "--include-zero",
+        action="store_true",
+        help=(
+            "Include exact zero values in parcel statistics and coverage. "
+            "By default, zero and all nonfinite values are treated as invalid."
+        ),
+    )
     return parser
 
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-    from config import load_config
+    from configuration.config import load_config
 
     args = _build_parser().parse_args()
     cfg = load_config()
     derivatives_dir = os.path.join(cfg["project_root"], "derivatives")
-    process_subject(args.subject_id, derivatives_dir)
+    process_subject(
+        args.subject_id,
+        derivatives_dir,
+        zero_is_missing=not args.include_zero,
+    )

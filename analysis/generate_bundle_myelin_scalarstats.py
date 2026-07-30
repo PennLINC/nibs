@@ -15,22 +15,28 @@ from bundle_scalar_mapping_utils import summarize_bundles
 
 # Myelin metrics
 METRIC_PATTERNS_T1W: dict[str, str] = {
-    "MEGRE": "qsm/sub-*/ses-*/anat/sub-*_ses-*_acq-QSM_run-01_space-T1w_desc-mean_MEGRE.nii.gz",
+    # QSM
     "QSM-SEPIA-E5": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+sepia_Chimap.nii.gz",
     "QSM-X-R2p-E5-X": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_Chimap.nii.gz",
-    "QSM-X-R2p-E5-Para": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_ironw.nii.gz",
-    "QSM-X-R2p-E5-Dia": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_myelinw.nii.gz",
+    "QSM-X-R2p-E5-Para": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_para.nii.gz",
+    "QSM-X-R2p-E5-Dia": "qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_dia.nii.gz",
+    # ihMT
     "ihMTw": "ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTw.nii.gz",
     "ihMTR": "ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTR.nii.gz",
     "MTR": "ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_MTRmap.nii.gz",
     "ihMTsat": "ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTsat.nii.gz",
     "ihMTsat-B1c": "ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTsatB1sq.nii.gz",
+    # MP2RAGE
     "R1": "pymp2rage/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_R1map.nii.gz",
     "R1-B1c": "pymp2rage/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-B1corrected_R1map.nii.gz",
+    # T1/T2
     "MPRAGE-MyelinW": "t1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MPRAGEunscaled_myelinw.nii.gz",
     "SPACE-MyelinW": "t1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACEunscaled_myelinw.nii.gz",
     "Scaled MPRAGE-MyelinW": "t1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MPRAGEscaled_myelinw.nii.gz",
     "Scaled SPACE-MyelinW": "t1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACEscaled_myelinw.nii.gz",
+    # g-ratio
+    "G-ihMTsat": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
+    "G-ihMTR": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
 }
 
 BUNDLE_RE = re.compile(r"_bundle-(?P<bundle>.+?)_streamlines\.tck(?:\.gz)?$")
@@ -162,7 +168,7 @@ def process_subject(
             glob(
                 os.path.join(
                     dwi_dir,
-                    f"sub-{subject}_{session}_acq-HBCD75_run-01_space-T1w_model-gqi_bundle-*_streamlines.tck",
+                    f"sub-{subject}_{session}_acq-HBCD75_run-01_space-T1w_model-msmt_bundle-*_streamlines.tck",
                 )
             )
         )
@@ -171,7 +177,7 @@ def process_subject(
                 glob(
                     os.path.join(
                         dwi_dir,
-                        f"sub-{subject}_{session}_acq-HBCD75_run-01_space-T1w_model-gqi_bundle-*_streamlines.tck.gz",
+                        f"sub-{subject}_{session}_acq-HBCD75_run-01_space-T1w_model-msmt_bundle-*_streamlines.tck.gz",
                     )
                 )
             )
@@ -200,7 +206,7 @@ def process_subject(
 
         final_tsv = os.path.join(
             out_dir,
-            f"sub-{subject}_{session}_acq-HBCD75_run-01_space-T1w_model-gqi_scalarstats.tsv",
+            f"sub-{subject}_{session}_acq-HBCD75_run-01_space-T1w_model-msmt_scalarstats.tsv",
         )
         _finalize_qsirecon_style_tsv(
             bundle_stats_file=bundle_stats_file,
@@ -228,7 +234,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--bundle-source",
-        default="warped_gqi",
+        default="warped_msmt",
         help="Value for bundle_source column.",
     )
     parser.add_argument(

@@ -28,7 +28,7 @@ if [[ -z "${subject}" ]]; then
   exit 1
 fi
 
-cmd="python ${CODE_DIR}/compute_a2009s_parcel_stats.py --subject-id ${subject}"
+cmd="~/.conda/envs/myelin_reliability/bin/python ${CODE_DIR}/compute_a2009s_parcel_stats.py --subject-id ${subject}"
 
 echo "Running task ${SLURM_ARRAY_TASK_ID} for sub-${subject}"
 echo "Commandline: ${cmd}"

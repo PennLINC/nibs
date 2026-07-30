@@ -16,7 +16,7 @@ set -euo pipefail
 
 BIDS_DIR="/cbica/projects/nibs/dset"
 DERIVS_DIR="/cbica/projects/nibs/derivatives"
-IN_ROOT="${DERIVS_DIR}/qsirecon/derivatives/qsirecon-DSIStudio"
+IN_ROOT="${DERIVS_DIR}/qsirecon/derivatives/qsirecon-MSMTAutoTrack"
 OUT_ROOT="${DERIVS_DIR}/warped_bundles"
 XFM_ROOT="${DERIVS_DIR}/t1w_registration"
 TMP_ROOT="/cbica/projects/nibs/work/warp_bundles_indiv_tmp"
@@ -68,7 +68,7 @@ for session_dir in "${session_dirs[@]}"; do
     continue
   fi
 
-  ref_candidates=( "${in_dwi}"/*space-ACPC*param-ha*.nii.gz )
+  ref_candidates=( "${in_dwi}"/*space-ACPC*param-norm_dwimap.nii.gz )
   if [[ ${#ref_candidates[@]} -eq 0 ]]; then
     echo "Skipping ${session}: no ACPC HA reference found in ${in_dwi}"
     continue
@@ -88,7 +88,7 @@ for session_dir in "${session_dirs[@]}"; do
     base=$(basename "${bundle_file}")
     bundle_name="${base##*_bundle-}"
     bundle_name="${bundle_name%_streamlines.tck.gz}"
-    out_tck="${out_dwi}/sub-${subject}_${session}_acq-HBCD75_run-01_space-T1w_model-gqi_bundle-${bundle_name}_streamlines.tck"
+    out_tck="${out_dwi}/sub-${subject}_${session}_acq-HBCD75_run-01_space-T1w_model-msmt_bundle-${bundle_name}_streamlines.tck"
 
     if [[ -f "${out_tck}" ]]; then
       echo "Output exists, skipping: ${out_tck}"

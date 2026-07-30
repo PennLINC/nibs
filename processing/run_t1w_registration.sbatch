@@ -35,9 +35,26 @@ if [[ -z "${subject}" ]]; then
 fi
 
 FIXED="${QSIPREP_DIR}/sub-${subject}/anat/sub-${subject}_space-ACPC_desc-preproc_T1w.nii.gz"
-MOVING="${SMRIPREP_DIR}/sub-${subject}/anat/sub-${subject}_acq-MPRAGE_rec-refaced_run-01_desc-preproc_T1w.nii.gz"
 FIXED_MASK="${QSIPREP_DIR}/sub-${subject}/anat/sub-${subject}_space-ACPC_desc-brain_mask.nii.gz"
+
+MOVING="${SMRIPREP_DIR}/sub-${subject}/anat/sub-${subject}_acq-MPRAGE_rec-refaced_run-01_desc-preproc_T1w.nii.gz"
 MOVING_MASK="${SMRIPREP_DIR}/sub-${subject}/anat/sub-${subject}_acq-MPRAGE_rec-refaced_run-01_desc-brain_mask.nii.gz"
+
+if [[ ! -f "${MOVING}" ]]; then
+  moving_candidates=( "${SMRIPREP_DIR}/sub-${subject}"/ses-*/anat/sub-${subject}_ses-*_acq-MPRAGE_rec-refaced_run-01_desc-preproc_T1w.nii.gz )
+  if [[ ${#moving_candidates[@]} -gt 0 && -f "${moving_candidates[0]}" ]]; then
+    MOVING="${moving_candidates[0]}"
+    echo "Using session-level moving image: ${MOVING}"
+  fi
+fi
+
+if [[ ! -f "${MOVING_MASK}" ]]; then
+  moving_mask_candidates=( "${SMRIPREP_DIR}/sub-${subject}"/ses-*/anat/sub-${subject}_ses-*_acq-MPRAGE_rec-refaced_run-01_desc-brain_mask.nii.gz )
+  if [[ ${#moving_mask_candidates[@]} -gt 0 && -f "${moving_mask_candidates[0]}" ]]; then
+    MOVING_MASK="${moving_mask_candidates[0]}"
+    echo "Using session-level moving mask: ${MOVING_MASK}"
+  fi
+fi
 
 OUT_DIR="${OUT_ROOT}/sub-${subject}/anat"
 mkdir -p "${OUT_DIR}"
@@ -47,6 +64,14 @@ mkdir -p "${TMP_SUBJ_DIR}"
 
 WORK_PREFIX="${TMP_SUBJ_DIR}/sub-${subject}_acpc_to_t1w_"
 WARPED_IMAGE="${TMP_SUBJ_DIR}/sub-${subject}_space-ACPC_desc-preproc_from-T1w_warped.nii.gz"
+FIXED_MASKED="${TMP_SUBJ_DIR}/sub-${subject}_space-ACPC_desc-brainmasked_T1w.nii.gz"
+MOVING_MASKED="${TMP_SUBJ_DIR}/sub-${subject}_space-T1w_desc-brainmasked_T1w.nii.gz"
+
+echo "Resolved registration inputs:"
+echo "  Fixed image:  ${FIXED}"
+echo "  Fixed mask:   ${FIXED_MASK}"
+echo "  Moving image: ${MOVING}"
+echo "  Moving mask:  ${MOVING_MASK}"
 
 if [[ ! -f "${FIXED}" ]]; then
   echo "Missing fixed image: ${FIXED}"
@@ -58,32 +83,51 @@ if [[ ! -f "${MOVING}" ]]; then
   exit 1
 fi
 
-mask_arg="--masks [ NULL, NULL ]"
-if [[ -f "${FIXED_MASK}" && -f "${MOVING_MASK}" ]]; then
-  mask_arg="--masks [ ${FIXED_MASK}, ${MOVING_MASK} ]"
-elif [[ -f "${FIXED_MASK}" ]]; then
-  echo "Moving mask missing, using fixed mask only: ${MOVING_MASK}"
-  mask_arg="--masks [ ${FIXED_MASK}, NULL ]"
-elif [[ -f "${MOVING_MASK}" ]]; then
-  echo "Fixed mask missing, using moving mask only: ${FIXED_MASK}"
-  mask_arg="--masks [ NULL, ${MOVING_MASK} ]"
+if [[ ! -f "${FIXED_MASK}" ]]; then
+  echo "Missing fixed mask: ${FIXED_MASK}"
+  exit 1
+fi
+
+if [[ ! -f "${MOVING_MASK}" ]]; then
+  echo "Missing moving mask: ${MOVING_MASK}"
+  exit 1
+fi
+
+if ! command -v ImageMath >/dev/null 2>&1; then
+  echo "ImageMath is not available on PATH"
+  exit 1
+fi
+
+echo "Creating brain-masked registration images:"
+echo "  Masked fixed:  ${FIXED_MASKED}"
+echo "  Masked moving: ${MOVING_MASKED}"
+ImageMath 3 "${FIXED_MASKED}" m "${FIXED}" "${FIXED_MASK}"
+ImageMath 3 "${MOVING_MASKED}" m "${MOVING}" "${MOVING_MASK}"
+
+if [[ ! -f "${FIXED_MASKED}" ]]; then
+  echo "Failed to create masked fixed image: ${FIXED_MASKED}"
+  exit 1
+fi
+
+if [[ ! -f "${MOVING_MASKED}" ]]; then
+  echo "Failed to create masked moving image: ${MOVING_MASKED}"
+  exit 1
 fi
 
 cmd="antsRegistration \
   --collapse-output-transforms 1 \
   --dimensionality 3 \
   --float 0 \
-  --initial-moving-transform [ ${FIXED}, ${MOVING}, 1 ] \
+  --initial-moving-transform [ ${FIXED_MASKED}, ${MOVING_MASKED}, 1 ] \
   --initialize-transforms-per-stage 0 \
   --interpolation BSpline \
   --output [ ${WORK_PREFIX}, ${WARPED_IMAGE} ] \
   --transform Rigid[ 0.1 ] \
-  --metric Mattes[ ${FIXED}, ${MOVING}, 1, 32, Random, 0.25 ] \
+  --metric Mattes[ ${FIXED_MASKED}, ${MOVING_MASKED}, 1, 32, Random, 0.25 ] \
   --convergence [ 1000x500x250x100, 1e-06, 10 ] \
   --smoothing-sigmas 3.0x2.0x1.0x0.0mm \
   --shrink-factors 8x4x2x1 \
   --use-histogram-matching 0 \
-  ${mask_arg} \
   --winsorize-image-intensities [ 0.002, 0.998 ] \
   --write-composite-transform 1"
 

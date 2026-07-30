@@ -211,7 +211,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--input-glob",
-        default="/cbica/projects/nibs/derivatives/parcel_bundle_stats/sub-*/sub-*_ses-*_run-*_desc-a2009s_scalarstats.csv",
+        default="/cbica/projects/nibs/derivatives/parcel_myelin_stats/sub-*/sub-*_ses-*_run-*_desc-a2009s_scalarstats.csv",
         help="Glob pattern to per-run parcel summary CSVs.",
     )
     parser.add_argument(
