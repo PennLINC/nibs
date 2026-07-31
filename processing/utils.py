@@ -114,16 +114,18 @@ def run_synthstrip(
     mask_file: str | None = None,
     *,
     cfg: dict | None = None,
-    args=[]
+    args: list[str] | None = None,
 ) -> None:
     """Run FreeSurfer SynthStrip via Apptainer/Singularity or Docker.
 
     The container runtime is chosen by the ``synthstrip_runtime`` key in the
-    project config (``"apptainer"`` or ``"docker"``). For ``"apptainer"`` the
-    image is taken from ``cfg['apptainer']['synthstrip']``; for ``"docker"`` it is
-    taken from ``cfg['docker']['synthstrip']`` and the parent directories of all
-    supplied files are bind-mounted at identical paths so the in-container
-    arguments match the host paths.
+    project config (``"apptainer"`` or ``"docker"``). The image is taken from
+    ``cfg['apptainer']['synthstrip']`` or ``cfg['docker']['synthstrip']``. Under
+    either runtime the parent directories of all supplied files are bind-mounted
+    at identical paths so the in-container arguments match the host paths.
+    Apptainer only auto-mounts ``$HOME`` (plus ``/tmp`` and the cwd), so paths
+    outside the project home -- such as ``work_dir`` on CUBIC -- are invisible to
+    SynthStrip without an explicit bind.
 
     Parameters
     ----------
@@ -136,8 +138,8 @@ def run_synthstrip(
     cfg : dict, optional
         Project config as returned by :func:`load_config`. Loaded on demand when
         omitted.
-    args : list, optional
-        Arguments to pass into SynthStrip.
+    args : list of str, optional
+        Extra arguments to pass into SynthStrip.
 
     Raises
     ------
@@ -149,6 +151,7 @@ def run_synthstrip(
 
     runtime = cfg.get('synthstrip_runtime', 'apptainer')
 
+    args = list(args) if args else []
     args.append(f'-i {in_file}')
     if out_file is not None:
         args.append(f'-o {out_file}')
@@ -157,16 +160,18 @@ def run_synthstrip(
 
     args = ' '.join(args)
 
+    # Bind-mount the parent directory of each supplied file at the same path
+    # inside the container so the host paths in ``args`` resolve unchanged.
+    paths = [p for p in (in_file, out_file, mask_file) if p is not None]
+    vol_dirs = sorted({os.path.dirname(os.path.abspath(p)) for p in paths})
+
     if runtime == 'apptainer':
         sif = cfg['apptainer']['synthstrip']
-        cmd = f'singularity run {sif} {args}'
+        bind_args = ' '.join(f'--bind {d}:{d}' for d in vol_dirs)
+        cmd = f'singularity run {bind_args} {sif} {args}'
     elif runtime == 'docker':
         image = cfg['docker']['synthstrip']
-        # Bind-mount the parent directory of each supplied file at the same path
-        # inside the container so the host paths in ``args`` resolve unchanged.
-        paths = [p for p in (in_file, out_file, mask_file) if p is not None]
-        vol_dirs = {os.path.dirname(os.path.abspath(p)) for p in paths}
-        vol_args = ' '.join(f'-v {d}:{d}' for d in sorted(vol_dirs))
+        vol_args = ' '.join(f'-v {d}:{d}' for d in vol_dirs)
         cmd = f'docker run --rm {vol_args} {image} {args}'
     else:
         raise ValueError(

@@ -272,3 +272,95 @@ class TestRunCommand:
 
             with pytest.raises(RuntimeError, match='Non zero return code: 1'):
                 run_command('false')
+
+
+# ===================================================================
+# Tier 2: run_synthstrip
+# ===================================================================
+
+
+class TestRunSynthstrip:
+    """Mock-based tests for the SynthStrip container wrapper."""
+
+    APPTAINER_CFG = {
+        'synthstrip_runtime': 'apptainer',
+        'apptainer': {'synthstrip': '/img/synthstrip-1.7.sif'},
+    }
+    DOCKER_CFG = {
+        'synthstrip_runtime': 'docker',
+        'docker': {'synthstrip': 'freesurfer/synthstrip:1.7'},
+    }
+
+    def _run(self, cfg, **kwargs):
+        """Call run_synthstrip with run_command patched; return the command string."""
+        import utils
+
+        with patch.object(utils, 'run_command') as mock_run:
+            utils.run_synthstrip(cfg=cfg, **kwargs)
+        return mock_run.call_args[0][0]
+
+    def test_apptainer_binds_all_file_directories(self):
+        """Apptainer only auto-mounts $HOME, so every path needs an explicit bind.
+
+        On CUBIC the working directory (/cbica/comp_space) lives outside the project
+        home, so SynthStrip could not create its output file inside the container.
+        """
+        cmd = self._run(
+            self.APPTAINER_CFG,
+            in_file='/cbica/projects/nibs/derivatives/qsiprep/sub-01/anat/t1w.nii.gz',
+            out_file='/cbica/comp_space/nibs/g_ratio/sub01/brain.nii.gz',
+            mask_file='/cbica/comp_space/nibs/g_ratio/sub01/mask.nii.gz',
+        )
+
+        assert (
+            '--bind /cbica/comp_space/nibs/g_ratio/sub01:/cbica/comp_space/nibs/g_ratio/sub01'
+            in cmd
+        )
+        assert (
+            '--bind /cbica/projects/nibs/derivatives/qsiprep/sub-01/anat:'
+            '/cbica/projects/nibs/derivatives/qsiprep/sub-01/anat' in cmd
+        )
+        # Binds must precede the image, and the image must precede SynthStrip's args.
+        assert cmd.index('--bind') < cmd.index('/img/synthstrip-1.7.sif') < cmd.index('-i ')
+
+    def test_docker_binds_all_file_directories(self):
+        """The docker runtime keeps its existing identical-path bind mounts."""
+        cmd = self._run(
+            self.DOCKER_CFG,
+            in_file='/data/in/t1w.nii.gz',
+            out_file='/work/out/brain.nii.gz',
+        )
+
+        assert '-v /data/in:/data/in' in cmd
+        assert '-v /work/out:/work/out' in cmd
+
+    def test_repeated_calls_do_not_accumulate_args(self):
+        """Regression: the default ``args`` list must not persist between calls."""
+        first = self._run(self.APPTAINER_CFG, in_file='/in/a.nii.gz', out_file='/out/a.nii.gz')
+        second = self._run(self.APPTAINER_CFG, in_file='/in/b.nii.gz', out_file='/out/b.nii.gz')
+
+        assert first.count('-i ') == 1
+        assert second.count('-i ') == 1
+        assert 'a.nii.gz' not in second
+        assert '/in/a:/in/a' not in second
+
+    def test_extra_args_are_passed_through(self):
+        """Caller-supplied SynthStrip flags are preserved."""
+        cmd = self._run(
+            self.APPTAINER_CFG,
+            in_file='/in/a.nii.gz',
+            out_file='/out/a.nii.gz',
+            args=['--no-csf'],
+        )
+
+        assert '--no-csf' in cmd
+
+    def test_unknown_runtime_raises(self):
+        """An unsupported runtime should raise ValueError."""
+        import utils
+
+        with pytest.raises(ValueError, match='Unknown synthstrip_runtime'):
+            utils.run_synthstrip(
+                in_file='/in/a.nii.gz',
+                cfg={'synthstrip_runtime': 'podman'},
+            )
