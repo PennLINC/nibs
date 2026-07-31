@@ -5,14 +5,13 @@ from __future__ import annotations
 import os
 
 
-def load_config(config_path: str | None = None) -> dict:
+def load_config(config='pc') -> dict:
     """Load project path configuration from a YAML file.
 
     Parameters
     ----------
-    config_path : str, optional
-        Path to the YAML config file. Defaults to ``paths.yml`` in the
-        same directory as this module (the repository root).
+    config : str, optional
+        Name of the config ('pc' or 'cubic').
 
     Returns
     -------
@@ -24,8 +23,9 @@ def load_config(config_path: str | None = None) -> dict:
     """
     import yaml
 
-    if config_path is None:
-        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'paths.yml')
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'paths_{config}.yml')
+    if not os.path.isfile(config_path):
+        raise FileNotFoundError(f'Config not found: {config_path}')
 
     with open(config_path) as f:
         raw = yaml.safe_load(f)

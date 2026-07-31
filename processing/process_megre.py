@@ -218,7 +218,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
     return run_data
 
 
-def process_run(layout, run_data, out_dir, temp_dir):
+def process_run(layout, run_data, out_dir, temp_dir, n_threads=4):
     """Process a single run of MEGRE data.
 
     Parameters
@@ -230,8 +230,10 @@ def process_run(layout, run_data, out_dir, temp_dir):
     out_dir : str
         Path to the output directory.
     temp_dir : str
-        Path to the working directory for complex denoising and R2* fitting.
+        Path to the working directory for temporary files.
         Currently unused.
+    n_threads : int
+        Number of threads to use for R2*fitting.
 
     Notes
     -----
@@ -416,7 +418,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         # From echo 2 onwards
         ('MEGRE+E2345', run_data['megre_mag'][1:], echo_times[1:]),
     ):
-        _, r2s_hz_img, _, _ = fit_monoexponential(mag_files, tes)
+        _, r2s_hz_img, _, _ = fit_monoexponential(mag_files, tes, n_threads=n_threads)
         r2s_hz_filename = get_filename(
             name_source=r2s_name_source,
             layout=layout,
@@ -489,6 +491,8 @@ def main(subject_id):
     bootstrap_file = os.path.join(CODE_DIR, 'configuration', 'reports_spec_megre.yml')
     assert os.path.isfile(bootstrap_file), f'Bootstrap file {bootstrap_file} not found'
 
+    n_threads = 28  # hardcoded for my PC. Change for other situations.
+
     # Write the QSM derivatives dataset_description.json before building the
     # layout. Without it, pybids silently refuses to index this directory as a
     # derivative, so process_qsm.py cannot find the prep outputs (brain mask,
@@ -557,7 +561,7 @@ def main(subject_id):
                 fname = os.path.basename(megre_file.path).split('.')[0]
                 run_temp_dir = os.path.join(temp_dir, fname.replace('-', '').replace('_', ''))
                 os.makedirs(run_temp_dir, exist_ok=True)
-                process_run(layout, run_data, out_dir, run_temp_dir)
+                process_run(layout, run_data, out_dir, run_temp_dir, n_threads=n_threads)
 
             report_dir = os.path.join(out_dir, f'sub-{subject_id}', f'ses-{session}')
             robj = Report(

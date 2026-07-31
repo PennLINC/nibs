@@ -27,7 +27,7 @@ from nilearn import masking, plotting
 
 from utils import coregister_to_t1, get_filename, load_config, run_synthstrip
 
-CFG = load_config()
+CFG = load_config('cubic')
 CODE_DIR = CFG['code_dir']
 
 
