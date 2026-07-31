@@ -242,6 +242,17 @@ def process_run(layout, run_data, out_dir, temp_dir, n_threads=4):
     """
     name_source = run_data['megre_mag'][0]
 
+    # Build name of last file generated
+    mask_qsm_filename = get_filename(
+        name_source=name_source,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MEGRE', 'desc': 'brain', 'suffix': 'mask'},
+    )
+    if os.path.isfile(mask_qsm_filename):
+        print(f"Skipping {os.path.basename(name_source)}")
+        return
+
     megre_metadata = [layout.get_metadata(f) for f in run_data['megre_mag']]
     echo_times = [m['EchoTime'] for m in megre_metadata]  # TEs in seconds
 
@@ -442,13 +453,7 @@ def process_run(layout, run_data, out_dir, temp_dir, n_threads=4):
         r2prime_hz_img = r2s_hz_img - r2_qsm_img
         ants.image_write(r2prime_hz_img, r2prime_hz_filename)
 
-    # Warp brain mask from T1w space to MEGRE space
-    mask_qsm_filename = get_filename(
-        name_source=name_source,
-        layout=layout,
-        out_dir=out_dir,
-        entities={'space': 'MEGRE', 'desc': 'brain', 'suffix': 'mask'},
-    )
+    # Warp the QSM mask
     mask_qsm_img = ants.apply_transforms(
         fixed=ants.image_read(megre_ref_filename),
         moving=ants.image_read(run_data['t1w_mask']),

@@ -78,12 +78,15 @@ def collect_run_data(layout: object, bids_filters: dict, smriprep_dir: str) -> d
             'suffix': 'T1w',
             'extension': ['.nii', '.nii.gz'],
         },
-        # sMRIPrep T1w-space brain mask
+        # sMRIPrep T1w-space brain mask.
+        # The ihMT derivatives also hold desc-brain masks in anat with no space entity
+        # (one per raw ihMTRAGE image), so require mt to be absent to exclude them.
         't1w_mask': {
             'datatype': 'anat',
             'session': [Query.NONE, Query.ANY],
             'run': [Query.NONE, Query.ANY],
             'reconstruction': [Query.NONE, Query.ANY],
+            'mt': Query.NONE,
             'space': Query.NONE,
             'res': Query.NONE,
             'desc': 'brain',

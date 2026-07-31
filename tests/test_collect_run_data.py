@@ -1,5 +1,6 @@
 """Tier 2 mock tests for collect_run_data across processing modules."""
 
+import json
 import os
 import sys
 from unittest.mock import MagicMock, patch
@@ -46,6 +47,108 @@ def _make_bids_file(path):
     f.path = path
     f.filename = os.path.basename(path)
     return f
+
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NIBS_BIDS_CONFIG = os.path.join(REPO_ROOT, 'configuration', 'nibs_bids_config.json')
+
+# (acquisition, mt) pairs of the five raw ihMTRAGE images, as named by curation/heuristic.py
+IHMTRAGE_ACQS = [
+    ('nosat', 'off'),
+    ('singlepos', 'on'),
+    ('singleneg', 'on'),
+    ('dual1', 'on'),
+    ('dual2', 'on'),
+]
+
+
+def _touch(path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, 'w').close()
+
+
+def _write_dataset_description(root, name, derivative=True):
+    os.makedirs(root, exist_ok=True)
+    desc = {'Name': name, 'BIDSVersion': '1.10.0'}
+    if derivative:
+        desc['DatasetType'] = 'derivative'
+        desc['GeneratedBy'] = [{'Name': name}]
+    with open(os.path.join(root, 'dataset_description.json'), 'w') as fobj:
+        json.dump(desc, fobj)
+
+
+def _build_scaling_factors_dataset(tmp_path, subject, sessions):
+    """Build a real (empty-file) BIDS tree with every input collect_run_data queries.
+
+    The sMRIPrep T1w and brain mask carry ``acq``/``rec`` entities inherited from the raw
+    T1w, matching what sMRIPrep actually writes for this dataset.
+    """
+    from bids.layout import BIDSLayout
+
+    raw_dir = str(tmp_path / 'raw')
+    smriprep_dir = str(tmp_path / 'smriprep')
+    qsiprep_dir = str(tmp_path / 'qsiprep')
+    noddi_dir = str(tmp_path / 'qsirecon-NODDI')
+    ihmt_dir = str(tmp_path / 'ihmt')
+    _write_dataset_description(raw_dir, 'NIBS', derivative=False)
+    _write_dataset_description(smriprep_dir, 'sMRIPrep')
+    _write_dataset_description(qsiprep_dir, 'QSIPrep')
+    _write_dataset_description(noddi_dir, 'qsirecon-NODDI')
+    _write_dataset_description(ihmt_dir, 'ihMT')
+
+    for session in sessions:
+        prefix = f'sub-{subject}_ses-{session}'
+        raw_anat = os.path.join(raw_dir, f'sub-{subject}', f'ses-{session}', 'anat')
+        ihmt_anat = os.path.join(ihmt_dir, f'sub-{subject}', f'ses-{session}', 'anat')
+        for acq, mt in IHMTRAGE_ACQS:
+            stem = f'{prefix}_acq-{acq}_mt-{mt}_run-01'
+            _touch(os.path.join(raw_anat, f'{stem}_ihMTRAGE.nii.gz'))
+            # process_ihmt.py writes one SynthStrip mask per raw ihMTRAGE image
+            _touch(os.path.join(ihmt_anat, f'{stem}_desc-brain_mask.nii.gz'))
+
+        _touch(os.path.join(ihmt_anat, f'{prefix}_run-01_space-T1w_ihMTR.nii.gz'))
+        _touch(os.path.join(ihmt_anat, f'{prefix}_run-01_space-T1w_ihMTsatB1sq.nii.gz'))
+
+        noddi_dwi = os.path.join(noddi_dir, f'sub-{subject}', f'ses-{session}', 'dwi')
+        for param in ['isovf', 'icvf']:
+            _touch(
+                os.path.join(
+                    noddi_dwi, f'{prefix}_space-ACPC_model-noddi_param-{param}_dwimap.nii.gz'
+                )
+            )
+
+    smriprep_anat = os.path.join(smriprep_dir, f'sub-{subject}', 'anat')
+    t1w_stem = f'sub-{subject}_acq-MPRAGE_rec-norm'
+    t1w = os.path.join(smriprep_anat, f'{t1w_stem}_desc-preproc_T1w.nii.gz')
+    t1w_mask = os.path.join(smriprep_anat, f'{t1w_stem}_desc-brain_mask.nii.gz')
+    fs2t1w_xfm = os.path.join(smriprep_anat, f'{t1w_stem}_from-fsnative_to-T1w_mode-image_xfm.txt')
+    _touch(t1w)
+    _touch(t1w_mask)
+    _touch(fs2t1w_xfm)
+
+    fs_mri = os.path.join(smriprep_dir, 'sourcedata', 'freesurfer', f'sub-{subject}', 'mri')
+    _touch(os.path.join(fs_mri, 'aseg.mgz'))
+    _touch(os.path.join(fs_mri, 'brain.mgz'))
+
+    t1w_acpc = os.path.join(
+        qsiprep_dir, f'sub-{subject}', 'anat', f'sub-{subject}_space-ACPC_desc-preproc_T1w.nii.gz'
+    )
+    _touch(t1w_acpc)
+
+    layout = BIDSLayout(
+        raw_dir,
+        config=NIBS_BIDS_CONFIG,
+        validate=False,
+        derivatives=[smriprep_dir, qsiprep_dir, noddi_dir, ihmt_dir],
+    )
+    return {
+        'layout': layout,
+        'smriprep_dir': smriprep_dir,
+        't1w': t1w,
+        't1w_mask': t1w_mask,
+        't1w_acpc': t1w_acpc,
+        'fs2t1w_xfm': fs2t1w_xfm,
+    }
 
 
 # ===================================================================
@@ -221,3 +324,20 @@ class TestCollectRunDataScalingFactors:
 
         with pytest.raises(ValueError, match='Expected 1 file'):
             self.collect_run_data(layout, bids_filters, smriprep_dir='/fake/smriprep')
+
+    def test_ihmt_brain_masks_do_not_shadow_smriprep_mask(self, bids_filters, tmp_path):
+        """The ihMT derivatives contain per-source-image ``desc-brain_mask`` files.
+
+        Those masks live in ``anat``, carry no ``space`` entity, and are indexed by this
+        script's layout, so the ``t1w_mask`` query has to distinguish them from the single
+        sMRIPrep brain mask.
+        """
+        dset = _build_scaling_factors_dataset(tmp_path, subject='22449', sessions=['01', '02'])
+
+        run_data = self.collect_run_data(
+            dset['layout'],
+            {'subject': '22449', 'session': '01', 'run': '01', 'datatype': 'anat'},
+            smriprep_dir=dset['smriprep_dir'],
+        )
+
+        assert run_data['t1w_mask'] == dset['t1w_mask']
