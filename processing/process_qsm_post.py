@@ -404,22 +404,13 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
                     'suffix': ref_suffix,
                     'extension': ['.nii', '.nii.gz'],
                 }
-    queries['megre_brain_mask'] = {
-        'datatype': 'anat',
-        'run': [Query.NONE, Query.ANY],
-        'space': 'MEGRE',
-        'res': Query.NONE,
-        'desc': 'brain',
-        'suffix': 'mask',
-        'extension': ['.nii', '.nii.gz'],
-    }
 
     optional_prefixes = ('chisep_', 'sepia_', 'megreref_')
     run_data = {}
     for key, query in queries.items():
         query = {**bids_filters, **query}
         files = layout.get(**query)
-        optional = key.startswith(optional_prefixes) or key == 'megre_brain_mask'
+        optional = key.startswith(optional_prefixes)
         if optional and len(files) == 0:
             print(f'No files found for {key} with query {query}')
             run_data[key] = None
