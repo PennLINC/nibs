@@ -36,7 +36,7 @@ derivatives:
 # Container runtime used for SynthStrip skull-stripping. Either "apptainer"
 # (uses the apptainer.synthstrip .sif below) or "docker" (uses the
 # docker.synthstrip image tag below).
-synthstrip_runtime: docker
+synthstrip_runtime: apptainer
 
 apptainer:
   # Used by process_mese.py / process_ihmt.py for SynthStrip skull-stripping.
