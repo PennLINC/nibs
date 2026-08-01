@@ -425,7 +425,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
     )
     t1map = mp2rage.t1map
     t1map_arr = t1map.get_fdata()
-    np.divide(t1map_arr, 1000, out=t1map_arr, where=t1map_arr != 0)  # Convert from milliseconds to seconds
+    np.divide(
+        t1map_arr, 1000, out=t1map_arr, where=t1map_arr != 0
+    )  # Convert from milliseconds to seconds
     t1map = nb.Nifti1Image(t1map_arr, t1map.affine, t1map.header)
     t1map_file = get_filename(
         name_source=name_source,
@@ -463,7 +465,9 @@ def process_run(layout, run_data, out_dir, temp_dir):
 
         t1map = mp2rage.t1map_b1_corrected
         t1map_arr = t1map.get_fdata()
-        np.divide(t1map_arr, 1000, out=t1map_arr, where=t1map_arr != 0)  # Convert from milliseconds to seconds
+        np.divide(
+            t1map_arr, 1000, out=t1map_arr, where=t1map_arr != 0
+        )  # Convert from milliseconds to seconds
         t1map = nb.Nifti1Image(t1map_arr, t1map.affine, t1map.header)
         t1map_b1c_file = get_filename(
             name_source=name_source,

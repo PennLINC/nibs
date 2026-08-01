@@ -254,7 +254,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         layout=layout,
         out_dir=out_dir,
         entities={'space': 'T1w', 'suffix': 'MESEref'},
-        dismiss_entities=['echo','direction','part'],
+        dismiss_entities=['echo', 'direction', 'part'],
     )
 
     t1w_img = ants.image_read(run_data['t1w'])

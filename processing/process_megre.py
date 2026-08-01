@@ -28,7 +28,6 @@ import ants
 import nibabel as nb
 import numpy as np
 from bids.layout import BIDSLayout, Query
-from nilearn import image
 from nireports.assembler.report import Report
 
 from utils import (
@@ -202,7 +201,7 @@ def collect_run_data(layout: object, bids_filters: dict) -> dict[str, str]:
                 continue
 
         elif key == 'r2_map' and len(files) == 0:
-            print(f'No MESE R2 map found with query {query}. R2\' maps will not be calculated.')
+            print(f"No MESE R2 map found with query {query}. R2' maps will not be calculated.")
             run_data[key] = None
             continue
         elif len(files) != 1:
@@ -250,7 +249,7 @@ def process_run(layout, run_data, out_dir, temp_dir, n_threads=4):
         entities={'space': 'MEGRE', 'desc': 'brain', 'suffix': 'mask'},
     )
     if os.path.isfile(mask_qsm_filename):
-        print(f"Skipping {os.path.basename(name_source)}")
+        print(f'Skipping {os.path.basename(name_source)}')
         return
 
     megre_metadata = [layout.get_metadata(f) for f in run_data['megre_mag']]
@@ -516,8 +515,7 @@ def main(subject_id):
             'GeneratedBy': [
                 {
                     'Name': 'Custom code',
-                    'Description': 'Custom Python code combining ANTsPy and a '
-                    'nonlinear R2* fit.',
+                    'Description': 'Custom Python code combining ANTsPy and a nonlinear R2* fit.',
                     'CodeURL': 'https://github.com/PennLINC/nibs',
                 }
             ],

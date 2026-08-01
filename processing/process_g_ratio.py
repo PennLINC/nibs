@@ -184,16 +184,12 @@ def process_run(layout, run_data, out_dir, temp_dir):
     # Resample T1w-space MTsat and ihMTR to match the ISOVF/ICVF resolution.
     # Eq. 3 in Berg et al. (2022)
     mtsat_mvf = (
-        ants.image_read(run_data['mtsat_t1w']).resample_image_to_target(
-            isovf, interp_type='linear'
-        )
+        ants.image_read(run_data['mtsat_t1w']).resample_image_to_target(isovf, interp_type='linear')
         * MTsat_ISOVF_ICVF_scalar
     )
     # Eq. 4 in Berg et al. (2022)
     ihmtr_mvf = (
-        ants.image_read(run_data['ihmtr_t1w']).resample_image_to_target(
-            isovf, interp_type='linear'
-        )
+        ants.image_read(run_data['ihmtr_t1w']).resample_image_to_target(isovf, interp_type='linear')
         * ihMTR_ISOVF_ICVF_scalar
     )
 
@@ -245,9 +241,7 @@ def process_run(layout, run_data, out_dir, temp_dir):
         )
         mni_mask_file = os.path.join(temp_dir, 'resampled_mni_mask.nii.gz')
         ants.image_write(resampled_mni_mask, mni_mask_file)
-        resampled_mni_t1w = mni_t1w_img.resample_image_to_target(
-            mni_img, interp_type='linear'
-        )
+        resampled_mni_t1w = mni_t1w_img.resample_image_to_target(mni_img, interp_type='linear')
         mni_t1w_file = os.path.join(temp_dir, 'resampled_mni_t1w.nii.gz')
         ants.image_write(resampled_mni_t1w, mni_t1w_file)
         resampled_mni_dseg = ants.image_read(run_data['dseg_mni']).resample_image_to_target(
