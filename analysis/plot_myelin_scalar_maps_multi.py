@@ -10,16 +10,17 @@ from glob import glob
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import templateflow.api as tflow
 from nilearn import image, maskers, plotting
 
 # Keys in patterns.json / name_mapper.json; order is row order (top to bottom).
 MULTI_KEYS = [
-    'NODDI ICVF',
-    'MPRAGE-MyelinW',
-    'R1-B1c',
-    'ihMTsat-B1c',
-    'QSM-SEPIA-E5',
+    ('dMRI', 'NODDI ICVF'),
+    ('T1w/T2w Ratio', 'MPRAGE-MyelinW'),
+    ('MP2RAGE', 'R1-B1c'),
+    ('ihMT', 'ihMTsat-B1c'),
+    ('QSM', 'QSM-SEPIA-E5'),
 ]
 
 CUT_COORDS = [-30, -15, 0, 15, 30, 45, 60]
@@ -106,7 +107,7 @@ if __name__ == '__main__':
 
     PERCENTILE = False
 
-    in_dir = os.path.join(_cfg['project_root'], 'scalars')
+    in_dir = os.path.join(_cfg['project_root'], 'derivatives')
     out_dir = os.path.abspath(os.path.join(_script_dir, '..', 'figures', 'scalars'))
     template = tflow.get(
         'MNI152NLin2009cAsym', resolution='01', desc='brain', suffix='T1w', extension='nii.gz'
@@ -120,22 +121,36 @@ if __name__ == '__main__':
     with open('name_mapper.json', 'r') as fo:
         name_mapper = json.load(fo)
 
-    with open('patterns_local.json', 'r') as fo:
+    with open('patterns.json', 'r') as fo:
         filename_mapper = json.load(fo)
 
+    qc_df = pd.read_table('../data/manual_qc.tsv', index_col='participant_id')
+
     rows = []
-    for key in MULTI_KEYS:
+    for group, key in MULTI_KEYS:
         title = name_mapper[key]
         pattern = _pattern_for_key(filename_mapper, key)
-        temp_pattern = pattern.format(subject='*', session='*')
 
-        scalar_maps = sorted(glob(os.path.join(in_dir, temp_pattern)))
-        scalar_maps = [f for f in scalar_maps if 'PILOT' not in f]
+        scalar_maps = []
+        for session in ['01', '02']:
+            temp_pattern = pattern.format(subject='*', session=f'ses-{session}')
+            search = os.path.join(in_dir, temp_pattern)
+
+            # Get all scalar maps
+            ses_scalar_maps = sorted(glob(os.path.join(in_dir, temp_pattern)))
+            ses_scalar_maps = [f for f in ses_scalar_maps if 'PILOT' not in f]
+            # Filter scalar_maps to only include QCed subjects
+            keyses_col = f'{group}--ses-{session}'
+            keep_subjects = qc_df.loc[qc_df[keyses_col] == 1].index.tolist()
+            ses_scalar_maps = [f for f in ses_scalar_maps if any(s in f for s in keep_subjects)]
+
+            scalar_maps += ses_scalar_maps
+
         if len(scalar_maps) > 44:
             raise Exception(temp_pattern)
 
         if not scalar_maps:
-            raise FileNotFoundError(f'No scalar maps found for {key!r} ({title})')
+            raise FileNotFoundError(f'No scalar maps found for {key!r} ({title}): {search}')
 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')

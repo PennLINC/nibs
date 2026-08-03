@@ -15,3 +15,12 @@ sections:
   - bids: {datatype: figures, space: T1w, desc: megrecoreg, suffix: MEGRE}
     subtitle: MEGRE
     static: false
+  - bids: {datatype: figures, space: T1w, desc: t1wt2wmpragecoreg, suffix: T1w}
+    subtitle: T1w/T2w Ratio - MPRAGE T1w
+    static: false
+  - bids: {datatype: figures, space: T1w, desc: t1wt2wspacet1wcoreg, suffix: T1w}
+    subtitle: T1w/T2w Ratio - SPACE T1w
+    static: false
+  - bids: {datatype: figures, space: T1w, desc: t1wt2wspacet2wcoreg, suffix: T2w}
+    subtitle: T1w/T2w Ratio - SPACE T2w
+    static: false

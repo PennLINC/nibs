@@ -17,16 +17,38 @@ from nilearn import image, masking
 import templateflow.api as tflow
 
 
+def get_qc_status(qc_df, groups, subject, session):
+    """Determine which scalar groups passed manual QC for a subject/session."""
+    status = {}
+    for group in groups:
+        column = f'{group}--{session}'
+        if subject not in qc_df.index or column not in qc_df.columns:
+            print(f'No QC information for {subject} {session} {group}', flush=True)
+            status[group] = False
+            continue
+
+        # Anything other than a pass (1) is treated as a failure, including n/a
+        status[group] = qc_df.loc[subject, column] == 1
+
+    return status
+
+
 def process_subject(
     subject,
     session,
     patterns,
+    scalar_groups,
+    qc_status,
     temp_dir,
     deriv_dir,
     masks,
 ):
     """Process a single subject."""
     n_scalars = len(patterns)
+
+    failed_groups = sorted(group for group, passed in qc_status.items() if not passed)
+    if failed_groups:
+        print(f'{subject} {session} failed QC for: {", ".join(failed_groups)}', flush=True)
 
     qsirecon_brain_mask = os.path.join(
         deriv_dir,
@@ -108,27 +130,28 @@ def process_subject(
     gm_arr = np.zeros((n_scalars, int(np.sum(gm_img.get_fdata()))))
     wb_arr = np.zeros((n_scalars, int(np.sum(wb_img.get_fdata()))))
 
+    def set_nan(index):
+        """Mark a scalar as missing across all tissue masks."""
+        for arr in (cortical_gm_arr, deep_gm_arr, wm_arr, gm_arr, wb_arr):
+            arr[index, :] = np.nan
+
     scalar_counter = -1
     for scalar_name, scalar_pattern in patterns.items():
         pattern = scalar_pattern.format(subject=subject, session=session)
         clean_scalar_name = scalar_name.replace(' ', '_').replace('*', 'starsymbol')
-        files = sorted(glob(os.path.join(deriv_dir, pattern)))
         scalar_counter += 1
+        if not qc_status[scalar_groups[scalar_name]]:
+            set_nan(scalar_counter)
+            continue
+
+        files = sorted(glob(os.path.join(deriv_dir, pattern)))
         if len(files) == 0:
             print(f'No files found for {pattern}', flush=True)
-            cortical_gm_arr[scalar_counter, :] = np.nan
-            deep_gm_arr[scalar_counter, :] = np.nan
-            wm_arr[scalar_counter, :] = np.nan
-            gm_arr[scalar_counter, :] = np.nan
-            wb_arr[scalar_counter, :] = np.nan
+            set_nan(scalar_counter)
             continue
         elif len(files) != 1:
             print(f'Multiple files found for {pattern}', flush=True)
-            cortical_gm_arr[scalar_counter, :] = np.nan
-            deep_gm_arr[scalar_counter, :] = np.nan
-            wm_arr[scalar_counter, :] = np.nan
-            gm_arr[scalar_counter, :] = np.nan
-            wb_arr[scalar_counter, :] = np.nan
+            set_nan(scalar_counter)
             continue
         else:
             resampled_file = None
@@ -139,7 +162,7 @@ def process_subject(
                     fixed=target_scalar,
                     moving=ants.image_read(files[0]),
                     transformlist=[],
-                    interpolator='nearestNeighbor',
+                    interpolator='linear',
                 )
                 resampled_file = os.path.join(
                     temp_dir,
@@ -156,11 +179,7 @@ def process_subject(
                     f'Scalar {scalar_name} has {scalar_wb_arr.ndim} dimensions',
                     flush=True,
                 )
-                cortical_gm_arr[scalar_counter, :] = np.nan
-                deep_gm_arr[scalar_counter, :] = np.nan
-                wm_arr[scalar_counter, :] = np.nan
-                gm_arr[scalar_counter, :] = np.nan
-                wb_arr[scalar_counter, :] = np.nan
+                set_nan(scalar_counter)
                 continue
 
             cortical_gm_arr[scalar_counter, :] = np.nan_to_num(
@@ -218,6 +237,20 @@ if __name__ == '__main__':
         patterns = json.load(f)
 
     flat_patterns = {k: v for subdict in patterns.values() for k, v in subdict.items()}
+    scalar_groups = {k: group for group, subdict in patterns.items() for k in subdict}
+
+    # Manual QC ratings, used to NaN out scalar groups that failed QC
+    qc_df = pd.read_table(
+        os.path.join(_script_dir, '..', 'data', 'manual_qc.tsv'),
+        index_col='participant_id',
+    )
+    missing_groups = [
+        group
+        for group in patterns
+        if not any(col.startswith(f'{group}--') for col in qc_df.columns)
+    ]
+    if missing_groups:
+        raise ValueError(f'No QC columns found for scalar groups: {missing_groups}')
 
     carpet_dseg = tflow.get(
         'MNI152NLin2009cAsym',
@@ -306,6 +339,8 @@ if __name__ == '__main__':
                 subject=subject,
                 session=session,
                 patterns=flat_patterns.copy(),
+                scalar_groups=scalar_groups.copy(),
+                qc_status=get_qc_status(qc_df, patterns.keys(), subject, session),
                 temp_dir=temp_dir,
                 deriv_dir=deriv_dir,
                 masks=masks,
@@ -319,6 +354,8 @@ if __name__ == '__main__':
                     subject,
                     session,
                     flat_patterns.copy(),
+                    scalar_groups.copy(),
+                    get_qc_status(qc_df, patterns.keys(), subject, session),
                     temp_dir,
                     deriv_dir,
                     masks,
