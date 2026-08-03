@@ -1,7 +1,8 @@
 """Utilities for analysis scripts.
 
 Provides ``convert_to_multindex`` for reshaping flat DataFrames into
-MultiIndex form and ``matrix`` for visualizing nullity/missingness.
+MultiIndex form, ``matrix`` for visualizing nullity/missingness, and
+``get_qc_passing_subjects`` for applying modality-level manual QC to scalars.
 """
 
 from __future__ import annotations
@@ -10,6 +11,41 @@ import warnings
 
 import numpy as np
 import pandas as pd
+
+
+def get_qc_passing_subjects(
+    qc_df: pd.DataFrame,
+    modalities: list[str],
+    session: str,
+) -> list[str]:
+    """Find subjects for whom every listed modality passed manual QC in a session.
+
+    A scalar is only usable if all of the modalities that went into it passed, so
+    callers should pass the modality list for the scalar of interest (see
+    ``scalar_modalities.json``).
+
+    Parameters
+    ----------
+    qc_df : pandas.DataFrame
+        Manual QC ratings indexed by participant ID, with 'Session <NN>--<modality>'
+        columns (see ``data/manual_qc_modality.tsv``).
+    modalities : list of str
+        Modalities used to create the scalar.
+    session : str
+        Session label without the 'ses-' prefix (e.g., '01').
+
+    Returns
+    -------
+    list of str
+        Participant IDs that passed QC for every one of ``modalities``.
+    """
+    columns = [f'Session {session}--{modality}' for modality in modalities]
+    missing = [column for column in columns if column not in qc_df.columns]
+    if missing:
+        raise KeyError(f'No QC columns found: {missing}')
+
+    # Anything other than a pass (1) is treated as a failure, including n/a
+    return qc_df.index[(qc_df[columns] == 1).all(axis=1)].tolist()
 
 
 def convert_to_multindex(
@@ -88,6 +124,8 @@ def matrix(
     sparkline: bool = True,
     ax: object | None = None,
     palette: list | None = None,
+    excluded: pd.DataFrame | None = None,
+    excluded_color: tuple[float, float, float] = (0.75, 0.75, 0.75),
 ) -> object:
     """A matrix visualization of the nullity of the given DataFrame.
 
@@ -133,6 +171,11 @@ def matrix(
         The plot axis. Defaults to None.
     palette : list, optional
         The palette to use for the heatmap. Defaults to None.
+    excluded : pandas.DataFrame, optional
+        Boolean DataFrame aligned to `df` marking cells that are present but should be grayed
+        out (e.g., images that failed manual QC). Missing cells are left white regardless.
+    excluded_color : tuple, optional
+        The color of the excluded cells. Default is `(0.75, 0.75, 0.75)`.
 
     Returns
     -------
@@ -161,6 +204,13 @@ def matrix(
     if palette is not None:
         for i_col in range(width):
             g[z[:, i_col] >= 0.5, i_col] = palette[i_col]
+
+    # TDS: Gray out cells that were acquired but excluded during manual QC.
+    if excluded is not None:
+        excluded_mask = (
+            excluded.reindex(index=df.index, columns=df.columns).fillna(False).values.astype(bool)
+        )
+        g[excluded_mask & (z >= 0.5)] = excluded_color
 
     # Set up the matplotlib grid layout. A unary subplot if no sparkline, a left-right splot if yes sparkline.
     if ax is None:

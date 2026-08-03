@@ -17,18 +17,19 @@ from nilearn import image, masking
 import templateflow.api as tflow
 
 
-def get_qc_status(qc_df, groups, subject, session):
-    """Determine which scalar groups passed manual QC for a subject/session."""
+def get_qc_status(qc_df, modalities, subject, session):
+    """Determine which modalities passed manual QC for a subject/session."""
+    session_label = f'Session {session.replace("ses-", "")}'
     status = {}
-    for group in groups:
-        column = f'{group}--{session}'
+    for modality in modalities:
+        column = f'{session_label}--{modality}'
         if subject not in qc_df.index or column not in qc_df.columns:
-            print(f'No QC information for {subject} {session} {group}', flush=True)
-            status[group] = False
+            print(f'No QC information for {subject} {session} {modality}', flush=True)
+            status[modality] = False
             continue
 
         # Anything other than a pass (1) is treated as a failure, including n/a
-        status[group] = qc_df.loc[subject, column] == 1
+        status[modality] = qc_df.loc[subject, column] == 1
 
     return status
 
@@ -37,7 +38,7 @@ def process_subject(
     subject,
     session,
     patterns,
-    scalar_groups,
+    scalar_modalities,
     qc_status,
     temp_dir,
     deriv_dir,
@@ -46,9 +47,14 @@ def process_subject(
     """Process a single subject."""
     n_scalars = len(patterns)
 
-    failed_groups = sorted(group for group, passed in qc_status.items() if not passed)
-    if failed_groups:
-        print(f'{subject} {session} failed QC for: {", ".join(failed_groups)}', flush=True)
+    failed_modalities = sorted(
+        modality for modality, passed in qc_status.items() if not passed
+    )
+    if failed_modalities:
+        print(
+            f'{subject} {session} failed QC for: {", ".join(failed_modalities)}',
+            flush=True,
+        )
 
     qsirecon_brain_mask = os.path.join(
         deriv_dir,
@@ -140,7 +146,8 @@ def process_subject(
         pattern = scalar_pattern.format(subject=subject, session=session)
         clean_scalar_name = scalar_name.replace(' ', '_').replace('*', 'starsymbol')
         scalar_counter += 1
-        if not qc_status[scalar_groups[scalar_name]]:
+        # A scalar is only usable if every modality that went into it passed QC.
+        if not all(qc_status[modality] for modality in scalar_modalities[scalar_name]):
             set_nan(scalar_counter)
             continue
 
@@ -236,21 +243,29 @@ if __name__ == '__main__':
     with open(os.path.join(_script_dir, 'patterns.json'), 'r') as f:
         patterns = json.load(f)
 
-    flat_patterns = {k: v for subdict in patterns.values() for k, v in subdict.items()}
-    scalar_groups = {k: group for group, subdict in patterns.items() for k in subdict}
+    # Modalities that go into each scalar, used to map per-modality QC onto scalars
+    with open(os.path.join(_script_dir, 'scalar_modalities.json'), 'r') as f:
+        scalar_modalities = json.load(f)
 
-    # Manual QC ratings, used to NaN out scalar groups that failed QC
+    flat_patterns = {k: v for subdict in patterns.values() for k, v in subdict.items()}
+
+    unmapped_scalars = sorted(set(flat_patterns) - set(scalar_modalities))
+    if unmapped_scalars:
+        raise ValueError(f'No modalities listed for scalars: {unmapped_scalars}')
+
+    # Manual QC ratings, used to NaN out scalars built from modalities that failed QC
     qc_df = pd.read_table(
-        os.path.join(_script_dir, '..', 'data', 'manual_qc.tsv'),
+        os.path.join(_script_dir, '..', 'data', 'manual_qc_modality.tsv'),
         index_col='participant_id',
     )
-    missing_groups = [
-        group
-        for group in patterns
-        if not any(col.startswith(f'{group}--') for col in qc_df.columns)
+    modalities = sorted({m for mods in scalar_modalities.values() for m in mods})
+    missing_modalities = [
+        modality
+        for modality in modalities
+        if not any(col.endswith(f'--{modality}') for col in qc_df.columns)
     ]
-    if missing_groups:
-        raise ValueError(f'No QC columns found for scalar groups: {missing_groups}')
+    if missing_modalities:
+        raise ValueError(f'No QC columns found for modalities: {missing_modalities}')
 
     carpet_dseg = tflow.get(
         'MNI152NLin2009cAsym',
@@ -339,8 +354,8 @@ if __name__ == '__main__':
                 subject=subject,
                 session=session,
                 patterns=flat_patterns.copy(),
-                scalar_groups=scalar_groups.copy(),
-                qc_status=get_qc_status(qc_df, patterns.keys(), subject, session),
+                scalar_modalities=scalar_modalities.copy(),
+                qc_status=get_qc_status(qc_df, modalities, subject, session),
                 temp_dir=temp_dir,
                 deriv_dir=deriv_dir,
                 masks=masks,
@@ -354,8 +369,8 @@ if __name__ == '__main__':
                     subject,
                     session,
                     flat_patterns.copy(),
-                    scalar_groups.copy(),
-                    get_qc_status(qc_df, patterns.keys(), subject, session),
+                    scalar_modalities.copy(),
+                    get_qc_status(qc_df, modalities, subject, session),
                     temp_dir,
                     deriv_dir,
                     masks,

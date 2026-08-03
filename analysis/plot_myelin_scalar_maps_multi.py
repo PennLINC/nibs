@@ -14,13 +14,15 @@ import pandas as pd
 import templateflow.api as tflow
 from nilearn import image, maskers, plotting
 
+from utils import get_qc_passing_subjects
+
 # Keys in patterns.json / name_mapper.json; order is row order (top to bottom).
 MULTI_KEYS = [
-    ('dMRI', 'NODDI ICVF'),
-    ('T1w/T2w Ratio', 'MPRAGE-MyelinW'),
-    ('MP2RAGE', 'R1-B1c'),
-    ('ihMT', 'ihMTsat-B1c'),
-    ('QSM', 'QSM-SEPIA-E5'),
+    'NODDI ICVF',
+    'MPRAGE-MyelinW',
+    'R1-B1c',
+    'ihMTsat-B1c',
+    'QSM-SEPIA-E5',
 ]
 
 CUT_COORDS = [-30, -15, 0, 15, 30, 45, 60]
@@ -124,10 +126,13 @@ if __name__ == '__main__':
     with open('patterns.json', 'r') as fo:
         filename_mapper = json.load(fo)
 
-    qc_df = pd.read_table('../data/manual_qc.tsv', index_col='participant_id')
+    with open('scalar_modalities.json', 'r') as fo:
+        scalar_modalities = json.load(fo)
+
+    qc_df = pd.read_table('../data/manual_qc_modality.tsv', index_col='participant_id')
 
     rows = []
-    for group, key in MULTI_KEYS:
+    for key in MULTI_KEYS:
         title = name_mapper[key]
         pattern = _pattern_for_key(filename_mapper, key)
 
@@ -139,9 +144,8 @@ if __name__ == '__main__':
             # Get all scalar maps
             ses_scalar_maps = sorted(glob(os.path.join(in_dir, temp_pattern)))
             ses_scalar_maps = [f for f in ses_scalar_maps if 'PILOT' not in f]
-            # Filter scalar_maps to only include QCed subjects
-            keyses_col = f'{group}--ses-{session}'
-            keep_subjects = qc_df.loc[qc_df[keyses_col] == 1].index.tolist()
+            # Drop maps whose contributing modalities failed QC for that subject
+            keep_subjects = get_qc_passing_subjects(qc_df, scalar_modalities[key], session)
             ses_scalar_maps = [f for f in ses_scalar_maps if any(s in f for s in keep_subjects)]
 
             scalar_maps += ses_scalar_maps

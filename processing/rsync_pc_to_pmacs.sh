@@ -11,6 +11,10 @@ fi
 
 set -euo pipefail
 
+# Resolve this script's own path before the cd below can invalidate a relative
+# $0: the parent re-invokes itself to run each transfer unit.
+SCRIPT_PATH="$(readlink -f "$0")"
+
 # rsync calls getcwd() while starting up, so if the shell that launched this
 # script is sitting in a directory that has since been deleted or replaced --
 # easy to hit on the /mnt/c DrvFs mount -- every transfer aborts with
@@ -24,24 +28,30 @@ fi
 
 REMOTE="${REMOTE:-tsalo@bblsub2.pmacs.upenn.edu:/home/tsalo/nibs/derivatives_20260729}"
 DERIVATIVES_ROOT="${DERIVATIVES_ROOT:-/mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives}"
-# ControlMaster reuses a single authenticated connection for every dataset, so a
-# password-auth account gets prompted once for the whole run instead of once per
-# rsync. ServerAlive* only guards an established session, so ConnectTimeout is
-# there to keep a dead network from hanging at connect time.
-RSYNC_RSH="${RSYNC_RSH:-ssh -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -o ControlMaster=auto -o ControlPath=~/.ssh/cm-%r@%h:%p -o ControlPersist=8h}"
+# The link to PMACS drops roughly 4% of packets under load, which pins a single
+# TCP stream's congestion window to a handful of packets. At ~39ms RTT that caps
+# one stream near 200 KB/s no matter how it is tuned, so throughput has to come
+# from running independent streams: each gets its own congestion window.
+#
+# That is why ControlMaster is explicitly off. Sharing one master would
+# multiplex every worker back onto a single TCP connection and undo the
+# parallelism. Kerberos is what makes per-connection auth affordable -- one
+# kinit covers every session, with no password prompt and no shared socket.
+#
+# ServerAlive* only guards an established session, so ConnectTimeout is there to
+# keep a dead network from hanging at connect time.
+RSYNC_RSH="${RSYNC_RSH:-ssh -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -o GSSAPIAuthentication=yes -o ControlMaster=no -o ControlPath=none}"
 # bblsub2 runs at its sshd MaxStartups limit much of the time. Over its limit,
 # sshd drops unauthenticated connections at random: sometimes it answers
 # "Exceeded MaxStartups", sometimes the pre-auth child simply never sends a
 # version string and the client dies with "timed out during banner exchange".
-# Roughly one connection in four fails this way, so a single attempt is a coin
-# toss and every connection has to be retried.
-SSH_RETRIES="${SSH_RETRIES:-10}"
-SSH_RETRY_DELAY="${SSH_RETRY_DELAY:-15}"
-RSYNC_RETRIES="${RSYNC_RETRIES:-5}"
+# Roughly one connection in four fails this way, and every worker opens its own
+# connection, so each transfer unit has to be able to retry.
+RSYNC_RETRIES="${RSYNC_RETRIES:-8}"
 RSYNC_RETRY_DELAY="${RSYNC_RETRY_DELAY:-30}"
-PRESERVE_PERMS=0
-JOBS=1
-DRY_RUN=0
+PRESERVE_PERMS="${NIBS_PRESERVE_PERMS:-0}"
+JOBS=4
+DRY_RUN="${NIBS_DRY_RUN:-0}"
 DATASETS=()
 
 DEFAULT_DATASETS=(
@@ -57,7 +67,11 @@ Usage:
   rsync_pc_to_pmacs.sh [options] [<dataset> ...]
 
 Copy myelin derivative datasets from the local NIBS derivatives root up to
-PMACS, one dataset directory per rsync worker.
+PMACS, one rsync worker per subject directory.
+
+Requires a Kerberos ticket (kinit tsalo@PMACS.UPENN.EDU). Each worker opens its
+own SSH connection, which is what makes the transfer parallel; see the comments
+at the top of this script for why.
 
 Arguments:
   dataset                 derivative dataset directory name
@@ -69,7 +83,7 @@ Options:
   -d, --derivatives DIR   local derivatives root
                           default: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives
   -j, --jobs N            number of parallel rsync workers
-                          default: 1
+                          default: 4
   --preserve-perms        send the source modes as-is instead of normalizing
                           them to 755/644
   -n, --dry-run           show what would be copied
@@ -80,19 +94,15 @@ Environment:
   DERIVATIVES_ROOT        override the default local derivatives root
   RSYNC_RSH               override the SSH command used by rsync
                           default: ssh, with ConnectTimeout/ServerAlive settings
-                          and ControlMaster connection sharing
-  SSH_RETRIES             attempts to open the shared SSH connection
-                          default: 10
-  SSH_RETRY_DELAY         seconds between those attempts
-                          default: 15
-  RSYNC_RETRIES           attempts per dataset after a dropped connection
-                          default: 5
+                          and GSSAPI auth
+  RSYNC_RETRIES           attempts per unit after a dropped connection
+                          default: 8
   RSYNC_RETRY_DELAY       seconds between those attempts
                           default: 30
 
 Example:
   ./processing/rsync_pc_to_pmacs.sh
-  ./processing/rsync_pc_to_pmacs.sh --jobs 4
+  ./processing/rsync_pc_to_pmacs.sh --jobs 8 qsm megre
   ./processing/rsync_pc_to_pmacs.sh --dry-run ihmt
 USAGE
 }
@@ -101,7 +111,69 @@ USAGE
 # datasets run to tens of GB apiece. --timeout turns a silently stalled
 # connection into a visible error instead of an indefinite hang; it covers the
 # initial protocol handshake, not just bulk transfer.
-RSYNC_OPTS=(-avh --copy-links --partial --timeout=600)
+build_rsync_opts() {
+    RSYNC_OPTS=(-avh --copy-links --partial --timeout=600)
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        RSYNC_OPTS+=(--dry-run)
+    fi
+    # The Windows mount reports everything as 0777, so copying the source modes
+    # verbatim would leave world-writable files on the cluster.
+    if [[ "$PRESERVE_PERMS" -eq 0 ]]; then
+        RSYNC_OPTS+=(--no-perms --no-group --chmod=D755,F644)
+    fi
+}
+
+# Retry only the connection-level failures: 12 protocol stream error, 30/35 io
+# timeout, 255 ssh itself failed. Anything else (missing files, permissions)
+# will fail again identically. --partial makes the retry resume rather than
+# restart.
+rsync_with_retries() {
+    local label="$1" src="$2" dst="$3"
+    shift 3
+    local attempt=1 rc
+    while :; do
+        rc=0
+        rsync "${RSYNC_OPTS[@]}" "$@" \
+            -e "$RSYNC_RSH" \
+            "$src" \
+            "$dst" || rc=$?
+        if [[ "$rc" -eq 0 ]]; then
+            return 0
+        fi
+
+        case "$rc" in
+            12|30|35|255) ;;
+            *) return "$rc" ;;
+        esac
+
+        if [[ "$attempt" -ge "$RSYNC_RETRIES" ]]; then
+            return "$rc"
+        fi
+
+        echo "rsync for $label lost its connection (exit $rc); retry $attempt/$RSYNC_RETRIES in ${RSYNC_RETRY_DELAY}s" >&2
+        sleep "$RSYNC_RETRY_DELAY"
+        attempt=$((attempt + 1))
+    done
+}
+
+# Worker mode. The parent re-invokes this script once per transfer unit under
+# xargs -P, because xargs gives a real process pool -- it keeps JOBS workers
+# busy as units finish, rather than stalling at a batch boundary waiting for the
+# slowest subject. Config crosses the process boundary through NIBS_* env vars,
+# since bash cannot export arrays.
+if [[ "${1:-}" == "--transfer-unit" ]]; then
+    unit="$2"
+    dataset="${unit%%/*}"
+    subject="${unit#*/}"
+    build_rsync_opts
+    echo "=== $unit ==="
+    unit_rc=0
+    rsync_with_retries \
+        "$unit" \
+        "$DERIVATIVES_ROOT/$dataset/$subject/" \
+        "$REMOTE/$dataset/$subject/" || unit_rc=$?
+    exit "$unit_rc"
+fi
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -123,7 +195,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -n|--dry-run)
             DRY_RUN=1
-            RSYNC_OPTS+=(--dry-run)
             shift
             ;;
         -h|--help)
@@ -164,10 +235,13 @@ REMOTE_HOST="${REMOTE%%:*}"
 REMOTE_PATH="${REMOTE#*:}"
 REMOTE="${REMOTE%/}"
 
-# The Windows mount reports everything as 0777, so copying the source modes
-# verbatim would leave world-writable files on the cluster.
-if [[ "$PRESERVE_PERMS" -eq 0 ]]; then
-    RSYNC_OPTS+=(--no-perms --no-group --chmod=D755,F644)
+# Without a ticket every worker would fall back to a password prompt, and with
+# JOBS workers racing for the terminal that is unusable. Fail early with the one
+# command that fixes it.
+if ! klist -s 2>/dev/null; then
+    echo "No valid Kerberos ticket. Run:" >&2
+    echo "    kinit ${REMOTE_HOST%%@*}@PMACS.UPENN.EDU" >&2
+    exit 1
 fi
 
 missing=0
@@ -181,120 +255,62 @@ if [[ "$missing" -ne 0 ]]; then
     exit 1
 fi
 
+build_rsync_opts
+
+# One unit per subject directory. Splitting per dataset was the old behaviour,
+# but it meant --jobs did nothing whenever a single dataset was passed: there
+# was only ever one unit to hand out.
+UNITS=()
+for dataset in "${DATASETS[@]}"; do
+    for subject_path in "$DERIVATIVES_ROOT/$dataset"/*/; do
+        [[ -d "$subject_path" ]] || continue
+        subject="$(basename "$subject_path")"
+        UNITS+=("$dataset/$subject")
+    done
+done
+
+if [[ ${#UNITS[@]} -eq 0 ]]; then
+    echo "No subject directories found under: ${DATASETS[*]}" >&2
+    exit 1
+fi
+
 echo "Copying derivatives from $DERIVATIVES_ROOT to $REMOTE with $JOBS rsync worker(s)"
 echo "  Datasets: ${DATASETS[*]}"
+echo "  Units: ${#UNITS[@]} subject directories"
 echo "  Dry run: $([[ "$DRY_RUN" -eq 1 ]] && echo yes || echo no)"
 echo "  SSH command: $RSYNC_RSH"
-
-# Establish the shared connection up front, retrying past MaxStartups refusals.
-# Once the master is up, the mkdir and every rsync ride over it and skip
-# authentication entirely, so only this one connection has to win the lottery.
-open_ssh_master() {
-    local attempt=1 rc errfile
-    errfile="$(mktemp)"
-    while :; do
-        rc=0
-        # shellcheck disable=SC2086  # RSYNC_RSH intentionally word-splits into ssh + flags
-        $RSYNC_RSH -N -f "$REMOTE_HOST" 2>"$errfile" || rc=$?
-        cat "$errfile" >&2
-        if [[ "$rc" -eq 0 ]]; then
-            rm -f "$errfile"
-            return 0
-        fi
-
-        # Never retry a rejected credential; repeated attempts can lock the account.
-        if grep -qiE 'permission denied|too many authentication' "$errfile"; then
-            echo "Authentication failed, so not retrying." >&2
-            rm -f "$errfile"
-            return 1
-        fi
-
-        if [[ "$attempt" -ge "$SSH_RETRIES" ]]; then
-            echo "Could not open an SSH connection after $SSH_RETRIES attempts." >&2
-            rm -f "$errfile"
-            return 1
-        fi
-
-        echo "SSH attempt $attempt/$SSH_RETRIES failed before authentication; retrying in ${SSH_RETRY_DELAY}s" >&2
-        sleep "$SSH_RETRY_DELAY"
-        attempt=$((attempt + 1))
-    done
-}
 
 # rsync only creates the final component of the destination, so make sure the
 # whole remote path is there before any worker starts.
 if [[ "$DRY_RUN" -eq 0 ]]; then
-    if [[ "$RSYNC_RSH" == *ControlMaster* ]]; then
-        open_ssh_master
-    fi
     # shellcheck disable=SC2086  # RSYNC_RSH intentionally word-splits into ssh + flags
     $RSYNC_RSH "$REMOTE_HOST" mkdir -p "$REMOTE_PATH"
 fi
 
-run_rsync() {
-    local dataset="$1"
-    local attempt=1 rc
-    while :; do
-        rc=0
-        rsync "${RSYNC_OPTS[@]}" \
-            -e "$RSYNC_RSH" \
-            "$DERIVATIVES_ROOT/$dataset/" \
-            "$REMOTE/$dataset/" || rc=$?
-        if [[ "$rc" -eq 0 ]]; then
-            return 0
-        fi
-
-        # Retry only the connection-level failures: 12 protocol stream error,
-        # 30/35 io timeout, 255 ssh itself failed. Anything else (missing files,
-        # permissions) will fail again identically. --partial makes the retry
-        # resume rather than restart.
-        case "$rc" in
-            12|30|35|255) ;;
-            *) return "$rc" ;;
-        esac
-
-        if [[ "$attempt" -ge "$RSYNC_RETRIES" ]]; then
-            return "$rc"
-        fi
-
-        echo "rsync for $dataset lost its connection (exit $rc); retry $attempt/$RSYNC_RETRIES in ${RSYNC_RETRY_DELAY}s" >&2
-        sleep "$RSYNC_RETRY_DELAY"
-        attempt=$((attempt + 1))
-    done
-}
-
 status=0
-if [[ "$JOBS" -eq 1 ]]; then
-    for dataset in "${DATASETS[@]}"; do
-        echo "=== $dataset ==="
-        if ! run_rsync "$dataset"; then
-            echo "rsync failed for $dataset" >&2
-            status=1
-        fi
-    done
-else
-    # Run the datasets in batches of JOBS. There are only a handful of them, so
-    # batching is plenty and keeps the per-dataset logs from interleaving more
-    # than they have to.
-    batch_start=0
-    while [[ "$batch_start" -lt "${#DATASETS[@]}" ]]; do
-        pids=()
-        names=()
-        for ((index = batch_start; index < batch_start + JOBS && index < ${#DATASETS[@]}; index++)); do
-            run_rsync "${DATASETS[index]}" &
-            pids+=("$!")
-            names+=("${DATASETS[index]}")
-        done
 
-        for index in "${!pids[@]}"; do
-            if ! wait "${pids[index]}"; then
-                echo "rsync failed for ${names[index]}" >&2
-                status=1
-            fi
-        done
+# Top-level dataset files (dataset_description.json and friends) are not part of
+# any subject unit, so send them first. --exclude='/*/' keeps this pass from
+# recursing into the subject directories the workers own.
+for dataset in "${DATASETS[@]}"; do
+    if ! rsync_with_retries \
+        "$dataset (top level)" \
+        "$DERIVATIVES_ROOT/$dataset/" \
+        "$REMOTE/$dataset/" \
+        --exclude='/*/'; then
+        echo "rsync failed for $dataset top-level files" >&2
+        status=1
+    fi
+done
 
-        batch_start=$((batch_start + JOBS))
-    done
+export REMOTE DERIVATIVES_ROOT RSYNC_RSH RSYNC_RETRIES RSYNC_RETRY_DELAY
+export NIBS_PRESERVE_PERMS="$PRESERVE_PERMS"
+export NIBS_DRY_RUN="$DRY_RUN"
+
+if ! printf '%s\0' "${UNITS[@]}" \
+    | xargs -0 -P "$JOBS" -n 1 "$SCRIPT_PATH" --transfer-unit; then
+    echo "One or more subject transfers failed." >&2
+    status=1
 fi
 
 exit "$status"
