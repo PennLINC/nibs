@@ -71,13 +71,27 @@ STAND_INS = {
 
 MAX_NAMED = 3
 
-MOD_X = 13.0
-SET_X = 78.0
-MOD_W = 20.0
-SET_W = 44.0
-MOD_H = 6.6
-GAP = 2.4
+MOD_X = 15.0
+SET_X = 74.0
+MOD_W = 26.0
+SET_W = 52.0
+MOD_H = 13.0
+GAP = 2.8
 TOP = 96.0
+
+# Box heights are sized to their text rather than fixed, so the boxes stay tight
+# around their labels instead of padding them out.
+LINE_H = 2.9
+PAD_H = 3.4
+
+FONT_MOD = 13
+FONT_SET = 12
+FONT_HEADER = 13
+FONT_LEGEND = 11
+
+# Data units per inch. Lower makes the rendered figure physically smaller, which
+# is what makes a given point size read larger.
+SCALE = 9.0
 
 FAINT = '#d5d2cc'
 
@@ -121,7 +135,7 @@ if __name__ == '__main__':
     for signature, scalars in sets.items():
         headline, detail = set_text(signature, scalars)
         n_lines = len(headline.splitlines()) + len(detail.splitlines())
-        height = max(MOD_H, 2.4 + 2.3 * n_lines)
+        height = max(MOD_H, PAD_H + LINE_H * n_lines)
         set_pos[signature] = (y - height / 2, height)
         y -= height + GAP
     set_span = TOP - (y + GAP)
@@ -164,17 +178,18 @@ if __name__ == '__main__':
         for j, modality in enumerate(incoming):
             offset = 0.0 if n == 1 else (j / (n - 1) - 0.5) * height * 0.58
             landings[(modality, signature)] = cy - offset
-    x0, x1 = 0.0, SET_X + SET_W / 2 + 4
-    y0, y1 = bottom - 22, TOP + 12
-    fig, ax = plt.subplots(figsize=((x1 - x0) / 6.4, (y1 - y0) / 6.4))
+
+    x0, x1 = MOD_X - MOD_W / 2 - 2, SET_X + SET_W / 2 + 2
+    y0, y1 = bottom - 17, TOP + 8
+    fig, ax = plt.subplots(figsize=((x1 - x0) / SCALE, (y1 - y0) / SCALE))
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
     ax.axis('off')
 
-    ax.text(MOD_X, TOP + 7, 'SOURCE MODALITY', ha='center', va='center',
-            fontsize=11, fontweight='bold', color=INK_MUTED)
-    ax.text(SET_X, TOP + 7, 'SCALAR SETS', ha='center', va='center',
-            fontsize=11, fontweight='bold', color=INK_MUTED)
+    ax.text(MOD_X, TOP + 5, 'SOURCE MODALITY', ha='center', va='center',
+            fontsize=FONT_HEADER, fontweight='bold', color=INK_MUTED)
+    ax.text(SET_X, TOP + 5, 'SCALAR SETS', ha='center', va='center',
+            fontsize=FONT_HEADER, fontweight='bold', color=INK_MUTED)
 
     # Backbone edges first, so the specific dependencies draw over them.
     for signature in set_pos:
@@ -191,38 +206,40 @@ if __name__ == '__main__':
 
     for modality, cy in mod_pos.items():
         label = modality.replace('B1+', 'B₁⁺').replace('T1w', 'T₁w').replace('T2w', 'T₂w')
-        draw_box(ax, MOD_X, cy, MOD_W, MOD_H, label, '', 'modality', fontsize=9.5)
+        draw_box(ax, MOD_X, cy, MOD_W, MOD_H, label, '', 'modality', fontsize=FONT_MOD)
 
     for signature, (cy, height) in set_pos.items():
         headline, detail = set_text(signature, sets[signature])
-        draw_box(ax, SET_X, cy, SET_W, height, headline, detail, 'output', fontsize=9)
+        draw_box(ax, SET_X, cy, SET_W, height, headline, detail, 'output', fontsize=FONT_SET)
 
-    # Legend: two node roles and two edge weights.
-    lx, ly = 2.0, bottom - 6
-    for i, (role, label) in enumerate((('modality', 'Source modality'),
-                                       ('output', 'Scalar set (one modality signature)'))):
-        ax.add_patch(
-            FancyBboxPatch(
-                (lx, ly - i * 4 - 0.8), 2.6, 1.6,
-                boxstyle='round,pad=0,rounding_size=0.3',
-                facecolor=tint(PALETTE[role]), edgecolor=PALETTE[role],
-                linewidth=1.5, zorder=3,
+    # Legend: two node roles and two edge weights, in two columns so it stays
+    # inside the figure width instead of stretching the canvas.
+    row_h = 3.6
+    entries = [
+        ('box', 'modality', 'Source modality'),
+        ('box', 'output', 'Scalar set (one modality signature)'),
+        ('edge', 'direct', 'Direct input to every scalar in the set'),
+        ('edge', 'faint', 'Anatomical reference via sMRIPrep (cross-session)'),
+    ]
+    for i, (kind, role, label) in enumerate(entries):
+        lx = x0 + 2 + (i % 2) * (SET_W + 6)
+        ly = bottom - 5 - (i // 2) * row_h
+        if kind == 'box':
+            ax.add_patch(
+                FancyBboxPatch(
+                    (lx, ly - 0.9), 3.0, 1.8,
+                    boxstyle='round,pad=0,rounding_size=0.3',
+                    facecolor=tint(PALETTE[role]), edgecolor=PALETTE[role],
+                    linewidth=1.5, zorder=3,
+                )
             )
-        )
-        ax.text(lx + 3.6, ly - i * 4, label, ha='left', va='center',
-                fontsize=9, color=INK_MUTED)
-
-    draw_edge(ax, (lx + 0.2, ly - 8.6), (lx + 2.6, ly - 8.6))
-    ax.text(lx + 3.6, ly - 8.6, 'Direct input to every scalar in the set',
-            ha='left', va='center', fontsize=9, color=INK_MUTED)
-    draw_edge(ax, (lx + 0.2, ly - 12.6), (lx + 2.6, ly - 12.6),
-              color=FAINT, linewidth=0.7, head=(3.5, 2.2))
-    ax.text(lx + 3.6, ly - 12.6,
-            'Anatomical reference via sMRIPrep (cross-session, so not a per-session dependency)',
-            ha='left', va='center', fontsize=9, color=INK_MUTED)
-
-    ax.set_title('NIBS source modalities and the scalar sets they produce',
-                 fontsize=15, fontweight='bold', color=INK, pad=16)
+        elif role == 'direct':
+            draw_edge(ax, (lx, ly), (lx + 3.0, ly))
+        else:
+            draw_edge(ax, (lx, ly), (lx + 3.0, ly),
+                      color=FAINT, linewidth=0.7, head=(3.5, 2.2))
+        ax.text(lx + 4.0, ly, label, ha='left', va='center',
+                fontsize=FONT_LEGEND, color=INK_MUTED)
 
     save(fig, 'workflow_modality_sets')
     plt.close(fig)
