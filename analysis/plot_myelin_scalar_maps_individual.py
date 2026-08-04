@@ -150,13 +150,13 @@ if __name__ == '__main__':
 
     os.makedirs(out_dir, exist_ok=True)
 
-    with open('name_mapper.json', 'r') as fo:
+    with open('../configuration/name_mapper.json', 'r') as fo:
         name_mapper = json.load(fo)
 
-    with open('patterns.json', 'r') as fo:
+    with open('../configuration/patterns.json', 'r') as fo:
         filename_mapper = json.load(fo)
 
-    with open('scalar_modalities.json', 'r') as fo:
+    with open('../configuration/scalar_modalities.json', 'r') as fo:
         scalar_modalities = json.load(fo)
 
     qc_df = pd.read_table('../data/manual_qc_modality.tsv', index_col='participant_id')

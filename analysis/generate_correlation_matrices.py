@@ -28,7 +28,7 @@ if __name__ == '__main__':
         'wb',
     ]
 
-    with open(os.path.join(_script_dir, 'patterns.json'), 'r') as f:
+    with open(os.path.join(_script_dir, '..', 'configuration', 'patterns.json'), 'r') as f:
         patterns = json.load(f)
 
     flat_patterns = {k: v for subdict in patterns.values() for k, v in subdict.items()}

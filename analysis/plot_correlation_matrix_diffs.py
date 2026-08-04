@@ -12,7 +12,7 @@ import seaborn as sns
 if __name__ == '__main__':
     _script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    with open(os.path.join(_script_dir, 'patterns.json'), 'r') as f:
+    with open(os.path.join(_script_dir, '..', 'configuration', 'patterns.json'), 'r') as f:
         patterns = json.load(f)
 
     modalities = list(patterns.keys())

@@ -187,7 +187,7 @@ def load_output_groups():
         ``STAND_IN_THRESHOLD`` scalars collapse to a stand-in name and a count;
         smaller groups list their scalar keys.
     """
-    with open(os.path.join(_SCRIPT_DIR, 'patterns.json'), 'r') as fo:
+    with open(os.path.join(_SCRIPT_DIR, '..', 'configuration', 'patterns.json'), 'r') as fo:
         patterns = json.load(fo)
 
     declared = {name.split(':', 1)[1] for name in _nodes_of_kind('out')}

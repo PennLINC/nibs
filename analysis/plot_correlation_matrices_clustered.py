@@ -88,7 +88,10 @@ def save_clustermap(df, linkage_matrix, title, out_file, color_mapper=None):
 if __name__ == '__main__':
     _script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    grouping_df = pd.read_table(os.path.join(_script_dir, 'scalar_groups.tsv'), index_col='scalar')
+    grouping_df = pd.read_table(
+        os.path.join(_script_dir, '..', 'configuration', 'scalar_groups.tsv'),
+        index_col='scalar',
+    )
     out_dir = os.path.join(_script_dir, '..', 'figures', 'correlation_matrices')
     os.makedirs(out_dir, exist_ok=True)
 

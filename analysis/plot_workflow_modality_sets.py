@@ -97,7 +97,9 @@ FAINT = '#d5d2cc'
 
 def load_sets():
     """Group scalars by their modality signature, in SET_ORDER."""
-    with open(os.path.join(_SCRIPT_DIR, 'scalar_modalities.json'), 'r') as fo:
+    with open(
+        os.path.join(_SCRIPT_DIR, '..', 'configuration', 'scalar_modalities.json'), 'r'
+    ) as fo:
         scalar_modalities = json.load(fo)
 
     grouped = OrderedDict()

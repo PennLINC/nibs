@@ -238,11 +238,11 @@ if __name__ == '__main__':
 
     n_jobs = 30
 
-    with open(os.path.join(_script_dir, 'patterns.json'), 'r') as f:
+    with open(os.path.join(_script_dir, '..', 'configuration', 'patterns.json'), 'r') as f:
         patterns = json.load(f)
 
     # Modalities that go into each scalar, used to map per-modality QC onto scalars
-    with open(os.path.join(_script_dir, 'scalar_modalities.json'), 'r') as f:
+    with open(os.path.join(_script_dir, '..', 'configuration', 'scalar_modalities.json'), 'r') as f:
         scalar_modalities = json.load(f)
 
     flat_patterns = {k: v for subdict in patterns.values() for k, v in subdict.items()}
