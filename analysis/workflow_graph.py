@@ -252,8 +252,7 @@ def draw_node(ax, x, y, width, height, node, output_groups, fontsize=9):
     draw_box(ax, x, y, width, height, headline, detail, role, is_backbone, fontsize)
 
 
-def draw_box(ax, x, y, width, height, headline, detail, role,
-             dashed=False, fontsize=9):
+def draw_box(ax, x, y, width, height, headline, detail, role, dashed=False, fontsize=9):
     """Draw one rounded box with a bold headline and a muted detail line."""
     color = PALETTE[role]
 
@@ -311,8 +310,7 @@ def draw_box(ax, x, y, width, height, headline, detail, role,
         )
 
 
-def draw_edge(ax, start, end, rad=0.08, color=EDGE_COLOR, linewidth=1.2,
-              head=(5, 3), zorder=2):
+def draw_edge(ax, start, end, rad=0.08, color=EDGE_COLOR, linewidth=1.2, head=(5, 3), zorder=2):
     """Draw one curved arrow between two anchor points."""
     ax.add_patch(
         FancyArrowPatch(

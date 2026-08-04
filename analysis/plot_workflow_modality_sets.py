@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 
 from workflow_graph import (
-    INK,
     INK_MUTED,
     PALETTE,
     draw_box,
@@ -66,7 +65,7 @@ SET_ORDER = [
 STAND_INS = {
     ('dMRI',): ('dMRI Scalars', 'DKI, DSIStudio, NODDI, TORTOISE'),
     ('MEGRE',): ('QSM Scalars', 'SEPIA and χ-separation from R₂* alone'),
-    ('MEGRE', 'MESE'): ('QSM Scalars', "χ-separation using a measured R₂′"),
+    ('MEGRE', 'MESE'): ('QSM Scalars', 'χ-separation using a measured R₂′'),
 }
 
 MAX_NAMED = 3
@@ -144,10 +143,7 @@ if __name__ == '__main__':
     # Spread the modalities over the full height of the set column rather than
     # centring a short stack, which keeps the edges short and roughly parallel.
     step = (set_span - MOD_H) / (len(MODALITY_ORDER) - 1)
-    mod_pos = {
-        modality: TOP - MOD_H / 2 - i * step
-        for i, modality in enumerate(MODALITY_ORDER)
-    }
+    mod_pos = {modality: TOP - MOD_H / 2 - i * step for i, modality in enumerate(MODALITY_ORDER)}
 
     # Fan each modality's edges across its own right edge so they do not all
     # leave from a single point.
@@ -186,23 +182,50 @@ if __name__ == '__main__':
     ax.set_ylim(y0, y1)
     ax.axis('off')
 
-    ax.text(MOD_X, TOP + 5, 'SOURCE MODALITY', ha='center', va='center',
-            fontsize=FONT_HEADER, fontweight='bold', color=INK_MUTED)
-    ax.text(SET_X, TOP + 5, 'SCALAR SETS', ha='center', va='center',
-            fontsize=FONT_HEADER, fontweight='bold', color=INK_MUTED)
+    ax.text(
+        MOD_X,
+        TOP + 5,
+        'SOURCE MODALITY',
+        ha='center',
+        va='center',
+        fontsize=FONT_HEADER,
+        fontweight='bold',
+        color=INK_MUTED,
+    )
+    ax.text(
+        SET_X,
+        TOP + 5,
+        'SCALAR SETS',
+        ha='center',
+        va='center',
+        fontsize=FONT_HEADER,
+        fontweight='bold',
+        color=INK_MUTED,
+    )
 
     # Backbone edges first, so the specific dependencies draw over them.
     for signature in set_pos:
         if UNIVERSAL in signature:
             continue
-        draw_edge(ax, (MOD_X + MOD_W / 2, anchors[(UNIVERSAL, signature)]),
-                  (SET_X - SET_W / 2, landings[(UNIVERSAL, signature)]),
-                  rad=0.12, color=FAINT, linewidth=0.7, head=(3.5, 2.2), zorder=1)
+        draw_edge(
+            ax,
+            (MOD_X + MOD_W / 2, anchors[(UNIVERSAL, signature)]),
+            (SET_X - SET_W / 2, landings[(UNIVERSAL, signature)]),
+            rad=0.12,
+            color=FAINT,
+            linewidth=0.7,
+            head=(3.5, 2.2),
+            zorder=1,
+        )
 
     for signature in set_pos:
         for modality in signature:
-            draw_edge(ax, (MOD_X + MOD_W / 2, anchors[(modality, signature)]),
-                      (SET_X - SET_W / 2, landings[(modality, signature)]), rad=0.07)
+            draw_edge(
+                ax,
+                (MOD_X + MOD_W / 2, anchors[(modality, signature)]),
+                (SET_X - SET_W / 2, landings[(modality, signature)]),
+                rad=0.07,
+            )
 
     for modality, cy in mod_pos.items():
         label = modality.replace('B1+', 'B₁⁺').replace('T1w', 'T₁w').replace('T2w', 'T₂w')
@@ -227,19 +250,21 @@ if __name__ == '__main__':
         if kind == 'box':
             ax.add_patch(
                 FancyBboxPatch(
-                    (lx, ly - 0.9), 3.0, 1.8,
+                    (lx, ly - 0.9),
+                    3.0,
+                    1.8,
                     boxstyle='round,pad=0,rounding_size=0.3',
-                    facecolor=tint(PALETTE[role]), edgecolor=PALETTE[role],
-                    linewidth=1.5, zorder=3,
+                    facecolor=tint(PALETTE[role]),
+                    edgecolor=PALETTE[role],
+                    linewidth=1.5,
+                    zorder=3,
                 )
             )
         elif role == 'direct':
             draw_edge(ax, (lx, ly), (lx + 3.0, ly))
         else:
-            draw_edge(ax, (lx, ly), (lx + 3.0, ly),
-                      color=FAINT, linewidth=0.7, head=(3.5, 2.2))
-        ax.text(lx + 4.0, ly, label, ha='left', va='center',
-                fontsize=FONT_LEGEND, color=INK_MUTED)
+            draw_edge(ax, (lx, ly), (lx + 3.0, ly), color=FAINT, linewidth=0.7, head=(3.5, 2.2))
+        ax.text(lx + 4.0, ly, label, ha='left', va='center', fontsize=FONT_LEGEND, color=INK_MUTED)
 
     save(fig, 'workflow_modality_sets')
     plt.close(fig)

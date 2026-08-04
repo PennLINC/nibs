@@ -47,9 +47,7 @@ def process_subject(
     """Process a single subject."""
     n_scalars = len(patterns)
 
-    failed_modalities = sorted(
-        modality for modality, passed in qc_status.items() if not passed
-    )
+    failed_modalities = sorted(modality for modality, passed in qc_status.items() if not passed)
     if failed_modalities:
         print(
             f'{subject} {session} failed QC for: {", ".join(failed_modalities)}',
