@@ -32,7 +32,7 @@ from typing import Iterable, Sequence
 
 import matplotlib
 
-matplotlib.use("Agg")
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
@@ -43,17 +43,17 @@ from nibabel.affines import apply_affine
 from nibabel.processing import resample_from_to
 from scipy.stats import gaussian_kde
 
-LOGGER = logging.getLogger("qc")
+LOGGER = logging.getLogger('qc')
 
 PAGE_SIZE = (16.0, 10.0)
-SPACE_COLORS = {"ACPC": "#2A9D8F", "T1w": "#E76F51"}
-BUNDLE_COLORS = ("#00A6D6", "#F28E2B", "#59A14F", "#AF7AA1")
-MISSING_COLOR = "#9B2226"
-TISSUE_COLORS = {"GM": "#D55E00", "WM": "#0072B2"}
-SESSION_LINESTYLES = ("-", "--", ":", "-.")
-SMRIPREP_DSEG_LABELS = {"GM": 1, "WM": 2}
-ATLAS_DESC = "DKTatlas"
-ATLAS_DISPLAY = "DKT"
+SPACE_COLORS = {'ACPC': '#2A9D8F', 'T1w': '#E76F51'}
+BUNDLE_COLORS = ('#00A6D6', '#F28E2B', '#59A14F', '#AF7AA1')
+MISSING_COLOR = '#9B2226'
+TISSUE_COLORS = {'GM': '#D55E00', 'WM': '#0072B2'}
+SESSION_LINESTYLES = ('-', '--', ':', '-.')
+SMRIPREP_DSEG_LABELS = {'GM': 1, 'WM': 2}
+ATLAS_DESC = 'DKTatlas'
+ATLAS_DISPLAY = 'DKT'
 DKT_LABEL_IDS = {
     1002,
     1003,
@@ -130,114 +130,111 @@ class MetricPattern:
 
 MYELIN_METRICS = (
     MetricPattern(
-        "QSM-SEPIA-E5",
-        "qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+sepia_Chimap.nii.gz",
+        'QSM-SEPIA-E5',
+        'qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+sepia_Chimap.nii.gz',
     ),
     MetricPattern(
-        "QSM-X-R2p-E5-X",
-        "qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+chisep+r2p_Chimap.nii.gz",
+        'QSM-X-R2p-E5-X',
+        'qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+chisep+r2p_Chimap.nii.gz',
     ),
     MetricPattern(
-        "QSM-X-R2p-E5-Para",
-        "qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+chisep+r2p_para.nii.gz",
+        'QSM-X-R2p-E5-Para',
+        'qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+chisep+r2p_para.nii.gz',
     ),
     MetricPattern(
-        "QSM-X-R2p-E5-Dia",
-        "qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+chisep+r2p_dia.nii.gz",
+        'QSM-X-R2p-E5-Dia',
+        'qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+chisep+r2p_dia.nii.gz',
     ),
     MetricPattern(
-        "MPRAGE-MyelinW",
-        "t1wt2w_ratio/{subject}/{session}/anat/"
-        "{subject}_{session}_run-01_space-T1w_desc-MPRAGEunscaled_myelinw.nii.gz",
+        'MPRAGE-MyelinW',
+        't1wt2w_ratio/{subject}/{session}/anat/'
+        '{subject}_{session}_run-01_space-T1w_desc-MPRAGEunscaled_myelinw.nii.gz',
     ),
     MetricPattern(
-        "SPACE-MyelinW",
-        "t1wt2w_ratio/{subject}/{session}/anat/"
-        "{subject}_{session}_run-01_space-T1w_desc-SPACEunscaled_myelinw.nii.gz",
+        'SPACE-MyelinW',
+        't1wt2w_ratio/{subject}/{session}/anat/'
+        '{subject}_{session}_run-01_space-T1w_desc-SPACEunscaled_myelinw.nii.gz',
     ),
     MetricPattern(
-        "ihMTR",
-        "ihmt/{subject}/{session}/anat/"
-        "{subject}_{session}_run-01_space-T1w_ihMTR.nii.gz",
+        'ihMTR',
+        'ihmt/{subject}/{session}/anat/{subject}_{session}_run-01_space-T1w_ihMTR.nii.gz',
     ),
     MetricPattern(
-        "ihMTsat-B1c",
-        "ihmt/{subject}/{session}/anat/"
-        "{subject}_{session}_run-01_space-T1w_ihMTsatB1sq.nii.gz",
+        'ihMTsat-B1c',
+        'ihmt/{subject}/{session}/anat/{subject}_{session}_run-01_space-T1w_ihMTsatB1sq.nii.gz',
     ),
     MetricPattern(
-        "G-ihMTsat",
-        "g_ratio/{subject}/{session}/anat/"
-        "{subject}_{session}_run-01_space-T1w_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
+        'G-ihMTsat',
+        'g_ratio/{subject}/{session}/anat/'
+        '{subject}_{session}_run-01_space-T1w_desc-MTsat+ISOVF+ICVF_gratio.nii.gz',
     ),
     MetricPattern(
-        "G-ihMTR",
-        "g_ratio/{subject}/{session}/anat/"
-        "{subject}_{session}_run-01_space-T1w_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
+        'G-ihMTR',
+        'g_ratio/{subject}/{session}/anat/'
+        '{subject}_{session}_run-01_space-T1w_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz',
     ),
     MetricPattern(
-        "R1-B1c",
-        "pymp2rage/{subject}/{session}/anat/"
-        "{subject}_{session}_run-01_space-T1w_desc-B1corrected_R1map.nii.gz",
+        'R1-B1c',
+        'pymp2rage/{subject}/{session}/anat/'
+        '{subject}_{session}_run-01_space-T1w_desc-B1corrected_R1map.nii.gz',
     ),
     MetricPattern(
-        "R1",
-        "pymp2rage/{subject}/{session}/anat/"
-        "{subject}_{session}_run-01_space-T1w_R1map.nii.gz",
+        'R1',
+        'pymp2rage/{subject}/{session}/anat/{subject}_{session}_run-01_space-T1w_R1map.nii.gz',
     ),
 )
 METRIC_BY_LABEL = {metric.label: metric for metric in MYELIN_METRICS}
 
 DWI_METRICS = (
     MetricPattern(
-        "FA",
-        "qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-tensor_param-fa_dwimap.nii.gz",
+        'FA',
+        'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-tensor_param-fa_dwimap.nii.gz',
     ),
     MetricPattern(
-        "MD",
-        "qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-tensor_param-md_dwimap.nii.gz",
+        'MD',
+        'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-tensor_param-md_dwimap.nii.gz',
     ),
     MetricPattern(
-        "RD",
-        "qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-tensor_param-rd_dwimap.nii.gz",
+        'RD',
+        'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-tensor_param-rd_dwimap.nii.gz',
     ),
     MetricPattern(
-        "ICVF",
-        "qsirecon/derivatives/qsirecon-gmNODDI/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-noddi_param-icvf_dwimap.nii.gz",
+        'ICVF',
+        'qsirecon/derivatives/qsirecon-gmNODDI/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-noddi_param-icvf_dwimap.nii.gz',
     ),
     MetricPattern(
-        "MKT",
-        "qsirecon/derivatives/qsirecon-DIPYDKI/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-dki_param-mkt_dwimap.nii.gz",
+        'MKT',
+        'qsirecon/derivatives/qsirecon-DIPYDKI/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-dki_param-mkt_dwimap.nii.gz',
     ),
     MetricPattern(
-        "RK",
-        "qsirecon/derivatives/qsirecon-DIPYDKI/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-dki_param-rk_dwimap.nii.gz",
+        'RK',
+        'qsirecon/derivatives/qsirecon-DIPYDKI/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-dki_param-rk_dwimap.nii.gz',
     ),
     MetricPattern(
-        "RTOP",
-        "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-mapmri_param-rtop_dwimap.nii.gz",
+        'RTOP',
+        'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-mapmri_param-rtop_dwimap.nii.gz',
     ),
     MetricPattern(
-        "RTAP",
-        "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-mapmri_param-rtap_dwimap.nii.gz",
+        'RTAP',
+        'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-mapmri_param-rtap_dwimap.nii.gz',
     ),
     MetricPattern(
-        "NG",
-        "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-mapmri_param-ng_dwimap.nii.gz",
+        'NG',
+        'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-mapmri_param-ng_dwimap.nii.gz',
     ),
     MetricPattern(
-        "GFA",
-        "qsirecon/derivatives/qsirecon-DSIStudio/"
-        "{subject}/{session}/dwi/*_space-ACPC_model-gqi_param-gfa_dwimap.nii.gz",
+        'GFA',
+        'qsirecon/derivatives/qsirecon-DSIStudio/'
+        '{subject}/{session}/dwi/*_space-ACPC_model-gqi_param-gfa_dwimap.nii.gz',
     ),
 )
 DWI_METRIC_BY_LABEL = {metric.label: metric for metric in DWI_METRICS}
@@ -303,20 +300,20 @@ class DwiPanelData:
 
 def normalize_subject(value: str) -> str:
     token = value.strip()
-    return token if token.startswith("sub-") else f"sub-{token}"
+    return token if token.startswith('sub-') else f'sub-{token}'
 
 
 def normalize_session(value: str) -> str:
     token = value.strip()
-    return token if token.startswith("ses-") else f"ses-{token}"
+    return token if token.startswith('ses-') else f'ses-{token}'
 
 
 def normalize_name(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "", value.lower())
+    return re.sub(r'[^a-z0-9]+', '', value.lower())
 
 
 def safe_filename(value: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-")
+    return re.sub(r'[^A-Za-z0-9._-]+', '-', value).strip('-')
 
 
 def first_existing(paths: Iterable[Path]) -> Path | None:
@@ -332,7 +329,7 @@ def first_glob(patterns: Iterable[str | Path]) -> Path | None:
         matches.extend(Path(path) for path in sorted(glob_string(str(pattern))))
     unique = sorted(set(matches))
     if len(unique) > 1:
-        LOGGER.debug("Using first of %d matches: %s", len(unique), unique[0])
+        LOGGER.debug('Using first of %d matches: %s', len(unique), unique[0])
     return unique[0] if unique else None
 
 
@@ -345,101 +342,85 @@ def glob_string(pattern: str) -> list[str]:
 
 def discover_subjects(derivatives: Path) -> list[str]:
     roots = (
-        derivatives / "warped_bundles",
-        derivatives / "t1w_registration",
-        derivatives / "qsiprep",
-        derivatives / "smriprep",
+        derivatives / 'warped_bundles',
+        derivatives / 't1w_registration',
+        derivatives / 'qsiprep',
+        derivatives / 'smriprep',
     )
     subjects = {
-        path.name
-        for root in roots
-        if root.is_dir()
-        for path in root.glob("sub-*")
-        if path.is_dir()
+        path.name for root in roots if root.is_dir() for path in root.glob('sub-*') if path.is_dir()
     }
     return sorted(subjects)
 
 
 def discover_sessions(derivatives: Path, subject: str) -> list[str]:
     roots = [
-        derivatives / "warped_bundles" / subject,
-        derivatives / "ihmt" / subject,
-        derivatives / "pymp2rage" / subject,
-        derivatives / "qsm" / subject,
-        derivatives / "t1wt2w_ratio" / subject,
-        derivatives / "g_ratio" / subject,
+        derivatives / 'warped_bundles' / subject,
+        derivatives / 'ihmt' / subject,
+        derivatives / 'pymp2rage' / subject,
+        derivatives / 'qsm' / subject,
+        derivatives / 't1wt2w_ratio' / subject,
+        derivatives / 'g_ratio' / subject,
     ]
-    recon_root = derivatives / "qsirecon" / "derivatives"
+    recon_root = derivatives / 'qsirecon' / 'derivatives'
     if recon_root.is_dir():
-        roots.extend(path / subject for path in recon_root.glob("qsirecon-*MSMTAutoTrack*"))
+        roots.extend(path / subject for path in recon_root.glob('qsirecon-*MSMTAutoTrack*'))
     sessions = {
-        path.name
-        for root in roots
-        if root.is_dir()
-        for path in root.glob("ses-*")
-        if path.is_dir()
+        path.name for root in roots if root.is_dir() for path in root.glob('ses-*') if path.is_dir()
     }
     return sorted(sessions)
 
 
-def find_acpc_bundle_dir(
-    derivatives: Path, subject: str, session: str
-) -> Path | None:
-    recon_root = derivatives / "qsirecon" / "derivatives"
+def find_acpc_bundle_dir(derivatives: Path, subject: str, session: str) -> Path | None:
+    recon_root = derivatives / 'qsirecon' / 'derivatives'
     candidates = sorted(
-        path / subject / session / "dwi"
-        for path in recon_root.glob("qsirecon-*MSMTAutoTrack*")
-        if (path / subject / session / "dwi").is_dir()
+        path / subject / session / 'dwi'
+        for path in recon_root.glob('qsirecon-*MSMTAutoTrack*')
+        if (path / subject / session / 'dwi').is_dir()
     )
     return candidates[0] if candidates else None
 
 
-def collect_session_inputs(
-    derivatives: Path, key: SessionKey
-) -> SessionInputs:
+def collect_session_inputs(derivatives: Path, key: SessionKey) -> SessionInputs:
     subject = key.subject
     session = key.session
-    registration_dir = derivatives / "t1w_registration" / subject / "anat"
+    registration_dir = derivatives / 't1w_registration' / subject / 'anat'
 
     acpc_t1w = first_glob(
         (
             derivatives
-            / "qsiprep"
+            / 'qsiprep'
             / subject
-            / "anat"
-            / f"{subject}_space-ACPC_desc-preproc_T1w.nii*",
+            / 'anat'
+            / f'{subject}_space-ACPC_desc-preproc_T1w.nii*',
             derivatives
-            / "qsiprep"
+            / 'qsiprep'
             / subject
             / session
-            / "anat"
-            / f"{subject}_{session}_space-ACPC_desc-preproc_T1w.nii*",
+            / 'anat'
+            / f'{subject}_{session}_space-ACPC_desc-preproc_T1w.nii*',
         )
     )
     t1w = first_glob(
         (
             derivatives
-            / "smriprep"
+            / 'smriprep'
             / subject
             / session
-            / "anat"
-            / f"{subject}_{session}_acq-MPRAGE*run-01_desc-preproc_T1w.nii*",
+            / 'anat'
+            / f'{subject}_{session}_acq-MPRAGE*run-01_desc-preproc_T1w.nii*',
             derivatives
-            / "smriprep"
+            / 'smriprep'
             / subject
-            / "anat"
-            / f"{subject}_acq-MPRAGE*run-01_desc-preproc_T1w.nii*",
+            / 'anat'
+            / f'{subject}_acq-MPRAGE*run-01_desc-preproc_T1w.nii*',
             derivatives
-            / "smriprep"
+            / 'smriprep'
             / subject
             / session
-            / "anat"
-            / f"{subject}_{session}_*desc-preproc_T1w.nii*",
-            derivatives
-            / "smriprep"
-            / subject
-            / "anat"
-            / f"{subject}_*desc-preproc_T1w.nii*",
+            / 'anat'
+            / f'{subject}_{session}_*desc-preproc_T1w.nii*',
+            derivatives / 'smriprep' / subject / 'anat' / f'{subject}_*desc-preproc_T1w.nii*',
         )
     )
     return SessionInputs(
@@ -447,83 +428,75 @@ def collect_session_inputs(
         acpc_t1w=acpc_t1w,
         t1w=t1w,
         dseg_acpc=first_existing(
-            [registration_dir / f"{subject}_space-ACPC_desc-{ATLAS_DESC}_dseg.nii.gz"]
+            [registration_dir / f'{subject}_space-ACPC_desc-{ATLAS_DESC}_dseg.nii.gz']
         ),
         dseg_t1w=first_existing(
-            [registration_dir / f"{subject}_space-T1w_desc-{ATLAS_DESC}_dseg.nii.gz"]
+            [registration_dir / f'{subject}_space-T1w_desc-{ATLAS_DESC}_dseg.nii.gz']
         ),
         t1w_to_acpc_xfm=first_existing(
-            [registration_dir / f"{subject}_from-T1w_to-ACPC_mode-image_xfm.h5"]
+            [registration_dir / f'{subject}_from-T1w_to-ACPC_mode-image_xfm.h5']
         ),
         acpc_bundle_dir=find_acpc_bundle_dir(derivatives, subject, session),
         t1w_bundle_dir=first_existing_directory(
-            [derivatives / "warped_bundles" / subject / session / "dwi"]
+            [derivatives / 'warped_bundles' / subject / session / 'dwi']
         ),
         tissue_dseg=first_glob(
             (
                 derivatives
-                / "smriprep"
+                / 'smriprep'
                 / subject
                 / session
-                / "anat"
-                / f"{subject}_{session}_acq-MPRAGE*run-01_dseg.nii*",
+                / 'anat'
+                / f'{subject}_{session}_acq-MPRAGE*run-01_dseg.nii*',
                 derivatives
-                / "smriprep"
+                / 'smriprep'
                 / subject
                 / session
-                / "anat"
-                / f"{subject}_{session}_*dseg.nii*",
+                / 'anat'
+                / f'{subject}_{session}_*dseg.nii*',
                 derivatives
-                / "smriprep"
+                / 'smriprep'
                 / subject
-                / "anat"
-                / f"{subject}_acq-MPRAGE*run-01_dseg.nii*",
-                derivatives
-                / "smriprep"
-                / subject
-                / "anat"
-                / f"{subject}_*dseg.nii*",
+                / 'anat'
+                / f'{subject}_acq-MPRAGE*run-01_dseg.nii*',
+                derivatives / 'smriprep' / subject / 'anat' / f'{subject}_*dseg.nii*',
             )
         ),
         t1w_brain_mask=first_glob(
             (
                 derivatives
-                / "smriprep"
+                / 'smriprep'
                 / subject
                 / session
-                / "anat"
-                / f"{subject}_{session}_acq-MPRAGE*run-01_desc-brain_mask.nii*",
+                / 'anat'
+                / f'{subject}_{session}_acq-MPRAGE*run-01_desc-brain_mask.nii*',
                 derivatives
-                / "smriprep"
+                / 'smriprep'
                 / subject
-                / "anat"
-                / f"{subject}_acq-MPRAGE*run-01_desc-brain_mask.nii*",
+                / 'anat'
+                / f'{subject}_acq-MPRAGE*run-01_desc-brain_mask.nii*',
                 derivatives
-                / "smriprep"
+                / 'smriprep'
                 / subject
                 / session
-                / "anat"
-                / f"{subject}_{session}_*desc-brain_mask.nii*",
-                derivatives
-                / "smriprep"
-                / subject
-                / "anat"
-                / f"{subject}_*desc-brain_mask.nii*",
+                / 'anat'
+                / f'{subject}_{session}_*desc-brain_mask.nii*',
+                derivatives / 'smriprep' / subject / 'anat' / f'{subject}_*desc-brain_mask.nii*',
             )
         ),
         acpc_brain_mask=first_glob(
             (
                 derivatives
-                / "qsiprep"
+                / 'qsiprep'
                 / subject
-                / "anat"
-                / f"{subject}_space-ACPC_desc-brain_mask.nii*",
+                / 'anat'
+                / f'{subject}_space-ACPC_desc-brain_mask.nii*',
                 derivatives
-                / "qsiprep"
+                / 'qsiprep'
                 / subject
                 / session
-                / "anat"
-                / f"{subject}_{session}_space-ACPC_desc-brain_mask.nii*",
+                / 'anat'
+                / f'{subject}_{session}_space-ACPC_desc-brain_mask.nii*',
             )
         ),
     )
@@ -537,7 +510,7 @@ def first_existing_directory(paths: Iterable[Path]) -> Path | None:
 
 
 def extract_bundle_name(path: Path) -> str:
-    match = re.search(r"_bundle-(.+?)_streamlines\.(?:tck|trx)(?:\.gz)?$", path.name)
+    match = re.search(r'_bundle-(.+?)_streamlines\.(?:tck|trx)(?:\.gz)?$', path.name)
     return match.group(1) if match else path.stem
 
 
@@ -546,20 +519,18 @@ def find_bundle_file(directory: Path | None, requested: str) -> Path | None:
         return None
     candidates = sorted(
         path
-        for path in directory.glob("*bundle-*_streamlines.*")
-        if path.suffix in {".tck", ".gz", ".trx"}
-        or path.name.endswith((".tck.gz", ".trx.gz"))
+        for path in directory.glob('*bundle-*_streamlines.*')
+        if path.suffix in {'.tck', '.gz', '.trx'} or path.name.endswith(('.tck.gz', '.trx.gz'))
     )
     target = normalize_name(requested)
     exact = [path for path in candidates if normalize_name(extract_bundle_name(path)) == target]
     if exact:
         return exact[0]
-    relaxed_target = target.removeprefix("association")
+    relaxed_target = target.removeprefix('association')
     relaxed = [
         path
         for path in candidates
-        if normalize_name(extract_bundle_name(path)).removeprefix("association")
-        == relaxed_target
+        if normalize_name(extract_bundle_name(path)).removeprefix('association') == relaxed_target
     ]
     return relaxed[0] if relaxed else None
 
@@ -600,12 +571,12 @@ def resample_image(
 
 
 def decompress_tractogram(path: Path, temp_dir: Path) -> Path:
-    if not path.name.endswith(".gz"):
+    if not path.name.endswith('.gz'):
         return path
     temp_dir.mkdir(parents=True, exist_ok=True)
-    suffix = ".tck" if path.name.endswith(".tck.gz") else ".trx"
-    out_path = temp_dir / f"{safe_filename(path.name)}{suffix}"
-    with gzip.open(path, "rb") as source, out_path.open("wb") as target:
+    suffix = '.tck' if path.name.endswith('.tck.gz') else '.trx'
+    out_path = temp_dir / f'{safe_filename(path.name)}{suffix}'
+    with gzip.open(path, 'rb') as source, out_path.open('wb') as target:
         shutil.copyfileobj(source, target)
     return out_path
 
@@ -651,9 +622,7 @@ def rasterize_streamlines(
     for streamline in streamlines:
         voxels = apply_affine(inverse_affine, streamline)
         deltas = np.diff(voxels, axis=0)
-        segment_steps = np.maximum(
-            1, np.ceil(np.max(np.abs(deltas), axis=1) * 1.5).astype(int)
-        )
+        segment_steps = np.maximum(1, np.ceil(np.max(np.abs(deltas), axis=1) * 1.5).astype(int))
         sampled_segments = [
             np.linspace(voxels[index], voxels[index + 1], steps + 1, endpoint=True)
             for index, steps in enumerate(segment_steps)
@@ -678,9 +647,7 @@ def foreground_center(
 ) -> tuple[int, int, int]:
     if overlay is not None:
         finite = np.isfinite(overlay)
-        if np.issubdtype(overlay.dtype, np.bool_) or np.issubdtype(
-            overlay.dtype, np.integer
-        ):
+        if np.issubdtype(overlay.dtype, np.bool_) or np.issubdtype(overlay.dtype, np.integer):
             foreground = finite & (overlay != 0)
         else:
             nonzero = np.abs(overlay[finite])
@@ -718,7 +685,7 @@ def slice_data(volume: np.ndarray, axis: int, index: int) -> np.ndarray:
 
 def transparent_color_map(color: str) -> LinearSegmentedColormap:
     return LinearSegmentedColormap.from_list(
-        f"transparent_{safe_filename(color)}",
+        f'transparent_{safe_filename(color)}',
         [(0.0, (1, 1, 1, 0)), (1.0, (*matplotlib.colors.to_rgb(color), 1))],
     )
 
@@ -729,11 +696,11 @@ def plot_orthogonal_montage(
     background: nib.spatialimages.SpatialImage | None,
     overlay: np.ndarray | None = None,
     *,
-    overlay_kind: str = "scalar",
-    color: str = "#00A6D6",
-    title: str = "",
+    overlay_kind: str = 'scalar',
+    color: str = '#00A6D6',
+    title: str = '',
     limits: tuple[float, float] | None = None,
-    note: str = "",
+    note: str = '',
     center_world: np.ndarray | None = None,
 ) -> None:
     nested = spec.subgridspec(1, 3, wspace=0.02)
@@ -744,9 +711,9 @@ def plot_orthogonal_montage(
         axes[1].text(
             0.5,
             0.5,
-            "Missing anatomical reference",
-            ha="center",
-            va="center",
+            'Missing anatomical reference',
+            ha='center',
+            va='center',
             color=MISSING_COLOR,
             transform=axes[1].transAxes,
         )
@@ -759,20 +726,18 @@ def plot_orthogonal_montage(
     else:
         center_voxel = apply_affine(np.linalg.inv(background.affine), center_world)
         shape = np.asarray(background_data.shape[:3], dtype=int)
-        center = tuple(
-            np.clip(np.rint(center_voxel).astype(int), 0, shape - 1)
-        )
+        center = tuple(np.clip(np.rint(center_voxel).astype(int), 0, shape - 1))
     bg_limits = robust_limits(background_data)
-    orientation_names = ("Sagittal", "Coronal", "Axial")
+    orientation_names = ('Sagittal', 'Coronal', 'Axial')
     for view_axis, axis in enumerate(axes):
         background_slice = slice_data(background_data, view_axis, center[view_axis])
-        axis.imshow(background_slice, cmap="gray", vmin=bg_limits[0], vmax=bg_limits[1])
+        axis.imshow(background_slice, cmap='gray', vmin=bg_limits[0], vmax=bg_limits[1])
         if overlay is not None:
             overlay_slice = slice_data(overlay, view_axis, center[view_axis])
-            if overlay_kind in {"bundle", "boundary"}:
+            if overlay_kind in {'bundle', 'boundary'}:
                 mask = (
                     segmentation_boundaries_2d(overlay_slice)
-                    if overlay_kind == "boundary"
+                    if overlay_kind == 'boundary'
                     else overlay_slice > 0
                 )
                 axis.imshow(
@@ -780,8 +745,8 @@ def plot_orthogonal_montage(
                     cmap=transparent_color_map(color),
                     vmin=0,
                     vmax=1,
-                    alpha=0.88 if overlay_kind == "boundary" else 0.72,
-                    interpolation="nearest",
+                    alpha=0.88 if overlay_kind == 'boundary' else 0.72,
+                    interpolation='nearest',
                 )
             else:
                 scalar_limits = limits or robust_limits(overlay)
@@ -789,22 +754,22 @@ def plot_orthogonal_montage(
                 masked = np.ma.masked_where(np.abs(masked) == 0, masked)
                 axis.imshow(
                     masked,
-                    cmap="magma",
+                    cmap='magma',
                     vmin=scalar_limits[0],
                     vmax=scalar_limits[1],
                     alpha=0.68,
-                    interpolation="nearest",
+                    interpolation='nearest',
                 )
         axis.set_axis_off()
-        axis.set_title(orientation_names[view_axis], fontsize=7, color="#555555", pad=2)
+        axis.set_title(orientation_names[view_axis], fontsize=7, color='#555555', pad=2)
     axes[1].text(
         0.5,
         1.16,
         title,
-        ha="center",
-        va="bottom",
+        ha='center',
+        va='bottom',
         fontsize=9,
-        fontweight="semibold",
+        fontweight='semibold',
         transform=axes[1].transAxes,
     )
     if note:
@@ -812,10 +777,10 @@ def plot_orthogonal_montage(
             0.5,
             -0.08,
             note,
-            ha="center",
-            va="top",
+            ha='center',
+            va='top',
             fontsize=6.5,
-            color="#555555",
+            color='#555555',
             transform=axes[1].transAxes,
         )
 
@@ -827,18 +792,18 @@ def missing_panel(figure: plt.Figure, spec, title: str, detail: str) -> None:
         0.5,
         0.57,
         title,
-        ha="center",
-        va="center",
+        ha='center',
+        va='center',
         fontsize=9,
-        fontweight="semibold",
+        fontweight='semibold',
         transform=axis.transAxes,
     )
     axis.text(
         0.5,
         0.42,
         textwrap.fill(detail, 55),
-        ha="center",
-        va="center",
+        ha='center',
+        va='center',
         fontsize=7,
         color=MISSING_COLOR,
         transform=axis.transAxes,
@@ -846,31 +811,31 @@ def missing_panel(figure: plt.Figure, spec, title: str, detail: str) -> None:
 
 
 def add_page_header(figure: plt.Figure, title: str, subtitle: str) -> None:
-    figure.text(0.04, 0.965, title, fontsize=18, fontweight="bold", va="top")
-    figure.text(0.04, 0.925, subtitle, fontsize=9, color="#555555", va="top")
+    figure.text(0.04, 0.965, title, fontsize=18, fontweight='bold', va='top')
+    figure.text(0.04, 0.925, subtitle, fontsize=9, color='#555555', va='top')
 
 
 def add_page_footer(figure: plt.Figure, page_number: int) -> None:
     figure.text(
         0.04,
         0.018,
-        "NIBS spatial QC | visual inspection required",
+        'NIBS spatial QC | visual inspection required',
         fontsize=7,
-        color="#666666",
+        color='#666666',
     )
     figure.text(
         0.96,
         0.018,
         str(page_number),
         fontsize=7,
-        color="#666666",
-        ha="right",
+        color='#666666',
+        ha='right',
     )
 
 
 def save_page(pdf: PdfPages, figure: plt.Figure, page_number: int) -> int:
     add_page_footer(figure, page_number)
-    pdf.savefig(figure, bbox_inches="tight", dpi=180)
+    pdf.savefig(figure, bbox_inches='tight', dpi=180)
     plt.close(figure)
     return page_number + 1
 
@@ -889,7 +854,7 @@ def status(
             session=key.session,
             section=section,
             item=item,
-            status="OK" if ok else "MISSING/FAILED",
+            status='OK' if ok else 'MISSING/FAILED',
             detail=detail,
         )
     )
@@ -905,11 +870,11 @@ def bundle_page(
     page_number: int,
 ) -> int:
     key = inputs.key
-    figure = plt.figure(figsize=PAGE_SIZE, facecolor="white")
+    figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
     add_page_header(
         figure,
-        f"{key.subject} {key.session} | Bundle transformation",
-        "Top: original ACPC tractograms on ACPC T1w. Bottom: warped tractograms on native T1w.",
+        f'{key.subject} {key.session} | Bundle transformation',
+        'Top: original ACPC tractograms on ACPC T1w. Bottom: warped tractograms on native T1w.',
     )
     grid = figure.add_gridspec(
         2,
@@ -922,38 +887,38 @@ def bundle_page(
         wspace=0.10,
     )
 
-    references: dict[str, nib.spatialimages.SpatialImage | None] = {"ACPC": None, "T1w": None}
-    for space, path in (("ACPC", inputs.acpc_t1w), ("T1w", inputs.t1w)):
+    references: dict[str, nib.spatialimages.SpatialImage | None] = {'ACPC': None, 'T1w': None}
+    for space, path in (('ACPC', inputs.acpc_t1w), ('T1w', inputs.t1w)):
         try:
             references[space] = load_canonical(path) if path else None
             status(
                 statuses,
                 key,
-                "bundles",
-                f"{space} T1w",
+                'bundles',
+                f'{space} T1w',
                 references[space] is not None,
-                str(path) if path else "Not found",
+                str(path) if path else 'Not found',
             )
         except Exception as error:
-            status(statuses, key, "bundles", f"{space} T1w", False, str(error))
+            status(statuses, key, 'bundles', f'{space} T1w', False, str(error))
 
-    temp_dir = work_dir / key.subject / key.session / "tractograms"
+    temp_dir = work_dir / key.subject / key.session / 'tractograms'
     temp_dir.mkdir(parents=True, exist_ok=True)
     for column, bundle_name in enumerate(bundle_names):
         for row, (space, directory) in enumerate(
-            (("ACPC", inputs.acpc_bundle_dir), ("T1w", inputs.t1w_bundle_dir))
+            (('ACPC', inputs.acpc_bundle_dir), ('T1w', inputs.t1w_bundle_dir))
         ):
             tractogram_path = find_bundle_file(directory, bundle_name)
             reference = references[space]
-            title = f"{bundle_name} | {space}"
+            title = f'{bundle_name} | {space}'
             if tractogram_path is None or reference is None:
                 detail = (
-                    "Bundle not found"
+                    'Bundle not found'
                     if tractogram_path is None
-                    else "Anatomical reference not found"
+                    else 'Anatomical reference not found'
                 )
                 missing_panel(figure, grid[row, column], title, detail)
-                status(statuses, key, "bundles", f"{space} {bundle_name}", False, detail)
+                status(statuses, key, 'bundles', f'{space} {bundle_name}', False, detail)
                 continue
             try:
                 density = rasterize_streamlines(
@@ -963,15 +928,15 @@ def bundle_page(
                     temp_dir=temp_dir,
                 )
                 note = (
-                    f"{density.used_streamlines:,}/{density.total_streamlines:,} "
-                    f"streamlines displayed"
+                    f'{density.used_streamlines:,}/{density.total_streamlines:,} '
+                    f'streamlines displayed'
                 )
                 plot_orthogonal_montage(
                     figure,
                     grid[row, column],
                     reference,
                     density.data,
-                    overlay_kind="bundle",
+                    overlay_kind='bundle',
                     color=BUNDLE_COLORS[column % len(BUNDLE_COLORS)],
                     title=title,
                     note=note,
@@ -979,15 +944,15 @@ def bundle_page(
                 status(
                     statuses,
                     key,
-                    "bundles",
-                    f"{space} {bundle_name}",
+                    'bundles',
+                    f'{space} {bundle_name}',
                     bool(np.count_nonzero(density.data)),
-                    f"{tractogram_path}; {note}",
+                    f'{tractogram_path}; {note}',
                 )
             except Exception as error:
-                LOGGER.exception("Failed to render %s", tractogram_path)
+                LOGGER.exception('Failed to render %s', tractogram_path)
                 missing_panel(figure, grid[row, column], title, str(error))
-                status(statuses, key, "bundles", f"{space} {bundle_name}", False, str(error))
+                status(statuses, key, 'bundles', f'{space} {bundle_name}', False, str(error))
     return save_page(pdf, figure, page_number)
 
 
@@ -998,28 +963,26 @@ def parcellation_page(
     page_number: int,
 ) -> int:
     key = inputs.key
-    figure = plt.figure(figsize=PAGE_SIZE, facecolor="white")
+    figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
     add_page_header(
         figure,
-        f"{key.subject} {key.session} | FreeSurfer {ATLAS_DISPLAY} parcellation",
-        "Parcel boundaries should follow cortical anatomy in native T1w and remain aligned after T1w-to-ACPC warping.",
+        f'{key.subject} {key.session} | FreeSurfer {ATLAS_DISPLAY} parcellation',
+        'Parcel boundaries should follow cortical anatomy in native T1w and remain aligned after T1w-to-ACPC warping.',
     )
-    grid = figure.add_gridspec(
-        1, 2, left=0.04, right=0.98, top=0.84, bottom=0.10, wspace=0.10
-    )
+    grid = figure.add_gridspec(1, 2, left=0.04, right=0.98, top=0.84, bottom=0.10, wspace=0.10)
     for column, (space, t1w_path, dseg_path) in enumerate(
         (
-            ("T1w", inputs.t1w, inputs.dseg_t1w),
-            ("ACPC", inputs.acpc_t1w, inputs.dseg_acpc),
+            ('T1w', inputs.t1w, inputs.dseg_t1w),
+            ('ACPC', inputs.acpc_t1w, inputs.dseg_acpc),
         )
     ):
         if t1w_path is None or dseg_path is None:
             detail = (
-                f"Missing {'anatomical' if t1w_path is None else 'dseg'}: "
-                f"T1w={t1w_path}, dseg={dseg_path}"
+                f'Missing {"anatomical" if t1w_path is None else "dseg"}: '
+                f'T1w={t1w_path}, dseg={dseg_path}'
             )
-            missing_panel(figure, grid[0, column], f"{ATLAS_DISPLAY} | {space}", detail)
-            status(statuses, key, "parcellation", space, False, detail)
+            missing_panel(figure, grid[0, column], f'{ATLAS_DISPLAY} | {space}', detail)
+            status(statuses, key, 'parcellation', space, False, detail)
             continue
         try:
             reference = load_canonical(t1w_path)
@@ -1031,23 +994,23 @@ def parcellation_page(
                 grid[0, column],
                 reference,
                 labels,
-                overlay_kind="boundary",
+                overlay_kind='boundary',
                 color=SPACE_COLORS[space],
-                title=f"{ATLAS_DISPLAY} | {space}",
-                note=f"{label_count} nonzero labels",
+                title=f'{ATLAS_DISPLAY} | {space}',
+                note=f'{label_count} nonzero labels',
             )
             status(
                 statuses,
                 key,
-                "parcellation",
+                'parcellation',
                 space,
                 bool(label_count),
-                f"{dseg_path}; {label_count} labels",
+                f'{dseg_path}; {label_count} labels',
             )
         except Exception as error:
-            LOGGER.exception("Failed to render parcellation %s", dseg_path)
-            missing_panel(figure, grid[0, column], f"{ATLAS_DISPLAY} | {space}", str(error))
-            status(statuses, key, "parcellation", space, False, str(error))
+            LOGGER.exception('Failed to render parcellation %s', dseg_path)
+            missing_panel(figure, grid[0, column], f'{ATLAS_DISPLAY} | {space}', str(error))
+            status(statuses, key, 'parcellation', space, False, str(error))
     return save_page(pdf, figure, page_number)
 
 
@@ -1066,10 +1029,10 @@ def resolve_ants_command(requested: str | None) -> str | None:
         if Path(expanded).is_file():
             return expanded
         return shutil.which(requested)
-    env_value = os.environ.get("ANTS_APPLY_TRANSFORMS")
+    env_value = os.environ.get('ANTS_APPLY_TRANSFORMS')
     if env_value:
         return resolve_ants_command(env_value)
-    return shutil.which("antsApplyTransforms")
+    return shutil.which('antsApplyTransforms')
 
 
 def warp_scalar_to_acpc(
@@ -1079,7 +1042,7 @@ def warp_scalar_to_acpc(
     output: Path,
     ants_command: str | None,
     overwrite: bool,
-    interpolation: str = "Linear",
+    interpolation: str = 'Linear',
 ) -> Path:
     if output.is_file() and not overwrite:
         return output
@@ -1087,20 +1050,20 @@ def warp_scalar_to_acpc(
     if ants_command:
         command = [
             ants_command,
-            "--dimensionality",
-            "3",
-            "--input",
+            '--dimensionality',
+            '3',
+            '--input',
             str(source),
-            "--reference-image",
+            '--reference-image',
             str(reference),
-            "--output",
+            '--output',
             str(output),
-            "--transform",
+            '--transform',
             str(transform),
-            "--interpolation",
+            '--interpolation',
             interpolation,
-            "--float",
-            "1",
+            '--float',
+            '1',
         ]
         completed = subprocess.run(
             command,
@@ -1111,20 +1074,19 @@ def warp_scalar_to_acpc(
         )
         if completed.returncode != 0:
             raise RuntimeError(
-                f"antsApplyTransforms failed ({completed.returncode}):\n"
-                f"{completed.stdout[-2000:]}"
+                f'antsApplyTransforms failed ({completed.returncode}):\n{completed.stdout[-2000:]}'
             )
     else:
         try:
             import ants
         except ImportError as error:
             raise RuntimeError(
-                "Neither antsApplyTransforms nor the antspyx Python package is available."
+                'Neither antsApplyTransforms nor the antspyx Python package is available.'
             ) from error
         antspy_interpolation = {
-            "Linear": "linear",
-            "GenericLabel": "genericLabel",
-            "NearestNeighbor": "nearestNeighbor",
+            'Linear': 'linear',
+            'GenericLabel': 'genericLabel',
+            'NearestNeighbor': 'nearestNeighbor',
         }.get(interpolation, interpolation)
         warped = ants.apply_transforms(
             fixed=ants.image_read(str(reference)),
@@ -1134,7 +1096,7 @@ def warp_scalar_to_acpc(
         )
         ants.image_write(warped, str(output))
     if not output.is_file():
-        raise RuntimeError(f"Expected warped scalar was not created: {output}")
+        raise RuntimeError(f'Expected warped scalar was not created: {output}')
     return output
 
 
@@ -1145,19 +1107,11 @@ def scalar_group_limits(
 ) -> tuple[float, float]:
     """Return robust limits from brain voxels, shared across sessions."""
     if len(arrays) != len(brain_masks):
-        raise ValueError("Each scalar array must have a corresponding brain mask")
+        raise ValueError('Each scalar array must have a corresponding brain mask')
     value_arrays = [
-        array[
-            np.isfinite(array)
-            & (np.abs(array) > 0)
-            & np.asarray(brain_mask, dtype=bool)
-        ]
+        array[np.isfinite(array) & (np.abs(array) > 0) & np.asarray(brain_mask, dtype=bool)]
         for array, brain_mask in zip(arrays, brain_masks)
-        if np.any(
-            np.isfinite(array)
-            & (np.abs(array) > 0)
-            & np.asarray(brain_mask, dtype=bool)
-        )
+        if np.any(np.isfinite(array) & (np.abs(array) > 0) & np.asarray(brain_mask, dtype=bool))
     ]
     if not value_arrays:
         return 0.0, 1.0
@@ -1172,7 +1126,7 @@ def shared_metric_centers(
     prepared: Iterable[ScalarPanelData],
 ) -> dict[str, np.ndarray]:
     """Choose one T1w world-coordinate slice center across sessions."""
-    world_centers: dict[str, list[np.ndarray]] = {"T1w": []}
+    world_centers: dict[str, list[np.ndarray]] = {'T1w': []}
     for panel_data in prepared:
         data = np.where(
             panel_data.source_brain_mask,
@@ -1181,7 +1135,7 @@ def shared_metric_centers(
         )
         background = np.asarray(panel_data.t1w_reference.get_fdata(), dtype=np.float32)
         voxel_center = foreground_center(data, background)
-        world_centers["T1w"].append(
+        world_centers['T1w'].append(
             np.asarray(apply_affine(panel_data.t1w_reference.affine, voxel_center), dtype=float)
         )
     return {
@@ -1196,9 +1150,7 @@ def tissue_metric_values(
     dseg_path: Path,
 ) -> dict[str, np.ndarray]:
     """Extract finite native-space scalar values from sMRIPrep GM and WM."""
-    dseg = resample_image(
-        load_canonical(dseg_path), panel_data.t1w_reference, order=0
-    )
+    dseg = resample_image(load_canonical(dseg_path), panel_data.t1w_reference, order=0)
     labels = np.rint(dseg.get_fdata()).astype(np.int16)
     return tissue_values_from_labels(panel_data.source_data, labels)
 
@@ -1209,9 +1161,7 @@ def tissue_values_from_labels(
 ) -> dict[str, np.ndarray]:
     finite = np.isfinite(data)
     return {
-        tissue: data[finite & (labels == label)].astype(
-            np.float64, copy=False
-        )
+        tissue: data[finite & (labels == label)].astype(np.float64, copy=False)
         for tissue, label in SMRIPREP_DSEG_LABELS.items()
     }
 
@@ -1258,42 +1208,40 @@ def parcel_coverage_pages(
             metric_path = find_metric(derivatives, key, metric)
             if metric_path is None or inputs.dseg_t1w is None:
                 detail = (
-                    "T1w metric not found"
+                    'T1w metric not found'
                     if metric_path is None
-                    else f"T1w {ATLAS_DISPLAY} dseg not found"
+                    else f'T1w {ATLAS_DISPLAY} dseg not found'
                 )
                 status(
                     statuses,
                     key,
-                    "parcel coverage",
+                    'parcel coverage',
                     metric.label,
                     False,
                     detail,
                 )
                 continue
             try:
-                coverage = parcel_coverage_values(
-                    metric_path, inputs.dseg_t1w
-                )
+                coverage = parcel_coverage_values(metric_path, inputs.dseg_t1w)
                 if not coverage:
-                    raise RuntimeError(f"No nonzero {ATLAS_DISPLAY} parcels found")
+                    raise RuntimeError(f'No nonzero {ATLAS_DISPLAY} parcels found')
                 records.append((key, metric.label, coverage))
                 values = np.asarray(list(coverage.values()), dtype=float)
                 status(
                     statuses,
                     key,
-                    "parcel coverage",
+                    'parcel coverage',
                     metric.label,
                     True,
                     (
-                        f"{metric_path}; parcels={len(coverage)}, "
-                        f"median={np.median(values):.3f}, "
-                        f"minimum={np.min(values):.3f}"
+                        f'{metric_path}; parcels={len(coverage)}, '
+                        f'median={np.median(values):.3f}, '
+                        f'minimum={np.min(values):.3f}'
                     ),
                 )
             except Exception as error:
                 LOGGER.exception(
-                    "Failed parcel coverage for %s %s %s",
+                    'Failed parcel coverage for %s %s %s',
                     key.subject,
                     key.session,
                     metric.label,
@@ -1301,7 +1249,7 @@ def parcel_coverage_pages(
                 status(
                     statuses,
                     key,
-                    "parcel coverage",
+                    'parcel coverage',
                     metric.label,
                     False,
                     str(error),
@@ -1310,43 +1258,39 @@ def parcel_coverage_pages(
     if not records:
         return page_number
 
-    parcel_labels = sorted(
-        {label for _, _, coverage in records for label in coverage}
-    )
+    parcel_labels = sorted({label for _, _, coverage in records for label in coverage})
     rows_per_page = 28
     for page_start in range(0, len(records), rows_per_page):
         page_records = records[page_start : page_start + rows_per_page]
-        matrix = np.full(
-            (len(page_records), len(parcel_labels)), np.nan, dtype=float
-        )
+        matrix = np.full((len(page_records), len(parcel_labels)), np.nan, dtype=float)
         row_labels: list[str] = []
         for row, (key, metric_label, coverage) in enumerate(page_records):
             for column, parcel_label in enumerate(parcel_labels):
                 matrix[row, column] = coverage.get(parcel_label, np.nan)
             values = np.asarray(list(coverage.values()), dtype=float)
             row_labels.append(
-                f"{metric_label} | {key.session}  "
-                f"(median {100 * np.median(values):.1f}%, "
-                f"min {100 * np.min(values):.1f}%)"
+                f'{metric_label} | {key.session}  '
+                f'(median {100 * np.median(values):.1f}%, '
+                f'min {100 * np.min(values):.1f}%)'
             )
 
-        figure = plt.figure(figsize=PAGE_SIZE, facecolor="white")
+        figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
         add_page_header(
             figure,
-            f"{subject} | Gray-matter parcel coverage",
+            f'{subject} | Gray-matter parcel coverage',
             (
-                f"Native T1w {ATLAS_DISPLAY} parcels. Coverage is the percentage of parcel "
-                "voxels with finite, nonzero metric values; corpus callosum labels "
-                "are excluded."
+                f'Native T1w {ATLAS_DISPLAY} parcels. Coverage is the percentage of parcel '
+                'voxels with finite, nonzero metric values; corpus callosum labels '
+                'are excluded.'
             ),
         )
         axis = figure.add_axes([0.20, 0.20, 0.68, 0.65])
-        color_map = plt.get_cmap("viridis").copy()
-        color_map.set_bad("#D9D9D9")
+        color_map = plt.get_cmap('viridis').copy()
+        color_map.set_bad('#D9D9D9')
         image = axis.imshow(
             np.ma.masked_invalid(matrix * 100),
-            aspect="auto",
-            interpolation="nearest",
+            aspect='auto',
+            interpolation='nearest',
             cmap=color_map,
             vmin=0,
             vmax=100,
@@ -1359,14 +1303,14 @@ def parcel_coverage_pages(
         axis.set_xticklabels(
             [str(parcel_labels[index]) for index in tick_positions],
             rotation=60,
-            ha="right",
+            ha='right',
             fontsize=6,
         )
-        axis.set_xlabel(f"{ATLAS_DISPLAY} parcel label ID", fontsize=8)
+        axis.set_xlabel(f'{ATLAS_DISPLAY} parcel label ID', fontsize=8)
         axis.tick_params(length=0)
         color_axis = figure.add_axes([0.90, 0.25, 0.012, 0.55])
         color_bar = figure.colorbar(image, cax=color_axis)
-        color_bar.set_label("Coverage (%)", fontsize=8)
+        color_bar.set_label('Coverage (%)', fontsize=8)
         color_bar.ax.tick_params(labelsize=7)
         page_number = save_page(pdf, figure, page_number)
     return page_number
@@ -1398,11 +1342,7 @@ def kde_values(
     max_samples: int = 50_000,
 ) -> np.ndarray | None:
     """Evaluate a robust KDE using finite values inside the displayed range."""
-    values = values[
-        np.isfinite(values)
-        & (values >= x_values[0])
-        & (values <= x_values[-1])
-    ]
+    values = values[np.isfinite(values) & (values >= x_values[0]) & (values <= x_values[-1])]
     if values.size < 2 or np.unique(values).size < 2:
         return None
     if values.size > max_samples:
@@ -1418,7 +1358,7 @@ def plot_tissue_distributions(
     subject_inputs: Sequence[SessionInputs],
     distributions: dict[SessionKey, dict[str, np.ndarray]],
     errors: dict[SessionKey, str],
-    space_label: str = "T1w",
+    space_label: str = 'T1w',
 ) -> None:
     """Plot session-coded GM/WM KDEs and their medians for one metric."""
     axis = figure.add_subplot(spec)
@@ -1427,10 +1367,8 @@ def plot_tissue_distributions(
 
     for session_index, inputs in enumerate(subject_inputs):
         key = inputs.key
-        line_style = SESSION_LINESTYLES[
-            session_index % len(SESSION_LINESTYLES)
-        ]
-        for tissue in ("GM", "WM"):
+        line_style = SESSION_LINESTYLES[session_index % len(SESSION_LINESTYLES)]
+        for tissue in ('GM', 'WM'):
             values = distributions.get(key, {}).get(tissue, np.array([]))
             if not values.size:
                 continue
@@ -1454,14 +1392,12 @@ def plot_tissue_distributions(
 
     axis.set_xlim(x_limits)
     axis.set_ylim(bottom=0)
-    axis.set_title(
-        f"{metric.label} | {space_label} tissue distributions", fontsize=9
-    )
-    axis.set_xlabel("Metric value", fontsize=8)
-    axis.set_ylabel("Density", fontsize=8)
+    axis.set_title(f'{metric.label} | {space_label} tissue distributions', fontsize=9)
+    axis.set_xlabel('Metric value', fontsize=8)
+    axis.set_ylabel('Density', fontsize=8)
     axis.tick_params(labelsize=7)
-    axis.spines["top"].set_visible(False)
-    axis.spines["right"].set_visible(False)
+    axis.spines['top'].set_visible(False)
+    axis.spines['right'].set_visible(False)
 
     handles = [
         Line2D([0], [0], color=color, linewidth=2, label=tissue)
@@ -1471,38 +1407,34 @@ def plot_tissue_distributions(
         Line2D(
             [0],
             [0],
-            color="#333333",
-            linestyle=SESSION_LINESTYLES[
-                index % len(SESSION_LINESTYLES)
-            ],
+            color='#333333',
+            linestyle=SESSION_LINESTYLES[index % len(SESSION_LINESTYLES)],
             linewidth=1.7,
             label=inputs.key.session,
         )
         for index, inputs in enumerate(subject_inputs)
     )
-    axis.legend(handles=handles, fontsize=7, frameon=False, loc="best")
+    axis.legend(handles=handles, fontsize=7, frameon=False, loc='best')
     if errors:
-        detail = "\n".join(
-            f"{key.session}: {message}" for key, message in errors.items()
-        )
+        detail = '\n'.join(f'{key.session}: {message}' for key, message in errors.items())
         axis.text(
             0.02,
             0.02,
-            textwrap.shorten(detail, width=100, placeholder="…"),
+            textwrap.shorten(detail, width=100, placeholder='…'),
             transform=axis.transAxes,
             fontsize=6.5,
             color=MISSING_COLOR,
-            va="bottom",
+            va='bottom',
         )
     axis.text(
         0.98,
         0.02,
-        "Vertical lines: medians",
+        'Vertical lines: medians',
         transform=axis.transAxes,
         fontsize=6.5,
-        color="#555555",
-        ha="right",
-        va="bottom",
+        color='#555555',
+        ha='right',
+        va='bottom',
     )
 
 
@@ -1524,17 +1456,17 @@ def myelin_pages(
 
     for page_start in range(0, len(metrics), metrics_per_page):
         page_metrics = metrics[page_start : page_start + metrics_per_page]
-        figure = plt.figure(figsize=PAGE_SIZE, facecolor="white")
+        figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
         add_page_header(
             figure,
-            f"{subject} | Myelin-sensitive maps",
+            f'{subject} | Myelin-sensitive maps',
             (
-                "For each metric, sessions are consecutive rows. Left: original "
-                "T1w-space map. Right: native T1w GM/WM distributions. Slice "
-                "coordinates and color limits are shared across sessions; limits "
-                f"use the {display_percentiles[0]:g}th–"
-                f"{display_percentiles[1]:g}th percentiles of finite nonzero "
-                "brain-mask voxels."
+                'For each metric, sessions are consecutive rows. Left: original '
+                'T1w-space map. Right: native T1w GM/WM distributions. Slice '
+                'coordinates and color limits are shared across sessions; limits '
+                f'use the {display_percentiles[0]:g}th–'
+                f'{display_percentiles[1]:g}th percentiles of finite nonzero '
+                'brain-mask voxels.'
             ),
         )
         row_count = len(page_metrics) * len(subject_inputs)
@@ -1560,17 +1492,14 @@ def myelin_pages(
                 key = inputs.key
                 source_path = find_metric(derivatives, key, metric)
                 if source_path is None:
-                    errors[key] = "T1w-space metric not found"
+                    errors[key] = 'T1w-space metric not found'
                     continue
                 prerequisites = (
                     inputs.t1w,
                     inputs.t1w_brain_mask,
                 )
                 if any(path is None for path in prerequisites):
-                    errors[key] = (
-                        "Missing T1w or T1w brain mask; "
-                        f"source={source_path}"
-                    )
+                    errors[key] = f'Missing T1w or T1w brain mask; source={source_path}'
                     continue
 
                 try:
@@ -1578,9 +1507,7 @@ def myelin_pages(
                     source_image = resample_image(
                         load_canonical(source_path), t1w_reference, order=1
                     )
-                    source_data = np.asarray(
-                        source_image.get_fdata(), dtype=np.float32
-                    )
+                    source_data = np.asarray(source_image.get_fdata(), dtype=np.float32)
                     source_brain_mask = np.asarray(
                         resample_image(
                             load_canonical(inputs.t1w_brain_mask),
@@ -1600,16 +1527,14 @@ def myelin_pages(
                     scale_masks.append(source_brain_mask)
                 except Exception as error:
                     LOGGER.exception(
-                        "Failed myelin QC for %s %s %s",
+                        'Failed myelin QC for %s %s %s',
                         key.subject,
                         key.session,
                         metric.label,
                     )
                     errors[key] = str(error)
 
-            limits = scalar_group_limits(
-                scale_arrays, scale_masks, display_percentiles
-            )
+            limits = scalar_group_limits(scale_arrays, scale_masks, display_percentiles)
             centers = shared_metric_centers(prepared.values())
             distributions: dict[SessionKey, dict[str, np.ndarray]] = {}
             distribution_errors: dict[SessionKey, str] = {}
@@ -1617,51 +1542,49 @@ def myelin_pages(
                 key = inputs.key
                 panel_data = prepared.get(key)
                 if panel_data is None:
-                    distribution_errors[key] = "Scalar map unavailable"
+                    distribution_errors[key] = 'Scalar map unavailable'
                     status(
                         statuses,
                         key,
-                        "distribution",
+                        'distribution',
                         metric.label,
                         False,
                         distribution_errors[key],
                     )
                     continue
                 if inputs.tissue_dseg is None:
-                    distribution_errors[key] = "sMRIPrep tissue dseg not found"
+                    distribution_errors[key] = 'sMRIPrep tissue dseg not found'
                     status(
                         statuses,
                         key,
-                        "distribution",
+                        'distribution',
                         metric.label,
                         False,
                         distribution_errors[key],
                     )
                     continue
                 try:
-                    values = tissue_metric_values(
-                        panel_data, inputs.tissue_dseg
-                    )
-                    if not all(values[tissue].size for tissue in ("GM", "WM")):
+                    values = tissue_metric_values(panel_data, inputs.tissue_dseg)
+                    if not all(values[tissue].size for tissue in ('GM', 'WM')):
                         raise RuntimeError(
-                            "sMRIPrep dseg contained no GM (label 1) or WM "
-                            "(label 2) voxels on the scalar grid"
+                            'sMRIPrep dseg contained no GM (label 1) or WM '
+                            '(label 2) voxels on the scalar grid'
                         )
                     distributions[key] = values
                     status(
                         statuses,
                         key,
-                        "distribution",
+                        'distribution',
                         metric.label,
                         True,
                         (
-                            f"{inputs.tissue_dseg}; "
-                            f"GM n={values['GM'].size}, WM n={values['WM'].size}"
+                            f'{inputs.tissue_dseg}; '
+                            f'GM n={values["GM"].size}, WM n={values["WM"].size}'
                         ),
                     )
                 except Exception as error:
                     LOGGER.exception(
-                        "Failed tissue distribution for %s %s %s",
+                        'Failed tissue distribution for %s %s %s',
                         key.subject,
                         key.session,
                         metric.label,
@@ -1670,7 +1593,7 @@ def myelin_pages(
                     status(
                         statuses,
                         key,
-                        "distribution",
+                        'distribution',
                         metric.label,
                         False,
                         str(error),
@@ -1681,14 +1604,14 @@ def myelin_pages(
                 row = metric_index * len(subject_inputs) + session_index
                 panel_data = prepared.get(key)
                 if panel_data is None:
-                    detail = errors.get(key, "Scalar map could not be prepared")
+                    detail = errors.get(key, 'Scalar map could not be prepared')
                     missing_panel(
                         figure,
                         grid[row, 0],
-                        f"{metric.label} | {key.session} | T1w",
+                        f'{metric.label} | {key.session} | T1w',
                         detail,
                     )
-                    status(statuses, key, "myelin", metric.label, False, detail)
+                    status(statuses, key, 'myelin', metric.label, False, detail)
                     continue
 
                 plot_orthogonal_montage(
@@ -1700,21 +1623,21 @@ def myelin_pages(
                         panel_data.source_data,
                         np.nan,
                     ),
-                    overlay_kind="scalar",
-                    title=f"{metric.label} | {key.session} | T1w",
+                    overlay_kind='scalar',
+                    title=f'{metric.label} | {key.session} | T1w',
                     limits=limits,
                     note=panel_data.source_path.name,
-                    center_world=centers.get("T1w"),
+                    center_world=centers.get('T1w'),
                 )
                 status(
                     statuses,
                     key,
-                    "myelin",
+                    'myelin',
                     metric.label,
                     True,
                     (
-                        f"{panel_data.source_path}; "
-                        f"display percentiles={display_percentiles}, limits={limits}"
+                        f'{panel_data.source_path}; '
+                        f'display percentiles={display_percentiles}, limits={limits}'
                     ),
                 )
             distribution_start = metric_index * len(subject_inputs)
@@ -1753,16 +1676,16 @@ def dwi_pages(
 
     for page_start in range(0, len(metrics), metrics_per_page):
         page_metrics = metrics[page_start : page_start + metrics_per_page]
-        figure = plt.figure(figsize=PAGE_SIZE, facecolor="white")
+        figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
         add_page_header(
             figure,
-            f"{subject} | Selected DWI microstructure maps",
+            f'{subject} | Selected DWI microstructure maps',
             (
-                "Sessions are consecutive rows. Left: native ACPC scalar over "
-                "the ACPC T1w. Right: ACPC GM/WM distributions. Slice coordinates "
-                "and color limits are shared across sessions; limits use the "
-                f"{display_percentiles[0]:g}th–{display_percentiles[1]:g}th "
-                "percentiles of finite nonzero ACPC brain-mask voxels."
+                'Sessions are consecutive rows. Left: native ACPC scalar over '
+                'the ACPC T1w. Right: ACPC GM/WM distributions. Slice coordinates '
+                'and color limits are shared across sessions; limits use the '
+                f'{display_percentiles[0]:g}th–{display_percentiles[1]:g}th '
+                'percentiles of finite nonzero ACPC brain-mask voxels.'
             ),
         )
         row_count = len(page_metrics) * len(subject_inputs)
@@ -1799,14 +1722,14 @@ def dwi_pages(
                 )
                 if any(path is None for path in prerequisites):
                     errors[key] = (
-                        "Missing DWI map, ACPC T1w/brain mask, T1w tissue dseg, "
-                        "or T1w-to-ACPC transform"
+                        'Missing DWI map, ACPC T1w/brain mask, T1w tissue dseg, '
+                        'or T1w-to-ACPC transform'
                     )
                     distribution_errors[key] = errors[key]
                     status(
                         statuses,
                         key,
-                        "DWI",
+                        'DWI',
                         metric.label,
                         False,
                         errors[key],
@@ -1817,8 +1740,8 @@ def dwi_pages(
                     work_dir
                     / key.subject
                     / key.session
-                    / "tissue_acpc"
-                    / f"{key.subject}_{key.session}_space-ACPC_desc-tissue_dseg.nii.gz"
+                    / 'tissue_acpc'
+                    / f'{key.subject}_{key.session}_space-ACPC_desc-tissue_dseg.nii.gz'
                 )
                 try:
                     warp_scalar_to_acpc(
@@ -1828,13 +1751,11 @@ def dwi_pages(
                         tissue_acpc_path,
                         ants_command=ants_command,
                         overwrite=overwrite_warps,
-                        interpolation="GenericLabel",
+                        interpolation='GenericLabel',
                     )
                     reference = load_canonical(inputs.acpc_t1w)
                     data = np.asarray(
-                        resample_image(
-                            load_canonical(source_path), reference, order=1
-                        ).get_fdata(),
+                        resample_image(load_canonical(source_path), reference, order=1).get_fdata(),
                         dtype=np.float32,
                     )
                     brain_mask = np.asarray(
@@ -1853,16 +1774,10 @@ def dwi_pages(
                             order=0,
                         ).get_fdata()
                     ).astype(np.int16)
-                    tissue_values = tissue_values_from_labels(
-                        data, tissue_labels
-                    )
-                    if not all(
-                        tissue_values[tissue].size
-                        for tissue in ("GM", "WM")
-                    ):
+                    tissue_values = tissue_values_from_labels(data, tissue_labels)
+                    if not all(tissue_values[tissue].size for tissue in ('GM', 'WM')):
                         raise RuntimeError(
-                            "Warped tissue dseg contained no GM (label 1) or "
-                            "WM (label 2) voxels"
+                            'Warped tissue dseg contained no GM (label 1) or WM (label 2) voxels'
                         )
                     prepared[key] = DwiPanelData(
                         source_path=source_path,
@@ -1873,12 +1788,8 @@ def dwi_pages(
                     distributions[key] = tissue_values
                     scale_arrays.append(data)
                     scale_masks.append(brain_mask)
-                    background = np.asarray(
-                        reference.get_fdata(), dtype=np.float32
-                    )
-                    voxel_center = foreground_center(
-                        np.where(brain_mask, data, np.nan), background
-                    )
+                    background = np.asarray(reference.get_fdata(), dtype=np.float32)
+                    voxel_center = foreground_center(np.where(brain_mask, data, np.nan), background)
                     world_centers.append(
                         np.asarray(
                             apply_affine(reference.affine, voxel_center),
@@ -1888,29 +1799,26 @@ def dwi_pages(
                     status(
                         statuses,
                         key,
-                        "DWI",
+                        'DWI',
                         metric.label,
                         True,
-                        (
-                            f"{source_path}; display brain mask="
-                            f"{inputs.acpc_brain_mask}"
-                        ),
+                        (f'{source_path}; display brain mask={inputs.acpc_brain_mask}'),
                     )
                     status(
                         statuses,
                         key,
-                        "DWI distribution",
+                        'DWI distribution',
                         metric.label,
                         True,
                         (
-                            f"{tissue_acpc_path}; "
-                            f"GM n={tissue_values['GM'].size}, "
-                            f"WM n={tissue_values['WM'].size}"
+                            f'{tissue_acpc_path}; '
+                            f'GM n={tissue_values["GM"].size}, '
+                            f'WM n={tissue_values["WM"].size}'
                         ),
                     )
                 except Exception as error:
                     LOGGER.exception(
-                        "Failed DWI QC for %s %s %s",
+                        'Failed DWI QC for %s %s %s',
                         key.subject,
                         key.session,
                         metric.label,
@@ -1920,20 +1828,14 @@ def dwi_pages(
                     status(
                         statuses,
                         key,
-                        "DWI",
+                        'DWI',
                         metric.label,
                         False,
                         str(error),
                     )
 
-            limits = scalar_group_limits(
-                scale_arrays, scale_masks, display_percentiles
-            )
-            center_world = (
-                np.median(np.vstack(world_centers), axis=0)
-                if world_centers
-                else None
-            )
+            limits = scalar_group_limits(scale_arrays, scale_masks, display_percentiles)
+            center_world = np.median(np.vstack(world_centers), axis=0) if world_centers else None
             for session_index, inputs in enumerate(subject_inputs):
                 key = inputs.key
                 row = metric_index * len(subject_inputs) + session_index
@@ -1942,19 +1844,17 @@ def dwi_pages(
                     missing_panel(
                         figure,
                         grid[row, 0],
-                        f"{metric.label} | {key.session} | ACPC",
-                        errors.get(key, "DWI scalar map could not be prepared"),
+                        f'{metric.label} | {key.session} | ACPC',
+                        errors.get(key, 'DWI scalar map could not be prepared'),
                     )
                     continue
                 plot_orthogonal_montage(
                     figure,
                     grid[row, 0],
                     panel_data.acpc_reference,
-                    np.where(
-                        panel_data.brain_mask, panel_data.data, np.nan
-                    ),
-                    overlay_kind="scalar",
-                    title=f"{metric.label} | {key.session} | ACPC",
+                    np.where(panel_data.brain_mask, panel_data.data, np.nan),
+                    overlay_kind='scalar',
+                    title=f'{metric.label} | {key.session} | ACPC',
                     limits=limits,
                     note=panel_data.source_path.name,
                     center_world=center_world,
@@ -1969,7 +1869,7 @@ def dwi_pages(
                 subject_inputs,
                 distributions,
                 distribution_errors,
-                space_label="ACPC",
+                space_label='ACPC',
             )
         page_number = save_page(pdf, figure, page_number)
     return page_number
@@ -1985,53 +1885,53 @@ def cover_page(
     dwi_metrics: Sequence[MetricPattern],
     page_number: int,
 ) -> int:
-    figure = plt.figure(figsize=PAGE_SIZE, facecolor="white")
+    figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
     axis = figure.add_axes([0, 0, 1, 1])
     axis.set_axis_off()
     axis.text(
         0.07,
         0.80,
-        "NIBS Spatial Quality Report",
+        'NIBS Spatial Quality Report',
         fontsize=30,
-        fontweight="bold",
-        va="top",
+        fontweight='bold',
+        va='top',
     )
     axis.text(
         0.07,
         0.72,
-        "ACPC/T1w bundle, parcellation, myelin, and DWI scalar QC",
+        'ACPC/T1w bundle, parcellation, myelin, and DWI scalar QC',
         fontsize=15,
-        color="#444444",
-        va="top",
+        color='#444444',
+        va='top',
     )
     details = [
-        ("Generated", datetime.now().astimezone().isoformat(timespec="seconds")),
-        ("Derivatives", str(derivatives)),
-        ("Output", str(output)),
-        ("Subject/session pairs", str(len(session_keys))),
-        ("Bundles", ", ".join(bundle_names)),
-        ("Myelin-sensitive maps", ", ".join(metric.label for metric in metrics)),
-        ("Selected DWI maps", ", ".join(metric.label for metric in dwi_metrics)),
+        ('Generated', datetime.now().astimezone().isoformat(timespec='seconds')),
+        ('Derivatives', str(derivatives)),
+        ('Output', str(output)),
+        ('Subject/session pairs', str(len(session_keys))),
+        ('Bundles', ', '.join(bundle_names)),
+        ('Myelin-sensitive maps', ', '.join(metric.label for metric in metrics)),
+        ('Selected DWI maps', ', '.join(metric.label for metric in dwi_metrics)),
     ]
     y = 0.59
     for label, value in details:
-        axis.text(0.08, y, label, fontsize=10, fontweight="bold", va="top")
+        axis.text(0.08, y, label, fontsize=10, fontweight='bold', va='top')
         axis.text(
             0.25,
             y,
             textwrap.fill(value, 110),
             fontsize=10,
-            color="#333333",
-            va="top",
+            color='#333333',
+            va='top',
         )
         y -= 0.075 if len(value) < 100 else 0.10
     axis.text(
         0.07,
         0.12,
-        "This report is a visual QC aid. It does not assign automated pass/fail labels.",
+        'This report is a visual QC aid. It does not assign automated pass/fail labels.',
         fontsize=10,
-        color="#666666",
-        style="italic",
+        color='#666666',
+        style='italic',
     )
     return save_page(pdf, figure, page_number)
 
@@ -2041,21 +1941,19 @@ def summary_pages(
     entries: Sequence[StatusEntry],
     page_number: int,
 ) -> int:
-    failures = [entry for entry in entries if entry.status != "OK"]
+    failures = [entry for entry in entries if entry.status != 'OK']
     rows_per_page = 28
     pages = max(1, (len(failures) + rows_per_page - 1) // rows_per_page)
     for page_index in range(pages):
-        subset = failures[
-            page_index * rows_per_page : (page_index + 1) * rows_per_page
-        ]
-        figure = plt.figure(figsize=PAGE_SIZE, facecolor="white")
+        subset = failures[page_index * rows_per_page : (page_index + 1) * rows_per_page]
+        figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
         add_page_header(
             figure,
-            "Missing or failed inputs",
+            'Missing or failed inputs',
             (
-                f"{len(failures)} issue(s) across {len(entries)} checks"
+                f'{len(failures)} issue(s) across {len(entries)} checks'
                 if failures
-                else f"No missing inputs across {len(entries)} checks"
+                else f'No missing inputs across {len(entries)} checks'
             ),
         )
         axis = figure.add_axes([0.04, 0.07, 0.92, 0.80])
@@ -2064,24 +1962,24 @@ def summary_pages(
             axis.text(
                 0.5,
                 0.55,
-                "No missing or failed inputs",
-                ha="center",
-                va="center",
+                'No missing or failed inputs',
+                ha='center',
+                va='center',
                 fontsize=20,
-                color="#2A9D8F",
+                color='#2A9D8F',
                 transform=axis.transAxes,
             )
         else:
             column_x = (0.00, 0.10, 0.20, 0.34, 0.52)
-            headers = ("Subject", "Session", "Section", "Item", "Detail")
+            headers = ('Subject', 'Session', 'Section', 'Item', 'Detail')
             for x, header in zip(column_x, headers):
                 axis.text(
                     x,
                     1.0,
                     header,
                     fontsize=8,
-                    fontweight="bold",
-                    va="top",
+                    fontweight='bold',
+                    va='top',
                     transform=axis.transAxes,
                 )
             for row, entry in enumerate(subset, start=1):
@@ -2091,7 +1989,7 @@ def summary_pages(
                     entry.session,
                     entry.section,
                     entry.item,
-                    textwrap.shorten(entry.detail, width=92, placeholder="…"),
+                    textwrap.shorten(entry.detail, width=92, placeholder='…'),
                 )
                 for x, value in zip(column_x, values):
                     axis.text(
@@ -2099,8 +1997,8 @@ def summary_pages(
                         y,
                         value,
                         fontsize=6.5,
-                        color=MISSING_COLOR if x < 0.52 else "#333333",
-                        va="top",
+                        color=MISSING_COLOR if x < 0.52 else '#333333',
+                        va='top',
                         transform=axis.transAxes,
                     )
         page_number = save_page(pdf, figure, page_number)
@@ -2112,10 +2010,7 @@ def parse_metrics(requested: Sequence[str] | None) -> list[MetricPattern]:
         return list(MYELIN_METRICS)
     unknown = sorted(set(requested).difference(METRIC_BY_LABEL))
     if unknown:
-        raise ValueError(
-            f"Unknown myelin metric(s): {unknown}. "
-            f"Choices: {sorted(METRIC_BY_LABEL)}"
-        )
+        raise ValueError(f'Unknown myelin metric(s): {unknown}. Choices: {sorted(METRIC_BY_LABEL)}')
     return [METRIC_BY_LABEL[label] for label in requested]
 
 
@@ -2127,8 +2022,7 @@ def parse_dwi_metrics(
     unknown = sorted(set(requested).difference(DWI_METRIC_BY_LABEL))
     if unknown:
         raise ValueError(
-            f"Unknown DWI metric(s): {unknown}. "
-            f"Choices: {sorted(DWI_METRIC_BY_LABEL)}"
+            f'Unknown DWI metric(s): {unknown}. Choices: {sorted(DWI_METRIC_BY_LABEL)}'
         )
     return [DWI_METRIC_BY_LABEL[label] for label in requested]
 
@@ -2144,9 +2038,7 @@ def build_session_keys(
         else discover_subjects(derivatives)
     )
     session_filter = (
-        {normalize_session(value) for value in requested_sessions}
-        if requested_sessions
-        else None
+        {normalize_session(value) for value in requested_sessions} if requested_sessions else None
     )
     keys: list[SessionKey] = []
     for subject in subjects:
@@ -2162,17 +2054,15 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
     derivatives = (
         Path(args.derivatives_root).expanduser().resolve()
         if args.derivatives_root
-        else project_root / "derivatives"
+        else project_root / 'derivatives'
     )
     output = (
         Path(args.output).expanduser().resolve()
         if args.output
-        else derivatives / "qc_report" / "qc_report.pdf"
+        else derivatives / 'qc_report' / 'qc_report.pdf'
     )
     work_dir = (
-        Path(args.work_dir).expanduser().resolve()
-        if args.work_dir
-        else output.parent / "work"
+        Path(args.work_dir).expanduser().resolve() if args.work_dir else output.parent / 'work'
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -2180,32 +2070,30 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
     metrics = parse_metrics(args.myelin_metric)
     dwi_metrics = parse_dwi_metrics(args.dwi_metric)
     bundle_names = args.bundle or [
-        "Association_ArcuateFasciculusL",
-        "Association_ArcuateFasciculusR",
+        'Association_ArcuateFasciculusL',
+        'Association_ArcuateFasciculusR',
     ]
-    session_keys = build_session_keys(
-        derivatives, args.subject_id, args.session_id
-    )
+    session_keys = build_session_keys(derivatives, args.subject_id, args.session_id)
     if not session_keys:
         raise RuntimeError(
-            f"No subject/session pairs discovered under {derivatives}. "
-            "Use --subject-id and --session-id to specify them explicitly."
+            f'No subject/session pairs discovered under {derivatives}. '
+            'Use --subject-id and --session-id to specify them explicitly.'
         )
     ants_command = resolve_ants_command(args.ants_apply_transforms)
     if ants_command is None:
         LOGGER.warning(
-            "antsApplyTransforms was not found on PATH; antspyx will be used if available."
+            'antsApplyTransforms was not found on PATH; antspyx will be used if available.'
         )
 
     statuses: list[StatusEntry] = []
     page_number = 1
-    LOGGER.info("Writing %s", output)
+    LOGGER.info('Writing %s', output)
     with PdfPages(output) as pdf:
         metadata = pdf.infodict()
-        metadata["Title"] = "NIBS Spatial Quality Report"
-        metadata["Author"] = "NIBS generate_qc_report.py"
-        metadata["Subject"] = "ACPC and T1w spatial registration QC"
-        metadata["CreationDate"] = datetime.now()
+        metadata['Title'] = 'NIBS Spatial Quality Report'
+        metadata['Author'] = 'NIBS generate_qc_report.py'
+        metadata['Subject'] = 'ACPC and T1w spatial registration QC'
+        metadata['CreationDate'] = datetime.now()
         page_number = cover_page(
             pdf,
             output,
@@ -2218,14 +2106,10 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
         )
         subjects = sorted({key.subject for key in session_keys})
         for subject_index, subject in enumerate(subjects, start=1):
-            subject_keys = [
-                key for key in session_keys if key.subject == subject
-            ]
-            subject_inputs = [
-                collect_session_inputs(derivatives, key) for key in subject_keys
-            ]
+            subject_keys = [key for key in session_keys if key.subject == subject]
+            subject_inputs = [collect_session_inputs(derivatives, key) for key in subject_keys]
             LOGGER.info(
-                "[%d/%d] Processing %s (%d session(s))",
+                '[%d/%d] Processing %s (%d session(s))',
                 subject_index,
                 len(subjects),
                 subject,
@@ -2277,16 +2161,16 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
             )
         summary_pages(pdf, statuses, page_number)
 
-    failures = [entry for entry in statuses if entry.status != "OK"]
+    failures = [entry for entry in statuses if entry.status != 'OK']
     LOGGER.info(
-        "Wrote %s (%d checks, %d missing/failed)",
+        'Wrote %s (%d checks, %d missing/failed)',
         output,
         len(statuses),
         len(failures),
     )
     if args.strict and failures:
         raise RuntimeError(
-            f"Report completed with {len(failures)} missing or failed checks: {output}"
+            f'Report completed with {len(failures)} missing or failed checks: {output}'
         )
     return output, statuses
 
@@ -2297,97 +2181,97 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--project-root",
-        default=os.environ.get("NIBS_PROJECT_ROOT", "/cbica/projects/nibs"),
-        help="NIBS project root containing derivatives/.",
+        '--project-root',
+        default=os.environ.get('NIBS_PROJECT_ROOT', '/cbica/projects/nibs'),
+        help='NIBS project root containing derivatives/.',
     )
     parser.add_argument(
-        "--derivatives-root",
-        help="Override the derivatives directory.",
+        '--derivatives-root',
+        help='Override the derivatives directory.',
     )
     parser.add_argument(
-        "--subject-id",
-        action="append",
-        help="Subject to include, with or without sub-. Repeat to include several.",
+        '--subject-id',
+        action='append',
+        help='Subject to include, with or without sub-. Repeat to include several.',
     )
     parser.add_argument(
-        "--session-id",
-        action="append",
-        help="Session to include, with or without ses-. Repeat to include several.",
+        '--session-id',
+        action='append',
+        help='Session to include, with or without ses-. Repeat to include several.',
     )
     parser.add_argument(
-        "--output",
-        help="Output PDF. Defaults to derivatives/qc_report/qc_report.pdf.",
+        '--output',
+        help='Output PDF. Defaults to derivatives/qc_report/qc_report.pdf.',
     )
     parser.add_argument(
-        "--work-dir",
-        help="Cache directory for temporary tractograms and warped tissue label maps.",
+        '--work-dir',
+        help='Cache directory for temporary tractograms and warped tissue label maps.',
     )
     parser.add_argument(
-        "--bundle",
-        action="append",
+        '--bundle',
+        action='append',
         help=(
-            "Bundle name to render. Repeat for several. Defaults to left and right "
-            "Association_ArcuateFasciculus."
+            'Bundle name to render. Repeat for several. Defaults to left and right '
+            'Association_ArcuateFasciculus.'
         ),
     )
     parser.add_argument(
-        "--myelin-metric",
-        action="append",
+        '--myelin-metric',
+        action='append',
         choices=sorted(METRIC_BY_LABEL),
-        help="Myelin-sensitive metric to render. Repeat; default is every listed metric.",
+        help='Myelin-sensitive metric to render. Repeat; default is every listed metric.',
     )
     parser.add_argument(
-        "--dwi-metric",
-        action="append",
+        '--dwi-metric',
+        action='append',
         choices=sorted(DWI_METRIC_BY_LABEL),
-        help="DWI metric to render. Repeat; default is every selected DWI metric.",
+        help='DWI metric to render. Repeat; default is every selected DWI metric.',
     )
     parser.add_argument(
-        "--metrics-per-page",
+        '--metrics-per-page',
         type=int,
         default=4,
         help=(
-            "Maximum metric-session rows on each scalar-map page. With two "
-            "sessions, the default displays two metrics per page."
+            'Maximum metric-session rows on each scalar-map page. With two '
+            'sessions, the default displays two metrics per page.'
         ),
     )
     parser.add_argument(
-        "--display-percentiles",
+        '--display-percentiles',
         type=float,
         nargs=2,
-        metavar=("LOW", "HIGH"),
+        metavar=('LOW', 'HIGH'),
         default=(5.0, 95.0),
         help=(
-            "Robust scalar-map display percentiles, calculated jointly across "
-            "all available sessions for each metric, using only voxels inside "
-            "the corresponding brain mask."
+            'Robust scalar-map display percentiles, calculated jointly across '
+            'all available sessions for each metric, using only voxels inside '
+            'the corresponding brain mask.'
         ),
     )
     parser.add_argument(
-        "--max-streamlines",
+        '--max-streamlines',
         type=int,
         default=4000,
-        help="Maximum streamlines rasterized per bundle and space.",
+        help='Maximum streamlines rasterized per bundle and space.',
     )
     parser.add_argument(
-        "--ants-apply-transforms",
-        help="Path or command name for antsApplyTransforms.",
+        '--ants-apply-transforms',
+        help='Path or command name for antsApplyTransforms.',
     )
     parser.add_argument(
-        "--overwrite-warps",
-        action="store_true",
-        help="Regenerate cached ACPC tissue label maps used for DWI distributions.",
+        '--overwrite-warps',
+        action='store_true',
+        help='Regenerate cached ACPC tissue label maps used for DWI distributions.',
     )
     parser.add_argument(
-        "--strict",
-        action="store_true",
-        help="Exit nonzero after writing the report if any input/check failed.",
+        '--strict',
+        action='store_true',
+        help='Exit nonzero after writing the report if any input/check failed.',
     )
     parser.add_argument(
-        "--log-level",
-        choices=("DEBUG", "INFO", "WARNING", "ERROR"),
-        default="INFO",
+        '--log-level',
+        choices=('DEBUG', 'INFO', 'WARNING', 'ERROR'),
+        default='INFO',
     )
     return parser
 
@@ -2396,21 +2280,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.metrics_per_page < 1:
-        parser.error("--metrics-per-page must be at least 1")
+        parser.error('--metrics-per-page must be at least 1')
     if args.max_streamlines < 1:
-        parser.error("--max-streamlines must be at least 1")
+        parser.error('--max-streamlines must be at least 1')
     low_percentile, high_percentile = args.display_percentiles
     if not 0 <= low_percentile < high_percentile <= 100:
-        parser.error(
-            "--display-percentiles must satisfy 0 <= LOW < HIGH <= 100"
-        )
+        parser.error('--display-percentiles must satisfy 0 <= LOW < HIGH <= 100')
     logging.basicConfig(
         level=getattr(logging, args.log_level),
-        format="%(asctime)s | %(levelname)s | %(message)s",
+        format='%(asctime)s | %(levelname)s | %(message)s',
     )
     generate_report(args)
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())

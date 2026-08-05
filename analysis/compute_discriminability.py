@@ -21,17 +21,17 @@ from compute_icc_from_bundle_stats import apply_metric_qc as apply_wm_metric_qc
 from compute_icc_from_bundle_stats import load_qc_table
 
 
-DEFAULT_QC_FILE = Path(__file__).resolve().parents[1] / "data" / "manual_qc_modality.tsv"
-QC_MODES = ("metricqc", "completeqc")
+DEFAULT_QC_FILE = Path(__file__).resolve().parents[1] / 'data' / 'manual_qc_modality.tsv'
+QC_MODES = ('metricqc', 'completeqc')
 DEFAULT_WM_GLOBS = [
-    "/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-*/sub-*/ses-*/dwi/sub-*_ses-*_*_scalarstats.tsv",
-    "/cbica/projects/nibs/derivatives/bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-*_scalarstats.tsv",
+    '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-*/sub-*/ses-*/dwi/sub-*_ses-*_*_scalarstats.tsv',
+    '/cbica/projects/nibs/derivatives/bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-*_scalarstats.tsv',
 ]
 DEFAULT_DKT_GLOBS = [
-    "/cbica/projects/nibs/derivatives/DKTatlas_myelin_stats/"
-    "sub-*/sub-*_ses-*_run-*_desc-DKTatlas_scalarstats.csv"
+    '/cbica/projects/nibs/derivatives/DKTatlas_myelin_stats/'
+    'sub-*/sub-*_ses-*_run-*_desc-DKTatlas_scalarstats.csv'
 ]
-EXCLUDED_DKT_METRICS = {"G-ihMTsat", "G-ihMTR"}
+EXCLUDED_DKT_METRICS = {'G-ihMTsat', 'G-ihMTR'}
 
 
 def apply_qc_mode(
@@ -40,28 +40,26 @@ def apply_qc_mode(
     qc_mode: str,
     profile_type: str,
 ) -> pd.DataFrame:
-    if profile_type == "wm":
-        if qc_mode == "metricqc":
-            return apply_wm_metric_qc(
-                df, qc_df, subject_col="subject", session_col="session"
-            )
-        if qc_mode == "completeqc":
-            return apply_wm_complete_qc(df, qc_df, subject_col="subject")
-    elif profile_type == "dkt":
-        if qc_mode == "metricqc":
+    if profile_type == 'wm':
+        if qc_mode == 'metricqc':
+            return apply_wm_metric_qc(df, qc_df, subject_col='subject', session_col='session')
+        if qc_mode == 'completeqc':
+            return apply_wm_complete_qc(df, qc_df, subject_col='subject')
+    elif profile_type == 'dkt':
+        if qc_mode == 'metricqc':
             return apply_dkt_metric_qc(df, qc_df)
-        if qc_mode == "completeqc":
+        if qc_mode == 'completeqc':
             return apply_dkt_complete_qc(df, qc_df)
-    raise ValueError(f"Unsupported QC mode/profile_type: {qc_mode}/{profile_type}")
+    raise ValueError(f'Unsupported QC mode/profile_type: {qc_mode}/{profile_type}')
 
 
 def _value_column(df: pd.DataFrame, stat: str, prefer_masked: bool) -> pd.Series:
-    masked_col = f"masked_{stat}"
+    masked_col = f'masked_{stat}'
     if prefer_masked and masked_col in df.columns:
-        masked = pd.to_numeric(df[masked_col], errors="coerce")
-        raw = pd.to_numeric(df[stat], errors="coerce")
+        masked = pd.to_numeric(df[masked_col], errors='coerce')
+        raw = pd.to_numeric(df[stat], errors='coerce')
         return masked.where(np.isfinite(masked.to_numpy(dtype=float)), raw)
-    return pd.to_numeric(df[stat], errors="coerce")
+    return pd.to_numeric(df[stat], errors='coerce')
 
 
 def _zscore_columns(matrix: pd.DataFrame) -> pd.DataFrame:
@@ -75,12 +73,12 @@ def _zscore_columns(matrix: pd.DataFrame) -> pd.DataFrame:
 
 
 def _pairwise_distances(values: np.ndarray, metric: str) -> np.ndarray:
-    if metric == "euclidean":
+    if metric == 'euclidean':
         diffs = values[:, None, :] - values[None, :, :]
         return np.sqrt(np.sum(diffs * diffs, axis=2))
 
-    if metric != "correlation":
-        raise ValueError(f"Unsupported distance metric: {metric}")
+    if metric != 'correlation':
+        raise ValueError(f'Unsupported distance metric: {metric}')
 
     centered = values - values.mean(axis=1, keepdims=True)
     norms = np.linalg.norm(centered, axis=1, keepdims=True)
@@ -100,8 +98,8 @@ def _score_profile_matrix(
         return None
 
     matrix = matrix.sort_index()
-    subjects = matrix.index.get_level_values("subject").astype(str).to_numpy()
-    sessions = matrix.index.get_level_values("session").astype(str).to_numpy()
+    subjects = matrix.index.get_level_values('subject').astype(str).to_numpy()
+    sessions = matrix.index.get_level_values('session').astype(str).to_numpy()
     values = matrix.to_numpy(dtype=float)
 
     paired_subjects = pd.Series(sessions, index=subjects).groupby(level=0).nunique()
@@ -148,19 +146,19 @@ def _score_profile_matrix(
         return None
 
     return {
-        "profile_type": profile_type,
-        "profile_group": group_name,
-        "stat": stat,
-        "distance_metric": distance_metric,
-        "discriminability": float(np.mean(scores)),
-        "nearest_neighbor_accuracy": float(np.mean(nearest_correct)),
-        "mean_genuine_distance": float(np.mean(genuine_distances)),
-        "mean_impostor_distance": float(np.mean(impostor_distances)),
-        "mean_rank_percentile": float(np.mean(rank_percentiles)),
-        "n_subjects": int(len(np.unique(subjects))),
-        "n_sessions": int(len(np.unique(sessions))),
-        "n_profiles": int(len(subjects)),
-        "n_features": int(values.shape[1]),
+        'profile_type': profile_type,
+        'profile_group': group_name,
+        'stat': stat,
+        'distance_metric': distance_metric,
+        'discriminability': float(np.mean(scores)),
+        'nearest_neighbor_accuracy': float(np.mean(nearest_correct)),
+        'mean_genuine_distance': float(np.mean(genuine_distances)),
+        'mean_impostor_distance': float(np.mean(impostor_distances)),
+        'mean_rank_percentile': float(np.mean(rank_percentiles)),
+        'n_subjects': int(len(np.unique(subjects))),
+        'n_sessions': int(len(np.unique(sessions))),
+        'n_profiles': int(len(subjects)),
+        'n_features': int(values.shape[1]),
     }
 
 
@@ -173,16 +171,16 @@ def _build_profile_matrix(
     zscore_features: bool,
 ) -> pd.DataFrame:
     grouped = (
-        df[["subject", "session", feature_col, value_col]]
+        df[['subject', 'session', feature_col, value_col]]
         .dropna(subset=[value_col])
-        .groupby(["subject", "session", feature_col], as_index=False)[value_col]
+        .groupby(['subject', 'session', feature_col], as_index=False)[value_col]
         .mean()
     )
     matrix = grouped.pivot_table(
-        index=["subject", "session"],
+        index=['subject', 'session'],
         columns=feature_col,
         values=value_col,
-        aggfunc="mean",
+        aggfunc='mean',
     )
     if matrix.empty:
         return matrix
@@ -195,7 +193,7 @@ def _build_profile_matrix(
         return matrix
 
     matrix = matrix.apply(lambda col: col.fillna(col.mean()), axis=0)
-    matrix = matrix.dropna(axis=1, how="any")
+    matrix = matrix.dropna(axis=1, how='any')
     if zscore_features:
         matrix = _zscore_columns(matrix)
     return matrix
@@ -211,13 +209,13 @@ def _compute_discriminability(
     zscore_features: bool,
 ) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
-    value_col = "value"
+    value_col = 'value'
 
     all_df = long_df.copy()
-    all_df["metric_feature"] = all_df["metric"].astype(str) + "|" + all_df["feature"].astype(str)
+    all_df['metric_feature'] = all_df['metric'].astype(str) + '|' + all_df['feature'].astype(str)
     all_matrix = _build_profile_matrix(
         all_df,
-        feature_col="metric_feature",
+        feature_col='metric_feature',
         value_col=value_col,
         min_feature_coverage=min_feature_coverage,
         min_profile_coverage=min_profile_coverage,
@@ -225,7 +223,7 @@ def _compute_discriminability(
     )
     all_score = _score_profile_matrix(
         all_matrix,
-        group_name="ALL_METRICS",
+        group_name='ALL_METRICS',
         profile_type=profile_type,
         stat=stat,
         distance_metric=distance_metric,
@@ -233,10 +231,10 @@ def _compute_discriminability(
     if all_score is not None:
         rows.append(all_score)
 
-    for metric_name, metric_df in long_df.groupby("metric", sort=True):
+    for metric_name, metric_df in long_df.groupby('metric', sort=True):
         matrix = _build_profile_matrix(
             metric_df,
-            feature_col="feature",
+            feature_col='feature',
             value_col=value_col,
             min_feature_coverage=min_feature_coverage,
             min_profile_coverage=min_profile_coverage,
@@ -252,110 +250,110 @@ def _compute_discriminability(
         if score is not None:
             rows.append(score)
 
-    return pd.DataFrame(rows).sort_values(["profile_type", "profile_group"]).reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values(['profile_type', 'profile_group']).reset_index(drop=True)
 
 
 def load_wm_long_df(input_globs: list[str], stat: str, prefer_masked: bool) -> pd.DataFrame:
     df = collect_scalarstats(input_globs)
     if df.empty:
-        raise RuntimeError(f"No WM bundle scalarstats found for globs: {input_globs}")
+        raise RuntimeError(f'No WM bundle scalarstats found for globs: {input_globs}')
     df = df.copy()
-    df["subject"] = df["subject_id"].astype(str)
-    df["session"] = df["session_id"].astype(str)
-    df["feature"] = df["bundle"].astype(str)
-    df["value"] = _value_column(df, stat=stat, prefer_masked=prefer_masked)
-    return df[["subject", "session", "metric", "feature", "value"]]
+    df['subject'] = df['subject_id'].astype(str)
+    df['session'] = df['session_id'].astype(str)
+    df['feature'] = df['bundle'].astype(str)
+    df['value'] = _value_column(df, stat=stat, prefer_masked=prefer_masked)
+    return df[['subject', 'session', 'metric', 'feature', 'value']]
 
 
 def load_dkt_long_df(input_globs: list[str], stat: str) -> pd.DataFrame:
     row_tables = [collect_rows(input_glob) for input_glob in input_globs]
     row_tables = [table for table in row_tables if not table.empty]
     if not row_tables:
-        raise RuntimeError(f"No DKT parcel stats found for glob(s): {input_globs}")
+        raise RuntimeError(f'No DKT parcel stats found for glob(s): {input_globs}')
     rows = pd.concat(row_tables, ignore_index=True).drop_duplicates()
     value_df = build_value_table(rows, stat=stat)
     value_df = value_df.copy()
-    value_df["feature"] = value_df["parcel"].astype(str)
-    value_df = value_df.rename(columns={"subject": "subject", "session": "session"})
-    value_df = value_df[~value_df["metric"].isin(EXCLUDED_DKT_METRICS)].copy()
-    value_df["value"] = pd.to_numeric(value_df["value"], errors="coerce")
-    return value_df[["subject", "session", "metric", "feature", "value"]]
+    value_df['feature'] = value_df['parcel'].astype(str)
+    value_df = value_df.rename(columns={'subject': 'subject', 'session': 'session'})
+    value_df = value_df[~value_df['metric'].isin(EXCLUDED_DKT_METRICS)].copy()
+    value_df['value'] = pd.to_numeric(value_df['value'], errors='coerce')
+    return value_df[['subject', 'session', 'metric', 'feature', 'value']]
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--analysis",
-        choices=("wm", "dkt", "both"),
-        default="both",
-        help="Which profile discriminability analysis to run.",
+        '--analysis',
+        choices=('wm', 'dkt', 'both'),
+        default='both',
+        help='Which profile discriminability analysis to run.',
     )
     parser.add_argument(
-        "--stat",
-        choices=("mean", "median"),
-        default="median",
-        help="Scalar statistic to use.",
+        '--stat',
+        choices=('mean', 'median'),
+        default='median',
+        help='Scalar statistic to use.',
     )
     parser.add_argument(
-        "--prefer-masked",
-        action="store_true",
-        help="For WM bundle TSVs, prefer masked_mean/masked_median when available.",
+        '--prefer-masked',
+        action='store_true',
+        help='For WM bundle TSVs, prefer masked_mean/masked_median when available.',
     )
     parser.add_argument(
-        "--distance-metric",
-        choices=("correlation", "euclidean"),
-        default="correlation",
-        help="Distance metric between subject-session profiles.",
+        '--distance-metric',
+        choices=('correlation', 'euclidean'),
+        default='correlation',
+        help='Distance metric between subject-session profiles.',
     )
     parser.add_argument(
-        "--no-zscore",
-        action="store_true",
-        help="Do not z-score features before computing distances.",
+        '--no-zscore',
+        action='store_true',
+        help='Do not z-score features before computing distances.',
     )
     parser.add_argument(
-        "--min-feature-coverage",
+        '--min-feature-coverage',
         type=float,
         default=0.8,
-        help="Minimum fraction of profiles with finite data required for a feature.",
+        help='Minimum fraction of profiles with finite data required for a feature.',
     )
     parser.add_argument(
-        "--min-profile-coverage",
+        '--min-profile-coverage',
         type=float,
         default=0.8,
-        help="Minimum fraction of retained features required for a subject-session profile.",
+        help='Minimum fraction of retained features required for a subject-session profile.',
     )
     parser.add_argument(
-        "--wm-input-globs",
-        nargs="+",
+        '--wm-input-globs',
+        nargs='+',
         default=DEFAULT_WM_GLOBS,
-        help="Input globs for WM bundle scalarstats TSVs.",
+        help='Input globs for WM bundle scalarstats TSVs.',
     )
     parser.add_argument(
-        "--dkt-input-glob",
-        nargs="+",
+        '--dkt-input-glob',
+        nargs='+',
         default=DEFAULT_DKT_GLOBS,
         help=(
-            "Input glob(s) or expanded file path(s) for DKT parcel stats CSVs. "
-            "Quote shell globs to avoid expansion, or pass multiple files."
+            'Input glob(s) or expanded file path(s) for DKT parcel stats CSVs. '
+            'Quote shell globs to avoid expansion, or pass multiple files.'
         ),
     )
     parser.add_argument(
-        "--qc-file",
+        '--qc-file',
         type=Path,
         default=DEFAULT_QC_FILE,
-        help="Manual modality QC TSV.",
+        help='Manual modality QC TSV.',
     )
     parser.add_argument(
-        "--qc-mode",
-        nargs="+",
+        '--qc-mode',
+        nargs='+',
         choices=QC_MODES,
         default=list(QC_MODES),
-        help="QC-filtered discriminability versions to write.",
+        help='QC-filtered discriminability versions to write.',
     )
     parser.add_argument(
-        "--outdir",
-        default="/cbica/projects/nibs/derivatives/ICC",
-        help="Output directory.",
+        '--outdir',
+        default='/cbica/projects/nibs/derivatives/ICC',
+        help='Output directory.',
     )
     return parser
 
@@ -368,52 +366,52 @@ def main() -> None:
     zscore_features = not args.no_zscore
     qc_df = load_qc_table(args.qc_file)
 
-    if args.analysis in {"wm", "both"}:
+    if args.analysis in {'wm', 'both'}:
         wm_df = load_wm_long_df(
             input_globs=args.wm_input_globs,
             stat=args.stat,
             prefer_masked=args.prefer_masked,
         )
-        suffix = f"{args.stat}_{args.distance_metric}"
+        suffix = f'{args.stat}_{args.distance_metric}'
         if args.prefer_masked:
-            suffix = f"masked_preferred_{suffix}"
+            suffix = f'masked_preferred_{suffix}'
         for qc_mode in args.qc_mode:
-            filtered_wm = apply_qc_mode(wm_df, qc_df, qc_mode, profile_type="wm")
+            filtered_wm = apply_qc_mode(wm_df, qc_df, qc_mode, profile_type='wm')
             wm_out = _compute_discriminability(
                 filtered_wm,
-                profile_type="wm_bundles",
+                profile_type='wm_bundles',
                 stat=args.stat,
                 min_feature_coverage=args.min_feature_coverage,
                 min_profile_coverage=args.min_profile_coverage,
                 distance_metric=args.distance_metric,
                 zscore_features=zscore_features,
             )
-            wm_out.insert(0, "qc_mode", qc_mode)
-            out_csv = outdir / f"discriminability_wm_bundles_{suffix}_{qc_mode}.csv"
+            wm_out.insert(0, 'qc_mode', qc_mode)
+            out_csv = outdir / f'discriminability_wm_bundles_{suffix}_{qc_mode}.csv'
             wm_out.to_csv(out_csv, index=False)
-            print(f"Wrote: {out_csv}", flush=True)
+            print(f'Wrote: {out_csv}', flush=True)
 
-    if args.analysis in {"dkt", "both"}:
+    if args.analysis in {'dkt', 'both'}:
         dkt_df = load_dkt_long_df(args.dkt_input_glob, stat=args.stat)
         for qc_mode in args.qc_mode:
-            filtered_dkt = apply_qc_mode(dkt_df, qc_df, qc_mode, profile_type="dkt")
+            filtered_dkt = apply_qc_mode(dkt_df, qc_df, qc_mode, profile_type='dkt')
             dkt_out = _compute_discriminability(
                 filtered_dkt,
-                profile_type="DKTatlas_parcels",
+                profile_type='DKTatlas_parcels',
                 stat=args.stat,
                 min_feature_coverage=args.min_feature_coverage,
                 min_profile_coverage=args.min_profile_coverage,
                 distance_metric=args.distance_metric,
                 zscore_features=zscore_features,
             )
-            dkt_out.insert(0, "qc_mode", qc_mode)
+            dkt_out.insert(0, 'qc_mode', qc_mode)
             out_csv = (
                 outdir
-                / f"discriminability_DKTatlas_{args.stat}_{args.distance_metric}_{qc_mode}.csv"
+                / f'discriminability_DKTatlas_{args.stat}_{args.distance_metric}_{qc_mode}.csv'
             )
             dkt_out.to_csv(out_csv, index=False)
-            print(f"Wrote: {out_csv}", flush=True)
+            print(f'Wrote: {out_csv}', flush=True)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
