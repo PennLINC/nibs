@@ -11,6 +11,16 @@ nodes:
         isExvivo: false
     qsirecon_suffix: NODDI
     software: AMICO
+### NODDI with GM parameters
+-   action: fit_noddi
+    input: qsirecon
+    name: fit_noddi_gm
+    parameters:
+        dIso: 0.003
+        dPar: 0.0011
+        isExvivo: false
+    qsirecon_suffix: gmNODDI
+    software: AMICO
 ### DIPY DKI
 -   action: DKI_reconstruction
     input: qsirecon
@@ -123,9 +133,10 @@ nodes:
     input: qsirecon
     name: template_map
     parameters:
-        interpolation: NearestNeighbor
+        interpolation: Linear
     scalars_from:
     - fit_noddi
+    - fit_noddi_gm
     - gqi_scalars
     - dipy_dki
     - tortoise_fullshell_tensor
