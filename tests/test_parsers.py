@@ -24,6 +24,11 @@ _PARSER_MODULES = [
     'generate_myelin_reports',
 ]
 
+# The processing modules loop over every subject when --subject-id is omitted,
+# so the argument is optional there.  Report generation targets one subject and
+# still requires it.
+_SUBJECT_ID_REQUIRED = {'generate_myelin_reports'}
+
 
 def _import_get_parser(module_name):
     """Import ``_get_parser`` from *module_name*, patching heavy side-effects.
@@ -77,9 +82,13 @@ class TestGetParser:
         args = parser.parse_args(['--subject-id', 'sub-01'])
         assert args.subject_id == '01'
 
-    def test_missing_subject_id_exits(self, module_name):
-        """Omitting the required --subject-id should cause SystemExit."""
+    def test_missing_subject_id(self, module_name):
+        """Omitting --subject-id defaults to None, or exits where it is required."""
         get_parser = _import_get_parser(module_name)
         parser = get_parser()
-        with pytest.raises(SystemExit):
-            parser.parse_args([])
+
+        if module_name in _SUBJECT_ID_REQUIRED:
+            with pytest.raises(SystemExit):
+                parser.parse_args([])
+        else:
+            assert parser.parse_args([]).subject_id is None

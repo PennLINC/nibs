@@ -12,9 +12,23 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
+def _fake_config_dir(tmp_path, monkeypatch, name, yaml_text):
+    """Write ``paths_<name>.yml`` into *tmp_path* and point ``load_config`` at it.
+
+    ``load_config`` takes a config *name* and resolves it against its own
+    directory, so the only way to feed it a temporary file is to make that
+    directory temporary too.
+    """
+    import configuration.config as config_module
+
+    (tmp_path / f'paths_{name}.yml').write_text(yaml_text)
+    monkeypatch.setattr(config_module, '__file__', str(tmp_path / 'config.py'))
+    return name
+
+
 @pytest.fixture()
-def minimal_config_path(tmp_path):
-    """Write a small paths.yml to *tmp_path* and return its path."""
+def minimal_config_name(tmp_path, monkeypatch):
+    """Write a small paths_test.yml and return the config name to load it by."""
     yaml_text = """\
 project_root: /tmp/nibs_test
 
@@ -36,14 +50,12 @@ freesurfer:
   subjects_dir: derivatives/smriprep/sourcedata/freesurfer
   license: tokens/freesurfer_license.txt
 """
-    cfg_file = tmp_path / 'paths.yml'
-    cfg_file.write_text(yaml_text)
-    return str(cfg_file)
+    return _fake_config_dir(tmp_path, monkeypatch, 'test', yaml_text)
 
 
 @pytest.fixture()
-def minimal_config_no_sourcedata(tmp_path):
-    """A paths.yml that lacks the optional ``sourcedata`` section."""
+def minimal_config_no_sourcedata(tmp_path, monkeypatch):
+    """A config that lacks the optional ``sourcedata`` section."""
     yaml_text = """\
 project_root: /tmp/nibs_test
 
@@ -61,9 +73,7 @@ freesurfer:
   subjects_dir: derivatives/smriprep/sourcedata/freesurfer
   license: tokens/freesurfer_license.txt
 """
-    cfg_file = tmp_path / 'paths.yml'
-    cfg_file.write_text(yaml_text)
-    return str(cfg_file)
+    return _fake_config_dir(tmp_path, monkeypatch, 'nosourcedata', yaml_text)
 
 
 @pytest.fixture()

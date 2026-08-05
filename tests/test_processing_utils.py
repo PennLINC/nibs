@@ -75,35 +75,35 @@ class TestCalculateRSquared:
 class TestLoadConfig:
     """Tests for the YAML config loader."""
 
-    def test_top_level_keys_resolved(self, minimal_config_path):
-        cfg = load_config(minimal_config_path)
+    def test_top_level_keys_resolved(self, minimal_config_name):
+        cfg = load_config(minimal_config_name)
         root = '/tmp/nibs_test'
         assert cfg['project_root'] == root
         assert cfg['bids_dir'] == os.path.join(root, 'dset')
         assert cfg['code_dir'] == os.path.join(root, 'code')
         assert cfg['work_dir'] == os.path.join(root, 'work')
 
-    def test_derivatives_resolved(self, minimal_config_path):
-        cfg = load_config(minimal_config_path)
+    def test_derivatives_resolved(self, minimal_config_name):
+        cfg = load_config(minimal_config_name)
         root = '/tmp/nibs_test'
         assert cfg['derivatives']['smriprep'] == os.path.join(root, 'derivatives/smriprep')
         assert cfg['derivatives']['pymp2rage'] == os.path.join(root, 'derivatives/pymp2rage')
 
-    def test_sourcedata_resolved(self, minimal_config_path):
-        cfg = load_config(minimal_config_path)
+    def test_sourcedata_resolved(self, minimal_config_name):
+        cfg = load_config(minimal_config_name)
         root = '/tmp/nibs_test'
         assert cfg['sourcedata']['root'] == os.path.join(root, 'sourcedata')
         assert cfg['sourcedata']['scitran'] == os.path.join(
             root, 'sourcedata/scitran/bbl/NIBS_857664'
         )
 
-    def test_apptainer_resolved(self, minimal_config_path):
-        cfg = load_config(minimal_config_path)
+    def test_apptainer_resolved(self, minimal_config_name):
+        cfg = load_config(minimal_config_name)
         root = '/tmp/nibs_test'
         assert cfg['apptainer']['synthstrip'] == os.path.join(root, 'apptainer/synthstrip-1.7.sif')
 
-    def test_freesurfer_resolved(self, minimal_config_path):
-        cfg = load_config(minimal_config_path)
+    def test_freesurfer_resolved(self, minimal_config_name):
+        cfg = load_config(minimal_config_name)
         root = '/tmp/nibs_test'
         assert cfg['freesurfer']['license'] == os.path.join(root, 'tokens/freesurfer_license.txt')
 
