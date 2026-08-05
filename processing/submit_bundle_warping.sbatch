@@ -135,4 +135,3 @@ echo "sub-${subject}   ${SLURM_ARRAY_TASK_ID}    ${overall_exitcode}" \
   >> "${LOGS_DIR}/jobs/${SLURM_JOB_NAME}.${SLURM_ARRAY_JOB_ID}.tsv"
 echo "Finished task ${SLURM_ARRAY_TASK_ID} with exit code ${overall_exitcode}"
 exit ${overall_exitcode}
-

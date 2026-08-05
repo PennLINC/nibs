@@ -28,8 +28,6 @@ SELECTED_SCALARS = [
     'R1-B1c',
     'MPRAGE-MyelinW',
     'SPACE-MyelinW',
-    'G-ihMTsat',
-    'G-ihMTR',
     'QSM-SEPIA-E5',
     "QSM-X-R2'-E5-X",
     "QSM-X-R2'-E5-Para",

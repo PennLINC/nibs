@@ -15,8 +15,8 @@ set -euo pipefail
 PROJECT_ROOT="${PROJECT_ROOT:-/cbica/projects/nibs}"
 CODE_DIR="${CODE_DIR:-${PROJECT_ROOT}/code/analysis}"
 PYTHON="${PYTHON:-${HOME}/.conda/envs/myelin_reliability/bin/python}"
-OUTPUT="${OUTPUT:-${PROJECT_ROOT}/derivatives/spatial_qc/nibs_spatial_qc_report.pdf}"
-WORK_DIR="${WORK_DIR:-${PROJECT_ROOT}/derivatives/spatial_qc/work}"
+OUTPUT="${OUTPUT:-${PROJECT_ROOT}/derivatives/qc_report/qc_report.pdf}"
+WORK_DIR="${WORK_DIR:-${PROJECT_ROOT}/derivatives/qc_report/work}"
 
 mkdir -p "$(dirname "${OUTPUT}")" "${WORK_DIR}"
 
@@ -54,4 +54,3 @@ echo "Additional arguments: $*"
 
 echo "Finished: $(date)"
 echo "Report: ${OUTPUT}"
-

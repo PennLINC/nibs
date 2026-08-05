@@ -103,8 +103,8 @@ run_hemisphere() {
             --i "${container_input_t1w}" \
             --o "${container_output_dir}" \
             --device cpu \
-            --side "${hemisphere}" \
             --threads "${SLURM_CPUS_PER_TASK}" \
+            --side "${hemisphere}" \
             --mode invivo \
             --skip_bf
 }
