@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=spatial_qc
+#SBATCH --job-name=qc_report
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32gb
 #SBATCH --time=24:00:00
 # Outputs ----------------------------------
-#SBATCH --output=/cbica/projects/nibs/logs/spatial_qc_%j.out
-#SBATCH --error=/cbica/projects/nibs/logs/spatial_qc_%j.err
+#SBATCH --output=/cbica/projects/nibs/logs/qc_report_%j.out
+#SBATCH --error=/cbica/projects/nibs/logs/qc_report_%j.err
 # ------------------------------------------
 
 set -euo pipefail
@@ -15,8 +15,8 @@ set -euo pipefail
 PROJECT_ROOT="${PROJECT_ROOT:-/cbica/projects/nibs}"
 CODE_DIR="${CODE_DIR:-${PROJECT_ROOT}/code/analysis}"
 PYTHON="${PYTHON:-${HOME}/.conda/envs/myelin_reliability/bin/python}"
-OUTPUT="${OUTPUT:-${PROJECT_ROOT}/derivatives/spatial_qc/nibs_spatial_qc_report.pdf}"
-WORK_DIR="${WORK_DIR:-${PROJECT_ROOT}/derivatives/spatial_qc/work}"
+OUTPUT="${OUTPUT:-${PROJECT_ROOT}/derivatives/qc_report/qc_report.pdf}"
+WORK_DIR="${WORK_DIR:-${PROJECT_ROOT}/derivatives/qc_report/work}"
 
 mkdir -p "$(dirname "${OUTPUT}")" "${WORK_DIR}"
 
@@ -33,7 +33,7 @@ if [[ ! -x "${PYTHON}" ]]; then
   exit 1
 fi
 
-SCRIPT="${CODE_DIR}/generate_spatial_qc_report.py"
+SCRIPT="${CODE_DIR}/generate_qc_report.py"
 if [[ ! -f "${SCRIPT}" ]]; then
   echo "Report script not found: ${SCRIPT}" >&2
   exit 1

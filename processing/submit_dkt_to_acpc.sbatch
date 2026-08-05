@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=a2009s_acpc
+#SBATCH --job-name=dkt_acpc
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1-26
@@ -7,8 +7,8 @@
 #SBATCH --mem-per-cpu=8gb
 #SBATCH --time=06:00:00
 # Outputs ----------------------------------
-#SBATCH --output=/cbica/projects/nibs/logs/a2009s_to_acpc_%A-%a.out
-#SBATCH --error=/cbica/projects/nibs/logs/a2009s_to_acpc_%A-%a.err
+#SBATCH --output=/cbica/projects/nibs/logs/dkt_to_acpc_%A-%a.out
+#SBATCH --error=/cbica/projects/nibs/logs/dkt_to_acpc_%A-%a.err
 # ------------------------------------------
 
 pwd; hostname; date
@@ -31,10 +31,10 @@ if [[ -z "${subject}" ]]; then
   exit 1
 fi
 
-FS_MGZ="${SMRIPREP_DIR}/sourcedata/freesurfer/sub-${subject}/mri/aparc.a2009s+aseg.mgz"
+FS_MGZ="${SMRIPREP_DIR}/sourcedata/freesurfer/sub-${subject}/mri/aparc.DKTatlas+aseg.mgz"
 OUT_DIR="${XFM_DIR}/sub-${subject}/anat"
-OUT_T1W_DSEG="${OUT_DIR}/sub-${subject}_space-T1w_desc-a2009s_dseg.nii.gz"
-OUT_ACPC_DSEG="${OUT_DIR}/sub-${subject}_space-ACPC_desc-a2009s_dseg.nii.gz"
+OUT_T1W_DSEG="${OUT_DIR}/sub-${subject}_space-T1w_desc-DKTatlas_dseg.nii.gz"
+OUT_ACPC_DSEG="${OUT_DIR}/sub-${subject}_space-ACPC_desc-DKTatlas_dseg.nii.gz"
 REF_ACPC="${QSIPREP_DIR}/sub-${subject}/anat/sub-${subject}_space-ACPC_desc-preproc_T1w.nii.gz"
 T1W_TO_ACPC_XFM="${XFM_DIR}/sub-${subject}/anat/sub-${subject}_from-T1w_to-ACPC_mode-image_xfm.h5"
 
@@ -62,7 +62,7 @@ cmd_apply="antsApplyTransforms \
   --reference-image \"${REF_ACPC}\" \
   --output \"${OUT_ACPC_DSEG}\" \
   --transform \"${T1W_TO_ACPC_XFM}\" \
-  --interpolation NearestNeighbor"
+  --interpolation genericLabel"
 
 echo "Running task ${SLURM_ARRAY_TASK_ID} for sub-${subject}"
 echo "Convert command: ${cmd_convert}"

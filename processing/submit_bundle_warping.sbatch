@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=warp_bundles_indiv
+#SBATCH --job-name=warp_bundles
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1-26
@@ -7,8 +7,8 @@
 #SBATCH --mem-per-cpu=8gb
 #SBATCH --time=24:00:00
 # Outputs ----------------------------------
-#SBATCH --output=/cbica/projects/nibs/logs/warp_bundles_indiv_%A-%a.out
-#SBATCH --error=/cbica/projects/nibs/logs/warp_bundles_indiv_%A-%a.err
+#SBATCH --output=/cbica/projects/nibs/logs/warp_bundles_%A-%a.out
+#SBATCH --error=/cbica/projects/nibs/logs/warp_bundles_%A-%a.err
 # ------------------------------------------
 
 pwd; hostname; date

@@ -17,24 +17,26 @@ from matplotlib.lines import Line2D
 
 # User-requested metric list (adapted to canonical names used in CSVs).
 SELECTED_METRICS = [
-    "MD",  # DKI MD
-    "MKT",  # DKI MKT
-    "FA",  # DKI Tensor FA
-    "ICVF",  # NODDI ICVF
-    "ICVF-Modulated",  # NODDI ICVF Modulated
-    "RTOP",  # TORTOISE MAPMRI RTOP
-    "ihMTR",
-    "ihMTsat-B1c",
-    "R1",
-    "R1-B1c",
+    "FA",
+    "MD",
+    "RD",
+    "ICVF",
+    "MKT",
+    "RK",
+    "RTOP",
+    "RTAP",
+    "NG",
+    "GFA",
+    "QSM-X-R2p-E5-Dia",
+    "QSM-X-R2p-E5-Para",
+    "QSM-X-R2p-E5-X",
+    "QSM-SEPIA-E5",
     "MPRAGE-MyelinW",
     "SPACE-MyelinW",
-    "G-ihMTsat",
-    "G-ihMTR",
-    "QSM-SEPIA-E5",
-    "QSM-X-R2p-E5-X",  # QSM-X-R2'-E5-X
-    "QSM-X-R2p-E5-Para",  # QSM-X-R2'-E5-Para
-    "QSM-X-R2p-E5-Dia",  # QSM-X-R2'-E5-Dia
+    "ihMTR",
+    "ihMTsat-B1c",
+    "R1-B1c",
+    "R1",
 ]
 
 
@@ -44,19 +46,30 @@ def _norm_token(text: str) -> str:
 
 ALIAS_TO_CANONICAL = {
     "md": "MD",
+    "rd": "RD",
     "mkt": "MKT",
+    "rk": "RK",
     "fa": "FA",
     "icvf": "ICVF",
-    "icvfmodulated": "ICVF-Modulated",
     "rtop": "RTOP",
+    "rtap": "RTAP",
+    "ng": "NG",
+    "gfa": "GFA",
+    "tortoiseinnershellfa": "FA",
+    "tortoiseinnershellmd": "MD",
+    "tortoiseinnershellrd": "RD",
+    "dkimkt": "MKT",
+    "dkirk": "RK",
+    "mapmrirtop": "RTOP",
+    "mapmrirtap": "RTAP",
+    "mapmring": "NG",
+    "dsistudiogqigfa": "GFA",
     "ihmtr": "ihMTR",
     "ihmtsatb1c": "ihMTsat-B1c",
     "r1": "R1",
     "r1b1c": "R1-B1c",
     "mpragemyelinw": "MPRAGE-MyelinW",
     "spacemyelinw": "SPACE-MyelinW",
-    "gihmtsat": "G-ihMTsat",
-    "gihmtr": "G-ihMTR",
     "qsmsepiae5": "QSM-SEPIA-E5",
     "qsmxr2pe5x": "QSM-X-R2p-E5-X",
     "qsmxr2pe5para": "QSM-X-R2p-E5-Para",
@@ -275,6 +288,29 @@ def _prep_df(df: pd.DataFrame, region_col: str, category_fn) -> pd.DataFrame:
     return out
 
 
+def _retain_common_metrics(
+    gm_df: pd.DataFrame, wm_df: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    common_metrics = [
+        metric
+        for metric in SELECTED_METRICS
+        if metric in set(gm_df["metric"]) and metric in set(wm_df["metric"])
+    ]
+    if not common_metrics:
+        raise RuntimeError("No selected metrics are shared by GM and WM ICC tables.")
+    dropped = sorted((set(gm_df["metric"]) | set(wm_df["metric"])) - set(common_metrics))
+    if dropped:
+        print(
+            "[WARN] Excluding selected metrics absent from either GM or WM: "
+            + ", ".join(dropped),
+            flush=True,
+        )
+    return (
+        gm_df[gm_df["metric"].isin(common_metrics)].copy(),
+        wm_df[wm_df["metric"].isin(common_metrics)].copy(),
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -287,6 +323,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="/cbica/projects/nibs/derivatives/ICC",
         help="Output directory for violin figures.",
     )
+    parser.add_argument(
+        "--qc-mode",
+        choices=("metricqc", "completeqc"),
+        default="metricqc",
+        help="QC-filtered ICC version to plot.",
+    )
     return parser
 
 
@@ -295,8 +337,8 @@ def main() -> None:
     icc_dir = Path(args.icc_dir)
     out_dir = Path(args.out_dir)
 
-    gm_path = icc_dir / "icc_summary_a2009s_median.csv"
-    wm_path = icc_dir / "icc_summary_wm_bundles_median.csv"
+    gm_path = icc_dir / f"icc_summary_DKTatlas_median_{args.qc_mode}.csv"
+    wm_path = icc_dir / f"icc_summary_wm_bundles_masked_median_{args.qc_mode}.csv"
     if not gm_path.exists():
         raise FileNotFoundError(gm_path)
     if not wm_path.exists():
@@ -307,6 +349,7 @@ def main() -> None:
 
     gm_plot_df = _prep_df(gm_df, region_col="parcel", category_fn=gm_category)
     wm_plot_df = _prep_df(wm_df, region_col="bundle", category_fn=wm_category)
+    gm_plot_df, wm_plot_df = _retain_common_metrics(gm_plot_df, wm_plot_df)
 
     _plot_violin(
         gm_plot_df,

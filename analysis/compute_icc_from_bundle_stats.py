@@ -26,6 +26,8 @@ except Exception:
 
 
 PATH_RE = re.compile(r"sub-(?P<sub>[^_/]+).*(ses-(?P<ses>[^_/]+))")
+DEFAULT_QC_FILE = Path(__file__).resolve().parents[1] / "data" / "manual_qc_modality.tsv"
+QC_MODES = ("metricqc", "completeqc")
 REQUIRED_COLUMNS = {"bundle", "variable_name", "masked_mean", "masked_median"}
 EXCLUDED_BUNDLE_PATTERNS = (
     "AnteriorCommissure",
@@ -112,11 +114,8 @@ NODDI_METRICS = {
     "NODDI-ICVF-Modulated",
     "NODDI-ICVF",
     "NODDI-ISOVF",
-    "NODDI-NRMSE",
-    "NODDI-RMSE",
     "NODDI-OD-Modulated",
     "NODDI-OD",
-    "NODDI-TF",
 }
 MAPMRI_METRICS = {
     "MAPMRI-NG",
@@ -137,8 +136,6 @@ DSISTUDIO_METRICS = {
     "DSIStudio-Tensor-FA",
     "DSIStudio-Tensor-MD",
     "DSIStudio-Tensor-RD",
-    "DSIStudio-Tensor-RD1",
-    "DSIStudio-Tensor-RD2",
 }
 TORTOISE_TENSOR_METRICS = {
     "TORTOISE-FullShell-AD",
@@ -217,10 +214,7 @@ DKI_MSDKI_MAP = {
 NODDI_MAP = {
     "icvf": "NODDI-ICVF",
     "isovf": "NODDI-ISOVF",
-    "nrmse": "NODDI-NRMSE",
-    "rmse": "NODDI-RMSE",
     "od": "NODDI-OD",
-    "tf": "NODDI-TF",
 }
 MAPMRI_MAP = {
     "ng": "MAPMRI-NG",
@@ -254,6 +248,136 @@ TORTOISE_TENSOR_MAP = {
     "rd": "RD",
 }
 DIRECT_NAME_MAP = {metric.lower(): metric for metric in ALL_ALLOWED_METRICS}
+
+
+def metric_required_modalities(metric: str) -> tuple[str, ...]:
+    """Return scan-level QC modalities required to trust a derived metric."""
+    if metric in (
+        DKI_METRICS
+        | NODDI_METRICS
+        | MAPMRI_METRICS
+        | DSISTUDIO_METRICS
+        | TORTOISE_TENSOR_METRICS
+    ):
+        return ("dMRI",)
+    if metric == "QSM-SEPIA-E5" or metric == "MEGRE":
+        return ("MEGRE",)
+    if metric.startswith("QSM-X-R2"):
+        return ("MEGRE", "MESE")
+    if metric in {"ihMTw", "ihMTR", "MTR"}:
+        return ("ihMTRAGE",)
+    if metric in {"ihMTsat", "ihMTsat-B1c"}:
+        return ("MP2RAGE", "ihMTRAGE", "B1+")
+    if metric == "R1":
+        return ("MP2RAGE",)
+    if metric == "R1-B1c":
+        return ("MP2RAGE", "B1+")
+    if metric in {"MPRAGE-MyelinW", "Scaled MPRAGE-MyelinW"}:
+        return ("MPRAGE T1w", "SPACE T2w")
+    if metric in {"SPACE-MyelinW", "Scaled SPACE-MyelinW"}:
+        return ("SPACE T1w", "SPACE T2w")
+    if metric == "G-ihMTR":
+        return ("dMRI", "ihMTRAGE")
+    if metric == "G-ihMTsat":
+        return ("MP2RAGE", "dMRI", "ihMTRAGE", "B1+")
+    raise ValueError(f"No QC modality mapping defined for metric: {metric}")
+
+
+def _normalize_subject(value: object) -> str:
+    return re.sub(r"^sub-", "", str(value).strip())
+
+
+def _is_pilot_subject(value: object) -> bool:
+    return _normalize_subject(value).upper().startswith("PILOT")
+
+
+def _session_label(value: object) -> str:
+    match = re.search(r"(\d+)", str(value))
+    if not match:
+        raise ValueError(f"Could not parse session number from: {value}")
+    return f"Session {int(match.group(1)):02d}"
+
+
+def load_qc_table(qc_file: Path) -> pd.DataFrame:
+    qc_df = pd.read_csv(qc_file, sep="\t")
+    if "participant_id" not in qc_df.columns:
+        raise RuntimeError(f"{qc_file} is missing participant_id")
+    qc_df = qc_df.copy()
+    qc_df["participant_id"] = qc_df["participant_id"].map(_normalize_subject)
+    qc_df = qc_df.loc[~qc_df["participant_id"].map(_is_pilot_subject)].copy()
+    return qc_df.set_index("participant_id", drop=False)
+
+
+def _qc_passes(
+    qc_df: pd.DataFrame,
+    subject: object,
+    session: object,
+    modalities: tuple[str, ...],
+) -> bool:
+    subject_id = _normalize_subject(subject)
+    if subject_id not in qc_df.index:
+        return False
+    session_prefix = _session_label(session)
+    row = qc_df.loc[subject_id]
+    for modality in modalities:
+        column = f"{session_prefix}--{modality}"
+        if column not in qc_df.columns:
+            raise RuntimeError(f"QC file is missing required column: {column}")
+        value = row[column]
+        if pd.isna(value) or int(value) != 1:
+            return False
+    return True
+
+
+def apply_metric_qc(
+    df: pd.DataFrame,
+    qc_df: pd.DataFrame,
+    subject_col: str = "subject_id",
+    session_col: str = "session_id",
+) -> pd.DataFrame:
+    keep = [
+        _qc_passes(
+            qc_df,
+            row[subject_col],
+            row[session_col],
+            metric_required_modalities(str(row["metric"])),
+        )
+        for _, row in df.iterrows()
+    ]
+    return df.loc[keep].copy()
+
+
+def subjects_with_complete_qc(
+    df: pd.DataFrame,
+    qc_df: pd.DataFrame,
+    subject_col: str = "subject_id",
+) -> set[str]:
+    modalities = sorted(
+        {
+            modality
+            for metric in df["metric"].dropna().astype(str).unique()
+            for modality in metric_required_modalities(metric)
+        }
+    )
+    subjects = sorted({_normalize_subject(value) for value in df[subject_col].unique()})
+    complete_subjects: set[str] = set()
+    for subject in subjects:
+        if all(
+            _qc_passes(qc_df, subject, f"ses-{session:02d}", tuple(modalities))
+            for session in (1, 2)
+        ):
+            complete_subjects.add(subject)
+    return complete_subjects
+
+
+def apply_complete_qc(
+    df: pd.DataFrame,
+    qc_df: pd.DataFrame,
+    subject_col: str = "subject_id",
+) -> pd.DataFrame:
+    complete_subjects = subjects_with_complete_qc(df, qc_df, subject_col=subject_col)
+    subjects = df[subject_col].map(_normalize_subject)
+    return df.loc[subjects.isin(complete_subjects)].copy()
 
 
 def compute_icc2_fallback(values: np.ndarray, subjects: np.ndarray, sessions: np.ndarray) -> float:
@@ -564,6 +688,7 @@ def collect_scalarstats(input_globs: list[str]) -> pd.DataFrame:
         return pd.DataFrame()
     all_df = pd.concat(rows, ignore_index=True)
     all_df["subject_id"] = all_df["subject_id"].astype(str).str.replace("^sub-", "", regex=True)
+    all_df = all_df.loc[~all_df["subject_id"].map(_is_pilot_subject)].copy()
     all_df["session_id"] = all_df["session_id"].astype(str)
     all_df["bundle"] = all_df["bundle"].astype(str)
     all_df["metric"] = all_df["metric"].astype(str)
@@ -584,8 +709,20 @@ def collect_scalarstats(input_globs: list[str]) -> pd.DataFrame:
     return all_df
 
 
+def collapse_subject_session_values(df: pd.DataFrame, value_col: str) -> pd.DataFrame:
+    group_cols = ["subject_id", "session_id", "metric", "bundle"]
+    collapsed = (
+        df[group_cols + [value_col]]
+        .dropna(subset=[value_col])
+        .groupby(group_cols, as_index=False)[value_col]
+        .mean()
+    )
+    return collapsed
+
+
 def compute_icc_table(df: pd.DataFrame, value_col: str) -> pd.DataFrame:
     out_rows: list[dict[str, object]] = []
+    df = collapse_subject_session_values(df, value_col=value_col)
     grp = df.groupby(["metric", "bundle"], sort=True)
     for (metric, bundle), dfg in grp:
         dfg = dfg[np.isfinite(dfg[value_col].to_numpy(dtype=float))].copy()
@@ -692,6 +829,19 @@ def build_parser() -> argparse.ArgumentParser:
         default="/cbica/projects/nibs/derivatives/ICC",
         help="Output directory.",
     )
+    parser.add_argument(
+        "--qc-file",
+        type=Path,
+        default=DEFAULT_QC_FILE,
+        help="Manual modality QC TSV.",
+    )
+    parser.add_argument(
+        "--qc-mode",
+        nargs="+",
+        choices=QC_MODES,
+        default=list(QC_MODES),
+        help="QC-filtered ICC versions to write.",
+    )
     return parser
 
 
@@ -703,19 +853,36 @@ def main() -> None:
     all_df = collect_scalarstats(args.input_globs)
     if all_df.empty:
         raise RuntimeError(f"No scalarstats TSV files found for globs: {args.input_globs}")
+    qc_df = load_qc_table(args.qc_file)
 
     for stat in ("masked_mean", "masked_median"):
-        icc_df = compute_icc_table(all_df, value_col=stat)
-        if icc_df.empty:
-            raise RuntimeError(f"No valid ICC rows for {stat}. Check session coverage.")
+        for qc_mode in args.qc_mode:
+            if qc_mode == "metricqc":
+                filtered_df = apply_metric_qc(all_df, qc_df)
+            elif qc_mode == "completeqc":
+                filtered_df = apply_complete_qc(all_df, qc_df)
+            else:
+                raise ValueError(f"Unsupported QC mode: {qc_mode}")
 
-        out_csv = outdir / f"icc_summary_wm_bundles_{stat}.csv"
-        out_png = outdir / f"icc_heatmap_wm_bundles_{stat}.png"
-        icc_df.to_csv(out_csv, index=False)
-        plot_heatmap(icc_df, out_png, stat)
+            icc_df = compute_icc_table(filtered_df, value_col=stat)
+            if icc_df.empty:
+                raise RuntimeError(
+                    f"No valid ICC rows for {stat}, qc_mode={qc_mode}. "
+                    "Check QC and session coverage."
+                )
+            icc_df.insert(0, "qc_mode", qc_mode)
 
-        print(f"Wrote: {out_csv}", flush=True)
-        print(f"Wrote: {out_png}", flush=True)
+            out_csv = outdir / f"icc_summary_wm_bundles_{stat}_{qc_mode}.csv"
+            out_png = outdir / f"icc_heatmap_wm_bundles_{stat}_{qc_mode}.png"
+            icc_df.to_csv(out_csv, index=False)
+            plot_heatmap(icc_df, out_png, f"{stat}, {qc_mode}")
+
+            print(
+                f"Wrote: {out_csv} "
+                f"(rows={len(filtered_df)}, subjects={filtered_df['subject_id'].nunique()})",
+                flush=True,
+            )
+            print(f"Wrote: {out_png}", flush=True)
 
 
 if __name__ == "__main__":

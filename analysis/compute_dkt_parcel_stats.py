@@ -1,7 +1,7 @@
-"""Compute parcel-wise summary statistics and coverage for scalar maps.
+"""Compute DKT parcel-wise summary statistics and coverage for scalar maps.
 
 Runs per subject, writing one statistics CSV and one long-format coverage CSV
-per subject/session/run for aparc.a2009s parcels. Scalar maps remain in their
+per subject/session/run for aparc.DKTatlas parcels. Scalar maps remain in their
 native grids; the corresponding label image is resampled to each map with
 generic-label interpolation.
 """
@@ -57,17 +57,12 @@ PATTERNS_SUBJECT: dict[str, str] = {
     "DSIStudio-Tensor-FA": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-fa_dwimap.nii.gz",
     "DSIStudio-Tensor-MD": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-md_dwimap.nii.gz",
     "DSIStudio-Tensor-RD": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd_dwimap.nii.gz",
-    "DSIStudio-Tensor-RD1": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd1_dwimap.nii.gz",
-    "DSIStudio-Tensor-RD2": "qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd2_dwimap.nii.gz",
-    # DWI NODDI
-    "NODDI-ICVF-Modulated": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_desc-modulated_dwimap.nii.gz",
-    "NODDI-ICVF": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_dwimap.nii.gz",
-    "NODDI-ISOVF": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-isovf_dwimap.nii.gz",
-    "NODDI-NRMSE": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-nrmse_dwimap.nii.gz",
-    "NODDI-RMSE": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-rmse_dwimap.nii.gz",
-    "NODDI-OD-Modulated": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_desc-modulated_dwimap.nii.gz",
-    "NODDI-OD": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_dwimap.nii.gz",
-    "NODDI-TF": "qsirecon/derivatives/qsirecon-NODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-tf_dwimap.nii.gz",
+    # DWI NODDI: use the gray-matter-specific fit for cortical DKT summaries.
+    "NODDI-ICVF-Modulated": "qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_desc-modulated_dwimap.nii.gz",
+    "NODDI-ICVF": "qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_dwimap.nii.gz",
+    "NODDI-ISOVF": "qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-isovf_dwimap.nii.gz",
+    "NODDI-OD-Modulated": "qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_desc-modulated_dwimap.nii.gz",
+    "NODDI-OD": "qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_dwimap.nii.gz",
     # DWI MAPMRI
     "MAPMRI-NG": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ng_dwimap.nii.gz",
     "MAPMRI-NGPar": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ngpar_dwimap.nii.gz",
@@ -107,52 +102,87 @@ PATTERNS_SUBJECT: dict[str, str] = {
     "SPACE-MyelinW": "t1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACEunscaled_myelinw.nii.gz",
     "Scaled MPRAGE-MyelinW": "t1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MPRAGEscaled_myelinw.nii.gz",
     "Scaled SPACE-MyelinW": "t1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACEscaled_myelinw.nii.gz",
-    # g-ratio
-    "G-ihMTsat": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
-    "G-ihMTR": "g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz",
 }
 
 STATS = ("mean", "median", "std", "min", "max")
 KEY_RE = re.compile(r"(ses-[A-Za-z0-9]+)|(run-[A-Za-z0-9]+)")
-EXCLUDED_LABELS = {11142, 12142}  # Medial wall labels
+ATLAS_DESC = "DKTatlas"
+DKT_LABELS: tuple[tuple[int, str, str], ...] = (
+    (1002, "caudal anterior cingulate", "lh"),
+    (1003, "caudal middle frontal", "lh"),
+    (1005, "cuneus", "lh"),
+    (1006, "entorhinal", "lh"),
+    (1007, "fusiform", "lh"),
+    (1008, "inferior parietal", "lh"),
+    (1009, "inferior temporal", "lh"),
+    (1010, "isthmus cingulate", "lh"),
+    (1011, "lateral occipital", "lh"),
+    (1012, "lateral orbitofrontal", "lh"),
+    (1013, "lingual", "lh"),
+    (1014, "medial orbitofrontal", "lh"),
+    (1015, "middle temporal", "lh"),
+    (1016, "parahippocampal", "lh"),
+    (1017, "paracentral", "lh"),
+    (1018, "pars opercularis", "lh"),
+    (1019, "pars orbitalis", "lh"),
+    (1020, "pars triangularis", "lh"),
+    (1021, "pericalcarine", "lh"),
+    (1022, "postcentral", "lh"),
+    (1023, "posterior cingulate", "lh"),
+    (1024, "precentral", "lh"),
+    (1025, "precuneus", "lh"),
+    (1026, "rostral anterior cingulate", "lh"),
+    (1027, "rostral middle frontal", "lh"),
+    (1028, "superior frontal", "lh"),
+    (1029, "superior parietal", "lh"),
+    (1030, "superior temporal", "lh"),
+    (1031, "supramarginal", "lh"),
+    (1034, "transverse temporal", "lh"),
+    (1035, "insula", "lh"),
+    (2002, "caudal anterior cingulate", "rh"),
+    (2003, "caudal middle frontal", "rh"),
+    (2005, "cuneus", "rh"),
+    (2006, "entorhinal", "rh"),
+    (2007, "fusiform", "rh"),
+    (2008, "inferior parietal", "rh"),
+    (2009, "inferior temporal", "rh"),
+    (2010, "isthmus cingulate", "rh"),
+    (2011, "lateral occipital", "rh"),
+    (2012, "lateral orbitofrontal", "rh"),
+    (2013, "lingual", "rh"),
+    (2014, "medial orbitofrontal", "rh"),
+    (2015, "middle temporal", "rh"),
+    (2016, "parahippocampal", "rh"),
+    (2017, "paracentral", "rh"),
+    (2018, "pars opercularis", "rh"),
+    (2019, "pars orbitalis", "rh"),
+    (2020, "pars triangularis", "rh"),
+    (2021, "pericalcarine", "rh"),
+    (2022, "postcentral", "rh"),
+    (2023, "posterior cingulate", "rh"),
+    (2024, "precentral", "rh"),
+    (2025, "precuneus", "rh"),
+    (2026, "rostral anterior cingulate", "rh"),
+    (2027, "rostral middle frontal", "rh"),
+    (2028, "superior frontal", "rh"),
+    (2029, "superior parietal", "rh"),
+    (2030, "superior temporal", "rh"),
+    (2031, "supramarginal", "rh"),
+    (2034, "transverse temporal", "rh"),
+    (2035, "insula", "rh"),
+)
 
 
-def _read_lut_subset(lut_file: str) -> pd.DataFrame:
-    """Read a2009s cortical labels from FreeSurferColorLUT.
-
-    Keeps only 11101-11175 (lh) and 12101-12175 (rh).
-    """
-    rows: list[dict[str, object]] = []
-    with open(lut_file) as fobj:
-        for line in fobj:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            parts = stripped.split()
-            if len(parts) < 2:
-                continue
-            try:
-                intensity = int(parts[0])
-            except ValueError:
-                continue
-            name = parts[1]
-            is_lh = 11101 <= intensity <= 11175
-            is_rh = 12101 <= intensity <= 12175
-            if not (is_lh or is_rh):
-                continue
-            if intensity in EXCLUDED_LABELS:
-                continue
-            rows.append(
-                {
-                    "parcel_intensity": intensity,
-                    "parcel_name": name,
-                    "parcel_hemi": "lh" if is_lh else "rh",
-                }
-            )
-    if not rows:
-        raise RuntimeError(f"No target labels parsed from {lut_file}")
-    df = pd.DataFrame(rows).drop_duplicates(subset=["parcel_intensity", "parcel_name"])
-    return df.sort_values("parcel_intensity").reset_index(drop=True)
+def _dkt_parcel_table() -> pd.DataFrame:
+    rows = [
+        {
+            "parcel_intensity": intensity,
+            "parcel_name": name,
+            "parcel_hemi": hemi,
+        }
+        for intensity, name, hemi in DKT_LABELS
+    ]
+    return pd.DataFrame(rows).sort_values("parcel_intensity").reset_index(drop=True)
 
 
 def _parse_ses_run(path: str) -> tuple[str, str]:
@@ -247,21 +277,17 @@ def process_subject(
     zero_is_missing: bool = True,
 ) -> None:
     t1w_reg_dir = os.path.join(deriv_dir, "t1w_registration", f"sub-{subject}", "anat")
-    out_dir = os.path.join(deriv_dir, "parcel_myelin_stats", f"sub-{subject}")
+    out_dir = os.path.join(deriv_dir, f"{ATLAS_DESC}_myelin_stats", f"sub-{subject}")
     os.makedirs(out_dir, exist_ok=True)
 
-    lut_file = os.path.normpath(
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "..",
-            "processing",
-            "FreeSurferColorLUT.txt",
-        )
+    dseg_t1w = os.path.join(
+        t1w_reg_dir, f"sub-{subject}_space-T1w_desc-{ATLAS_DESC}_dseg.nii.gz"
     )
-    dseg_t1w = os.path.join(t1w_reg_dir, f"sub-{subject}_space-T1w_desc-a2009s_dseg.nii.gz")
-    dseg_acpc = os.path.join(t1w_reg_dir, f"sub-{subject}_space-ACPC_desc-a2009s_dseg.nii.gz")
+    dseg_acpc = os.path.join(
+        t1w_reg_dir, f"sub-{subject}_space-ACPC_desc-{ATLAS_DESC}_dseg.nii.gz"
+    )
 
-    required_files = [lut_file, dseg_t1w, dseg_acpc]
+    required_files = [dseg_t1w, dseg_acpc]
     for required in required_files:
         if not os.path.exists(required):
             raise FileNotFoundError(required)
@@ -270,7 +296,7 @@ def process_subject(
         "ACPC": ants.image_read(dseg_acpc),
     }
     dseg_arrays = {space: img.numpy().astype(np.int64) for space, img in dseg_imgs.items()}
-    parcel_df = _read_lut_subset(lut_file)
+    parcel_df = _dkt_parcel_table()
     label_ids = parcel_df["parcel_intensity"].astype(int).to_numpy()
     available_labels = set(np.unique(dseg_arrays["T1w"]).astype(int)) | set(
         np.unique(dseg_arrays["ACPC"]).astype(int)
@@ -381,14 +407,14 @@ def process_subject(
 
         out_file = os.path.join(
             out_dir,
-            f"sub-{subject}_{ses}_{run}_desc-a2009s_scalarstats.csv",
+            f"sub-{subject}_{ses}_{run}_desc-{ATLAS_DESC}_scalarstats.csv",
         )
         out_df.to_csv(out_file, index=False)
         print(f"Wrote {out_file}", flush=True)
 
         coverage_file = os.path.join(
             out_dir,
-            f"sub-{subject}_{ses}_{run}_desc-a2009s_coverage.csv",
+            f"sub-{subject}_{ses}_{run}_desc-{ATLAS_DESC}_coverage.csv",
         )
         coverage_df = pd.DataFrame(coverage_rows).sort_values(
             ["metric", "parcel_intensity"]
@@ -421,7 +447,8 @@ if __name__ == "__main__":
 
     args = _build_parser().parse_args()
     cfg = load_config()
-    derivatives_dir = os.path.join(cfg["project_root"], "derivatives")
+    #derivatives_dir = os.path.join(cfg["project_root"], "derivatives")
+    derivatives_dir = "/cbica/projects/nibs/derivatives"
     process_subject(
         args.subject_id,
         derivatives_dir,

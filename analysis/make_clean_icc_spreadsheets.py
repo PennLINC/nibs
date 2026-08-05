@@ -21,24 +21,26 @@ import matplotlib.pyplot as plt
 
 # User-selected scalars mapped to this repo's canonical metric names.
 SELECTED_METRICS = {
-    "MD",  # DKI MD
-    "MKT",  # DKI MKT
-    "FA",  # DKI Tensor FA
-    "ICVF",  # NODDI ICVF
-    "ICVF-Modulated",  # NODDI ICVF Modulated
-    "RTOP",  # TORTOISE MAPMRI RTOP
-    "ihMTR",
-    "ihMTsat-B1c",
-    "R1",
-    "R1-B1c",
+    "FA",
+    "MD",
+    "RD",
+    "ICVF",
+    "MKT",
+    "RK",
+    "RTOP",
+    "RTAP",
+    "NG",
+    "GFA",
+    "QSM-X-R2p-E5-Dia",
+    "QSM-X-R2p-E5-Para",
+    "QSM-X-R2p-E5-X",
+    "QSM-SEPIA-E5",
     "MPRAGE-MyelinW",
     "SPACE-MyelinW",
-    "G-ihMTsat",
-    "G-ihMTR",
-    "QSM-SEPIA-E5",
-    "QSM-X-R2p-E5-X",  # QSM-X-R2'-E5-X
-    "QSM-X-R2p-E5-Para",  # QSM-X-R2'-E5-Para
-    "QSM-X-R2p-E5-Dia",  # QSM-X-R2'-E5-Dia
+    "ihMTR",
+    "ihMTsat-B1c",
+    "R1-B1c",
+    "R1",
 }
 
 
@@ -50,18 +52,27 @@ ALIAS_TO_CANONICAL = {
     # DWI selected
     "dkimd": "MD",
     "md": "MD",
-    "dkimicromd": "MD-Micro",
-    "mdmicro": "MD-Micro",
+    "tortoiseinnershellmd": "MD",
+    "tortoiseinnershellrd": "RD",
+    "rd": "RD",
     "dkitensorfa": "FA",
+    "tortoiseinnershellfa": "FA",
     "fa": "FA",
     "dkimkt": "MKT",
     "mkt": "MKT",
+    "dkirk": "RK",
+    "rk": "RK",
     "noddiicvf": "ICVF",
     "icvf": "ICVF",
-    "noddiicvfmodulated": "ICVF-Modulated",
-    "icvfmodulated": "ICVF-Modulated",
     "tortoisemapmrirtop": "RTOP",
+    "mapmrirtop": "RTOP",
     "rtop": "RTOP",
+    "mapmrirtap": "RTAP",
+    "rtap": "RTAP",
+    "mapmring": "NG",
+    "ng": "NG",
+    "dsistudiogqigfa": "GFA",
+    "gfa": "GFA",
     # myelin selected
     "ihmtr": "ihMTR",
     "ihmtsatb1c": "ihMTsat-B1c",
@@ -69,8 +80,6 @@ ALIAS_TO_CANONICAL = {
     "r1b1c": "R1-B1c",
     "mpragemyelinw": "MPRAGE-MyelinW",
     "spacemyelinw": "SPACE-MyelinW",
-    "gihmtsat": "G-ihMTsat",
-    "gihmtr": "G-ihMTR",
     "qsmsepiae5": "QSM-SEPIA-E5",
     "qsmxr2pe5x": "QSM-X-R2p-E5-X",
     "qsmxr2pe5para": "QSM-X-R2p-E5-Para",
@@ -103,6 +112,27 @@ def _prepare_icc_table(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     out = _filter_metrics(out)
     return out.sort_values(["metric"]).reset_index(drop=True)
+
+
+def _retain_common_metrics(
+    gm_df: pd.DataFrame, wm_df: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    common_metrics = SELECTED_METRICS.intersection(gm_df["metric"]).intersection(
+        wm_df["metric"]
+    )
+    if not common_metrics:
+        raise RuntimeError("No selected metrics are shared by GM and WM ICC tables.")
+    dropped = sorted((set(gm_df["metric"]) | set(wm_df["metric"])) - common_metrics)
+    if dropped:
+        print(
+            "[WARN] Excluding selected metrics absent from either GM or WM: "
+            + ", ".join(dropped),
+            flush=True,
+        )
+    return (
+        gm_df[gm_df["metric"].isin(common_metrics)].copy(),
+        wm_df[wm_df["metric"].isin(common_metrics)].copy(),
+    )
 
 
 def _load_required(path: Path) -> pd.DataFrame:
@@ -177,6 +207,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="/cbica/projects/nibs/derivatives/ICC",
         help="Directory for cleaned outputs.",
     )
+    parser.add_argument(
+        "--qc-mode",
+        choices=("metricqc", "completeqc"),
+        default="metricqc",
+        help="QC-filtered ICC version to clean and plot.",
+    )
     return parser
 
 
@@ -186,15 +222,19 @@ def main() -> None:
     out_dir = Path(args.out_dir)
 
     # Inputs from existing pipelines
-    gm_mean = _load_required(icc_dir / "icc_summary_a2009s_mean.csv")
-    gm_median = _load_required(icc_dir / "icc_summary_a2009s_median.csv")
-    wm_mean = _load_required(icc_dir / "icc_summary_wm_bundles_mean.csv")
-    wm_median = _load_required(icc_dir / "icc_summary_wm_bundles_median.csv")
+    gm_mean = _load_required(icc_dir / f"icc_summary_DKTatlas_mean_{args.qc_mode}.csv")
+    gm_median = _load_required(icc_dir / f"icc_summary_DKTatlas_median_{args.qc_mode}.csv")
+    wm_mean = _load_required(icc_dir / f"icc_summary_wm_bundles_masked_mean_{args.qc_mode}.csv")
+    wm_median = _load_required(icc_dir / f"icc_summary_wm_bundles_masked_median_{args.qc_mode}.csv")
 
     gm_mean_clean = _prepare_icc_table(gm_mean)
     gm_median_clean = _prepare_icc_table(gm_median)
     wm_mean_clean = _prepare_icc_table(wm_mean)
     wm_median_clean = _prepare_icc_table(wm_median)
+    gm_mean_clean, wm_mean_clean = _retain_common_metrics(gm_mean_clean, wm_mean_clean)
+    gm_median_clean, wm_median_clean = _retain_common_metrics(
+        gm_median_clean, wm_median_clean
+    )
 
     print(
         f"[INFO] Rows after metric filtering | GM mean: {len(gm_mean_clean)}, "
@@ -206,25 +246,25 @@ def main() -> None:
         gm_mean_clean,
         region_col="parcel",
         title="Gray Matter ICC Matrix (mean, clean)",
-        out_png=out_dir / "icc_matrix_a2009s_mean_clean.png",
+        out_png=out_dir / f"icc_matrix_DKTatlas_mean_{args.qc_mode}_clean.png",
     )
     _plot_matrix(
         gm_median_clean,
         region_col="parcel",
         title="Gray Matter ICC Matrix (median, clean)",
-        out_png=out_dir / "icc_matrix_a2009s_median_clean.png",
+        out_png=out_dir / f"icc_matrix_DKTatlas_median_{args.qc_mode}_clean.png",
     )
     _plot_matrix(
         wm_mean_clean,
         region_col="bundle",
         title="White Matter ICC Matrix (mean, clean)",
-        out_png=out_dir / "icc_matrix_wm_bundles_mean_clean.png",
+        out_png=out_dir / f"icc_matrix_wm_bundles_masked_mean_{args.qc_mode}_clean.png",
     )
     _plot_matrix(
         wm_median_clean,
         region_col="bundle",
         title="White Matter ICC Matrix (median, clean)",
-        out_png=out_dir / "icc_matrix_wm_bundles_median_clean.png",
+        out_png=out_dir / f"icc_matrix_wm_bundles_masked_median_{args.qc_mode}_clean.png",
     )
 
     print(f"Done. selected_metrics={sorted(SELECTED_METRICS)}")

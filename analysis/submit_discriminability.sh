@@ -20,6 +20,7 @@ cmd="~/.conda/envs/myelin_reliability/bin/python ${CODE_DIR}/compute_discriminab
   --analysis both \
   --stat median \
   --prefer-masked \
+  --dkt-input-glob '/cbica/projects/nibs/derivatives/DKTatlas_myelin_stats/sub-*/sub-*_ses-*_run-*_desc-DKTatlas_scalarstats.csv' \
   --outdir /cbica/projects/nibs/derivatives/ICC"
 
 echo "Running discriminability job"

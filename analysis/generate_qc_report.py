@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Generate a multipage PDF for ACPC/T1w spatial quality control.
+"""Generate a multipage PDF for ACPC/T1w quality control.
 
 The report checks spatial alignment and scalar coverage for every discovered
 subject/session:
 
 1. Selected ACPC-space tract bundles and their T1w-warped counterparts.
-2. The native T1w a2009s parcellation and its ACPC-space warp.
-3. T1w-space myelin-sensitive maps and cached ACPC-space warps generated with
-   the subject's T1w-to-ACPC ANTs composite transform.
-4. Native-T1w a2009s parcel coverage for each myelin-sensitive map.
+2. The native T1w DKT parcellation and its ACPC-space warp.
+3. T1w-space myelin-sensitive maps.
+4. Native-T1w DKT parcel coverage for each myelin-sensitive map.
 5. Selected native-ACPC DWI maps with GM/WM tissue distributions.
 
-The script never modifies source derivatives. Generated scalar warps are kept
-under the report work directory so subsequent report runs can reuse them.
+The script never modifies source derivatives. Temporary tractogram files and
+generated ACPC tissue-label warps are kept under the report work directory so
+subsequent report runs can reuse them.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ from nibabel.affines import apply_affine
 from nibabel.processing import resample_from_to
 from scipy.stats import gaussian_kde
 
-LOGGER = logging.getLogger("spatial_qc")
+LOGGER = logging.getLogger("qc")
 
 PAGE_SIZE = (16.0, 10.0)
 SPACE_COLORS = {"ACPC": "#2A9D8F", "T1w": "#E76F51"}
@@ -52,6 +52,72 @@ MISSING_COLOR = "#9B2226"
 TISSUE_COLORS = {"GM": "#D55E00", "WM": "#0072B2"}
 SESSION_LINESTYLES = ("-", "--", ":", "-.")
 SMRIPREP_DSEG_LABELS = {"GM": 1, "WM": 2}
+ATLAS_DESC = "DKTatlas"
+ATLAS_DISPLAY = "DKT"
+DKT_LABEL_IDS = {
+    1002,
+    1003,
+    1005,
+    1006,
+    1007,
+    1008,
+    1009,
+    1010,
+    1011,
+    1012,
+    1013,
+    1014,
+    1015,
+    1016,
+    1017,
+    1018,
+    1019,
+    1020,
+    1021,
+    1022,
+    1023,
+    1024,
+    1025,
+    1026,
+    1027,
+    1028,
+    1029,
+    1030,
+    1031,
+    1034,
+    1035,
+    2002,
+    2003,
+    2005,
+    2006,
+    2007,
+    2008,
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+    2026,
+    2027,
+    2028,
+    2029,
+    2030,
+    2031,
+    2034,
+    2035,
+}
 
 
 @dataclass(frozen=True)
@@ -140,7 +206,7 @@ DWI_METRICS = (
     ),
     MetricPattern(
         "ICVF",
-        "qsirecon/derivatives/qsirecon-NODDI/"
+        "qsirecon/derivatives/qsirecon-gmNODDI/"
         "{subject}/{session}/dwi/*_space-ACPC_model-noddi_param-icvf_dwimap.nii.gz",
     ),
     MetricPattern(
@@ -217,16 +283,12 @@ class StatusEntry:
 
 @dataclass
 class ScalarPanelData:
-    """Prepared native and warped scalar data for one subject/session."""
+    """Prepared native T1w scalar data for one subject/session."""
 
     source_path: Path
-    warped_path: Path
     t1w_reference: nib.spatialimages.SpatialImage
-    acpc_reference: nib.spatialimages.SpatialImage
     source_data: np.ndarray
-    warped_data: np.ndarray
     source_brain_mask: np.ndarray
-    warped_brain_mask: np.ndarray
 
 
 @dataclass
@@ -385,10 +447,10 @@ def collect_session_inputs(
         acpc_t1w=acpc_t1w,
         t1w=t1w,
         dseg_acpc=first_existing(
-            [registration_dir / f"{subject}_space-ACPC_desc-a2009s_dseg.nii.gz"]
+            [registration_dir / f"{subject}_space-ACPC_desc-{ATLAS_DESC}_dseg.nii.gz"]
         ),
         dseg_t1w=first_existing(
-            [registration_dir / f"{subject}_space-T1w_desc-a2009s_dseg.nii.gz"]
+            [registration_dir / f"{subject}_space-T1w_desc-{ATLAS_DESC}_dseg.nii.gz"]
         ),
         t1w_to_acpc_xfm=first_existing(
             [registration_dir / f"{subject}_from-T1w_to-ACPC_mode-image_xfm.h5"]
@@ -939,7 +1001,7 @@ def parcellation_page(
     figure = plt.figure(figsize=PAGE_SIZE, facecolor="white")
     add_page_header(
         figure,
-        f"{key.subject} {key.session} | FreeSurfer a2009s parcellation",
+        f"{key.subject} {key.session} | FreeSurfer {ATLAS_DISPLAY} parcellation",
         "Parcel boundaries should follow cortical anatomy in native T1w and remain aligned after T1w-to-ACPC warping.",
     )
     grid = figure.add_gridspec(
@@ -956,7 +1018,7 @@ def parcellation_page(
                 f"Missing {'anatomical' if t1w_path is None else 'dseg'}: "
                 f"T1w={t1w_path}, dseg={dseg_path}"
             )
-            missing_panel(figure, grid[0, column], f"a2009s | {space}", detail)
+            missing_panel(figure, grid[0, column], f"{ATLAS_DISPLAY} | {space}", detail)
             status(statuses, key, "parcellation", space, False, detail)
             continue
         try:
@@ -971,7 +1033,7 @@ def parcellation_page(
                 labels,
                 overlay_kind="boundary",
                 color=SPACE_COLORS[space],
-                title=f"a2009s | {space}",
+                title=f"{ATLAS_DISPLAY} | {space}",
                 note=f"{label_count} nonzero labels",
             )
             status(
@@ -984,7 +1046,7 @@ def parcellation_page(
             )
         except Exception as error:
             LOGGER.exception("Failed to render parcellation %s", dseg_path)
-            missing_panel(figure, grid[0, column], f"a2009s | {space}", str(error))
+            missing_panel(figure, grid[0, column], f"{ATLAS_DISPLAY} | {space}", str(error))
             status(statuses, key, "parcellation", space, False, str(error))
     return save_page(pdf, figure, page_number)
 
@@ -1109,34 +1171,19 @@ def scalar_group_limits(
 def shared_metric_centers(
     prepared: Iterable[ScalarPanelData],
 ) -> dict[str, np.ndarray]:
-    """Choose one world-coordinate slice center per space across sessions."""
-    world_centers: dict[str, list[np.ndarray]] = {"T1w": [], "ACPC": []}
+    """Choose one T1w world-coordinate slice center across sessions."""
+    world_centers: dict[str, list[np.ndarray]] = {"T1w": []}
     for panel_data in prepared:
-        for space, reference, data in (
-            (
-                "T1w",
-                panel_data.t1w_reference,
-                np.where(
-                    panel_data.source_brain_mask,
-                    panel_data.source_data,
-                    np.nan,
-                ),
-            ),
-            (
-                "ACPC",
-                panel_data.acpc_reference,
-                np.where(
-                    panel_data.warped_brain_mask,
-                    panel_data.warped_data,
-                    np.nan,
-                ),
-            ),
-        ):
-            background = np.asarray(reference.get_fdata(), dtype=np.float32)
-            voxel_center = foreground_center(data, background)
-            world_centers[space].append(
-                np.asarray(apply_affine(reference.affine, voxel_center), dtype=float)
-            )
+        data = np.where(
+            panel_data.source_brain_mask,
+            panel_data.source_data,
+            np.nan,
+        )
+        background = np.asarray(panel_data.t1w_reference.get_fdata(), dtype=np.float32)
+        voxel_center = foreground_center(data, background)
+        world_centers["T1w"].append(
+            np.asarray(apply_affine(panel_data.t1w_reference.affine, voxel_center), dtype=float)
+        )
     return {
         space: np.median(np.vstack(centers), axis=0)
         for space, centers in world_centers.items()
@@ -1173,21 +1220,15 @@ def parcel_coverage_values(
     metric_path: Path,
     dseg_path: Path,
 ) -> dict[int, float]:
-    """Return a2009s valid-voxel coverage for a native T1w scalar map."""
+    """Return DKT valid-voxel coverage for a native T1w scalar map."""
     metric_image = load_canonical(metric_path)
     metric_data = np.asarray(metric_image.get_fdata(), dtype=np.float32)
     dseg = resample_image(load_canonical(dseg_path), metric_image, order=0)
     labels = np.rint(dseg.get_fdata()).astype(np.int32)
     valid = np.isfinite(metric_data) & (metric_data != 0)
-    excluded_labels = {11142, 12142}
     coverage: dict[int, float] = {}
     for label in sorted(int(value) for value in np.unique(labels) if value > 0):
-        is_a2009s_cortex = (
-            11101 <= label <= 11175 or 12101 <= label <= 12175
-        )
-        if not is_a2009s_cortex:
-            continue
-        if label in excluded_labels:
+        if label not in DKT_LABEL_IDS:
             continue
         parcel = labels == label
         n_total = int(np.count_nonzero(parcel))
@@ -1204,7 +1245,7 @@ def parcel_coverage_pages(
     statuses: list[StatusEntry],
     page_number: int,
 ) -> int:
-    """Plot native T1w a2009s parcel coverage for each metric and session."""
+    """Plot native T1w DKT parcel coverage for each metric and session."""
     if not subject_inputs:
         return page_number
     subject_inputs = sorted(subject_inputs, key=lambda item: item.key.session)
@@ -1219,7 +1260,7 @@ def parcel_coverage_pages(
                 detail = (
                     "T1w metric not found"
                     if metric_path is None
-                    else "T1w a2009s dseg not found"
+                    else f"T1w {ATLAS_DISPLAY} dseg not found"
                 )
                 status(
                     statuses,
@@ -1235,7 +1276,7 @@ def parcel_coverage_pages(
                     metric_path, inputs.dseg_t1w
                 )
                 if not coverage:
-                    raise RuntimeError("No nonzero a2009s parcels found")
+                    raise RuntimeError(f"No nonzero {ATLAS_DISPLAY} parcels found")
                 records.append((key, metric.label, coverage))
                 values = np.asarray(list(coverage.values()), dtype=float)
                 status(
@@ -1294,8 +1335,8 @@ def parcel_coverage_pages(
             figure,
             f"{subject} | Gray-matter parcel coverage",
             (
-                "Native T1w a2009s parcels. Coverage is the percentage of parcel "
-                "voxels with finite, nonzero metric values; medial-wall labels "
+                f"Native T1w {ATLAS_DISPLAY} parcels. Coverage is the percentage of parcel "
+                "voxels with finite, nonzero metric values; corpus callosum labels "
                 "are excluded."
             ),
         )
@@ -1321,7 +1362,7 @@ def parcel_coverage_pages(
             ha="right",
             fontsize=6,
         )
-        axis.set_xlabel("a2009s parcel label ID", fontsize=8)
+        axis.set_xlabel(f"{ATLAS_DISPLAY} parcel label ID", fontsize=8)
         axis.tick_params(length=0)
         color_axis = figure.add_axes([0.90, 0.25, 0.012, 0.55])
         color_bar = figure.colorbar(image, cax=color_axis)
@@ -1472,9 +1513,6 @@ def myelin_pages(
     metrics: Sequence[MetricPattern],
     rows_per_page: int,
     display_percentiles: tuple[float, float],
-    work_dir: Path,
-    ants_command: str | None,
-    overwrite_warps: bool,
     statuses: list[StatusEntry],
     page_number: int,
 ) -> int:
@@ -1492,9 +1530,9 @@ def myelin_pages(
             f"{subject} | Myelin-sensitive maps",
             (
                 "For each metric, sessions are consecutive rows. Left: original "
-                "T1w-space map. Center: transformed ACPC map. Right: native-space "
-                "GM/WM distributions. Slice coordinates and color limits are shared "
-                f"across sessions; limits use the {display_percentiles[0]:g}th–"
+                "T1w-space map. Right: native T1w GM/WM distributions. Slice "
+                "coordinates and color limits are shared across sessions; limits "
+                f"use the {display_percentiles[0]:g}th–"
                 f"{display_percentiles[1]:g}th percentiles of finite nonzero "
                 "brain-mask voxels."
             ),
@@ -1502,14 +1540,14 @@ def myelin_pages(
         row_count = len(page_metrics) * len(subject_inputs)
         grid = figure.add_gridspec(
             row_count,
-            3,
+            2,
             left=0.04,
             right=0.98,
             top=0.86,
             bottom=0.07,
             hspace=0.38,
-            wspace=0.12,
-            width_ratios=(1.0, 1.0, 0.72),
+            wspace=0.14,
+            width_ratios=(1.5, 0.72),
         )
 
         for metric_index, metric in enumerate(page_metrics):
@@ -1526,48 +1564,22 @@ def myelin_pages(
                     continue
                 prerequisites = (
                     inputs.t1w,
-                    inputs.acpc_t1w,
-                    inputs.t1w_to_acpc_xfm,
                     inputs.t1w_brain_mask,
-                    inputs.acpc_brain_mask,
                 )
                 if any(path is None for path in prerequisites):
                     errors[key] = (
-                        "Missing T1w, ACPC T1w, brain mask, or "
-                        "T1w-to-ACPC transform; "
+                        "Missing T1w or T1w brain mask; "
                         f"source={source_path}"
                     )
                     continue
 
-                warped_path = (
-                    work_dir
-                    / key.subject
-                    / key.session
-                    / "myelin_acpc"
-                    / f"{key.subject}_{key.session}_space-ACPC_desc-{safe_filename(metric.label)}_map.nii.gz"
-                )
                 try:
-                    warp_scalar_to_acpc(
-                        source_path,
-                        inputs.acpc_t1w,
-                        inputs.t1w_to_acpc_xfm,
-                        warped_path,
-                        ants_command=ants_command,
-                        overwrite=overwrite_warps,
-                    )
                     t1w_reference = load_canonical(inputs.t1w)
-                    acpc_reference = load_canonical(inputs.acpc_t1w)
                     source_image = resample_image(
                         load_canonical(source_path), t1w_reference, order=1
                     )
-                    warped_image = resample_image(
-                        load_canonical(warped_path), acpc_reference, order=1
-                    )
                     source_data = np.asarray(
                         source_image.get_fdata(), dtype=np.float32
-                    )
-                    warped_data = np.asarray(
-                        warped_image.get_fdata(), dtype=np.float32
                     )
                     source_brain_mask = np.asarray(
                         resample_image(
@@ -1578,29 +1590,14 @@ def myelin_pages(
                         > 0,
                         dtype=bool,
                     )
-                    warped_brain_mask = np.asarray(
-                        resample_image(
-                            load_canonical(inputs.acpc_brain_mask),
-                            acpc_reference,
-                            order=0,
-                        ).get_fdata()
-                        > 0,
-                        dtype=bool,
-                    )
                     prepared[key] = ScalarPanelData(
                         source_path=source_path,
-                        warped_path=warped_path,
                         t1w_reference=t1w_reference,
-                        acpc_reference=acpc_reference,
                         source_data=source_data,
-                        warped_data=warped_data,
                         source_brain_mask=source_brain_mask,
-                        warped_brain_mask=warped_brain_mask,
                     )
-                    scale_arrays.extend((source_data, warped_data))
-                    scale_masks.extend(
-                        (source_brain_mask, warped_brain_mask)
-                    )
+                    scale_arrays.append(source_data)
+                    scale_masks.append(source_brain_mask)
                 except Exception as error:
                     LOGGER.exception(
                         "Failed myelin QC for %s %s %s",
@@ -1685,13 +1682,12 @@ def myelin_pages(
                 panel_data = prepared.get(key)
                 if panel_data is None:
                     detail = errors.get(key, "Scalar map could not be prepared")
-                    for column, space in enumerate(("T1w", "ACPC")):
-                        missing_panel(
-                            figure,
-                            grid[row, column],
-                            f"{metric.label} | {key.session} | {space}",
-                            detail,
-                        )
+                    missing_panel(
+                        figure,
+                        grid[row, 0],
+                        f"{metric.label} | {key.session} | T1w",
+                        detail,
+                    )
                     status(statuses, key, "myelin", metric.label, False, detail)
                     continue
 
@@ -1710,21 +1706,6 @@ def myelin_pages(
                     note=panel_data.source_path.name,
                     center_world=centers.get("T1w"),
                 )
-                plot_orthogonal_montage(
-                    figure,
-                    grid[row, 1],
-                    panel_data.acpc_reference,
-                    np.where(
-                        panel_data.warped_brain_mask,
-                        panel_data.warped_data,
-                        np.nan,
-                    ),
-                    overlay_kind="scalar",
-                    title=f"{metric.label} | {key.session} | ACPC",
-                    limits=limits,
-                    note=panel_data.warped_path.name,
-                    center_world=centers.get("ACPC"),
-                )
                 status(
                     statuses,
                     key,
@@ -1732,7 +1713,7 @@ def myelin_pages(
                     metric.label,
                     True,
                     (
-                        f"{panel_data.source_path} -> {panel_data.warped_path}; "
+                        f"{panel_data.source_path}; "
                         f"display percentiles={display_percentiles}, limits={limits}"
                     ),
                 )
@@ -1740,7 +1721,7 @@ def myelin_pages(
             distribution_stop = distribution_start + len(subject_inputs)
             plot_tissue_distributions(
                 figure,
-                grid[distribution_start:distribution_stop, 2],
+                grid[distribution_start:distribution_stop, 1],
                 metric,
                 subject_inputs,
                 distributions,
@@ -2018,7 +1999,7 @@ def cover_page(
     axis.text(
         0.07,
         0.72,
-        "ACPC ↔ T1w bundle, parcellation, myelin, and DWI scalar QC",
+        "ACPC/T1w bundle, parcellation, myelin, and DWI scalar QC",
         fontsize=15,
         color="#444444",
         va="top",
@@ -2186,7 +2167,7 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
     output = (
         Path(args.output).expanduser().resolve()
         if args.output
-        else derivatives / "spatial_qc" / "nibs_spatial_qc_report.pdf"
+        else derivatives / "qc_report" / "qc_report.pdf"
     )
     work_dir = (
         Path(args.work_dir).expanduser().resolve()
@@ -2222,7 +2203,7 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
     with PdfPages(output) as pdf:
         metadata = pdf.infodict()
         metadata["Title"] = "NIBS Spatial Quality Report"
-        metadata["Author"] = "NIBS generate_spatial_qc_report.py"
+        metadata["Author"] = "NIBS generate_qc_report.py"
         metadata["Subject"] = "ACPC and T1w spatial registration QC"
         metadata["CreationDate"] = datetime.now()
         page_number = cover_page(
@@ -2270,9 +2251,6 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
                 metrics,
                 rows_per_page=args.metrics_per_page,
                 display_percentiles=tuple(args.display_percentiles),
-                work_dir=work_dir,
-                ants_command=ants_command,
-                overwrite_warps=args.overwrite_warps,
                 statuses=statuses,
                 page_number=page_number,
             )
@@ -2339,11 +2317,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output",
-        help="Output PDF. Defaults to derivatives/spatial_qc/nibs_spatial_qc_report.pdf.",
+        help="Output PDF. Defaults to derivatives/qc_report/qc_report.pdf.",
     )
     parser.add_argument(
         "--work-dir",
-        help="Cache directory for temporary tractograms and ACPC scalar maps.",
+        help="Cache directory for temporary tractograms and warped tissue label maps.",
     )
     parser.add_argument(
         "--bundle",
@@ -2399,7 +2377,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--overwrite-warps",
         action="store_true",
-        help="Regenerate cached ACPC myelin maps.",
+        help="Regenerate cached ACPC tissue label maps used for DWI distributions.",
     )
     parser.add_argument(
         "--strict",

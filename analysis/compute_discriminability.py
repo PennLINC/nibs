@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compute test-retest discriminability for WM bundle and a2009s profiles."""
+"""Compute test-retest discriminability for WM bundle and DKT parcel profiles."""
 
 from __future__ import annotations
 
@@ -12,18 +12,47 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from compute_icc_from_a2009s_stats import build_value_table, collect_rows
-from compute_icc_from_bundle_scalarstats import collect_scalarstats
+from compute_icc_from_dkt_stats import build_value_table, collect_rows
+from compute_icc_from_dkt_stats import apply_complete_qc as apply_dkt_complete_qc
+from compute_icc_from_dkt_stats import apply_metric_qc as apply_dkt_metric_qc
+from compute_icc_from_bundle_stats import collect_scalarstats
+from compute_icc_from_bundle_stats import apply_complete_qc as apply_wm_complete_qc
+from compute_icc_from_bundle_stats import apply_metric_qc as apply_wm_metric_qc
+from compute_icc_from_bundle_stats import load_qc_table
 
 
+DEFAULT_QC_FILE = Path(__file__).resolve().parents[1] / "data" / "manual_qc_modality.tsv"
+QC_MODES = ("metricqc", "completeqc")
 DEFAULT_WM_GLOBS = [
     "/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-*/sub-*/ses-*/dwi/sub-*_ses-*_*_scalarstats.tsv",
     "/cbica/projects/nibs/derivatives/bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-*_scalarstats.tsv",
 ]
-DEFAULT_A2009S_GLOB = (
-    "/cbica/projects/nibs/derivatives/parcel_myelin_stats/"
-    "sub-*/sub-*_ses-*_run-*_desc-a2009s_scalarstats.csv"
-)
+DEFAULT_DKT_GLOBS = [
+    "/cbica/projects/nibs/derivatives/DKTatlas_myelin_stats/"
+    "sub-*/sub-*_ses-*_run-*_desc-DKTatlas_scalarstats.csv"
+]
+EXCLUDED_DKT_METRICS = {"G-ihMTsat", "G-ihMTR"}
+
+
+def apply_qc_mode(
+    df: pd.DataFrame,
+    qc_df: pd.DataFrame,
+    qc_mode: str,
+    profile_type: str,
+) -> pd.DataFrame:
+    if profile_type == "wm":
+        if qc_mode == "metricqc":
+            return apply_wm_metric_qc(
+                df, qc_df, subject_col="subject", session_col="session"
+            )
+        if qc_mode == "completeqc":
+            return apply_wm_complete_qc(df, qc_df, subject_col="subject")
+    elif profile_type == "dkt":
+        if qc_mode == "metricqc":
+            return apply_dkt_metric_qc(df, qc_df)
+        if qc_mode == "completeqc":
+            return apply_dkt_complete_qc(df, qc_df)
+    raise ValueError(f"Unsupported QC mode/profile_type: {qc_mode}/{profile_type}")
 
 
 def _value_column(df: pd.DataFrame, stat: str, prefer_masked: bool) -> pd.Series:
@@ -238,14 +267,17 @@ def load_wm_long_df(input_globs: list[str], stat: str, prefer_masked: bool) -> p
     return df[["subject", "session", "metric", "feature", "value"]]
 
 
-def load_a2009s_long_df(input_glob: str, stat: str) -> pd.DataFrame:
-    rows = collect_rows(input_glob)
-    if rows.empty:
-        raise RuntimeError(f"No a2009s parcel stats found for glob: {input_glob}")
+def load_dkt_long_df(input_globs: list[str], stat: str) -> pd.DataFrame:
+    row_tables = [collect_rows(input_glob) for input_glob in input_globs]
+    row_tables = [table for table in row_tables if not table.empty]
+    if not row_tables:
+        raise RuntimeError(f"No DKT parcel stats found for glob(s): {input_globs}")
+    rows = pd.concat(row_tables, ignore_index=True).drop_duplicates()
     value_df = build_value_table(rows, stat=stat)
     value_df = value_df.copy()
     value_df["feature"] = value_df["parcel"].astype(str)
     value_df = value_df.rename(columns={"subject": "subject", "session": "session"})
+    value_df = value_df[~value_df["metric"].isin(EXCLUDED_DKT_METRICS)].copy()
     value_df["value"] = pd.to_numeric(value_df["value"], errors="coerce")
     return value_df[["subject", "session", "metric", "feature", "value"]]
 
@@ -254,7 +286,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--analysis",
-        choices=("wm", "a2009s", "both"),
+        choices=("wm", "dkt", "both"),
         default="both",
         help="Which profile discriminability analysis to run.",
     )
@@ -299,9 +331,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Input globs for WM bundle scalarstats TSVs.",
     )
     parser.add_argument(
-        "--a2009s-input-glob",
-        default=DEFAULT_A2009S_GLOB,
-        help="Input glob for a2009s parcel stats CSVs.",
+        "--dkt-input-glob",
+        nargs="+",
+        default=DEFAULT_DKT_GLOBS,
+        help=(
+            "Input glob(s) or expanded file path(s) for DKT parcel stats CSVs. "
+            "Quote shell globs to avoid expansion, or pass multiple files."
+        ),
+    )
+    parser.add_argument(
+        "--qc-file",
+        type=Path,
+        default=DEFAULT_QC_FILE,
+        help="Manual modality QC TSV.",
+    )
+    parser.add_argument(
+        "--qc-mode",
+        nargs="+",
+        choices=QC_MODES,
+        default=list(QC_MODES),
+        help="QC-filtered discriminability versions to write.",
     )
     parser.add_argument(
         "--outdir",
@@ -317,6 +366,7 @@ def main() -> None:
     outdir.mkdir(parents=True, exist_ok=True)
 
     zscore_features = not args.no_zscore
+    qc_df = load_qc_table(args.qc_file)
 
     if args.analysis in {"wm", "both"}:
         wm_df = load_wm_long_df(
@@ -324,36 +374,45 @@ def main() -> None:
             stat=args.stat,
             prefer_masked=args.prefer_masked,
         )
-        wm_out = _compute_discriminability(
-            wm_df,
-            profile_type="wm_bundles",
-            stat=args.stat,
-            min_feature_coverage=args.min_feature_coverage,
-            min_profile_coverage=args.min_profile_coverage,
-            distance_metric=args.distance_metric,
-            zscore_features=zscore_features,
-        )
         suffix = f"{args.stat}_{args.distance_metric}"
         if args.prefer_masked:
             suffix = f"masked_preferred_{suffix}"
-        out_csv = outdir / f"discriminability_wm_bundles_{suffix}.csv"
-        wm_out.to_csv(out_csv, index=False)
-        print(f"Wrote: {out_csv}", flush=True)
+        for qc_mode in args.qc_mode:
+            filtered_wm = apply_qc_mode(wm_df, qc_df, qc_mode, profile_type="wm")
+            wm_out = _compute_discriminability(
+                filtered_wm,
+                profile_type="wm_bundles",
+                stat=args.stat,
+                min_feature_coverage=args.min_feature_coverage,
+                min_profile_coverage=args.min_profile_coverage,
+                distance_metric=args.distance_metric,
+                zscore_features=zscore_features,
+            )
+            wm_out.insert(0, "qc_mode", qc_mode)
+            out_csv = outdir / f"discriminability_wm_bundles_{suffix}_{qc_mode}.csv"
+            wm_out.to_csv(out_csv, index=False)
+            print(f"Wrote: {out_csv}", flush=True)
 
-    if args.analysis in {"a2009s", "both"}:
-        a2009s_df = load_a2009s_long_df(args.a2009s_input_glob, stat=args.stat)
-        a2009s_out = _compute_discriminability(
-            a2009s_df,
-            profile_type="a2009s_parcels",
-            stat=args.stat,
-            min_feature_coverage=args.min_feature_coverage,
-            min_profile_coverage=args.min_profile_coverage,
-            distance_metric=args.distance_metric,
-            zscore_features=zscore_features,
-        )
-        out_csv = outdir / f"discriminability_a2009s_{args.stat}_{args.distance_metric}.csv"
-        a2009s_out.to_csv(out_csv, index=False)
-        print(f"Wrote: {out_csv}", flush=True)
+    if args.analysis in {"dkt", "both"}:
+        dkt_df = load_dkt_long_df(args.dkt_input_glob, stat=args.stat)
+        for qc_mode in args.qc_mode:
+            filtered_dkt = apply_qc_mode(dkt_df, qc_df, qc_mode, profile_type="dkt")
+            dkt_out = _compute_discriminability(
+                filtered_dkt,
+                profile_type="DKTatlas_parcels",
+                stat=args.stat,
+                min_feature_coverage=args.min_feature_coverage,
+                min_profile_coverage=args.min_profile_coverage,
+                distance_metric=args.distance_metric,
+                zscore_features=zscore_features,
+            )
+            dkt_out.insert(0, "qc_mode", qc_mode)
+            out_csv = (
+                outdir
+                / f"discriminability_DKTatlas_{args.stat}_{args.distance_metric}_{qc_mode}.csv"
+            )
+            dkt_out.to_csv(out_csv, index=False)
+            print(f"Wrote: {out_csv}", flush=True)
 
 
 if __name__ == "__main__":

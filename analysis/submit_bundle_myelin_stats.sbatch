@@ -29,7 +29,7 @@ if [[ -z "${subject}" ]]; then
   exit 1
 fi
 
-cmd="TCKMAP_BIN=${TCKMAP_BIN} ~/.conda/envs/myelin_reliability/bin/python ${CODE_DIR}/generate_bundle_myelin_scalarstats.py \
+cmd="TCKMAP_BIN=${TCKMAP_BIN} ~/.conda/envs/myelin_reliability/bin/python ${CODE_DIR}/compute_bundle_myelin_stats.py \
   --subject-id ${subject} \
   --out-root /cbica/projects/nibs/derivatives/bundle_myelin_stats"
 

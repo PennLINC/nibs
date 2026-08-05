@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=a2009s_stats
+#SBATCH --job-name=dkt_stats
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1-26
@@ -7,8 +7,8 @@
 #SBATCH --mem-per-cpu=8gb
 #SBATCH --time=24:00:00
 # Outputs ----------------------------------
-#SBATCH --output=/cbica/projects/nibs/logs/a2009s_stats_%A-%a.out
-#SBATCH --error=/cbica/projects/nibs/logs/a2009s_stats_%A-%a.err
+#SBATCH --output=/cbica/projects/nibs/logs/dkt_stats_%A-%a.out
+#SBATCH --error=/cbica/projects/nibs/logs/dkt_stats_%A-%a.err
 # ------------------------------------------
 
 pwd; hostname; date
@@ -28,7 +28,7 @@ if [[ -z "${subject}" ]]; then
   exit 1
 fi
 
-cmd="~/.conda/envs/myelin_reliability/bin/python ${CODE_DIR}/compute_a2009s_parcel_stats.py --subject-id ${subject}"
+cmd="~/.conda/envs/myelin_reliability/bin/python ${CODE_DIR}/compute_dkt_parcel_stats.py --subject-id ${subject}"
 
 echo "Running task ${SLURM_ARRAY_TASK_ID} for sub-${subject}"
 echo "Commandline: ${cmd}"
