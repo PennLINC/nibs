@@ -462,6 +462,8 @@ def process_run(layout, run_data, out_dir, temp_dir, n_threads=4):
     )
     ants.image_write(mask_qsm_img, mask_qsm_filename)
 
+    # TODO: Warp R2* and R2' to MNI space.
+
 
 def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()

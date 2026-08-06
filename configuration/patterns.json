@@ -72,6 +72,15 @@
         "ihMTsat": "ihmt/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_ihMTsat.nii.gz",
         "ihMTsat-B1c": "ihmt/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_ihMTsatB1sq.nii.gz"
     },
+    "MESE": {
+        "R2": "mese/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MESE_R2map.nii.gz"
+    },
+    "MEGRE": {
+        "R2*-E5": "megre/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MEGRE+E12345_R2starmap.nii.gz",
+        "R2*-E4": "megre/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MEGRE+E2345_R2starmap.nii.gz",
+        "R2'-E5": "megre/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MEGRE+E12345_R2primemap.nii.gz",
+        "R2'-E4": "megre/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MEGRE+E2345_R2primemap.nii.gz"
+    },
     "MP2RAGE": {
         "R1": "pymp2rage/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_R1map.nii.gz",
         "R1-B1c": "pymp2rage/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-B1corrected_R1map.nii.gz"
@@ -85,6 +94,12 @@
     "G-Ratio": {
         "G-ihMTsat": "g_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
         "G-ihMTR": "g_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz"
+    },
+    "Q-Ratio": {
+        "Q-Ratio-E5": "q_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-E12345_qratio.nii.gz",
+        "Q-Ratio-E5-B1c": "q_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+B1corrected_qratio.nii.gz",
+        "Q-Ratio-E4": "q_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-E2345_qratio.nii.gz",
+        "Q-Ratio-E4-B1c": "q_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+B1corrected_qratio.nii.gz"
     },
     "QSM": {
         "QSM-SEPIA-E5": "qsm/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+sepia_Chimap.nii.gz",

@@ -7,6 +7,7 @@ from glob import glob
 
 import numpy as np
 import pandas as pd
+from scipy.stats import spearmanr
 
 
 if __name__ == '__main__':
@@ -48,7 +49,7 @@ if __name__ == '__main__':
                     continue
 
                 arr = np.load(in_file)
-                r = np.corrcoef(arr)
+                r = spearmanr(arr, axis=1).statistic
                 # Clip to (-1, 1) before Fisher z-transforming. arctanh(±1) = ±inf,
                 # and a single perfect within-session correlation would otherwise
                 # propagate +/-inf into every subsequent nanmean for that cell.
