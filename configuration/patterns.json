@@ -30,6 +30,11 @@
         "ISOVF": "qsirecon/derivatives/qsirecon-NODDI/{subject}/{session}/dwi/*_space-{space}_model-noddi_param-isovf_dwimap.nii.gz",
         "OD (Modulated)": "qsirecon/derivatives/qsirecon-NODDI/{subject}/{session}/dwi/*_space-{space}_model-noddi_param-od_desc-modulated_dwimap.nii.gz",
         "OD": "qsirecon/derivatives/qsirecon-NODDI/{subject}/{session}/dwi/*_space-{space}_model-noddi_param-od_dwimap.nii.gz",
+        "ICVF (GM; Modulated)": "qsirecon/derivatives/qsirecon-gmNODDI/{subject}/{session}/dwi/*_space-{space}_model-noddi_param-icvf_desc-modulated_dwimap.nii.gz",
+        "ICVF (GM)": "qsirecon/derivatives/qsirecon-gmNODDI/{subject}/{session}/dwi/*_space-{space}_model-noddi_param-icvf_dwimap.nii.gz",
+        "ISOVF (GM)": "qsirecon/derivatives/qsirecon-gmNODDI/{subject}/{session}/dwi/*_space-{space}_model-noddi_param-isovf_dwimap.nii.gz",
+        "OD (GM; Modulated)": "qsirecon/derivatives/qsirecon-gmNODDI/{subject}/{session}/dwi/*_space-{space}_model-noddi_param-od_desc-modulated_dwimap.nii.gz",
+        "OD (GM)": "qsirecon/derivatives/qsirecon-gmNODDI/{subject}/{session}/dwi/*_space-{space}_model-noddi_param-od_dwimap.nii.gz",
         "NG": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/{subject}/{session}/dwi/*_space-{space}_model-mapmri_param-ng_dwimap.nii.gz",
         "NG Parallel": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/{subject}/{session}/dwi/*_space-{space}_model-mapmri_param-ngpar_dwimap.nii.gz",
         "NG Perpendicular": "qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/{subject}/{session}/dwi/*_space-{space}_model-mapmri_param-ngperp_dwimap.nii.gz",
@@ -57,13 +62,13 @@
         "ihMTsat-B1c": "ihmt/{subject}/{session}/anat/*_space-{space}_ihMTsatB1sq.nii.gz"
     },
     "MESE": {
-        "R2": "mese/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MESE_R2map.nii.gz"
+        "R2": "mese/{subject}/{session}/anat/*_space-{space}_desc-MESE_R2map.nii.gz"
     },
     "MEGRE": {
-        "R2*-E5": "megre/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MEGRE+E12345_R2starmap.nii.gz",
-        "R2*-E4": "megre/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MEGRE+E2345_R2starmap.nii.gz",
-        "R2'-E5": "megre/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MEGRE+E12345_R2primemap.nii.gz",
-        "R2'-E4": "megre/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-MEGRE+E2345_R2primemap.nii.gz"
+        "R2*-E5": "megre/{subject}/{session}/anat/*_space-{space}_desc-MEGRE+E12345_R2starmap.nii.gz",
+        "R2*-E4": "megre/{subject}/{session}/anat/*_space-{space}_desc-MEGRE+E2345_R2starmap.nii.gz",
+        "R2'-E5": "megre/{subject}/{session}/anat/*_space-{space}_desc-MEGRE+E12345_R2primemap.nii.gz",
+        "R2'-E4": "megre/{subject}/{session}/anat/*_space-{space}_desc-MEGRE+E2345_R2primemap.nii.gz"
     },
     "MP2RAGE": {
         "R1": "pymp2rage/{subject}/{session}/anat/*_space-{space}_R1map.nii.gz",
@@ -80,10 +85,10 @@
         "G-ihMTR": "g_ratio/{subject}/{session}/anat/*_space-{space}_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz"
     },
     "Q-Ratio": {
-        "Q-Ratio-E5": "q_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-E12345_qratio.nii.gz",
-        "Q-Ratio-E5-B1c": "q_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-E12345+B1corrected_qratio.nii.gz",
-        "Q-Ratio-E4": "q_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-E2345_qratio.nii.gz",
-        "Q-Ratio-E4-B1c": "q_ratio/{subject}/{session}/anat/*_space-MNI152NLin2009cAsym_desc-E2345+B1corrected_qratio.nii.gz"
+        "Q-Ratio-E5": "q_ratio/{subject}/{session}/anat/*_space-{space}_desc-E12345_qratio.nii.gz",
+        "Q-Ratio-E5-B1c": "q_ratio/{subject}/{session}/anat/*_space-{space}_desc-E12345+B1corrected_qratio.nii.gz",
+        "Q-Ratio-E4": "q_ratio/{subject}/{session}/anat/*_space-{space}_desc-E2345_qratio.nii.gz",
+        "Q-Ratio-E4-B1c": "q_ratio/{subject}/{session}/anat/*_space-{space}_desc-E2345+B1corrected_qratio.nii.gz"
     },
     "QSM": {
         "QSM-SEPIA-E5": "qsm/{subject}/{session}/anat/*_space-{space}_desc-E12345+sepia_Chimap.nii.gz",

@@ -4,9 +4,9 @@
 For each subject/session and tissue mask, this script loads configured
 space-MNI152NLin2009cAsym scalar maps, computes pairwise-valid voxelwise
 correlations, Fisher-z transforms them, and averages first within subject and
-then across subjects. Tissue masks come from sMRIPrep MNI dseg files where
-label 1 is GM and label 2 is WM; the combined mask is GM+WM, not CSF-inclusive
-whole brain. Full supplementary matrices are computed first; primary-analysis
+then across subjects. Tissue masks come from template-space GM and WM
+probability maps; the combined mask is GM+WM, not CSF-inclusive whole brain.
+Full supplementary matrices are computed first; primary-analysis
 matrices are then written as subsets of those full matrices.
 """
 
@@ -48,14 +48,16 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
     rankdata = None
 
 from metric_registry import SOURCE_IMAGE_COLORS, MetricSpec
-from metric_registry import build_metric_specs, metric_display_labels, metric_order, primary_metric_specs
+from metric_registry import (
+    build_metric_specs,
+    gm_noddi_hybrid_pairs,
+    metric_display_labels,
+    metric_order,
+    primary_metric_specs,
+)
 
 
-TISSUE_LABELS = {
-    'gm': (1,),
-    'wm': (2,),
-    'gmwm': (1, 2),
-}
+TISSUES = ('gm', 'wm', 'gmwm')
 TISSUE_TITLES = {
     'gm': 'GM',
     'wm': 'WM',
@@ -168,31 +170,6 @@ def discover_sessions(derivatives: Path, subject: str) -> list[str]:
     )
 
 
-def find_dseg(derivatives: Path, subject: str, session: str) -> Path | None:
-    return first_glob(
-        (
-            derivatives
-            / 'smriprep'
-            / subject
-            / 'anat'
-            / f'{subject}_acq-MPRAGE_rec-refaced_run-01_space-{SPACE}_dseg.nii*',
-            derivatives
-            / 'smriprep'
-            / subject
-            / session
-            / 'anat'
-            / f'{subject}_{session}_acq-MPRAGE_rec-refaced_run-01_space-{SPACE}_dseg.nii*',
-            derivatives / 'smriprep' / subject / 'anat' / f'{subject}_*space-{SPACE}_dseg.nii*',
-            derivatives
-            / 'smriprep'
-            / subject
-            / session
-            / 'anat'
-            / f'{subject}_{session}_*space-{SPACE}_dseg.nii*',
-        )
-    )
-
-
 def load_qc_table(path: Path | None) -> pd.DataFrame | None:
     if path is None:
         return None
@@ -230,6 +207,47 @@ def load_like(path: Path, reference: nib.spatialimages.SpatialImage, order: int)
     ):
         image = resample_from_to(image, reference, order=order)
     return np.asarray(image.get_fdata(), dtype=np.float32)
+
+
+def erode_mask_mm(
+    mask: np.ndarray,
+    reference: nib.spatialimages.SpatialImage,
+    erosion_mm: float,
+) -> np.ndarray:
+    mask_3d = np.asarray(mask, dtype=bool).reshape(reference.shape[:3])
+    if erosion_mm <= 0:
+        return mask_3d.reshape(-1)
+    from scipy.ndimage import distance_transform_edt
+
+    voxel_sizes = tuple(float(value) for value in nib.affines.voxel_sizes(reference.affine))
+    distance = distance_transform_edt(mask_3d, sampling=voxel_sizes)
+    return (distance > float(erosion_mm)).reshape(-1)
+
+
+def build_template_tissue_masks(
+    gm_probseg: Path,
+    wm_probseg: Path,
+    gm_threshold: float,
+    wm_threshold: float,
+    gm_erosion_mm: float,
+    wm_erosion_mm: float,
+) -> tuple[nib.spatialimages.SpatialImage, dict[str, np.ndarray]]:
+    reference = nib.load(str(gm_probseg))
+    gm_probability = load_like(gm_probseg, reference, order=1).reshape(-1)
+    wm_probability = load_like(wm_probseg, reference, order=1).reshape(-1)
+    gm = erode_mask_mm(gm_probability >= gm_threshold, reference, gm_erosion_mm)
+    wm = erode_mask_mm(wm_probability >= wm_threshold, reference, wm_erosion_mm)
+    overlap = gm & wm
+    if np.any(overlap):
+        overlap_indices = np.flatnonzero(overlap)
+        gm_wins = gm_probability[overlap] >= wm_probability[overlap]
+        gm[overlap_indices[~gm_wins]] = False
+        wm[overlap_indices[gm_wins]] = False
+    if not np.any(gm):
+        raise RuntimeError('Template GM mask is empty after thresholding/erosion.')
+    if not np.any(wm):
+        raise RuntimeError('Template WM mask is empty after thresholding/erosion.')
+    return reference, {'gm': gm, 'wm': wm, 'gmwm': gm | wm}
 
 
 def robust_outlier_mask(values: np.ndarray, z_threshold: float) -> np.ndarray:
@@ -270,27 +288,63 @@ def metric_paths_for_session(
     return paths
 
 
+def apply_gmwm_hybrid_maps(
+    data: pd.DataFrame,
+    gm_mask: np.ndarray,
+    hybrid_pairs: dict[str, str],
+) -> pd.DataFrame:
+    if not hybrid_pairs:
+        return data
+
+    out = data.copy()
+    gm_mask = np.asarray(gm_mask, dtype=bool)
+
+    for wm_label, gm_label in hybrid_pairs.items():
+        if wm_label not in out.columns:
+            continue
+        if gm_label not in out.columns:
+            out = out.drop(columns=[wm_label])
+            continue
+        hybrid = out[wm_label].to_numpy(dtype=np.float32, copy=True)
+        gm_values = out[gm_label].to_numpy(dtype=np.float32, copy=False)
+        hybrid[gm_mask] = gm_values[gm_mask]
+        out[wm_label] = hybrid
+
+    return out
+
+
 def compute_profile_correlations(
     data: pd.DataFrame,
-    dseg: np.ndarray,
+    tissue_mask: np.ndarray,
     tissue: str,
     method: str,
     outlier_z: float,
     min_voxels: int,
+    outlier_masks: tuple[np.ndarray, ...] | None = None,
 ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, dict[str, object]]:
-    tissue_mask = np.isin(dseg, TISSUE_LABELS[tissue])
     labels = list(data.columns)
     matrix = data.to_numpy(dtype=np.float32)
     n_metrics = len(labels)
     n_tissue_voxels = int(np.count_nonzero(tissue_mask))
     valid_masks: list[np.ndarray] = []
+    compartment_masks = (
+        tuple(np.asarray(mask, dtype=bool) for mask in outlier_masks)
+        if outlier_masks is not None
+        else (np.asarray(tissue_mask, dtype=bool),)
+    )
 
     for col_idx in range(n_metrics):
-        finite_nonzero = tissue_mask & np.isfinite(matrix[:, col_idx]) & (matrix[:, col_idx] != 0)
         valid_mask = np.zeros(tissue_mask.shape, dtype=bool)
-        if np.any(finite_nonzero):
-            outlier_mask = robust_outlier_mask(matrix[finite_nonzero, col_idx], outlier_z)
-            valid_mask[np.flatnonzero(finite_nonzero)] = outlier_mask
+        for compartment_mask in compartment_masks:
+            finite_nonzero = (
+                compartment_mask
+                & tissue_mask
+                & np.isfinite(matrix[:, col_idx])
+                & (matrix[:, col_idx] != 0)
+            )
+            if np.any(finite_nonzero):
+                outlier_mask = robust_outlier_mask(matrix[finite_nonzero, col_idx], outlier_z)
+                valid_mask[np.flatnonzero(finite_nonzero)] = outlier_mask
         valid_masks.append(valid_mask)
 
     corr = np.full((n_metrics, n_metrics), np.nan, dtype=float)
@@ -583,6 +637,22 @@ def parse_args() -> argparse.Namespace:
         help='Minimum number of selected metrics required for a subject/session profile.',
     )
     parser.add_argument(
+        '--gm-probseg',
+        type=Path,
+        default=None,
+        help='Template-space GM probability map. Defaults to <project-root>/code/data/tpl-MNI152NLin2009cAsym_res-01_label-GM_probseg.nii.gz.',
+    )
+    parser.add_argument(
+        '--wm-probseg',
+        type=Path,
+        default=None,
+        help='Template-space WM probability map. Defaults to <project-root>/code/data/tpl-MNI152NLin2009cAsym_res-01_label-WM_probseg.nii.gz.',
+    )
+    parser.add_argument('--gm-threshold', type=float, default=0.50)
+    parser.add_argument('--wm-threshold', type=float, default=0.50)
+    parser.add_argument('--gm-erosion-mm', type=float, default=0.0)
+    parser.add_argument('--wm-erosion-mm', type=float, default=0.0)
+    parser.add_argument(
         '--no-qc',
         action='store_true',
         help='Do not apply manual modality QC even if the default QC file exists.',
@@ -615,6 +685,42 @@ def parse_args() -> argparse.Namespace:
         if args.output_dir
         else args.project_root / 'derivatives' / 'mni_voxelwise_correlations'
     )
+    data_candidates = (
+        args.project_root / 'code' / 'data',
+        Path(__file__).resolve().parents[1] / 'data',
+    )
+    if args.gm_probseg is None:
+        args.gm_probseg = next(
+            (
+                directory / f'tpl-{SPACE}_res-01_label-GM_probseg.nii.gz'
+                for directory in data_candidates
+                if (directory / f'tpl-{SPACE}_res-01_label-GM_probseg.nii.gz').exists()
+            ),
+            data_candidates[0] / f'tpl-{SPACE}_res-01_label-GM_probseg.nii.gz',
+        )
+    else:
+        args.gm_probseg = args.gm_probseg.expanduser().resolve()
+    if args.wm_probseg is None:
+        args.wm_probseg = next(
+            (
+                directory / f'tpl-{SPACE}_res-01_label-WM_probseg.nii.gz'
+                for directory in data_candidates
+                if (directory / f'tpl-{SPACE}_res-01_label-WM_probseg.nii.gz').exists()
+            ),
+            data_candidates[0] / f'tpl-{SPACE}_res-01_label-WM_probseg.nii.gz',
+        )
+    else:
+        args.wm_probseg = args.wm_probseg.expanduser().resolve()
+    if not args.gm_probseg.exists():
+        raise FileNotFoundError(f'GM probability map not found: {args.gm_probseg}')
+    if not args.wm_probseg.exists():
+        raise FileNotFoundError(f'WM probability map not found: {args.wm_probseg}')
+    if not (0.0 < args.gm_threshold <= 1.0):
+        parser.error('--gm-threshold must be in (0, 1].')
+    if not (0.0 < args.wm_threshold <= 1.0):
+        parser.error('--wm-threshold must be in (0, 1].')
+    if args.gm_erosion_mm < 0 or args.wm_erosion_mm < 0:
+        parser.error('Template mask erosion distances must be nonnegative.')
     return args
 
 
@@ -624,6 +730,7 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     patterns = load_patterns(args.patterns_file)
     specs = build_metric_specs(args.patterns_file)
+    hybrid_pairs = gm_noddi_hybrid_pairs(specs)
     primary_specs = primary_metric_specs(specs)
     if len(primary_specs) != len(metric_order(specs, 'primary')):
         raise RuntimeError('Primary metric registry contains duplicate labels.')
@@ -637,9 +744,17 @@ def main() -> None:
     )
     diagnostics: list[dict[str, object]] = []
     pairwise_coverage: list[dict[str, object]] = []
-    z_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUE_LABELS}
-    count_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUE_LABELS}
-    proportion_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUE_LABELS}
+    reference, tissue_masks = build_template_tissue_masks(
+        args.gm_probseg,
+        args.wm_probseg,
+        args.gm_threshold,
+        args.wm_threshold,
+        args.gm_erosion_mm,
+        args.wm_erosion_mm,
+    )
+    z_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUES}
+    count_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUES}
+    proportion_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUES}
 
     for subject in subjects:
         sessions = (
@@ -647,18 +762,14 @@ def main() -> None:
             if args.session_id
             else discover_sessions(args.derivatives_dir, subject)
         )
-        subject_z_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUE_LABELS}
+        subject_z_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUES}
         subject_count_mats: dict[str, list[pd.DataFrame]] = {
-            tissue: [] for tissue in TISSUE_LABELS
+            tissue: [] for tissue in TISSUES
         }
         subject_proportion_mats: dict[str, list[pd.DataFrame]] = {
-            tissue: [] for tissue in TISSUE_LABELS
+            tissue: [] for tissue in TISSUES
         }
         for session in sessions:
-            dseg_path = find_dseg(args.derivatives_dir, subject, session)
-            if dseg_path is None:
-                print(f'Skipping {subject} {session}: missing MNI dseg')
-                continue
             metric_paths = metric_paths_for_session(
                 args.derivatives_dir,
                 patterns,
@@ -672,29 +783,60 @@ def main() -> None:
                 print(f'Skipping {subject} {session}: only {len(metric_paths)} metrics')
                 continue
 
-            reference = nib.load(str(dseg_path))
-            dseg = np.rint(np.asarray(reference.get_fdata(), dtype=np.float32)).astype(np.int16)
             metric_data = {
                 label: load_like(path, reference, order=1).reshape(-1)
                 for label, path in metric_paths.items()
             }
             data = pd.DataFrame(metric_data)
-            flat_dseg = dseg.reshape(-1)
-            for tissue in TISSUE_LABELS:
+            for tissue in TISSUES:
+                analysis_data = (
+                    apply_gmwm_hybrid_maps(data, tissue_masks['gm'], hybrid_pairs)
+                    if tissue == 'gmwm'
+                    else data
+                )
+                tissue_labels = [
+                    label
+                    for label in metric_order(specs, 'full', tissue=tissue)
+                    if label in analysis_data.columns
+                ]
+                tissue_data = analysis_data.loc[:, tissue_labels]
+                if len(tissue_labels) < args.min_metrics:
+                    diagnostics.append(
+                        {
+                            'subject': subject,
+                            'session': session,
+                            'tissue': tissue,
+                            'n_metrics': len(tissue_labels),
+                            'n_tissue_voxels': int(np.count_nonzero(tissue_masks[tissue])),
+                            'n_valid_metric_pairs': 0,
+                            'n_total_metric_pairs': 0,
+                            'reason': 'too_few_tissue_eligible_metrics',
+                            'gm_probseg': str(args.gm_probseg),
+                            'wm_probseg': str(args.wm_probseg),
+                            'metrics': ','.join(tissue_labels),
+                        }
+                    )
+                    continue
                 corr, counts, proportions, diag = compute_profile_correlations(
-                    data,
-                    flat_dseg,
+                    tissue_data,
+                    tissue_masks[tissue],
                     tissue,
                     method=args.correlation,
                     outlier_z=args.outlier_z,
                     min_voxels=args.min_voxels,
+                    outlier_masks=(
+                        (tissue_masks['gm'], tissue_masks['wm'])
+                        if tissue == 'gmwm'
+                        else None
+                    ),
                 )
                 diag.update(
                     {
                         'subject': subject,
                         'session': session,
-                        'dseg_file': str(dseg_path),
-                        'metrics': ','.join(data.columns),
+                        'gm_probseg': str(args.gm_probseg),
+                        'wm_probseg': str(args.wm_probseg),
+                        'metrics': ','.join(tissue_data.columns),
                     }
                 )
                 diagnostics.append(diag)
@@ -758,17 +900,17 @@ def main() -> None:
         index=False,
     )
 
-    orders = {
-        'full': metric_order(specs, 'full'),
-        'primary': metric_order(specs, 'primary'),
-    }
-    display_labels = {
-        analysis_set: metric_display_labels(specs, analysis_set)
-        for analysis_set in orders
-    }
     for tissue, mats in z_mats.items():
         if not mats:
             continue
+        orders = {
+            'full': metric_order(specs, 'full', tissue=tissue),
+            'primary': metric_order(specs, 'primary', tissue=tissue),
+        }
+        display_labels = {
+            analysis_set: metric_display_labels(specs, analysis_set, tissue=tissue)
+            for analysis_set in orders
+        }
         full_labels = [label for label in orders['full'] if any(label in mat.index for mat in mats)]
         stack = np.stack(
             [

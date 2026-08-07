@@ -17,6 +17,7 @@ class MetricSpec:
     family: str
     source_image: str
     qc_modalities: tuple[str, ...]
+    tissues: tuple[str, ...]
     primary: bool = False
 
 
@@ -41,6 +42,7 @@ PRIMARY_METRIC_LABELS = (
     'SPACE-MyelinW',
     'G-ihMTsat',
     'G-ihMTR',
+    'Q-Ratio-E5-B1c',
     'QSM-SEPIA-E5',
     'QSM-X-R2p-E5-X',
     'QSM-X-R2p-E5-Para',
@@ -68,6 +70,7 @@ PRIMARY_PATTERN_KEYS = {
     'SPACE-MyelinW': 'SPACE-MyelinW',
     'G-ihMTsat': 'G-ihMTsat',
     'G-ihMTR': 'G-ihMTR',
+    'Q-Ratio-E5-B1c': 'Q-Ratio-E5-B1c',
     'QSM-SEPIA-E5': 'QSM-SEPIA-E5',
     'QSM-X-R2p-E5-X': "QSM-X-R2'-E5-X",
     'QSM-X-R2p-E5-Para': "QSM-X-R2'-E5-Para",
@@ -81,6 +84,8 @@ SOURCE_IMAGE_COLORS = {
     'ihMT': '#228833',
     'g-ratio': '#555555',
     'R1': '#EE7733',
+    'MESE': '#66CCEE',
+    'MEGRE': '#882255',
     'Other': '#999999',
 }
 
@@ -106,6 +111,8 @@ def display_label(pattern_key: str) -> str:
 
 
 def primary_label(pattern_key: str) -> str:
+    if pattern_key == 'ICVF (GM)':
+        return 'ICVF'
     for label, key in PRIMARY_PATTERN_KEYS.items():
         if key == pattern_key:
             return label
@@ -120,7 +127,11 @@ def infer_family(group: str, pattern_key: str) -> str:
             return 'DKI Micro'
         if pattern_key.startswith('DKI '):
             return 'DKI'
-        if pattern_key.startswith('ICVF') or pattern_key in {'ISOVF', 'OD', 'OD (Modulated)'}:
+        if (
+            pattern_key.startswith('ICVF')
+            or pattern_key.startswith('ISOVF')
+            or pattern_key.startswith('OD')
+        ):
             return 'NODDI'
         if pattern_key in {'NG', 'NG Parallel', 'NG Perpendicular', 'PA', 'PAth', 'RTAP', 'RTOP', 'RTPP'}:
             return 'MAPMRI'
@@ -133,6 +144,10 @@ def infer_family(group: str, pattern_key: str) -> str:
         return 'g-ratio'
     if group == 'MP2RAGE':
         return 'R1'
+    if group in {'MESE', 'MEGRE'}:
+        return group
+    if group == 'Q-Ratio':
+        return 'MEGRE'
     return group
 
 
@@ -145,6 +160,10 @@ def source_image_from_group(group: str) -> str:
         return 'g-ratio'
     if group == 'MP2RAGE':
         return 'R1'
+    if group in {'MESE', 'MEGRE'}:
+        return group
+    if group == 'Q-Ratio':
+        return 'MEGRE'
     if group == 'ihMT':
         return 'ihMT'
     if group == 'QSM':
@@ -178,6 +197,16 @@ def qc_modalities_for(group: str, pattern_key: str) -> tuple[str, ...]:
             return ('MP2RAGE', 'dMRI', 'ihMTRAGE', 'B1+')
         if pattern_key == 'G-ihMTR':
             return ('dMRI', 'ihMTRAGE')
+    if group == 'MESE':
+        return ('MESE',)
+    if group == 'MEGRE':
+        if pattern_key.startswith("R2'-"):
+            return ('MEGRE', 'MESE')
+        return ('MEGRE',)
+    if group == 'Q-Ratio':
+        if pattern_key.endswith('-B1c'):
+            return ('MP2RAGE', 'MEGRE', 'B1+')
+        return ('MP2RAGE', 'MEGRE')
     if group == 'QSM':
         if pattern_key == 'QSM-SEPIA-E5' or pattern_key.endswith('R2pnet-E5-X'):
             return ('MEGRE',)
@@ -185,6 +214,34 @@ def qc_modalities_for(group: str, pattern_key: str) -> tuple[str, ...]:
             return ('MEGRE', 'MESE')
         return ('MEGRE',)
     return ()
+
+
+def is_noddi_pattern(group: str, pattern_key: str) -> bool:
+    return group == 'dMRI' and (
+        pattern_key.startswith('ICVF')
+        or pattern_key.startswith('ISOVF')
+        or pattern_key.startswith('OD')
+    )
+
+
+def is_gm_noddi_pattern(group: str, pattern_key: str) -> bool:
+    return is_noddi_pattern(group, pattern_key) and '(GM' in pattern_key
+
+
+def noddi_hybrid_label(pattern_key: str) -> str:
+    return display_label(
+        pattern_key.replace(' (GM; ', ' (').replace(' (GM)', '')
+    )
+
+
+def tissues_for(group: str, pattern_key: str) -> tuple[str, ...]:
+    if group == 'G-Ratio':
+        return ('wm',)
+    if is_noddi_pattern(group, pattern_key):
+        if is_gm_noddi_pattern(group, pattern_key):
+            return ('gm',)
+        return ('wm', 'gmwm')
+    return ('gm', 'wm', 'gmwm')
 
 
 def build_metric_specs(
@@ -205,28 +262,107 @@ def build_metric_specs(
                     family=infer_family(group, pattern_key),
                     source_image=source_image_from_group(group),
                     qc_modalities=qc_modalities_for(group, pattern_key),
+                    tissues=tissues_for(group, pattern_key),
                     primary=pattern_key in primary_keys,
                 )
             )
     return specs
 
 
-def primary_metric_specs(specs: list[MetricSpec]) -> list[MetricSpec]:
-    by_label = {spec.primary_label: spec for spec in specs}
+def primary_metric_specs(
+    specs: list[MetricSpec],
+    tissue: str | None = None,
+) -> list[MetricSpec]:
+    candidates = [
+        spec
+        for spec in specs
+        if tissue is None or tissue in spec.tissues
+    ]
+    by_label: dict[str, MetricSpec] = {}
+    for spec in candidates:
+        by_label.setdefault(spec.primary_label, spec)
     return [by_label[label] for label in PRIMARY_METRIC_LABELS if label in by_label]
 
 
-def metric_order(specs: list[MetricSpec], analysis_set: str) -> list[str]:
+def metric_specs_for_analysis(
+    specs: list[MetricSpec],
+    analysis_set: str,
+    tissue: str | None = None,
+) -> list[MetricSpec]:
+    candidates = [
+        spec
+        for spec in specs
+        if tissue is None or tissue in spec.tissues
+    ]
     if analysis_set == 'primary':
-        return [spec.label for spec in primary_metric_specs(specs)]
+        return primary_metric_specs(specs, tissue=tissue)
     if analysis_set == 'full':
-        return [spec.label for spec in specs]
+        return candidates
     raise ValueError(f'Unsupported metric set: {analysis_set}')
 
 
-def metric_display_labels(specs: list[MetricSpec], analysis_set: str) -> dict[str, str]:
+def metric_order(
+    specs: list[MetricSpec],
+    analysis_set: str,
+    tissue: str | None = None,
+) -> list[str]:
+    return [
+        spec.label
+        for spec in metric_specs_for_analysis(
+            specs,
+            analysis_set,
+            tissue=tissue,
+        )
+    ]
+
+
+def metric_display_labels(
+    specs: list[MetricSpec],
+    analysis_set: str,
+    tissue: str | None = None,
+) -> dict[str, str]:
+    def label_for_spec(spec: MetricSpec) -> str:
+        if tissue == 'gm' and spec.group == 'dMRI' and '(GM' in spec.pattern_key:
+            return spec.label.replace(' (GM; ', ' (').replace(' (GM)', '')
+        return spec.label
+
     if analysis_set == 'primary':
-        return {spec.label: spec.primary_label for spec in primary_metric_specs(specs)}
+        return {
+            spec.label: spec.primary_label
+            for spec in primary_metric_specs(
+                specs,
+                tissue=tissue,
+            )
+        }
     if analysis_set == 'full':
-        return {spec.label: spec.label for spec in specs}
+        return {
+            spec.label: label_for_spec(spec)
+            for spec in metric_specs_for_analysis(
+                specs,
+                analysis_set,
+                tissue=tissue,
+            )
+        }
     raise ValueError(f'Unsupported metric set: {analysis_set}')
+
+
+def gm_noddi_hybrid_pairs(specs: list[MetricSpec]) -> dict[str, str]:
+    """Map regular NODDI labels to GM-NODDI labels for GM+WM hybrids."""
+
+    wm_by_label: dict[str, str] = {}
+    gm_by_label: dict[str, str] = {}
+
+    for spec in specs:
+        if not is_noddi_pattern(spec.group, spec.pattern_key):
+            continue
+        hybrid_label = noddi_hybrid_label(spec.pattern_key)
+        if is_gm_noddi_pattern(spec.group, spec.pattern_key):
+            gm_by_label[hybrid_label] = spec.label
+        else:
+            wm_by_label[hybrid_label] = spec.label
+
+    return {
+        wm_label: gm_by_label[hybrid_label]
+        for hybrid_label, wm_label in wm_by_label.items()
+        if hybrid_label in gm_by_label
+    }

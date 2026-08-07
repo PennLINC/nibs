@@ -29,11 +29,11 @@ except ImportError:  # pragma: no cover - checked after --help
     resample_from_to = None
     distance_transform_edt = None
 
-from metric_registry import build_metric_specs, metric_display_labels, metric_order
+from metric_registry import build_metric_specs, gm_noddi_hybrid_pairs, metric_display_labels, metric_order
 
 
 SPACE = 'MNI152NLin2009cAsym'
-TISSUE_LABELS = {'gm': (1,), 'wm': (2,), 'gmwm': (1, 2)}
+TISSUES = ('gm', 'wm', 'gmwm')
 TISSUE_TITLES = {'gm': 'GM', 'wm': 'WM', 'gmwm': 'GM+WM'}
 ANALYSIS_SETS = ('primary', 'full', 'both')
 
@@ -205,32 +205,30 @@ def erode_mask_mm(mask: np.ndarray, reference, erosion_mm: float) -> np.ndarray:
     return (distance > float(erosion_mm)).reshape(-1)
 
 
-def build_consensus_tissue_masks(
-    dseg_paths: list[Path],
-    reference,
-    consensus_threshold: float,
-    erosion_mm: float,
-) -> dict[str, np.ndarray]:
-    n_voxels = int(np.prod(reference.shape[:3]))
-    gm_count = np.zeros(n_voxels, dtype=np.uint32)
-    wm_count = np.zeros(n_voxels, dtype=np.uint32)
-    for dseg_path in dseg_paths:
-        dseg = np.rint(load_like(dseg_path, reference, order=0)).astype(np.int16).reshape(-1)
-        gm_count += (dseg == 1).astype(np.uint32)
-        wm_count += (dseg == 2).astype(np.uint32)
-    if not dseg_paths:
-        raise RuntimeError('No dseg files were available to build tissue masks.')
-    gm_probability = gm_count.astype(np.float32) / float(len(dseg_paths))
-    wm_probability = wm_count.astype(np.float32) / float(len(dseg_paths))
-    gm = erode_mask_mm(gm_probability >= consensus_threshold, reference, erosion_mm)
-    wm = erode_mask_mm(wm_probability >= consensus_threshold, reference, erosion_mm)
+def build_template_tissue_masks(
+    gm_probseg: Path,
+    wm_probseg: Path,
+    gm_threshold: float,
+    wm_threshold: float,
+    gm_erosion_mm: float,
+    wm_erosion_mm: float,
+) -> tuple[object, dict[str, np.ndarray]]:
+    reference = nib.load(str(gm_probseg))
+    gm_probability = load_like(gm_probseg, reference, order=1).reshape(-1)
+    wm_probability = load_like(wm_probseg, reference, order=1).reshape(-1)
+    gm = erode_mask_mm(gm_probability >= gm_threshold, reference, gm_erosion_mm)
+    wm = erode_mask_mm(wm_probability >= wm_threshold, reference, wm_erosion_mm)
     overlap = gm & wm
     if np.any(overlap):
         overlap_indices = np.flatnonzero(overlap)
-        gm_wins = gm_probability[overlap] > wm_probability[overlap]
+        gm_wins = gm_probability[overlap] >= wm_probability[overlap]
         gm[overlap_indices[~gm_wins]] = False
         wm[overlap_indices[gm_wins]] = False
-    return {'gm': gm, 'wm': wm, 'gmwm': gm | wm}
+    if not np.any(gm):
+        raise RuntimeError('Template GM mask is empty after thresholding/erosion.')
+    if not np.any(wm):
+        raise RuntimeError('Template WM mask is empty after thresholding/erosion.')
+    return reference, {'gm': gm, 'wm': wm, 'gmwm': gm | wm}
 
 
 def collect_dseg_paths(
@@ -265,15 +263,30 @@ def selected_analysis_sets(analysis_set: str) -> list[str]:
     return ['primary', 'full'] if analysis_set == 'both' else [analysis_set]
 
 
-def specs_for_analysis_set(specs, analysis_set: str) -> list:
+def specs_for_analysis_set(
+    specs,
+    analysis_set: str,
+    tissues: list[str] | tuple[str, ...] | None = None,
+) -> list:
     by_label = {spec.label: spec for spec in specs}
-    return [by_label[label] for label in metric_order(specs, analysis_set) if label in by_label]
+    ordered_specs = OrderedDict()
+    tissue_values = tuple(tissues) if tissues is not None else (None,)
+    for tissue in tissue_values:
+        for label in metric_order(specs, analysis_set, tissue=tissue):
+            if label in by_label:
+                ordered_specs.setdefault(label, by_label[label])
+    return list(ordered_specs.values())
 
 
-def select_metric_specs(specs, analysis_set: str, requested: list[str] | None) -> list:
+def select_metric_specs(
+    specs,
+    analysis_set: str,
+    requested: list[str] | None,
+    tissues: list[str] | tuple[str, ...] | None = None,
+) -> list:
     selected = OrderedDict()
     for current_set in selected_analysis_sets(analysis_set):
-        for spec in specs_for_analysis_set(specs, current_set):
+        for spec in specs_for_analysis_set(specs, current_set, tissues=tissues):
             selected.setdefault(spec.label, spec)
     if not requested:
         return list(selected.values())
@@ -281,16 +294,18 @@ def select_metric_specs(specs, analysis_set: str, requested: list[str] | None) -
     by_lower = {}
     for spec in selected.values():
         for label in (spec.label, spec.primary_label, spec.pattern_key):
-            by_lower[str(label).lower()] = spec
+            by_lower.setdefault(str(label).lower(), []).append(spec)
 
     out = []
     unknown = []
     for label in requested:
-        spec = by_lower.get(str(label).strip().lower())
-        if spec is None:
+        matches = by_lower.get(str(label).strip().lower())
+        if not matches:
             unknown.append(str(label))
-        elif spec not in out:
-            out.append(spec)
+            continue
+        for spec in matches:
+            if spec not in out:
+                out.append(spec)
     if unknown:
         raise ValueError(
             'Unknown metric label(s): '
@@ -342,24 +357,56 @@ def collect_metric_profiles(
     return profiles, diagnostics
 
 
+def pair_gmwm_hybrid_profiles(
+    wm_profiles: list[dict[str, object]],
+    gm_profiles: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    gm_by_key = {
+        (profile['subject'], profile['session']): profile
+        for profile in gm_profiles
+    }
+    paired = []
+    for profile in wm_profiles:
+        gm_profile = gm_by_key.get((profile['subject'], profile['session']))
+        if gm_profile is None:
+            continue
+        out = dict(profile)
+        out['gm_metric_file'] = gm_profile['metric_file']
+        paired.append(out)
+    return paired
+
+
 def common_metric_mask(
     profiles: list[dict[str, object]],
     reference,
     base_mask: np.ndarray,
     outlier_z: float,
     remove_zeros: bool,
+    gm_mask: np.ndarray | None = None,
+    outlier_masks: tuple[np.ndarray, ...] | None = None,
 ) -> tuple[np.ndarray, list[np.ndarray]]:
     common = np.asarray(base_mask, dtype=bool).copy()
+    compartment_masks = (
+        tuple(np.asarray(mask, dtype=bool) for mask in outlier_masks)
+        if outlier_masks is not None
+        else (np.asarray(base_mask, dtype=bool),)
+    )
     values_by_profile = []
     for profile in profiles:
         values = load_like(Path(profile['metric_file']), reference, order=1).reshape(-1)
-        valid = np.asarray(base_mask, dtype=bool) & np.isfinite(values)
-        if remove_zeros:
-            valid &= values != 0
-        metric_valid = np.zeros(valid.shape, dtype=bool)
-        if np.any(valid):
-            local = robust_outlier_mask(values[valid], outlier_z)
-            metric_valid[np.flatnonzero(valid)] = local
+        if gm_mask is not None and profile.get('gm_metric_file'):
+            gm_mask_bool = np.asarray(gm_mask, dtype=bool)
+            gm_values = load_like(Path(profile['gm_metric_file']), reference, order=1).reshape(-1)
+            values = values.copy()
+            values[gm_mask_bool] = gm_values[gm_mask_bool]
+        metric_valid = np.zeros(np.asarray(base_mask, dtype=bool).shape, dtype=bool)
+        for compartment_mask in compartment_masks:
+            valid = np.asarray(base_mask, dtype=bool) & compartment_mask & np.isfinite(values)
+            if remove_zeros:
+                valid &= values != 0
+            if np.any(valid):
+                local = robust_outlier_mask(values[valid], outlier_z)
+                metric_valid[np.flatnonzero(valid)] = local
         common &= metric_valid
         values_by_profile.append(values)
     return common, values_by_profile
@@ -497,11 +544,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--session-id', action='append', default=None)
     parser.add_argument('--metric', action='append')
     parser.add_argument('--analysis-set', choices=ANALYSIS_SETS, default='both')
-    parser.add_argument('--tissue', action='append', choices=tuple(TISSUE_LABELS), default=None)
+    parser.add_argument('--tissue', action='append', choices=TISSUES, default=None)
     parser.add_argument('--distance-metric', choices=('correlation', 'euclidean'), default='correlation')
     parser.add_argument('--zscore-features', action='store_true')
-    parser.add_argument('--mask-erosion-mm', type=float, default=2.0)
-    parser.add_argument('--mask-consensus-threshold', type=float, default=0.80)
+    parser.add_argument('--gm-probseg', type=Path, default=None)
+    parser.add_argument('--wm-probseg', type=Path, default=None)
+    parser.add_argument('--gm-threshold', type=float, default=0.50)
+    parser.add_argument('--wm-threshold', type=float, default=0.50)
+    parser.add_argument('--gm-erosion-mm', type=float, default=0.0)
+    parser.add_argument('--wm-erosion-mm', type=float, default=0.0)
     parser.add_argument('--outlier-z', type=float, default=6.0)
     parser.add_argument('--chunk-size', type=int, default=50000)
     parser.add_argument('--min-features', type=int, default=1000)
@@ -540,17 +591,49 @@ def parse_args() -> argparse.Namespace:
         if args.session_id
         else ['ses-01', 'ses-02']
     )
-    args.tissues = args.tissue if args.tissue else list(TISSUE_LABELS)
+    args.tissues = args.tissue if args.tissue else list(TISSUES)
     if len(args.sessions) < 2:
         parser.error('At least two --session-id values are required.')
     if args.chunk_size < 1:
         parser.error('--chunk-size must be positive.')
     if args.min_features < 1:
         parser.error('--min-features must be positive.')
-    if not (0.5 < args.mask_consensus_threshold <= 1.0):
-        parser.error('--mask-consensus-threshold must be in (0.5, 1].')
-    if args.mask_erosion_mm < 0:
-        parser.error('--mask-erosion-mm must be nonnegative.')
+    data_candidates = (
+        args.project_root / 'code' / 'data',
+        Path(__file__).resolve().parents[1] / 'data',
+    )
+    if args.gm_probseg is None:
+        args.gm_probseg = next(
+            (
+                directory / f'tpl-{SPACE}_res-01_label-GM_probseg.nii.gz'
+                for directory in data_candidates
+                if (directory / f'tpl-{SPACE}_res-01_label-GM_probseg.nii.gz').exists()
+            ),
+            data_candidates[0] / f'tpl-{SPACE}_res-01_label-GM_probseg.nii.gz',
+        )
+    else:
+        args.gm_probseg = args.gm_probseg.expanduser().resolve()
+    if args.wm_probseg is None:
+        args.wm_probseg = next(
+            (
+                directory / f'tpl-{SPACE}_res-01_label-WM_probseg.nii.gz'
+                for directory in data_candidates
+                if (directory / f'tpl-{SPACE}_res-01_label-WM_probseg.nii.gz').exists()
+            ),
+            data_candidates[0] / f'tpl-{SPACE}_res-01_label-WM_probseg.nii.gz',
+        )
+    else:
+        args.wm_probseg = args.wm_probseg.expanduser().resolve()
+    if not args.gm_probseg.exists():
+        raise FileNotFoundError(f'GM probability map not found: {args.gm_probseg}')
+    if not args.wm_probseg.exists():
+        raise FileNotFoundError(f'WM probability map not found: {args.wm_probseg}')
+    if not (0.0 < args.gm_threshold <= 1.0):
+        parser.error('--gm-threshold must be in (0, 1].')
+    if not (0.0 < args.wm_threshold <= 1.0):
+        parser.error('--wm-threshold must be in (0, 1].')
+    if args.gm_erosion_mm < 0 or args.wm_erosion_mm < 0:
+        parser.error('Template mask erosion distances must be nonnegative.')
     return args
 
 
@@ -561,15 +644,28 @@ def main() -> None:
 
     patterns = load_patterns(args.patterns_file)
     specs = build_metric_specs(args.patterns_file)
-    metric_specs = select_metric_specs(specs, args.analysis_set, args.metric)
+    spec_by_label = {spec.label: spec for spec in specs}
+    hybrid_pairs = gm_noddi_hybrid_pairs(specs)
+    metric_specs = select_metric_specs(
+        specs,
+        args.analysis_set,
+        args.metric,
+        tissues=args.tissues,
+    )
     analysis_sets = selected_analysis_sets(args.analysis_set)
     display_labels = {
-        analysis_set: metric_display_labels(specs, analysis_set)
-        for analysis_set in analysis_sets
+        tissue: {
+            analysis_set: metric_display_labels(specs, analysis_set, tissue=tissue)
+            for analysis_set in analysis_sets
+        }
+        for tissue in args.tissues
     }
-    labels_by_set = {
-        analysis_set: set(metric_order(specs, analysis_set))
-        for analysis_set in analysis_sets
+    labels_by_tissue = {
+        tissue: {
+            analysis_set: set(metric_order(specs, analysis_set, tissue=tissue))
+            for analysis_set in analysis_sets
+        }
+        for tissue in args.tissues
     }
     qc = load_qc_table(args.qc_file)
 
@@ -578,16 +674,13 @@ def main() -> None:
         if args.subject_id
         else discover_subjects(args.derivatives_dir)
     )
-    dseg_paths = collect_dseg_paths(args.derivatives_dir, subjects, args.sessions)
-    if not dseg_paths:
-        raise RuntimeError('No MNI dseg found for any selected subject/session.')
-
-    reference = nib.load(str(dseg_paths[0]))
-    masks = build_consensus_tissue_masks(
-        dseg_paths,
-        reference,
-        consensus_threshold=args.mask_consensus_threshold,
-        erosion_mm=args.mask_erosion_mm,
+    reference, masks = build_template_tissue_masks(
+        args.gm_probseg,
+        args.wm_probseg,
+        args.gm_threshold,
+        args.wm_threshold,
+        args.gm_erosion_mm,
+        args.wm_erosion_mm,
     )
 
     rows = []
@@ -606,21 +699,51 @@ def main() -> None:
         diagnostics.extend(metric_diagnostics)
         if len(profiles) < 4:
             continue
+        gm_hybrid_profiles = None
+        gm_counterpart = spec_by_label.get(hybrid_pairs.get(spec.label))
+        if gm_counterpart is not None and 'gmwm' in args.tissues:
+            gm_hybrid_profiles, gm_metric_diagnostics = collect_metric_profiles(
+                args.derivatives_dir,
+                patterns,
+                qc,
+                subjects,
+                args.sessions,
+                gm_counterpart,
+            )
+            diagnostics.extend(gm_metric_diagnostics)
         for tissue in args.tissues:
+            if not any(
+                spec.label in labels_by_tissue[tissue][analysis_set]
+                for analysis_set in analysis_sets
+            ):
+                continue
+            tissue_profiles = profiles
+            tissue_gm_mask = None
+            if tissue == 'gmwm' and gm_hybrid_profiles is not None:
+                tissue_profiles = pair_gmwm_hybrid_profiles(profiles, gm_hybrid_profiles)
+                tissue_gm_mask = masks['gm']
+                if len(tissue_profiles) < 4:
+                    continue
             print(f'  {TISSUE_TITLES[tissue]}', flush=True)
             common_mask, values_by_profile = common_metric_mask(
-                profiles,
+                tissue_profiles,
                 reference,
                 masks[tissue],
                 outlier_z=args.outlier_z,
                 remove_zeros=not args.allow_zero,
+                gm_mask=tissue_gm_mask,
+                outlier_masks=(
+                    (masks['gm'], masks['wm'])
+                    if tissue == 'gmwm'
+                    else None
+                ),
             )
             n_features = int(np.count_nonzero(common_mask))
             coverage_rows.append(
                 {
                     'metric': spec.label,
                     'tissue': tissue,
-                    'n_profiles': len(profiles),
+                    'n_profiles': len(tissue_profiles),
                     'n_tissue_voxels': int(np.count_nonzero(masks[tissue])),
                     'n_common_voxels': n_features,
                     'proportion_tissue_voxels': (
@@ -640,12 +763,12 @@ def main() -> None:
                 chunk_size=args.chunk_size,
             )
             for analysis_set in analysis_sets:
-                if spec.label not in labels_by_set[analysis_set]:
+                if spec.label not in labels_by_tissue[tissue][analysis_set]:
                     continue
-                metric_label = display_labels[analysis_set].get(spec.label, spec.label)
+                metric_label = display_labels[tissue][analysis_set].get(spec.label, spec.label)
                 score = score_distances(
                     distances,
-                    profiles,
+                    tissue_profiles,
                     n_features=n_features,
                     analysis_set=analysis_set,
                     metric_label=metric_label,

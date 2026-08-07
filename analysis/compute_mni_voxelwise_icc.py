@@ -3,9 +3,8 @@
 
 This workflow creates one reliability map per metric rather than separate GM,
 WM, and GM+WM ICC maps. Fixed group-level GM and WM masks are built once
-from the available MNI dseg files, thresholded by tissue-label consensus, and
-eroded by a physical distance of 2 mm by default. The analysis mask is the
-union of the non-overlapping eroded GM and WM masks.
+from template-space GM and WM probability maps. The analysis mask is the union
+of the non-overlapping GM and WM masks.
 
 For each selected metric, the script pairs two sessions within subject and
 computes voxelwise ICC(2,1): two-way random effects, absolute agreement, single
@@ -76,6 +75,16 @@ SubjectPairInputs = namedtuple(
     "SubjectPairInputs",
     ["subject", "metric_a", "metric_b"],
 )
+HybridSubjectPairInputs = namedtuple(
+    "HybridSubjectPairInputs",
+    [
+        "subject",
+        "metric_a",
+        "metric_b",
+        "gm_metric_a",
+        "gm_metric_b",
+    ],
+)
 DsegPairInputs = namedtuple(
     "DsegPairInputs",
     ["subject", "dseg_a", "dseg_b"],
@@ -86,12 +95,14 @@ try:
     from metric_registry import (
         SOURCE_IMAGE_COLORS,
         build_metric_specs,
+        gm_noddi_hybrid_pairs,
         metric_display_labels,
         metric_order,
     )
 except ImportError:
     SOURCE_IMAGE_COLORS = None
     build_metric_specs = None
+    gm_noddi_hybrid_pairs = None
     metric_display_labels = None
     metric_order = None
 
@@ -385,28 +396,47 @@ def selected_analysis_sets(analysis_set):
     return [analysis_set]
 
 
-def specs_for_analysis_set(specs, analysis_set):
-    ordered_labels = metric_order(
-        specs,
-        analysis_set,
-    )
-
+def specs_for_analysis_set(
+    specs,
+    analysis_set,
+    tissues=None,
+):
     by_label = {
         spec.label: spec
         for spec in specs
     }
 
-    return [
-        by_label[label]
-        for label in ordered_labels
-        if label in by_label
-    ]
+    ordered_specs = OrderedDict()
+    tissue_values = (
+        tuple(tissues)
+        if tissues is not None
+        else (None,)
+    )
+
+    for tissue in tissue_values:
+        ordered_labels = metric_order(
+            specs,
+            analysis_set,
+            tissue=tissue,
+        )
+
+        for label in ordered_labels:
+            if label in by_label:
+                ordered_specs.setdefault(
+                    label,
+                    by_label[label],
+                )
+
+    return list(
+        ordered_specs.values()
+    )
 
 
 def select_metrics(
     specs,
     analysis_set,
     requested,
+    tissues=None,
 ):
     analysis_sets = selected_analysis_sets(
         analysis_set
@@ -418,6 +448,7 @@ def select_metrics(
         for spec in specs_for_analysis_set(
             specs,
             current_set,
+            tissues=tissues,
         ):
             selected.setdefault(
                 spec.label,
@@ -427,26 +458,33 @@ def select_metrics(
     if not requested:
         return list(selected.values())
 
-    by_lower = {
-        spec.label.lower(): spec
-        for spec in selected.values()
-    }
+    by_lower = {}
     for spec in selected.values():
-        by_lower[spec.primary_label.lower()] = spec
-        by_lower[spec.pattern_key.lower()] = spec
+        for label in (
+            spec.label,
+            spec.primary_label,
+            spec.pattern_key,
+        ):
+            by_lower.setdefault(
+                str(label).lower(),
+                [],
+            ).append(spec)
 
     requested_specs = []
     unknown = []
 
     for value in requested:
-        spec = by_lower.get(
+        matches = by_lower.get(
             str(value).strip().lower()
         )
 
-        if spec is None:
+        if not matches:
             unknown.append(str(value))
-        elif spec not in requested_specs:
-            requested_specs.append(spec)
+            continue
+
+        for spec in matches:
+            if spec not in requested_specs:
+                requested_specs.append(spec)
 
     if unknown:
         raise ValueError(
@@ -622,6 +660,35 @@ def collect_subject_pairs(
     return pairs, diagnostics
 
 
+def pair_gmwm_hybrid_subject_pairs(
+    wm_pairs,
+    gm_pairs,
+):
+    gm_by_subject = {
+        pair.subject: pair
+        for pair in gm_pairs
+    }
+    paired = []
+
+    for pair in wm_pairs:
+        gm_pair = gm_by_subject.get(
+            pair.subject
+        )
+        if gm_pair is None:
+            continue
+        paired.append(
+            HybridSubjectPairInputs(
+                subject=pair.subject,
+                metric_a=pair.metric_a,
+                metric_b=pair.metric_b,
+                gm_metric_a=gm_pair.metric_a,
+                gm_metric_b=gm_pair.metric_b,
+            )
+        )
+
+    return paired
+
+
 def load_like(
     path,
     reference,
@@ -722,105 +789,57 @@ def erode_mask_mm(
 
 
 def build_fixed_tissue_masks(
-    dseg_pairs,
-    reference,
-    consensus_threshold,
-    erosion_mm,
+    gm_probseg,
+    wm_probseg,
+    gm_threshold,
+    wm_threshold,
+    gm_erosion_mm,
+    wm_erosion_mm,
 ):
-    n_voxels = int(
-        np.prod(reference.shape[:3])
+    reference = nib.load(
+        str(gm_probseg)
     )
 
-    gm_count = np.zeros(
-        n_voxels,
-        dtype=np.uint32,
-    )
-    wm_count = np.zeros(
-        n_voxels,
-        dtype=np.uint32,
-    )
+    gm_probability = load_like(
+        gm_probseg,
+        reference,
+        order=1,
+    ).reshape(-1)
 
-    n_segmentations = 0
+    wm_probability = load_like(
+        wm_probseg,
+        reference,
+        order=1,
+    ).reshape(-1)
 
-    for pair_index, pair in enumerate(dseg_pairs):
-        print(
-            "Mask subject {0}/{1}: {2}".format(
-                pair_index + 1,
-                len(dseg_pairs),
-                pair.subject,
-            ),
-            flush=True,
-        )
-
-        for path in (
-            pair.dseg_a,
-            pair.dseg_b,
-        ):
-            dseg = np.rint(
-                load_like(
-                    path,
-                    reference,
-                    order=0,
-                )
-            ).astype(
-                np.int16
-            ).reshape(-1)
-
-            gm_count += (
-                dseg == 1
-            ).astype(np.uint32)
-
-            wm_count += (
-                dseg == 2
-            ).astype(np.uint32)
-
-            n_segmentations += 1
-
-    if n_segmentations == 0:
-        raise RuntimeError(
-            "No usable dseg images were available "
-            "to build fixed tissue masks"
-        )
-
-    gm_probability = (
-        gm_count.astype(np.float32)
-        / float(n_segmentations)
-    )
-    wm_probability = (
-        wm_count.astype(np.float32)
-        / float(n_segmentations)
-    )
-
-    gm_consensus = (
+    gm_thresholded = (
         gm_probability
-        >= float(consensus_threshold)
+        >= float(gm_threshold)
     )
-    wm_consensus = (
+    wm_thresholded = (
         wm_probability
-        >= float(consensus_threshold)
+        >= float(wm_threshold)
     )
 
     gm_eroded = erode_mask_mm(
-        gm_consensus,
+        gm_thresholded,
         reference,
-        erosion_mm,
+        gm_erosion_mm,
     )
     wm_eroded = erode_mask_mm(
-        wm_consensus,
+        wm_thresholded,
         reference,
-        erosion_mm,
+        wm_erosion_mm,
     )
 
     overlap = gm_eroded & wm_eroded
 
     if np.any(overlap):
-        # At thresholds greater than 0.5 this should normally be empty.
-        # If not, retain the tissue with the greater consensus probability.
         overlap_indices = np.flatnonzero(overlap)
 
         gm_wins = (
             gm_probability[overlap]
-            > wm_probability[overlap]
+            >= wm_probability[overlap]
         )
 
         gm_eroded[
@@ -838,23 +857,25 @@ def build_fixed_tissue_masks(
 
     if not np.any(gm_eroded):
         raise RuntimeError(
-            "The eroded consensus GM mask is empty"
+            "The template GM mask is empty "
+            "after thresholding/erosion"
         )
 
     if not np.any(wm_eroded):
         raise RuntimeError(
-            "The eroded consensus WM mask is empty"
+            "The template WM mask is empty "
+            "after thresholding/erosion"
         )
 
     return {
         "gm_probability": gm_probability,
         "wm_probability": wm_probability,
-        "gm_consensus": gm_consensus,
-        "wm_consensus": wm_consensus,
+        "gm_thresholded": gm_thresholded,
+        "wm_thresholded": wm_thresholded,
         "gm": gm_eroded,
         "wm": wm_eroded,
         "gmwm": analysis_mask,
-        "n_segmentations": n_segmentations,
+        "reference": reference,
     }
 
 
@@ -862,14 +883,22 @@ def write_fixed_masks(
     masks,
     reference,
     output_dir,
-    consensus_threshold,
-    erosion_mm,
+    gm_threshold,
+    wm_threshold,
+    gm_erosion_mm,
+    wm_erosion_mm,
 ):
-    threshold_token = number_token(
-        consensus_threshold
+    gm_threshold_token = number_token(
+        gm_threshold
     )
-    erosion_token = number_token(
-        erosion_mm
+    wm_threshold_token = number_token(
+        wm_threshold
+    )
+    gm_erosion_token = number_token(
+        gm_erosion_mm
+    )
+    wm_erosion_token = number_token(
+        wm_erosion_mm
     )
     base = "space-{0}".format(SPACE)
 
@@ -881,7 +910,7 @@ def write_fixed_masks(
             base
         ),
         np.float32,
-        "Fraction of available segmentations labeled GM",
+        "Template GM probability",
     )
 
     write_nifti(
@@ -892,41 +921,41 @@ def write_fixed_masks(
             base
         ),
         np.float32,
-        "Fraction of available segmentations labeled WM",
+        "Template WM probability",
     )
 
     write_nifti(
-        masks["gm_consensus"].astype(
+        masks["gm_thresholded"].astype(
             np.uint8
         ),
         reference,
         output_dir
         / (
-            "{0}_label-GM_desc-consensus{1}_"
+            "{0}_label-GM_desc-templateProb{1}_"
             "mask.nii.gz"
         ).format(
             base,
-            threshold_token,
+            gm_threshold_token,
         ),
         np.uint8,
-        "Group GM consensus mask before erosion",
+        "Template GM probability mask before erosion",
     )
 
     write_nifti(
-        masks["wm_consensus"].astype(
+        masks["wm_thresholded"].astype(
             np.uint8
         ),
         reference,
         output_dir
         / (
-            "{0}_label-WM_desc-consensus{1}_"
+            "{0}_label-WM_desc-templateProb{1}_"
             "mask.nii.gz"
         ).format(
             base,
-            threshold_token,
+            wm_threshold_token,
         ),
         np.uint8,
-        "Group WM consensus mask before erosion",
+        "Template WM probability mask before erosion",
     )
 
     write_nifti(
@@ -934,15 +963,15 @@ def write_fixed_masks(
         reference,
         output_dir
         / (
-            "{0}_label-GM_desc-consensus{1}"
+            "{0}_label-GM_desc-templateProb{1}"
             "Eroded{2}mm_mask.nii.gz"
         ).format(
             base,
-            threshold_token,
-            erosion_token,
+            gm_threshold_token,
+            gm_erosion_token,
         ),
         np.uint8,
-        "Fixed eroded GM analysis and summary mask",
+        "Fixed template GM analysis and summary mask",
     )
 
     write_nifti(
@@ -950,15 +979,15 @@ def write_fixed_masks(
         reference,
         output_dir
         / (
-            "{0}_label-WM_desc-consensus{1}"
+            "{0}_label-WM_desc-templateProb{1}"
             "Eroded{2}mm_mask.nii.gz"
         ).format(
             base,
-            threshold_token,
-            erosion_token,
+            wm_threshold_token,
+            wm_erosion_token,
         ),
         np.uint8,
-        "Fixed eroded WM analysis and summary mask",
+        "Fixed template WM analysis and summary mask",
     )
 
     write_nifti(
@@ -966,15 +995,17 @@ def write_fixed_masks(
         reference,
         output_dir
         / (
-            "{0}_desc-GMplusWMConsensus{1}"
-            "Eroded{2}mm_mask.nii.gz"
+            "{0}_desc-GMprob{1}WMprob{2}"
+            "ErodedGM{3}mmWM{4}mm_mask.nii.gz"
         ).format(
             base,
-            threshold_token,
-            erosion_token,
+            gm_threshold_token,
+            wm_threshold_token,
+            gm_erosion_token,
+            wm_erosion_token,
         ),
         np.uint8,
-        "Union of fixed eroded GM and WM compartments",
+        "Union of fixed template GM and WM compartments",
     )
 
 
@@ -983,6 +1014,7 @@ def build_metric_memmap(
     reference,
     work_dir,
     metric_label,
+    gm_mask=None,
 ):
     n_subjects = len(pairs)
     n_voxels = int(
@@ -1010,6 +1042,11 @@ def build_metric_memmap(
     )
 
     values[:] = np.nan
+    gm_mask = (
+        np.asarray(gm_mask, dtype=bool)
+        if gm_mask is not None
+        else None
+    )
 
     for subject_index, pair in enumerate(pairs):
         print(
@@ -1021,25 +1058,53 @@ def build_metric_memmap(
             flush=True,
         )
 
-        values[
-            subject_index,
-            0,
-            :,
-        ] = load_like(
+        session_a_values = load_like(
             pair.metric_a,
             reference,
             order=1,
         ).reshape(-1)
 
-        values[
-            subject_index,
-            1,
-            :,
-        ] = load_like(
+        session_b_values = load_like(
             pair.metric_b,
             reference,
             order=1,
         ).reshape(-1)
+
+        if (
+            gm_mask is not None
+            and hasattr(pair, "gm_metric_a")
+            and hasattr(pair, "gm_metric_b")
+        ):
+            gm_a_values = load_like(
+                pair.gm_metric_a,
+                reference,
+                order=1,
+            ).reshape(-1)
+            gm_b_values = load_like(
+                pair.gm_metric_b,
+                reference,
+                order=1,
+            ).reshape(-1)
+            session_a_values = session_a_values.copy()
+            session_b_values = session_b_values.copy()
+            session_a_values[gm_mask] = gm_a_values[
+                gm_mask
+            ]
+            session_b_values[gm_mask] = gm_b_values[
+                gm_mask
+            ]
+
+        values[
+            subject_index,
+            0,
+            :,
+        ] = session_a_values
+
+        values[
+            subject_index,
+            1,
+            :,
+        ] = session_b_values
 
     values.flush()
 
@@ -1685,6 +1750,52 @@ def combine_compartment_results(
     return combined
 
 
+def restrict_result_to_metric_tissues(
+    result,
+    metric_spec,
+    masks,
+    hybrid=False,
+):
+    """Blank map values outside the metric's valid tissue contexts."""
+
+    invalid = np.zeros(
+        len(masks["gm"]),
+        dtype=bool,
+    )
+
+    if (
+        "gm" not in metric_spec.tissues
+        and not (
+            hybrid
+            and "gmwm" in metric_spec.tissues
+        )
+    ):
+        invalid |= masks["gm"]
+
+    if (
+        "wm" not in metric_spec.tissues
+        and not (
+            hybrid
+            and "gmwm" in metric_spec.tissues
+        )
+    ):
+        invalid |= masks["wm"]
+
+    if not np.any(invalid):
+        return result
+
+    defaults = empty_result(
+        len(invalid)
+    )
+
+    for key in result:
+        result[key][invalid] = defaults[key][
+            invalid
+        ]
+
+    return result
+
+
 def summarize_icc_map(
     metric_spec,
     metric_label,
@@ -2174,26 +2285,55 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--mask-consensus-threshold",
-        type=float,
-        default=0.80,
+        "--gm-probseg",
+        type=Path,
+        default=None,
         help=(
-            "Minimum fraction of available "
-            "session-specific dseg images "
-            "assigning a voxel to GM or WM "
-            "before erosion. Default: 0.80."
+            "Template-space GM probability map. "
+            "Defaults to <project-root>/code/data/"
+            "tpl-MNI152NLin2009cAsym_res-01_"
+            "label-GM_probseg.nii.gz."
         ),
     )
 
     parser.add_argument(
-        "--mask-erosion-mm",
-        type=float,
-        default=2.0,
+        "--wm-probseg",
+        type=Path,
+        default=None,
         help=(
-            "Physical erosion distance applied "
-            "separately to consensus GM and WM "
-            "masks. Default: 2 mm."
+            "Template-space WM probability map. "
+            "Defaults to <project-root>/code/data/"
+            "tpl-MNI152NLin2009cAsym_res-01_"
+            "label-WM_probseg.nii.gz."
         ),
+    )
+
+    parser.add_argument(
+        "--gm-threshold",
+        type=float,
+        default=0.50,
+        help="Template GM probability threshold. Default: 0.50.",
+    )
+
+    parser.add_argument(
+        "--wm-threshold",
+        type=float,
+        default=0.50,
+        help="Template WM probability threshold. Default: 0.50.",
+    )
+
+    parser.add_argument(
+        "--gm-erosion-mm",
+        type=float,
+        default=0.0,
+        help="Physical erosion distance for the GM mask. Default: 0 mm.",
+    )
+
+    parser.add_argument(
+        "--wm-erosion-mm",
+        type=float,
+        default=0.0,
+        help="Physical erosion distance for the WM mask. Default: 0 mm.",
     )
 
     parser.add_argument(
@@ -2402,20 +2542,113 @@ def parse_args():
             "must be different"
         )
 
+    data_candidates = (
+        args.project_root
+        / "code"
+        / "data",
+        Path(__file__)
+        .resolve()
+        .parents[1]
+        / "data",
+    )
+
+    if args.gm_probseg is None:
+        args.gm_probseg = next(
+            (
+                directory
+                / (
+                    "tpl-{0}_res-01_label-GM_"
+                    "probseg.nii.gz"
+                ).format(SPACE)
+                for directory in data_candidates
+                if (
+                    directory
+                    / (
+                        "tpl-{0}_res-01_label-GM_"
+                        "probseg.nii.gz"
+                    ).format(SPACE)
+                ).exists()
+            ),
+            data_candidates[0]
+            / (
+                "tpl-{0}_res-01_label-GM_"
+                "probseg.nii.gz"
+            ).format(SPACE),
+        )
+    else:
+        args.gm_probseg = (
+            args.gm_probseg
+            .expanduser()
+            .resolve()
+        )
+
+    if args.wm_probseg is None:
+        args.wm_probseg = next(
+            (
+                directory
+                / (
+                    "tpl-{0}_res-01_label-WM_"
+                    "probseg.nii.gz"
+                ).format(SPACE)
+                for directory in data_candidates
+                if (
+                    directory
+                    / (
+                        "tpl-{0}_res-01_label-WM_"
+                        "probseg.nii.gz"
+                    ).format(SPACE)
+                ).exists()
+            ),
+            data_candidates[0]
+            / (
+                "tpl-{0}_res-01_label-WM_"
+                "probseg.nii.gz"
+            ).format(SPACE),
+        )
+    else:
+        args.wm_probseg = (
+            args.wm_probseg
+            .expanduser()
+            .resolve()
+        )
+
+    if not args.gm_probseg.exists():
+        raise FileNotFoundError(
+            "GM probability map not found: "
+            "{0}".format(args.gm_probseg)
+        )
+
+    if not args.wm_probseg.exists():
+        raise FileNotFoundError(
+            "WM probability map not found: "
+            "{0}".format(args.wm_probseg)
+        )
+
     if not (
-        0.5
-        < args.mask_consensus_threshold
+        0.0
+        < args.gm_threshold
         <= 1.0
     ):
         parser.error(
-            "--mask-consensus-threshold must "
-            "be in (0.5, 1]"
+            "--gm-threshold must be in (0, 1]"
         )
 
-    if args.mask_erosion_mm < 0:
+    if not (
+        0.0
+        < args.wm_threshold
+        <= 1.0
+    ):
         parser.error(
-            "--mask-erosion-mm must be "
-            "nonnegative"
+            "--wm-threshold must be in (0, 1]"
+        )
+
+    if (
+        args.gm_erosion_mm < 0
+        or args.wm_erosion_mm < 0
+    ):
+        parser.error(
+            "Template mask erosion distances "
+            "must be nonnegative"
         )
 
     if args.min_subjects < 3:
@@ -2450,6 +2683,7 @@ def map_paths(
     output_dir,
     metric_spec,
     sensitivity_tag,
+    hybrid=False,
 ):
     prefix = (
         "metric-{0}_space-{1}".format(
@@ -2458,38 +2692,52 @@ def map_paths(
         )
     )
 
+    primary_desc = (
+        "hybridPrimary"
+        if hybrid
+        else "primary"
+    )
+
     paths = {
         "primary_icc": (
             output_dir
             / (
-                "{0}_desc-primary_"
+                "{0}_desc-{1}_"
                 "stat-icc2p1.nii.gz"
-            ).format(prefix)
+            ).format(prefix, primary_desc)
         ),
         "primary_n": (
             output_dir
             / (
-                "{0}_desc-primary_"
+                "{0}_desc-{1}_"
                 "stat-nsubjects.nii.gz"
-            ).format(prefix)
+            ).format(prefix, primary_desc)
         ),
         "mean_difference": (
             output_dir
             / (
-                "{0}_desc-primary_"
+                "{0}_desc-{1}_"
                 "stat-meanDifference.nii.gz"
-            ).format(prefix)
+            ).format(prefix, primary_desc)
         ),
         "rmse": (
             output_dir
             / (
-                "{0}_desc-primary_"
+                "{0}_desc-{1}_"
                 "stat-rmse.nii.gz"
-            ).format(prefix)
+            ).format(prefix, primary_desc)
         ),
     }
 
     if sensitivity_tag is not None:
+        sensitivity_desc = (
+            "hybrid{0}".format(
+                sensitivity_tag[:1].upper()
+                + sensitivity_tag[1:]
+            )
+            if hybrid
+            else sensitivity_tag
+        )
         paths.update(
             {
                 "sensitivity_icc": (
@@ -2499,7 +2747,7 @@ def map_paths(
                         "stat-icc2p1.nii.gz"
                     ).format(
                         prefix,
-                        sensitivity_tag,
+                        sensitivity_desc,
                     )
                 ),
                 "sensitivity_n": (
@@ -2509,7 +2757,7 @@ def map_paths(
                         "stat-nsubjects.nii.gz"
                     ).format(
                         prefix,
-                        sensitivity_tag,
+                        sensitivity_desc,
                     )
                 ),
                 "outlier_mean_n": (
@@ -2520,7 +2768,7 @@ def map_paths(
                         "nii.gz"
                     ).format(
                         prefix,
-                        sensitivity_tag,
+                        sensitivity_desc,
                     )
                 ),
                 "outlier_diff_n": (
@@ -2531,7 +2779,7 @@ def map_paths(
                         "nii.gz"
                     ).format(
                         prefix,
-                        sensitivity_tag,
+                        sensitivity_desc,
                     )
                 ),
                 "outlier_any_n": (
@@ -2541,7 +2789,7 @@ def map_paths(
                         "stat-nOutlierAny.nii.gz"
                     ).format(
                         prefix,
-                        sensitivity_tag,
+                        sensitivity_desc,
                     )
                 ),
             }
@@ -2745,6 +2993,13 @@ def main():
     all_metric_specs = build_metric_specs(
         args.patterns_file
     )
+    spec_by_label = {
+        spec.label: spec
+        for spec in all_metric_specs
+    }
+    hybrid_pairs = gm_noddi_hybrid_pairs(
+        all_metric_specs
+    )
 
     qc = load_qc_table(
         args.qc_file
@@ -2753,29 +3008,38 @@ def main():
     metric_specs = select_metrics(
         all_metric_specs,
         args.analysis_set,
-        args.metric
+        args.metric,
+        tissues=args.summary_tissues,
     )
 
     analysis_sets = selected_analysis_sets(
         args.analysis_set
     )
 
-    display_labels_by_set = {
-        analysis_set: metric_display_labels(
-            all_metric_specs,
-            analysis_set,
-        )
-        for analysis_set in analysis_sets
-    }
-
-    labels_by_set = {
-        analysis_set: set(
-            metric_order(
+    display_labels_by_tissue = {
+        tissue: {
+            analysis_set: metric_display_labels(
                 all_metric_specs,
                 analysis_set,
+                tissue=tissue,
             )
-        )
-        for analysis_set in analysis_sets
+            for analysis_set in analysis_sets
+        }
+        for tissue in args.summary_tissues
+    }
+
+    labels_by_tissue = {
+        tissue: {
+            analysis_set: set(
+                metric_order(
+                    all_metric_specs,
+                    analysis_set,
+                    tissue=tissue,
+                )
+            )
+            for analysis_set in analysis_sets
+        }
+        for tissue in args.summary_tissues
     }
 
     subjects = (
@@ -2789,49 +3053,34 @@ def main():
         )
     )
 
-    dseg_pairs = collect_dseg_pairs(
-        args.derivatives_dir,
-        subjects,
-        args.session_a,
-        args.session_b,
-    )
-
-    if not dseg_pairs:
-        raise RuntimeError(
-            "No subjects had both session dseg files"
-        )
-
-    reference = nib.load(
-        str(dseg_pairs[0].dseg_a)
-    )
-
     print(
         "Building fixed tissue masks from "
-        "{0} subjects / {1} "
-        "segmentations".format(
-            len(dseg_pairs),
-            2 * len(dseg_pairs),
+        "template probability maps: GM >= {0}, "
+        "WM >= {1}".format(
+            args.gm_threshold,
+            args.wm_threshold,
         ),
         flush=True,
     )
 
     masks = build_fixed_tissue_masks(
-        dseg_pairs,
-        reference,
-        consensus_threshold=(
-            args.mask_consensus_threshold
-        ),
-        erosion_mm=args.mask_erosion_mm,
+        args.gm_probseg,
+        args.wm_probseg,
+        args.gm_threshold,
+        args.wm_threshold,
+        args.gm_erosion_mm,
+        args.wm_erosion_mm,
     )
+    reference = masks["reference"]
 
     write_fixed_masks(
         masks,
         reference,
         args.output_dir,
-        consensus_threshold=(
-            args.mask_consensus_threshold
-        ),
-        erosion_mm=args.mask_erosion_mm,
+        gm_threshold=args.gm_threshold,
+        wm_threshold=args.wm_threshold,
+        gm_erosion_mm=args.gm_erosion_mm,
+        wm_erosion_mm=args.wm_erosion_mm,
     )
 
     all_diagnostics = []
@@ -2862,18 +3111,15 @@ def main():
         "space": SPACE,
         "one_map_per_metric": True,
         "analysis_mask": (
-            "union of fixed eroded GM and WM "
-            "consensus masks"
+            "union of fixed template GM and "
+            "WM probability masks"
         ),
-        "mask_consensus_threshold": (
-            args.mask_consensus_threshold
-        ),
-        "mask_erosion_mm": (
-            args.mask_erosion_mm
-        ),
-        "mask_segmentations_used": int(
-            masks["n_segmentations"]
-        ),
+        "gm_probseg": str(args.gm_probseg),
+        "wm_probseg": str(args.wm_probseg),
+        "gm_threshold": args.gm_threshold,
+        "wm_threshold": args.wm_threshold,
+        "gm_erosion_mm": args.gm_erosion_mm,
+        "wm_erosion_mm": args.wm_erosion_mm,
         "gm_eroded_voxels": int(
             np.count_nonzero(masks["gm"])
         ),
@@ -2886,6 +3132,7 @@ def main():
         "summary_tissues": list(
             args.summary_tissues
         ),
+        "gmwm_hybrid_noddi_pairs": hybrid_pairs,
         "min_subjects": args.min_subjects,
         "zero_values_excluded": (
             not args.allow_zero
@@ -2964,6 +3211,35 @@ def main():
             diagnostics
         )
 
+        needs_gmwm_hybrid = (
+            "gmwm" in args.summary_tissues
+            and metric_spec.label in hybrid_pairs
+        )
+
+        if needs_gmwm_hybrid:
+            gm_counterpart = spec_by_label[
+                hybrid_pairs[metric_spec.label]
+            ]
+            (
+                gm_pairs,
+                gm_diagnostics,
+            ) = collect_subject_pairs(
+                args.derivatives_dir,
+                patterns,
+                qc,
+                subjects,
+                args.session_a,
+                args.session_b,
+                gm_counterpart,
+            )
+            all_diagnostics.extend(
+                gm_diagnostics
+            )
+            pairs = pair_gmwm_hybrid_subject_pairs(
+                pairs,
+                gm_pairs,
+            )
+
         if len(pairs) < args.min_subjects:
             print(
                 "  Skipping {0}: only {1} "
@@ -2979,6 +3255,7 @@ def main():
             args.output_dir,
             metric_spec,
             sensitivity_tag,
+            hybrid=needs_gmwm_hybrid,
         )
 
         result = None
@@ -2999,7 +3276,20 @@ def main():
                     "summaries",
                     flush=True,
                 )
-
+                result = restrict_result_to_metric_tissues(
+                    result,
+                    metric_spec,
+                    masks,
+                    hybrid=needs_gmwm_hybrid,
+                )
+                write_result_maps(
+                    result,
+                    paths,
+                    reference,
+                    do_outlier_sensitivity=(
+                        not args.no_outlier_sensitivity
+                    ),
+                )
         values = None
         values_path = None
 
@@ -3025,59 +3315,87 @@ def main():
                     reference,
                     metric_work_dir,
                     metric_spec.label,
-                )
-
-                print(
-                    "  Processing eroded GM "
-                    "compartment",
-                    flush=True,
-                )
-
-                gm_result = process_compartment(
-                    values,
-                    masks["gm"],
-                    "GM",
-                    min_subjects=(
-                        args.min_subjects
-                    ),
-                    outlier_z=args.outlier_z,
-                    min_retained_fraction=(
-                        args.min_retained_fraction
-                    ),
-                    remove_zeros=(
-                        not args.allow_zero
-                    ),
-                    chunk_size=args.chunk_size,
-                    do_outlier_sensitivity=(
-                        not args.no_outlier_sensitivity
+                    gm_mask=(
+                        masks["gm"]
+                        if needs_gmwm_hybrid
+                        else None
                     ),
                 )
 
-                print(
-                    "  Processing eroded WM "
-                    "compartment",
-                    flush=True,
-                )
+                if (
+                    "gm" in metric_spec.tissues
+                    or needs_gmwm_hybrid
+                ):
+                    print(
+                        "  Processing eroded GM "
+                        "compartment",
+                        flush=True,
+                    )
 
-                wm_result = process_compartment(
-                    values,
-                    masks["wm"],
-                    "WM",
-                    min_subjects=(
-                        args.min_subjects
-                    ),
-                    outlier_z=args.outlier_z,
-                    min_retained_fraction=(
-                        args.min_retained_fraction
-                    ),
-                    remove_zeros=(
-                        not args.allow_zero
-                    ),
-                    chunk_size=args.chunk_size,
-                    do_outlier_sensitivity=(
-                        not args.no_outlier_sensitivity
-                    ),
-                )
+                    gm_result = process_compartment(
+                        values,
+                        masks["gm"],
+                        "GM",
+                        min_subjects=(
+                            args.min_subjects
+                        ),
+                        outlier_z=args.outlier_z,
+                        min_retained_fraction=(
+                            args.min_retained_fraction
+                        ),
+                        remove_zeros=(
+                            not args.allow_zero
+                        ),
+                        chunk_size=args.chunk_size,
+                        do_outlier_sensitivity=(
+                            not args.no_outlier_sensitivity
+                        ),
+                    )
+                else:
+                    print(
+                        "  Skipping GM compartment "
+                        "for tissue-specific metric",
+                        flush=True,
+                    )
+                    gm_result = empty_result(
+                        len(masks["gm"])
+                    )
+
+                if "wm" in metric_spec.tissues:
+                    print(
+                        "  Processing eroded WM "
+                        "compartment",
+                        flush=True,
+                    )
+
+                    wm_result = process_compartment(
+                        values,
+                        masks["wm"],
+                        "WM",
+                        min_subjects=(
+                            args.min_subjects
+                        ),
+                        outlier_z=args.outlier_z,
+                        min_retained_fraction=(
+                            args.min_retained_fraction
+                        ),
+                        remove_zeros=(
+                            not args.allow_zero
+                        ),
+                        chunk_size=args.chunk_size,
+                        do_outlier_sensitivity=(
+                            not args.no_outlier_sensitivity
+                        ),
+                    )
+                else:
+                    print(
+                        "  Skipping WM compartment "
+                        "for tissue-specific metric",
+                        flush=True,
+                    )
+                    wm_result = empty_result(
+                        len(masks["wm"])
+                    )
 
                 result = (
                     combine_compartment_results(
@@ -3086,6 +3404,12 @@ def main():
                         masks["gm"],
                         masks["wm"],
                     )
+                )
+                result = restrict_result_to_metric_tissues(
+                    result,
+                    metric_spec,
+                    masks,
+                    hybrid=needs_gmwm_hybrid,
                 )
 
                 write_result_maps(
@@ -3098,17 +3422,23 @@ def main():
                 )
 
             for analysis_set in analysis_sets:
-                if metric_spec.label not in labels_by_set[analysis_set]:
-                    continue
-
-                display_label = display_labels_by_set[
-                    analysis_set
-                ].get(
-                    metric_spec.label,
-                    metric_spec.label,
-                )
-
                 for tissue in args.summary_tissues:
+                    if (
+                        tissue not in metric_spec.tissues
+                        or metric_spec.label
+                        not in labels_by_tissue[tissue][
+                            analysis_set
+                        ]
+                    ):
+                        continue
+
+                    display_label = display_labels_by_tissue[
+                        tissue
+                    ][analysis_set].get(
+                        metric_spec.label,
+                        metric_spec.label,
+                    )
+
                     summary_rows.append(
                         summarize_icc_map(
                             metric_spec,

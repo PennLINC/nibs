@@ -28,7 +28,9 @@ if [[ -z "${subject}" ]]; then
   exit 1
 fi
 
-cmd="~/.conda/envs/myelin_reliability/bin/python ${CODE_DIR}/compute_dkt_parcel_stats.py --subject-id ${subject}"
+cmd="~/.conda/envs/myelin_reliability/bin/python ${CODE_DIR}/compute_dkt_parcel_stats.py \
+  --subject-id ${subject} \
+  --patterns-file /cbica/projects/nibs/code/configuration/patterns.json"
 
 echo "Running task ${SLURM_ARRAY_TASK_ID} for sub-${subject}"
 echo "Commandline: ${cmd}"

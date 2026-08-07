@@ -31,6 +31,7 @@ fi
 
 cmd="TCKMAP_BIN=${TCKMAP_BIN} ~/.conda/envs/myelin_reliability/bin/python ${CODE_DIR}/compute_bundle_myelin_stats.py \
   --subject-id ${subject} \
+  --patterns-file /cbica/projects/nibs/code/configuration/patterns.json \
   --out-root /cbica/projects/nibs/derivatives/bundle_myelin_stats"
 
 echo "Running task ${SLURM_ARRAY_TASK_ID} for sub-${subject}"

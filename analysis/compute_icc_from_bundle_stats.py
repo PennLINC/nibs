@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from glob import glob
 from pathlib import Path
 from collections import Counter
@@ -24,9 +25,15 @@ try:
 except Exception:
     HAVE_PINGOUIN = False
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from metric_registry import build_metric_specs
+from parcel_metric_utils import canonical_metric_from_row
+
 
 PATH_RE = re.compile(r'sub-(?P<sub>[^_/]+).*(ses-(?P<ses>[^_/]+))')
 DEFAULT_QC_FILE = Path(__file__).resolve().parents[1] / 'data' / 'manual_qc_modality.tsv'
+DEFAULT_PATTERNS_FILE = Path(__file__).resolve().parents[1] / 'configuration' / 'patterns.json'
 QC_MODES = ('metricqc', 'completeqc')
 REQUIRED_COLUMNS = {'bundle', 'variable_name', 'masked_mean', 'masked_median'}
 EXCLUDED_BUNDLE_PATTERNS = (
@@ -81,201 +88,11 @@ BUNDLE_NAME_ALIASES = {
     'ProjectionBrainstem_DentatorubrothalamicTractlr': 'ProjectionBrainstem_DentatorubrothalamicTract-lr',
     'ProjectionBrainstem_DentatorubrothalamicTractrl': 'ProjectionBrainstem_DentatorubrothalamicTract-rl',
 }
-DKI_METRICS = {
-    'DKI-FA',
-    'DKI-KFA',
-    'DKI-KFA-Micro',
-    'DKI-AD',
-    'DKI-AD-Micro',
-    'DKI-ADE-Micro',
-    'DKI-AWF-Micro',
-    'DKI-AxonALD-Micro',
-    'DKI-AK',
-    'DKI-MD',
-    'DKI-MD-Micro',
-    'DKI-MK',
-    'DKI-MKT',
-    'DKI-RD',
-    'DKI-RD-Micro',
-    'DKI-RDE-Micro',
-    'DKI-RK',
-    'DKI-Linearity',
-    'DKI-Planarity',
-    'DKI-Sphericity',
-    'DKI-Trace-Micro',
-    'DKI-Tortuosity-Micro',
-    'DKI-MSDKI-AWF',
-    'DKI-MSDKI-DI',
-    'DKI-MSDKI-MFA',
-    'DKI-MSDKI-MSD',
-    'DKI-MSDKI-MSK',
-}
-NODDI_METRICS = {
-    'NODDI-ICVF-Modulated',
-    'NODDI-ICVF',
-    'NODDI-ISOVF',
-    'NODDI-OD-Modulated',
-    'NODDI-OD',
-}
-MAPMRI_METRICS = {
-    'MAPMRI-NG',
-    'MAPMRI-NGPar',
-    'MAPMRI-NGPerp',
-    'MAPMRI-PA',
-    'MAPMRI-PAth',
-    'MAPMRI-RTAP',
-    'MAPMRI-RTOP',
-    'MAPMRI-RTPP',
-}
-DSISTUDIO_METRICS = {
-    'DSIStudio-GQI-GFA',
-    'DSIStudio-GQI-ISO',
-    'DSIStudio-GQI-QA',
-    'DSIStudio-GQI-RDI',
-    'DSIStudio-Tensor-AD',
-    'DSIStudio-Tensor-FA',
-    'DSIStudio-Tensor-MD',
-    'DSIStudio-Tensor-RD',
-}
-TORTOISE_TENSOR_METRICS = {
-    'TORTOISE-FullShell-AD',
-    'TORTOISE-FullShell-FA',
-    'TORTOISE-FullShell-LI',
-    'TORTOISE-FullShell-MD',
-    'TORTOISE-FullShell-RD',
-    'TORTOISE-InnerShell-AD',
-    'TORTOISE-InnerShell-FA',
-    'TORTOISE-InnerShell-LI',
-    'TORTOISE-InnerShell-MD',
-    'TORTOISE-InnerShell-RD',
-}
-MYELIN_METRICS = {
-    'MEGRE',
-    'QSM-SEPIA-E5',
-    'QSM-X-R2p-E5-X',
-    'QSM-X-R2p-E5-Para',
-    'QSM-X-R2p-E5-Dia',
-    'ihMTw',
-    'ihMTR',
-    'MTR',
-    'ihMTsat',
-    'ihMTsat-B1c',
-    'R1',
-    'R1-B1c',
-    'MPRAGE-MyelinW',
-    'SPACE-MyelinW',
-    'Scaled MPRAGE-MyelinW',
-    'Scaled SPACE-MyelinW',
-    'G-ihMTsat',
-    'G-ihMTR',
-}
-ALL_ALLOWED_METRICS = (
-    DKI_METRICS
-    | NODDI_METRICS
-    | MAPMRI_METRICS
-    | DSISTUDIO_METRICS
-    | TORTOISE_TENSOR_METRICS
-    | MYELIN_METRICS
-)
-
-DKI_STD_MAP = {
-    'fa': 'DKI-FA',
-    'kfa': 'DKI-KFA',
-    'ad': 'DKI-AD',
-    'ak': 'DKI-AK',
-    'md': 'DKI-MD',
-    'mk': 'DKI-MK',
-    'mkt': 'DKI-MKT',
-    'rd': 'DKI-RD',
-    'rk': 'DKI-RK',
-    'linearity': 'DKI-Linearity',
-    'planarity': 'DKI-Planarity',
-    'sphericity': 'DKI-Sphericity',
-}
-DKI_MICRO_MAP = {
-    'kfa': 'DKI-KFA-Micro',
-    'ad': 'DKI-AD-Micro',
-    'ade': 'DKI-ADE-Micro',
-    'awf': 'DKI-AWF-Micro',
-    'axonald': 'DKI-AxonALD-Micro',
-    'md': 'DKI-MD-Micro',
-    'rd': 'DKI-RD-Micro',
-    'rde': 'DKI-RDE-Micro',
-    'trace': 'DKI-Trace-Micro',
-    'tortuosity': 'DKI-Tortuosity-Micro',
-}
-DKI_MSDKI_MAP = {
-    'awf': 'DKI-MSDKI-AWF',
-    'di': 'DKI-MSDKI-DI',
-    'mfa': 'DKI-MSDKI-MFA',
-    'msd': 'DKI-MSDKI-MSD',
-    'msk': 'DKI-MSDKI-MSK',
-}
-NODDI_MAP = {
-    'icvf': 'NODDI-ICVF',
-    'isovf': 'NODDI-ISOVF',
-    'od': 'NODDI-OD',
-}
-MAPMRI_MAP = {
-    'ng': 'MAPMRI-NG',
-    'ngpar': 'MAPMRI-NGPar',
-    'ngperp': 'MAPMRI-NGPerp',
-    'pa': 'MAPMRI-PA',
-    'path': 'MAPMRI-PAth',
-    'rtap': 'MAPMRI-RTAP',
-    'rtop': 'MAPMRI-RTOP',
-    'rtpp': 'MAPMRI-RTPP',
-}
-DSISTUDIO_GQI_MAP = {
-    'gfa': 'DSIStudio-GQI-GFA',
-    'iso': 'DSIStudio-GQI-ISO',
-    'qa': 'DSIStudio-GQI-QA',
-    'rdi': 'DSIStudio-GQI-RDI',
-}
-DSISTUDIO_TENSOR_MAP = {
-    'ad': 'DSIStudio-Tensor-AD',
-    'fa': 'DSIStudio-Tensor-FA',
-    'md': 'DSIStudio-Tensor-MD',
-    'rd': 'DSIStudio-Tensor-RD',
-    'rd1': 'DSIStudio-Tensor-RD1',
-    'rd2': 'DSIStudio-Tensor-RD2',
-}
-TORTOISE_TENSOR_MAP = {
-    'ad': 'AD',
-    'fa': 'FA',
-    'li': 'LI',
-    'md': 'MD',
-    'rd': 'RD',
-}
-DIRECT_NAME_MAP = {metric.lower(): metric for metric in ALL_ALLOWED_METRICS}
-
-
 def metric_required_modalities(metric: str) -> tuple[str, ...]:
     """Return scan-level QC modalities required to trust a derived metric."""
-    if metric in (
-        DKI_METRICS | NODDI_METRICS | MAPMRI_METRICS | DSISTUDIO_METRICS | TORTOISE_TENSOR_METRICS
-    ):
-        return ('dMRI',)
-    if metric == 'QSM-SEPIA-E5' or metric == 'MEGRE':
-        return ('MEGRE',)
-    if metric.startswith('QSM-X-R2'):
-        return ('MEGRE', 'MESE')
-    if metric in {'ihMTw', 'ihMTR', 'MTR'}:
-        return ('ihMTRAGE',)
-    if metric in {'ihMTsat', 'ihMTsat-B1c'}:
-        return ('MP2RAGE', 'ihMTRAGE', 'B1+')
-    if metric == 'R1':
-        return ('MP2RAGE',)
-    if metric == 'R1-B1c':
-        return ('MP2RAGE', 'B1+')
-    if metric in {'MPRAGE-MyelinW', 'Scaled MPRAGE-MyelinW'}:
-        return ('MPRAGE T1w', 'SPACE T2w')
-    if metric in {'SPACE-MyelinW', 'Scaled SPACE-MyelinW'}:
-        return ('SPACE T1w', 'SPACE T2w')
-    if metric == 'G-ihMTR':
-        return ('dMRI', 'ihMTRAGE')
-    if metric == 'G-ihMTsat':
-        return ('MP2RAGE', 'dMRI', 'ihMTRAGE', 'B1+')
+    for spec in build_metric_specs(DEFAULT_PATTERNS_FILE):
+        if metric in {spec.label, spec.primary_label}:
+            return spec.qc_modalities
     raise ValueError(f'No QC modality mapping defined for metric: {metric}')
 
 
@@ -417,233 +234,8 @@ def _parse_from_path(path: str) -> tuple[str | None, str | None]:
     return match.group('sub'), f'ses-{match.group("ses")}'
 
 
-def _extract_param_token(source_file: str) -> str:
-    match = re.search(r'_param-([^_]+)', source_file)
-    if not match:
-        return ''
-    return match.group(1).lower()
 
-
-def _norm_token(text: str) -> str:
-    return re.sub(r'[^a-z0-9]+', '', text.lower())
-
-
-def _param_from_variable_name(variable_name: str, *prefixes: str) -> str:
-    """Return a normalized metric token after stripping known prefixes."""
-    token = _norm_token(variable_name)
-    for prefix in prefixes:
-        norm_prefix = _norm_token(prefix)
-        if token.startswith(norm_prefix):
-            return token[len(norm_prefix) :]
-    return token
-
-
-def _infer_metric_name(row: pd.Series, source_tsv: str) -> str | None:
-    var_name = str(row.get('variable_name', '')).strip()
-    qsirecon_suffix = str(row.get('qsirecon_suffix', '')).strip()
-    source_file = str(row.get('source_file', '')).strip()
-    lowered_var = var_name.lower()
-    norm_var = _norm_token(var_name)
-    lowered_tsv = source_tsv.lower()
-    lowered_src = source_file.lower()
-    lowered_suffix = qsirecon_suffix.lower()
-
-    # Generated myelin spreadsheet: variable_name should already be canonical.
-    if '/bundle_myelin_stats/' in lowered_tsv:
-        metric = DIRECT_NAME_MAP.get(lowered_var)
-        return metric if metric in MYELIN_METRICS else None
-
-    # DWI DKI spreadsheet
-    is_dki = (
-        'qsirecon-dipydki' in lowered_tsv
-        or 'qsirecon-dipydki' in lowered_src
-        or 'dipydki' in lowered_suffix
-        or 'dki' in lowered_suffix
-    )
-    if is_dki:
-        param = _extract_param_token(lowered_src)
-        var_param = _param_from_variable_name(var_name, 'msdki', 'dki', 'dkimicro')
-        is_msdki = (
-            'model-msdki' in lowered_src
-            or 'msdki' in lowered_suffix
-            or norm_var.startswith('msdki')
-        )
-        is_micro = (
-            'model-dkimicro' in lowered_src or 'dkimicro' in lowered_suffix or 'micro' in norm_var
-        )
-        if is_msdki:
-            metric = (
-                DKI_MSDKI_MAP.get(param)
-                or DKI_MSDKI_MAP.get(var_param)
-                or DKI_MSDKI_MAP.get(lowered_var)
-            )
-            if metric is None:
-                for token, out_name in (
-                    ('awf', 'DKI-MSDKI-AWF'),
-                    ('mfa', 'DKI-MSDKI-MFA'),
-                    ('msd', 'DKI-MSDKI-MSD'),
-                    ('msk', 'DKI-MSDKI-MSK'),
-                    ('di', 'DKI-MSDKI-DI'),
-                ):
-                    if token in norm_var:
-                        metric = out_name
-                        break
-        elif is_micro:
-            metric = (
-                DKI_MICRO_MAP.get(param)
-                or DKI_MICRO_MAP.get(var_param)
-                or DKI_MICRO_MAP.get(lowered_var)
-            )
-            if metric is None:
-                micro_aliases = (
-                    ('axonald', 'DKI-AxonALD-Micro'),
-                    ('tortuosity', 'DKI-Tortuosity-Micro'),
-                    ('trace', 'DKI-Trace-Micro'),
-                    ('awf', 'DKI-AWF-Micro'),
-                    ('ade', 'DKI-ADE-Micro'),
-                    ('rde', 'DKI-RDE-Micro'),
-                    ('kfa', 'DKI-KFA-Micro'),
-                    ('ad', 'DKI-AD-Micro'),
-                    ('md', 'DKI-MD-Micro'),
-                    ('rd', 'DKI-RD-Micro'),
-                )
-                for token, out_name in micro_aliases:
-                    if token in norm_var:
-                        metric = out_name
-                        break
-        else:
-            metric = (
-                DKI_STD_MAP.get(param) or DKI_STD_MAP.get(var_param) or DKI_STD_MAP.get(lowered_var)
-            )
-            if metric is None:
-                std_aliases = (
-                    ('linearity', 'DKI-Linearity'),
-                    ('planarity', 'DKI-Planarity'),
-                    ('sphericity', 'DKI-Sphericity'),
-                    ('mkt', 'DKI-MKT'),
-                    ('kfa', 'DKI-KFA'),
-                    ('fa', 'DKI-FA'),
-                    ('ak', 'DKI-AK'),
-                    ('mk', 'DKI-MK'),
-                    ('rk', 'DKI-RK'),
-                    ('ad', 'DKI-AD'),
-                    ('md', 'DKI-MD'),
-                    ('rd', 'DKI-RD'),
-                )
-                for token, out_name in std_aliases:
-                    if token in norm_var:
-                        metric = out_name
-                        break
-        return metric if metric in DKI_METRICS else None
-
-    # DWI NODDI spreadsheet
-    is_noddi = (
-        'qsirecon-noddi' in lowered_tsv
-        or 'qsirecon-noddi' in lowered_src
-        or 'noddi' in lowered_suffix
-    )
-    if is_noddi:
-        param = _extract_param_token(lowered_src) or lowered_var
-        metric = NODDI_MAP.get(param)
-        if metric is None:
-            for token, out_name in (
-                ('isovf', 'NODDI-ISOVF'),
-                ('icvf', 'NODDI-ICVF'),
-                ('nrmse', 'NODDI-NRMSE'),
-                ('rmse', 'NODDI-RMSE'),
-                ('od', 'NODDI-OD'),
-                ('tf', 'NODDI-TF'),
-            ):
-                if token in norm_var:
-                    metric = out_name
-                    break
-        is_modulated = (
-            'desc-modulated' in lowered_src
-            or 'modulated' in lowered_src
-            or 'modulated' in lowered_var
-            or 'modulated' in lowered_suffix
-        )
-        if metric in {'NODDI-ICVF', 'NODDI-OD'} and is_modulated:
-            metric = f'{metric}-Modulated'
-        return metric if metric in NODDI_METRICS else None
-
-    # DWI DSIStudio spreadsheet
-    is_dsistudio = (
-        'qsirecon-dsistudio' in lowered_tsv
-        or 'qsirecon-dsistudio' in lowered_src
-        or 'dsistudio' in lowered_suffix
-        or 'gqi' in lowered_suffix
-    )
-    if is_dsistudio:
-        param = _extract_param_token(lowered_src) or _param_from_variable_name(var_name, 'dti')
-        is_gqi = 'model-gqi' in lowered_src or 'gqi' in lowered_suffix or param in DSISTUDIO_GQI_MAP
-        is_tensor = (
-            'model-tensor' in lowered_src
-            or 'tensor' in lowered_suffix
-            or param in DSISTUDIO_TENSOR_MAP
-        )
-        if is_gqi:
-            metric = DSISTUDIO_GQI_MAP.get(param) or DSISTUDIO_GQI_MAP.get(lowered_var)
-            return metric if metric in DSISTUDIO_METRICS else None
-        if is_tensor:
-            metric = DSISTUDIO_TENSOR_MAP.get(param) or DSISTUDIO_TENSOR_MAP.get(lowered_var)
-            return metric if metric in DSISTUDIO_METRICS else None
-
-    # DWI TORTOISE tensor spreadsheets
-    is_tortoise_full_shell = (
-        'qsirecon-tortoise_model-mapmri' in lowered_tsv
-        or 'qsirecon-tortoise_model-mapmri' in lowered_src
-    )
-    is_tortoise_inner_shell = (
-        'qsirecon-tortoise_model-tensor' in lowered_tsv
-        or 'qsirecon-tortoise_model-tensor' in lowered_src
-    )
-    tortoise_param = _extract_param_token(lowered_src) or lowered_var
-    is_tensor_metric = (
-        'model-tensor' in lowered_src
-        or 'tensor' in lowered_suffix
-        or tortoise_param in TORTOISE_TENSOR_MAP
-    )
-    if is_tensor_metric and (is_tortoise_full_shell or is_tortoise_inner_shell):
-        suffix = TORTOISE_TENSOR_MAP.get(tortoise_param) or TORTOISE_TENSOR_MAP.get(lowered_var)
-        if suffix is None:
-            return None
-        prefix = 'TORTOISE-FullShell' if is_tortoise_full_shell else 'TORTOISE-InnerShell'
-        metric = f'{prefix}-{suffix}'
-        return metric if metric in TORTOISE_TENSOR_METRICS else None
-
-    # DWI MAPMRI spreadsheet
-    is_mapmri = (
-        'qsirecon-tortoise_model-mapmri' in lowered_tsv
-        or 'qsirecon-tortoise_model-mapmri' in lowered_src
-        or 'mapmri' in lowered_suffix
-    )
-    if is_mapmri:
-        param = _extract_param_token(lowered_src) or lowered_var
-        if 'model-mapmri' not in lowered_src and 'mapmri' not in lowered_suffix:
-            return None
-        metric = MAPMRI_MAP.get(param)
-        if metric is None:
-            for token, out_name in (
-                ('ngperp', 'MAPMRI-NGPerp'),
-                ('ngpar', 'MAPMRI-NGPar'),
-                ('ng', 'MAPMRI-NG'),
-                ('path', 'MAPMRI-PAth'),
-                ('pa', 'MAPMRI-PA'),
-                ('rtap', 'MAPMRI-RTAP'),
-                ('rtop', 'MAPMRI-RTOP'),
-                ('rtpp', 'MAPMRI-RTPP'),
-            ):
-                if token in norm_var:
-                    metric = out_name
-                    break
-        return metric if metric in MAPMRI_METRICS else None
-
-    # Unknown source folder -> reject rather than mixing source families.
-    return None
-
-
-def collect_scalarstats(input_globs: list[str]) -> pd.DataFrame:
+def collect_scalarstats(input_globs: list[str], patterns_file: Path = DEFAULT_PATTERNS_FILE) -> pd.DataFrame:
     rows: list[pd.DataFrame] = []
     all_files: set[str] = set()
     dropped_counter: Counter[tuple[str, str]] = Counter()
@@ -669,17 +261,19 @@ def collect_scalarstats(input_globs: list[str]) -> pd.DataFrame:
                 raise RuntimeError(f'Could not infer session_id from {file_path}')
             df['session_id'] = parsed_ses
 
-        # Source-aware canonical metric mapping.
-        df['metric'] = df.apply(lambda row: _infer_metric_name(row, file_path), axis=1)
+        df['source_tsv'] = file_path
+        df['metric'] = df.apply(
+            lambda row: canonical_metric_from_row(row, patterns_file=patterns_file),
+            axis=1,
+        )
         dropped_df = df[df['metric'].isna()]
         for _, drow in dropped_df.iterrows():
             dropped_counter[
                 (str(drow.get('variable_name', '')), str(drow.get('qsirecon_suffix', '')))
             ] += 1
-        df = df[df['metric'].isin(ALL_ALLOWED_METRICS)].copy()
+        df = df.dropna(subset=['metric']).copy()
         if df.empty:
             continue
-        df['source_tsv'] = file_path
         rows.append(df)
 
     if not rows:
@@ -836,6 +430,12 @@ def build_parser() -> argparse.ArgumentParser:
         help='Manual modality QC TSV.',
     )
     parser.add_argument(
+        '--patterns-file',
+        type=Path,
+        default=DEFAULT_PATTERNS_FILE,
+        help='Metric pattern registry.',
+    )
+    parser.add_argument(
         '--qc-mode',
         nargs='+',
         choices=QC_MODES,
@@ -850,7 +450,7 @@ def main() -> None:
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    all_df = collect_scalarstats(args.input_globs)
+    all_df = collect_scalarstats(args.input_globs, patterns_file=args.patterns_file)
     if all_df.empty:
         raise RuntimeError(f'No scalarstats TSV files found for globs: {args.input_globs}')
     qc_df = load_qc_table(args.qc_file)

@@ -6,38 +6,18 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import sys
 from glob import glob
 from pathlib import Path
 
 import pandas as pd
 
-from bundle_scalar_mapping_utils import summarize_bundles
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# Myelin metrics
-METRIC_PATTERNS_T1W: dict[str, str] = {
-    # QSM
-    'QSM-SEPIA-E5': 'qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+sepia_Chimap.nii.gz',
-    'QSM-X-R2p-E5-X': 'qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_Chimap.nii.gz',
-    'QSM-X-R2p-E5-Para': 'qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_para.nii.gz',
-    'QSM-X-R2p-E5-Dia': 'qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_dia.nii.gz',
-    # ihMT
-    'ihMTw': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTw.nii.gz',
-    'ihMTR': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTR.nii.gz',
-    'MTR': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_MTRmap.nii.gz',
-    'ihMTsat': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTsat.nii.gz',
-    'ihMTsat-B1c': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTsatB1sq.nii.gz',
-    # MP2RAGE
-    'R1': 'pymp2rage/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_R1map.nii.gz',
-    'R1-B1c': 'pymp2rage/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-B1corrected_R1map.nii.gz',
-    # T1/T2
-    'MPRAGE-MyelinW': 't1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MPRAGEunscaled_myelinw.nii.gz',
-    'SPACE-MyelinW': 't1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACEunscaled_myelinw.nii.gz',
-    'Scaled MPRAGE-MyelinW': 't1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MPRAGEscaled_myelinw.nii.gz',
-    'Scaled SPACE-MyelinW': 't1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACEscaled_myelinw.nii.gz',
-    # g-ratio
-    'G-ihMTsat': 'g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MTsat+ISOVF+ICVF_gratio.nii.gz',
-    'G-ihMTR': 'g_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz',
-}
+from bundle_mapping_utils import summarize_bundles
+from metric_registry import build_metric_specs, metric_specs_for_analysis
+
+T1W_BUNDLE_GROUPS = {'ihMT', 'MESE', 'MEGRE', 'MP2RAGE', 'T1w/T2w Ratio', 'G-Ratio', 'Q-Ratio', 'QSM'}
 
 BUNDLE_RE = re.compile(r'_bundle-(?P<bundle>.+?)_streamlines\.tck(?:\.gz)?$')
 UNDERSCORE_PREFIXES = (
@@ -63,28 +43,61 @@ def _extract_bundle_name(path: str) -> str:
     return bundle
 
 
-def _resolve_scalar_specs(deriv_dir: str, subject: str, session: str) -> list[dict[str, str]]:
+def _metric_specs_t1w(patterns_file: Path):
+    return [
+        spec
+        for spec in metric_specs_for_analysis(
+            build_metric_specs(patterns_file),
+            'full',
+            tissue='wm',
+        )
+        if spec.group in T1W_BUNDLE_GROUPS
+    ]
+
+
+def _resolve_scalar_specs(
+    deriv_dir: str,
+    subject: str,
+    session: str,
+    patterns_file: Path,
+) -> list[dict[str, str]]:
     scalar_specs: list[dict[str, str]] = []
-    for metric_name, pattern in METRIC_PATTERNS_T1W.items():
-        subj_pattern = pattern.replace('sub-*', f'sub-{subject}').replace('ses-*', session)
+    for spec in _metric_specs_t1w(patterns_file):
+        rel_pattern = _pattern_for_spec(patterns_file, spec.pattern_key)
+        subj_pattern = rel_pattern.format(
+            subject=f'sub-{subject}',
+            session=session,
+            space='T1w',
+        )
         matches = sorted(glob(os.path.join(deriv_dir, subj_pattern)))
         if not matches:
-            print(f'[WARN] Missing scalar for {metric_name}: {subj_pattern}', flush=True)
+            print(f'[WARN] Missing scalar for {spec.label}: {subj_pattern}', flush=True)
             continue
         if len(matches) > 1:
             print(
-                f'[WARN] Multiple scalar matches for {metric_name}; using first: {matches[0]}',
+                f'[WARN] Multiple scalar matches for {spec.label}; using first: {matches[0]}',
                 flush=True,
             )
         scalar_specs.append(
             {
-                'variable_name': metric_name,
+                'variable_name': spec.label,
                 'path': matches[0],
                 'source_file': matches[0],
                 'qsirecon_suffix': 'myelin_t1w',
             }
         )
     return scalar_specs
+
+
+def _pattern_for_spec(patterns_file: Path, pattern_key: str) -> str:
+    import json
+
+    with patterns_file.open() as fobj:
+        nested = json.load(fobj)
+    for group_patterns in nested.values():
+        if pattern_key in group_patterns:
+            return group_patterns[pattern_key]
+    raise KeyError(pattern_key)
 
 
 def _finalize_qsirecon_style_tsv(
@@ -94,6 +107,7 @@ def _finalize_qsirecon_style_tsv(
     session: str,
     bundle_source: str,
     bundle_params_id: str,
+    patterns_file: Path,
 ) -> None:
     df = pd.read_csv(bundle_stats_file, sep='\t')
 
@@ -189,7 +203,7 @@ def process_subject(
             continue
 
         bundle_names = [_extract_bundle_name(tck_path) for tck_path in tck_files]
-        scalar_specs = _resolve_scalar_specs(deriv_dir, subject, session)
+        scalar_specs = _resolve_scalar_specs(deriv_dir, subject, session, patterns_file)
         if not scalar_specs:
             print(f'[WARN] No scalar maps found for sub-{subject} {session}', flush=True)
             continue
@@ -245,6 +259,12 @@ def build_parser() -> argparse.ArgumentParser:
         default='default',
         help='Value for bundle_params_id column.',
     )
+    parser.add_argument(
+        '--patterns-file',
+        type=Path,
+        default=Path(__file__).resolve().parents[1] / 'configuration' / 'patterns.json',
+        help='Metric pattern registry.',
+    )
     return parser
 
 
@@ -256,6 +276,7 @@ def main() -> None:
         out_root=args.out_root,
         bundle_source=args.bundle_source,
         bundle_params_id=args.bundle_params_id,
+        patterns_file=args.patterns_file,
     )
 
 

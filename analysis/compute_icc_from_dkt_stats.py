@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from glob import glob
 from pathlib import Path
 
@@ -23,9 +24,15 @@ try:
 except Exception:
     HAVE_PINGOUIN = False
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from metric_registry import build_metric_specs
+from parcel_metric_utils import add_metric_metadata
+
 
 FILE_RE = re.compile(r'sub-(?P<sub>[^_]+)_(?P<ses>ses-[^_]+)_(?P<run>run-[^_]+)_')
 DEFAULT_QC_FILE = Path(__file__).resolve().parents[1] / 'data' / 'manual_qc_modality.tsv'
+DEFAULT_PATTERNS_FILE = Path(__file__).resolve().parents[1] / 'configuration' / 'patterns.json'
 DWI_METRIC_PREFIXES = (
     'DKI-',
     'DSIStudio-',
@@ -39,28 +46,9 @@ EXCLUDED_DKT_METRICS = {'G-ihMTsat', 'G-ihMTR'}
 
 def metric_required_modalities(metric: str) -> tuple[str, ...]:
     """Return scan-level QC modalities required to trust a derived metric."""
-    if metric.startswith(DWI_METRIC_PREFIXES):
-        return ('dMRI',)
-    if metric == 'QSM-SEPIA-E5' or metric == 'MEGRE':
-        return ('MEGRE',)
-    if metric.startswith('QSM-X-R2'):
-        return ('MEGRE', 'MESE')
-    if metric in {'ihMTw', 'ihMTR', 'MTR'}:
-        return ('ihMTRAGE',)
-    if metric in {'ihMTsat', 'ihMTsat-B1c'}:
-        return ('MP2RAGE', 'ihMTRAGE', 'B1+')
-    if metric == 'R1':
-        return ('MP2RAGE',)
-    if metric == 'R1-B1c':
-        return ('MP2RAGE', 'B1+')
-    if metric in {'MPRAGE-MyelinW', 'Scaled MPRAGE-MyelinW'}:
-        return ('MPRAGE T1w', 'SPACE T2w')
-    if metric in {'SPACE-MyelinW', 'Scaled SPACE-MyelinW'}:
-        return ('SPACE T1w', 'SPACE T2w')
-    if metric == 'G-ihMTR':
-        return ('dMRI', 'ihMTRAGE')
-    if metric == 'G-ihMTsat':
-        return ('MP2RAGE', 'dMRI', 'ihMTRAGE', 'B1+')
+    for spec in build_metric_specs(DEFAULT_PATTERNS_FILE):
+        if metric in {spec.label, spec.primary_label}:
+            return spec.qc_modalities
     raise ValueError(f'No QC modality mapping defined for metric: {metric}')
 
 
@@ -221,7 +209,11 @@ def collect_rows(input_glob: str) -> pd.DataFrame:
     return pd.concat(records, ignore_index=True)
 
 
-def build_value_table(df: pd.DataFrame, stat: str) -> pd.DataFrame:
+def build_value_table(
+    df: pd.DataFrame,
+    stat: str,
+    patterns_file: Path = DEFAULT_PATTERNS_FILE,
+) -> pd.DataFrame:
     base_cols = [
         'subject',
         'session',
@@ -243,6 +235,7 @@ def build_value_table(df: pd.DataFrame, stat: str) -> pd.DataFrame:
         value_name='value',
     )
     value_df['metric'] = value_df['metric_stat'].str[: -(len(stat) + 1)]
+    value_df = add_metric_metadata(value_df, 'metric', patterns_file)
     value_df['parcel'] = (
         value_df['parcel_hemi'].astype(str) + '_' + value_df['parcel_name'].astype(str)
     )
@@ -457,6 +450,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=list(QC_MODES),
         help='QC-filtered ICC versions to write.',
     )
+    parser.add_argument(
+        '--patterns-file',
+        type=Path,
+        default=DEFAULT_PATTERNS_FILE,
+        help='Metric pattern registry.',
+    )
     return parser
 
 
@@ -471,7 +470,7 @@ def main() -> None:
     qc_df = load_qc_table(args.qc_file)
 
     for stat in ('mean', 'median'):
-        value_df = build_value_table(all_rows, stat=stat)
+        value_df = build_value_table(all_rows, stat=stat, patterns_file=args.patterns_file)
         for qc_mode in args.qc_mode:
             if qc_mode == 'metricqc':
                 filtered_df = apply_metric_qc(value_df, qc_df)

@@ -27,5 +27,9 @@ fi
     --derivatives-dir "${PROJECT_ROOT}/derivatives" \
     --patterns-file "${PROJECT_ROOT}/code/configuration/patterns.json" \
     --qc-file "${PROJECT_ROOT}/code/data/manual_qc_modality.tsv" \
-    --output-dir "${PROJECT_ROOT}/derivatives/mni_voxelwise_icc_singlemap" \
-    --work-dir "${PROJECT_ROOT}/derivatives/mni_voxelwise_icc_singlemap/work"
+    --gm-probseg "${PROJECT_ROOT}/code/data/tpl-MNI152NLin2009cAsym_res-01_label-GM_probseg.nii.gz" \
+    --wm-probseg "${PROJECT_ROOT}/code/data/tpl-MNI152NLin2009cAsym_res-01_label-WM_probseg.nii.gz" \
+    --gm-threshold 0.5 \
+    --wm-threshold 0.5 \
+    --output-dir "${PROJECT_ROOT}/derivatives/mni_voxelwise_icc" \
+    --work-dir "${PROJECT_ROOT}/derivatives/mni_voxelwise_icc/work"

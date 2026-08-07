@@ -14,95 +14,15 @@ import re
 import sys
 from collections import defaultdict
 from glob import glob
+from pathlib import Path
 
 import ants
 import numpy as np
 import pandas as pd
 
-PATTERNS_SUBJECT: dict[str, str] = {
-    # DWI DKI
-    'DKI-FA': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-fa_dwimap.nii.gz',
-    'DKI-KFA': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-kfa_dwimap.nii.gz',
-    'DKI-KFA-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-kfa_dwimap.nii.gz',
-    'DKI-AD': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-ad_dwimap.nii.gz',
-    'DKI-AD-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-ad_dwimap.nii.gz',
-    'DKI-ADE-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-ade_dwimap.nii.gz',
-    'DKI-AWF-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-awf_dwimap.nii.gz',
-    'DKI-AxonALD-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-axonald_dwimap.nii.gz',
-    'DKI-AK': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-ak_dwimap.nii.gz',
-    'DKI-MD': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-md_dwimap.nii.gz',
-    'DKI-MD-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-md_dwimap.nii.gz',
-    'DKI-MK': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-mk_dwimap.nii.gz',
-    'DKI-MKT': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-mkt_dwimap.nii.gz',
-    'DKI-RD': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-rd_dwimap.nii.gz',
-    'DKI-RD-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-rd_dwimap.nii.gz',
-    'DKI-RDE-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-rde_dwimap.nii.gz',
-    'DKI-RK': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-rk_dwimap.nii.gz',
-    'DKI-Linearity': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-linearity_dwimap.nii.gz',
-    'DKI-Planarity': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-planarity_dwimap.nii.gz',
-    'DKI-Sphericity': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dki_param-sphericity_dwimap.nii.gz',
-    'DKI-Trace-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-trace_dwimap.nii.gz',
-    'DKI-Tortuosity-Micro': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-dkimicro_param-tortuosity_dwimap.nii.gz',
-    'DKI-MSDKI-AWF': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-awf_dwimap.nii.gz',
-    'DKI-MSDKI-DI': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-di_dwimap.nii.gz',
-    'DKI-MSDKI-MFA': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-mfa_dwimap.nii.gz',
-    'DKI-MSDKI-MSD': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-msd_dwimap.nii.gz',
-    'DKI-MSDKI-MSK': 'qsirecon/derivatives/qsirecon-DIPYDKI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-msdki_param-msk_dwimap.nii.gz',
-    # DWI DSIStudio
-    'DSIStudio-GQI-GFA': 'qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-gqi_param-gfa_dwimap.nii.gz',
-    'DSIStudio-GQI-ISO': 'qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-gqi_param-iso_dwimap.nii.gz',
-    'DSIStudio-GQI-QA': 'qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-gqi_param-qa_dwimap.nii.gz',
-    'DSIStudio-GQI-RDI': 'qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-gqi_param-rdi_dwimap.nii.gz',
-    'DSIStudio-Tensor-AD': 'qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-ad_dwimap.nii.gz',
-    'DSIStudio-Tensor-FA': 'qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-fa_dwimap.nii.gz',
-    'DSIStudio-Tensor-MD': 'qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-md_dwimap.nii.gz',
-    'DSIStudio-Tensor-RD': 'qsirecon/derivatives/qsirecon-DSIStudio/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd_dwimap.nii.gz',
-    # DWI NODDI: use the gray-matter-specific fit for cortical DKT summaries.
-    'NODDI-ICVF-Modulated': 'qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_desc-modulated_dwimap.nii.gz',
-    'NODDI-ICVF': 'qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-icvf_dwimap.nii.gz',
-    'NODDI-ISOVF': 'qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-isovf_dwimap.nii.gz',
-    'NODDI-OD-Modulated': 'qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_desc-modulated_dwimap.nii.gz',
-    'NODDI-OD': 'qsirecon/derivatives/qsirecon-gmNODDI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-noddi_param-od_dwimap.nii.gz',
-    # DWI MAPMRI
-    'MAPMRI-NG': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ng_dwimap.nii.gz',
-    'MAPMRI-NGPar': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ngpar_dwimap.nii.gz',
-    'MAPMRI-NGPerp': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-ngperp_dwimap.nii.gz',
-    'MAPMRI-PA': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-pa_dwimap.nii.gz',
-    'MAPMRI-PAth': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-path_dwimap.nii.gz',
-    'MAPMRI-RTAP': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-rtap_dwimap.nii.gz',
-    'MAPMRI-RTOP': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-rtop_dwimap.nii.gz',
-    'MAPMRI-RTPP': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-mapmri_param-rtpp_dwimap.nii.gz',
-    # DWI TORTOISE tensor
-    'TORTOISE-FullShell-AD': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-ad_dwimap.nii.gz',
-    'TORTOISE-FullShell-FA': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-fa_dwimap.nii.gz',
-    'TORTOISE-FullShell-LI': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-li_dwimap.nii.gz',
-    'TORTOISE-FullShell-MD': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-md_dwimap.nii.gz',
-    'TORTOISE-FullShell-RD': 'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd_dwimap.nii.gz',
-    'TORTOISE-InnerShell-AD': 'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-ad_dwimap.nii.gz',
-    'TORTOISE-InnerShell-FA': 'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-fa_dwimap.nii.gz',
-    'TORTOISE-InnerShell-LI': 'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-li_dwimap.nii.gz',
-    'TORTOISE-InnerShell-MD': 'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-md_dwimap.nii.gz',
-    'TORTOISE-InnerShell-RD': 'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-ACPC_model-tensor_param-rd_dwimap.nii.gz',
-    # QSM
-    'QSM-SEPIA-E5': 'qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+sepia_Chimap.nii.gz',
-    'QSM-X-R2p-E5-X': 'qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_Chimap.nii.gz',
-    'QSM-X-R2p-E5-Para': 'qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_para.nii.gz',
-    'QSM-X-R2p-E5-Dia': 'qsm/sub-*/ses-*/anat/*_space-T1w_desc-E12345+chisep+r2p_dia.nii.gz',
-    # ihMT
-    'ihMTw': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTw.nii.gz',
-    'ihMTR': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTR.nii.gz',
-    'MTR': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_MTRmap.nii.gz',
-    'ihMTsat': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTsat.nii.gz',
-    'ihMTsat-B1c': 'ihmt/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_ihMTsatB1sq.nii.gz',
-    # MP2RAGE
-    'R1': 'pymp2rage/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_R1map.nii.gz',
-    'R1-B1c': 'pymp2rage/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-B1corrected_R1map.nii.gz',
-    # T1/T2
-    'MPRAGE-MyelinW': 't1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MPRAGEunscaled_myelinw.nii.gz',
-    'SPACE-MyelinW': 't1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACEunscaled_myelinw.nii.gz',
-    'Scaled MPRAGE-MyelinW': 't1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-MPRAGEscaled_myelinw.nii.gz',
-    'Scaled SPACE-MyelinW': 't1wt2w_ratio/sub-*/ses-*/anat/sub-*_ses-*_run-01_space-T1w_desc-SPACEscaled_myelinw.nii.gz',
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from metric_registry import build_metric_specs, metric_specs_for_analysis
 
 STATS = ('mean', 'median', 'std', 'min', 'max')
 KEY_RE = re.compile(r'(ses-[A-Za-z0-9]+)|(run-[A-Za-z0-9]+)')
@@ -197,21 +117,51 @@ def _parse_ses_run(path: str) -> tuple[str, str]:
     return ses, run
 
 
-def _build_metric_files(subject: str, deriv_dir: str) -> dict[tuple[str, str], dict[str, str]]:
+def _pattern_lookup(patterns_file: Path) -> dict[str, str]:
+    import json
+
+    with patterns_file.open() as fobj:
+        nested = json.load(fobj)
+    return {
+        key: value
+        for group_patterns in nested.values()
+        for key, value in group_patterns.items()
+    }
+
+
+def _space_for_spec_group(group: str) -> str:
+    return 'ACPC' if group == 'dMRI' else 'T1w'
+
+
+def _build_metric_files(
+    subject: str,
+    deriv_dir: str,
+    patterns_file: Path,
+) -> dict[tuple[str, str], dict[str, str]]:
     metric_files_by_key: dict[tuple[str, str], dict[str, str]] = defaultdict(dict)
     subject_tok = f'sub-{subject}'
-    for metric_name, rel_pattern in PATTERNS_SUBJECT.items():
-        subj_pattern = rel_pattern.replace('sub-*', subject_tok)
+    patterns = _pattern_lookup(patterns_file)
+    for spec in metric_specs_for_analysis(
+        build_metric_specs(patterns_file),
+        'full',
+        tissue='gm',
+    ):
+        rel_pattern = patterns[spec.pattern_key]
+        subj_pattern = rel_pattern.format(
+            subject=subject_tok,
+            session='ses-*',
+            space=_space_for_spec_group(spec.group),
+        )
         matches = sorted(glob(os.path.join(deriv_dir, subj_pattern)))
         if not matches:
             continue
         for map_file in matches:
             ses, run = _parse_ses_run(map_file)
             key = (ses, run)
-            if metric_name in metric_files_by_key[key]:
+            if spec.label in metric_files_by_key[key]:
                 # Keep the first deterministic match for duplicate paths.
                 continue
-            metric_files_by_key[key][metric_name] = map_file
+            metric_files_by_key[key][spec.label] = map_file
     return metric_files_by_key
 
 
@@ -226,20 +176,6 @@ def _space_from_path(path: str) -> str:
     raise ValueError(
         'Could not unambiguously determine space from filename '
         f'(expected _space-ACPC_ or _space-T1w_): {fname}'
-    )
-
-
-def _expected_space_for_metric(metric_name: str) -> str:
-    pattern = PATTERNS_SUBJECT[metric_name]
-    has_acpc = '_space-ACPC_' in pattern
-    has_t1w = '_space-T1w_' in pattern
-    if has_acpc and not has_t1w:
-        return 'ACPC'
-    if has_t1w and not has_acpc:
-        return 'T1w'
-    raise ValueError(
-        'Metric pattern must include exactly one of _space-ACPC_ or _space-T1w_: '
-        f'{metric_name} -> {pattern}'
     )
 
 
@@ -274,6 +210,7 @@ def _compute_stats(values: np.ndarray) -> dict[str, float]:
 def process_subject(
     subject: str,
     deriv_dir: str,
+    patterns_file: Path,
     zero_is_missing: bool = True,
 ) -> None:
     t1w_reg_dir = os.path.join(deriv_dir, 't1w_registration', f'sub-{subject}', 'anat')
@@ -313,21 +250,27 @@ def process_subject(
         dtype=np.int64,
     )
 
-    metric_files_by_key = _build_metric_files(subject, deriv_dir)
+    metric_files_by_key = _build_metric_files(subject, deriv_dir, patterns_file)
     if not metric_files_by_key:
         print(f'No scalar maps found for sub-{subject}', flush=True)
         return
-
-    expected_space_by_metric = {
-        metric_name: _expected_space_for_metric(metric_name) for metric_name in PATTERNS_SUBJECT
-    }
 
     for (ses, run), metric_files in sorted(metric_files_by_key.items()):
         out_df = parcel_df.copy()
         out_df.insert(3, 'parcel_count_t1w', t1w_counts)
         out_df.insert(4, 'parcel_count_acpc', acpc_counts)
 
-        for metric_name in PATTERNS_SUBJECT:
+        gm_metric_labels = sorted(
+            {
+                spec.label
+                for spec in metric_specs_for_analysis(
+                    build_metric_specs(patterns_file),
+                    'full',
+                    tissue='gm',
+                )
+            }
+        )
+        for metric_name in gm_metric_labels:
             for stat in STATS:
                 out_df[f'{metric_name}_{stat}'] = np.nan
 
@@ -336,12 +279,6 @@ def process_subject(
 
         for metric_name, metric_file in metric_files.items():
             actual_space = _space_from_path(metric_file)
-            expected_space = expected_space_by_metric[metric_name]
-            if actual_space != expected_space:
-                raise ValueError(
-                    f'Space mismatch for {metric_name}: expected {expected_space}, '
-                    f'got {actual_space} from {metric_file}'
-                )
             space = actual_space
             dseg_img = dseg_imgs[space]
 
@@ -432,6 +369,12 @@ def _build_parser() -> argparse.ArgumentParser:
             'By default, zero and all nonfinite values are treated as invalid.'
         ),
     )
+    parser.add_argument(
+        '--patterns-file',
+        type=Path,
+        default=Path(__file__).resolve().parents[1] / 'configuration' / 'patterns.json',
+        help='Metric pattern registry.',
+    )
     return parser
 
 
@@ -446,5 +389,6 @@ if __name__ == '__main__':
     process_subject(
         args.subject_id,
         derivatives_dir,
+        args.patterns_file,
         zero_is_missing=not args.include_zero,
     )
