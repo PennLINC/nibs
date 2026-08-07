@@ -376,6 +376,25 @@ def pair_gmwm_hybrid_profiles(
     return paired
 
 
+def keep_subjects_with_multiple_sessions(
+    profiles: list[dict[str, object]],
+    min_sessions: int = 2,
+) -> list[dict[str, object]]:
+    sessions_by_subject: dict[str, set[str]] = {}
+    for profile in profiles:
+        sessions_by_subject.setdefault(str(profile['subject']), set()).add(str(profile['session']))
+    paired_subjects = {
+        subject
+        for subject, sessions in sessions_by_subject.items()
+        if len(sessions) >= min_sessions
+    }
+    return [
+        profile
+        for profile in profiles
+        if str(profile['subject']) in paired_subjects
+    ]
+
+
 def common_metric_mask(
     profiles: list[dict[str, object]],
     reference,
@@ -697,6 +716,7 @@ def main() -> None:
             spec,
         )
         diagnostics.extend(metric_diagnostics)
+        profiles = keep_subjects_with_multiple_sessions(profiles)
         if len(profiles) < 4:
             continue
         gm_hybrid_profiles = None
@@ -711,6 +731,7 @@ def main() -> None:
                 gm_counterpart,
             )
             diagnostics.extend(gm_metric_diagnostics)
+            gm_hybrid_profiles = keep_subjects_with_multiple_sessions(gm_hybrid_profiles)
         for tissue in args.tissues:
             if not any(
                 spec.label in labels_by_tissue[tissue][analysis_set]
@@ -721,6 +742,7 @@ def main() -> None:
             tissue_gm_mask = None
             if tissue == 'gmwm' and gm_hybrid_profiles is not None:
                 tissue_profiles = pair_gmwm_hybrid_profiles(profiles, gm_hybrid_profiles)
+                tissue_profiles = keep_subjects_with_multiple_sessions(tissue_profiles)
                 tissue_gm_mask = masks['gm']
                 if len(tissue_profiles) < 4:
                     continue

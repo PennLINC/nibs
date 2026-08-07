@@ -31,6 +31,7 @@ environments.
 """
 
 import argparse
+import hashlib
 import json
 import re
 import warnings
@@ -187,6 +188,41 @@ def safe_label(value):
         "-",
         str(value),
     ).strip("-")
+
+
+def metric_slug(metric_spec):
+    base = safe_label(metric_spec.label)
+    digest = hashlib.sha1(
+        str(metric_spec.pattern_key).encode("utf-8")
+    ).hexdigest()[:8]
+    return "{0}-{1}".format(base, digest)
+
+
+def assert_unique_metric_slugs(metric_specs):
+    by_slug = {}
+
+    for spec in metric_specs:
+        slug = metric_slug(spec)
+        by_slug.setdefault(slug, []).append(spec.label)
+
+    collisions = {
+        slug: labels
+        for slug, labels in by_slug.items()
+        if len(labels) > 1
+    }
+
+    if collisions:
+        details = "; ".join(
+            "{0}: {1}".format(
+                slug,
+                ", ".join(labels),
+            )
+            for slug, labels in sorted(collisions.items())
+        )
+        raise RuntimeError(
+            "Selected metrics do not have unique output slugs: "
+            "{0}".format(details)
+        )
 
 
 def number_token(value):
@@ -2687,7 +2723,7 @@ def map_paths(
 ):
     prefix = (
         "metric-{0}_space-{1}".format(
-            safe_label(metric_spec.label),
+            metric_slug(metric_spec),
             SPACE,
         )
     )
@@ -3011,6 +3047,9 @@ def main():
         args.metric,
         tissues=args.summary_tissues,
     )
+    assert_unique_metric_slugs(
+        metric_specs
+    )
 
     analysis_sets = selected_analysis_sets(
         args.analysis_set
@@ -3295,9 +3334,7 @@ def main():
 
         metric_work_dir = (
             args.work_dir
-            / safe_label(
-                metric_spec.label
-            )
+            / metric_slug(metric_spec)
         )
 
         metric_work_dir.mkdir(
@@ -3314,7 +3351,7 @@ def main():
                     pairs,
                     reference,
                     metric_work_dir,
-                    metric_spec.label,
+                    metric_slug(metric_spec),
                     gm_mask=(
                         masks["gm"]
                         if needs_gmwm_hybrid

@@ -919,6 +919,11 @@ def main() -> None:
             ]
         )
         full_mean_z = pd.DataFrame(np.nanmean(stack, axis=0), index=full_labels, columns=full_labels)
+        full_n_subjects = pd.DataFrame(
+            np.sum(np.isfinite(stack), axis=0),
+            index=full_labels,
+            columns=full_labels,
+        )
         count_stack = np.stack(
             [
                 mat.reindex(index=full_labels, columns=full_labels).to_numpy(dtype=float)
@@ -951,11 +956,13 @@ def main() -> None:
             np.fill_diagonal(mean_r.values, 1.0)
             mean_counts = full_mean_counts.reindex(index=labels, columns=labels)
             mean_proportions = full_mean_proportions.reindex(index=labels, columns=labels)
+            n_subjects = full_n_subjects.reindex(index=labels, columns=labels)
             label_map = display_labels[analysis_set]
             mean_z = mean_z.rename(index=label_map, columns=label_map)
             mean_r = mean_r.rename(index=label_map, columns=label_map)
             mean_counts = mean_counts.rename(index=label_map, columns=label_map)
             mean_proportions = mean_proportions.rename(index=label_map, columns=label_map)
+            n_subjects = n_subjects.rename(index=label_map, columns=label_map)
             plot_source_by_metric = {
                 label_map.get(label, label): source_by_metric.get(label, 'Other')
                 for label in labels
@@ -978,6 +985,11 @@ def main() -> None:
             )
             mean_proportions.to_csv(
                 args.output_dir / f'{stem}_mean_pairwise_proportion.tsv',
+                sep='\t',
+                index_label='metric',
+            )
+            n_subjects.to_csv(
+                args.output_dir / f'{stem}_nsubjects.tsv',
                 sep='\t',
                 index_label='metric',
             )
