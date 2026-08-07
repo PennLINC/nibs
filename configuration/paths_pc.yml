@@ -28,6 +28,7 @@ derivatives:
   t1wt2w_ratio: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/t1wt2w_ratio
   g_ratio: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/g_ratio
   myelin: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/myelin
+  q_ratio: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/q_ratio
   qsiprep: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/qsiprep
   qsirecon_dipydki: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/qsirecon/derivatives/qsirecon-DIPYDKI
   qsirecon_noddi: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/qsirecon/derivatives/qsirecon-NODDI
