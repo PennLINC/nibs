@@ -8,6 +8,7 @@ Steps:
 4.  Warp T1w mask from T1w space into the MEGREref space by applying the inverse of the coregistration
     transform.
 5.  Apply the mask in MEGREref space to magnitude images.
+6.  Warp the R2* and R2' maps to T1w and MNI152NLin2009cAsym spaces and plot them.
 
 Notes:
 
@@ -15,6 +16,10 @@ Notes:
 - The MESE-derived R2 map is optional. When it is missing, the R2' maps
   (R2* - R2) are not calculated and only the R2* maps are written out.
 - This must be run after sMRIPrep and process_mese.py.
+- Runs already processed before the warping step was added are skipped by the
+  early-return guard in :func:`process_run` (it keys on the MEGRE-space brain
+  mask, which is written before the warping). Use warp_megre_to_mni.py to
+  backfill the T1w- and MNI-space maps for those runs.
 """
 
 from __future__ import annotations
@@ -38,6 +43,7 @@ from utils import (
     plot_brain_mask_contour,
     plot_coregistration,
     run_synthstrip,
+    warp_scalar_to_t1w_and_mni,
 )
 
 CFG = load_config()
@@ -422,7 +428,10 @@ def process_run(layout, run_data, out_dir, temp_dir, n_threads=4):
         r2s_name_source = name_source
         r2s_dismiss_entities = ['echo', 'part', 'acquisition']
 
-    # Calculate R2* maps, and R2' maps when an R2 map is available
+    # Calculate R2* maps, and R2' maps when an R2 map is available.
+    # Each map is written in MEGRE space and then warped to T1w and MNI space.
+    # Only the 'space' entity changes, so the desc ('MEGRE+E12345'/'MEGRE+E2345')
+    # carries through to the warped outputs.
     for desc, mag_files, tes in (
         ('MEGRE+E12345', run_data['megre_mag'], echo_times),
         # From echo 2 onwards
@@ -438,6 +447,18 @@ def process_run(layout, run_data, out_dir, temp_dir, n_threads=4):
         )
         r2s_hz_img.to_filename(r2s_hz_filename)
 
+        warp_scalar_to_t1w_and_mni(
+            in_file=r2s_hz_filename,
+            layout=layout,
+            out_dir=out_dir,
+            coreg_transform=coreg_transform,
+            t1w=run_data['t1w'],
+            t1w_mni=run_data['t1w_mni'],
+            t1w2mni_xfm=run_data['t1w2mni_xfm'],
+            mni_mask=run_data['mni_mask'],
+            dseg_mni=run_data['dseg_mni'],
+        )
+
         if not has_r2:
             continue
 
@@ -452,6 +473,21 @@ def process_run(layout, run_data, out_dir, temp_dir, n_threads=4):
         r2prime_hz_img = r2s_hz_img - r2_qsm_img
         ants.image_write(r2prime_hz_img, r2prime_hz_filename)
 
+        # R2' = R2* - R2 is signed, so plot it on a symmetric diverging scale.
+        warp_scalar_to_t1w_and_mni(
+            in_file=r2prime_hz_filename,
+            layout=layout,
+            out_dir=out_dir,
+            coreg_transform=coreg_transform,
+            t1w=run_data['t1w'],
+            t1w_mni=run_data['t1w_mni'],
+            t1w2mni_xfm=run_data['t1w2mni_xfm'],
+            mni_mask=run_data['mni_mask'],
+            dseg_mni=run_data['dseg_mni'],
+            cmap='RdBu_r',
+            symmetric=True,
+        )
+
     # Warp the QSM mask
     mask_qsm_img = ants.apply_transforms(
         fixed=ants.image_read(megre_ref_filename),
@@ -461,8 +497,6 @@ def process_run(layout, run_data, out_dir, temp_dir, n_threads=4):
         interpolator='nearestNeighbor',
     )
     ants.image_write(mask_qsm_img, mask_qsm_filename)
-
-    # TODO: Warp R2* and R2' to MNI space.
 
 
 def _get_parser() -> argparse.ArgumentParser:

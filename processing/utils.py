@@ -849,6 +849,129 @@ def plot_scalar_map(
     plt.close(fig)
 
 
+def warp_scalar_to_t1w_and_mni(
+    in_file: str,
+    layout: object,
+    out_dir: str,
+    coreg_transform: str,
+    t1w: str,
+    t1w_mni: str,
+    t1w2mni_xfm: str,
+    mni_mask: str,
+    dseg_mni: str,
+    dismiss_entities: list[str] | None = None,
+    cmap: str = 'Reds',
+    symmetric: bool = False,
+) -> tuple[str, str]:
+    """Warp a native-space scalar map to T1w and MNI space and plot the MNI result.
+
+    Only the ``space`` entity of ``in_file`` changes, so the outputs keep the
+    ``desc`` and ``suffix`` of the input map.
+
+    Parameters
+    ----------
+    in_file : str
+        Path to the scalar map in its native (coregistered-source) space.
+    layout : bids.BIDSLayout
+        BIDSLayout used to construct output paths.
+    out_dir : str
+        Root directory for the output files.
+    coreg_transform : str
+        Transform mapping the native space of ``in_file`` to T1w space.
+    t1w : str
+        Path to the sMRIPrep preprocessed T1w image (the T1w-space grid).
+    t1w_mni : str
+        Path to the MNI-space preprocessed T1w image (the MNI-space grid and the
+        underlay for the scalar plot).
+    t1w2mni_xfm : str
+        sMRIPrep's T1w-to-MNI152NLin2009cAsym normalization transform.
+    mni_mask : str
+        Path to sMRIPrep's MNI-space brain mask.
+    dseg_mni : str
+        Path to sMRIPrep's MNI-space discrete segmentation.
+    dismiss_entities : list of str, optional
+        Entity keys to drop when building the output names.
+    cmap : str, optional
+        Matplotlib colormap for the scalar plot. Default is ``'Reds'``.
+    symmetric : bool, optional
+        Force a symmetric color scale. Use for signed maps such as R2'.
+
+    Returns
+    -------
+    t1w_file, mni_file : str
+        Paths to the T1w- and MNI-space maps.
+    """
+    import ants
+    import numpy as np
+    from nilearn import masking
+
+    if dismiss_entities is None:
+        dismiss_entities = []
+
+    t1w_file = get_filename(
+        name_source=in_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'T1w'},
+        dismiss_entities=dismiss_entities,
+    )
+    t1w_img = ants.apply_transforms(
+        fixed=ants.image_read(t1w),
+        moving=ants.image_read(in_file),
+        transformlist=[coreg_transform],
+        interpolator='linear',
+    )
+    ants.image_write(t1w_img, t1w_file)
+
+    mni_file = get_filename(
+        name_source=in_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'space': 'MNI152NLin2009cAsym'},
+        dismiss_entities=dismiss_entities,
+    )
+    mni_img = ants.apply_transforms(
+        fixed=ants.image_read(t1w_mni),
+        moving=ants.image_read(in_file),
+        transformlist=[t1w2mni_xfm, coreg_transform],
+        interpolator='linear',
+    )
+    ants.image_write(mni_img, mni_file)
+
+    # nireports indexes figures with its own config, whose desc pattern only
+    # captures [a-zA-Z0-9], so a '+' in the desc truncates it on indexing (e.g.
+    # 'MEGRE+E12345scalar' -> 'MEGRE') and the report's '.*scalar' query never
+    # matches. Strip '+' so the 'scalar' token survives parsing.
+    desc = 'scalar'
+    if 'desc-' in mni_file:
+        raw_desc = mni_file.split('desc-')[-1].split('_')[0]
+        desc = raw_desc.replace('+', '') + 'scalar'
+
+    scalar_report = get_filename(
+        name_source=mni_file,
+        layout=layout,
+        out_dir=out_dir,
+        entities={'datatype': 'figures', 'desc': desc, 'extension': '.svg'},
+    )
+    data = masking.apply_mask(mni_file, mni_mask)
+    vmin = np.percentile(data, 2)
+    vmin = np.minimum(vmin, 0)
+    vmax = np.percentile(data, 98)
+    plot_scalar_map(
+        underlay=t1w_mni,
+        overlay=mni_file,
+        mask=mni_mask,
+        dseg=dseg_mni,
+        out_file=scalar_report,
+        vmin=vmin,
+        vmax=vmax,
+        cmap=cmap,
+        symmetric=symmetric,
+    )
+
+    return t1w_file, mni_file
+
+
 def plot_scalar_comparison(
     x_file: str,
     y_file: str,
