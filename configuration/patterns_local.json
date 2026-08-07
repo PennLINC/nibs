@@ -63,6 +63,7 @@
         "TORTOISE Tensor AM": "qsirecon__derivatives__qsirecon-TORTOISE_model-tensor__*{subject}_{session}*_space-MNI152NLin2009cAsym_model-tensor_param-am_dwimap.nii.gz",
         "TORTOISE Tensor FA": "qsirecon__derivatives__qsirecon-TORTOISE_model-tensor__*{subject}_{session}*_space-MNI152NLin2009cAsym_model-tensor_param-fa_dwimap.nii.gz",
         "TORTOISE Tensor LI": "qsirecon__derivatives__qsirecon-TORTOISE_model-tensor__*{subject}_{session}*_space-MNI152NLin2009cAsym_model-tensor_param-li_dwimap.nii.gz",
+        "TORTOISE Tensor MD": "qsirecon__derivatives__qsirecon-TORTOISE_model-tensor__*{subject}_{session}*_space-MNI152NLin2009cAsym_model-tensor_param-md_dwimap.nii.gz",
         "TORTOISE Tensor RD": "qsirecon__derivatives__qsirecon-TORTOISE_model-tensor__*{subject}_{session}*_space-MNI152NLin2009cAsym_model-tensor_param-rd_dwimap.nii.gz"
     },
     "ihMT": {
