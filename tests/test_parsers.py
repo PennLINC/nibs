@@ -1,6 +1,6 @@
 """Tier 3 smoke tests for all _get_parser() functions across processing modules.
 
-All eight parsers are structurally identical (single --subject-id arg with a
+All the parsers are structurally identical (single --subject-id arg with a
 sub- prefix stripper), so we parametrize across all of them.
 """
 
@@ -17,10 +17,12 @@ _PARSER_MODULES = [
     'process_ihmt',
     'process_mese',
     'process_t1wt2w_ratio',
-    'process_qsm_prep',
+    'process_megre',
     'process_qsm_post',
     'process_qsm',
     'process_g_ratio',
+    'process_q_ratio',
+    'warp_megre_to_mni',
     'generate_myelin_reports',
 ]
 
