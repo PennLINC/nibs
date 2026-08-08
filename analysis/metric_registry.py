@@ -27,7 +27,7 @@ PRIMARY_METRIC_LABELS = (
     'RD',
     'MKT',
     'RK',
-    'DKI Micro AWF',
+    'AWF',
     'ICVF',
     'RTOP',
     'RTAP',
@@ -55,7 +55,7 @@ PRIMARY_PATTERN_KEYS = {
     'RD': 'RD (TORTOISE; Inner Shells)',
     'MKT': 'DKI MKT',
     'RK': 'DKI RK',
-    'DKI Micro AWF': 'DKI Micro AWF',
+    'AWF': 'DKI Micro AWF',
     'ICVF': 'ICVF',
     'RTOP': 'RTOP',
     'RTAP': 'RTAP',
@@ -107,6 +107,8 @@ def display_label(pattern_key: str) -> str:
         return 'MKT'
     if pattern_key == 'DKI RK':
         return 'RK'
+    if pattern_key == 'DKI Micro AWF':
+        return 'AWF'
     return pattern_key
 
 

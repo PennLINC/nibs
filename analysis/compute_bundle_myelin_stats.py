@@ -163,6 +163,7 @@ def process_subject(
     out_root: str,
     bundle_source: str,
     bundle_params_id: str,
+    patterns_file: Path,
 ) -> None:
     bundles_root = os.path.join(deriv_dir, 'warped_bundles', f'sub-{subject}')
     if not os.path.isdir(bundles_root):
@@ -232,6 +233,7 @@ def process_subject(
             session=session,
             bundle_source=bundle_source,
             bundle_params_id=bundle_params_id,
+            patterns_file=patterns_file,
         )
         print(f'[INFO] Wrote {final_tsv}', flush=True)
 

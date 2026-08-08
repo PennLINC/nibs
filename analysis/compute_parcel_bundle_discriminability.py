@@ -27,6 +27,21 @@ from parcel_metric_utils import add_metric_metadata, canonical_metric_from_row
 DEFAULT_QC_FILE = Path(__file__).resolve().parents[1] / 'data' / 'manual_qc_modality.tsv'
 QC_MODES = ('metricqc', 'completeqc')
 ANALYSIS_SETS = ('primary', 'full')
+RESULT_COLUMNS = [
+    'profile_type',
+    'profile_group',
+    'stat',
+    'distance_metric',
+    'discriminability',
+    'nearest_neighbor_accuracy',
+    'mean_genuine_distance',
+    'mean_impostor_distance',
+    'mean_rank_percentile',
+    'n_subjects',
+    'n_sessions',
+    'n_profiles',
+    'n_features',
+]
 DEFAULT_WM_GLOBS = [
     '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-*/sub-*/ses-*/dwi/sub-*_ses-*_*_scalarstats.tsv',
     '/cbica/projects/nibs/derivatives/bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-*_scalarstats.tsv',
@@ -315,17 +330,11 @@ def _score_profile_matrix(
     if matrix.empty:
         return None
 
-    matrix = matrix.sort_index()
+    matrix = keep_paired_profile_rows(matrix).sort_index()
+    if matrix.empty:
+        return None
     subjects = matrix.index.get_level_values('subject').astype(str).to_numpy()
     sessions = matrix.index.get_level_values('session').astype(str).to_numpy()
-    values = matrix.to_numpy(dtype=float)
-
-    paired_subjects = pd.Series(sessions, index=subjects).groupby(level=0).nunique()
-    paired_subjects = paired_subjects[paired_subjects >= 2].index
-    keep_rows = np.isin(subjects, paired_subjects)
-    matrix = matrix.iloc[keep_rows, :]
-    subjects = subjects[keep_rows]
-    sessions = sessions[keep_rows]
     values = matrix.to_numpy(dtype=float)
 
     if len(np.unique(subjects)) < 2 or len(np.unique(sessions)) < 2 or values.shape[1] < 2:
@@ -380,6 +389,20 @@ def _score_profile_matrix(
     }
 
 
+def keep_paired_profile_rows(
+    matrix: pd.DataFrame,
+    min_sessions: int = 2,
+) -> pd.DataFrame:
+    if matrix.empty:
+        return matrix
+    subjects = matrix.index.get_level_values('subject').astype(str).to_numpy()
+    sessions = matrix.index.get_level_values('session').astype(str).to_numpy()
+    session_counts = pd.Series(sessions, index=subjects).groupby(level=0).nunique()
+    paired_subjects = set(session_counts[session_counts >= min_sessions].index)
+    keep_rows = [subject in paired_subjects for subject in subjects]
+    return matrix.iloc[keep_rows, :]
+
+
 def _build_profile_matrix(
     df: pd.DataFrame,
     feature_col: str,
@@ -387,6 +410,7 @@ def _build_profile_matrix(
     min_feature_coverage: float,
     min_profile_coverage: float,
     zscore_features: bool,
+    imputation: str,
 ) -> pd.DataFrame:
     grouped = (
         df[['subject', 'session', feature_col, value_col]]
@@ -403,6 +427,10 @@ def _build_profile_matrix(
     if matrix.empty:
         return matrix
 
+    matrix = keep_paired_profile_rows(matrix)
+    if matrix.empty:
+        return matrix
+
     feature_coverage = matrix.notna().mean(axis=0)
     matrix = matrix.loc[:, feature_coverage >= min_feature_coverage]
     profile_coverage = matrix.notna().mean(axis=1)
@@ -410,8 +438,25 @@ def _build_profile_matrix(
     if matrix.empty:
         return matrix
 
-    matrix = matrix.apply(lambda col: col.fillna(col.mean()), axis=0)
-    matrix = matrix.dropna(axis=1, how='any')
+    matrix = keep_paired_profile_rows(matrix)
+    if matrix.empty:
+        return matrix
+
+    if imputation == 'mean':
+        matrix = matrix.apply(lambda col: col.fillna(col.mean()), axis=0)
+        matrix = matrix.dropna(axis=1, how='any')
+    elif imputation == 'complete':
+        matrix = matrix.dropna(axis=1, how='any')
+    else:
+        raise ValueError(f'Unsupported imputation mode: {imputation}')
+
+    if matrix.empty:
+        return matrix
+
+    matrix = keep_paired_profile_rows(matrix)
+    if matrix.empty:
+        return matrix
+
     if zscore_features:
         matrix = _zscore_columns(matrix)
     return matrix
@@ -425,6 +470,7 @@ def _compute_discriminability(
     min_profile_coverage: float,
     distance_metric: str,
     zscore_features: bool,
+    imputation: str,
 ) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     value_col = 'value'
@@ -438,6 +484,7 @@ def _compute_discriminability(
         min_feature_coverage=min_feature_coverage,
         min_profile_coverage=min_profile_coverage,
         zscore_features=zscore_features,
+        imputation=imputation,
     )
     all_score = _score_profile_matrix(
         all_matrix,
@@ -457,6 +504,7 @@ def _compute_discriminability(
             min_feature_coverage=min_feature_coverage,
             min_profile_coverage=min_profile_coverage,
             zscore_features=zscore_features,
+            imputation=imputation,
         )
         score = _score_profile_matrix(
             matrix,
@@ -468,7 +516,9 @@ def _compute_discriminability(
         if score is not None:
             rows.append(score)
 
-    return pd.DataFrame(rows).sort_values(['profile_type', 'profile_group']).reset_index(drop=True)
+    if not rows:
+        return pd.DataFrame(columns=RESULT_COLUMNS)
+    return pd.DataFrame(rows, columns=RESULT_COLUMNS).sort_values(['profile_type', 'profile_group']).reset_index(drop=True)
 
 
 def filter_analysis_set(
@@ -589,6 +639,15 @@ def build_parser() -> argparse.ArgumentParser:
         help='Minimum fraction of retained features required for a subject-session profile.',
     )
     parser.add_argument(
+        '--imputation',
+        choices=('mean', 'complete'),
+        default='mean',
+        help=(
+            'How to handle missing retained features: mean fills by feature; '
+            'complete uses only features observed for every paired profile.'
+        ),
+    )
+    parser.add_argument(
         '--wm-input-globs',
         nargs='+',
         default=DEFAULT_WM_GLOBS,
@@ -648,7 +707,7 @@ def main() -> None:
             patterns_file=args.patterns_file,
         )
         wm_df = add_metric_metadata(wm_df, 'metric', args.patterns_file)
-        suffix = f'{args.stat}_{args.distance_metric}'
+        suffix = f'{args.stat}_{args.distance_metric}_{args.imputation}impute'
         if args.prefer_masked:
             suffix = f'masked_preferred_{suffix}'
         for qc_mode in args.qc_mode:
@@ -674,6 +733,7 @@ def main() -> None:
                     min_profile_coverage=args.min_profile_coverage,
                     distance_metric=args.distance_metric,
                     zscore_features=zscore_features,
+                    imputation=args.imputation,
                 )
                 if wm_out.empty:
                     continue
@@ -733,6 +793,7 @@ def main() -> None:
                     min_profile_coverage=args.min_profile_coverage,
                     distance_metric=args.distance_metric,
                     zscore_features=zscore_features,
+                    imputation=args.imputation,
                 )
                 if dkt_out.empty:
                     continue
@@ -748,19 +809,28 @@ def main() -> None:
                 dkt_out['source_image'] = dkt_out['profile_group_key'].map(source_by_metric).fillna('Other')
                 out_csv = (
                     outdir
-                    / f'discriminability_DKTatlas_{analysis_set}_{args.stat}_{args.distance_metric}_{qc_mode}.csv'
+                    / (
+                        f'discriminability_DKTatlas_{analysis_set}_{args.stat}_'
+                        f'{args.distance_metric}_{args.imputation}impute_{qc_mode}.csv'
+                    )
                 )
                 dkt_out.to_csv(out_csv, index=False)
                 plot_discriminability_summary(
                     dkt_out,
                     'discriminability',
-                    outdir / f'discriminability_DKTatlas_{analysis_set}_{args.stat}_{args.distance_metric}_{qc_mode}',
+                    outdir / (
+                        f'discriminability_DKTatlas_{analysis_set}_{args.stat}_'
+                        f'{args.distance_metric}_{args.imputation}impute_{qc_mode}'
+                    ),
                     f'{analysis_set.title()} GM Parcel Discriminability',
                 )
                 plot_discriminability_summary(
                     dkt_out,
                     'nearest_neighbor_accuracy',
-                    outdir / f'nearest_neighbor_accuracy_DKTatlas_{analysis_set}_{args.stat}_{args.distance_metric}_{qc_mode}',
+                    outdir / (
+                        f'nearest_neighbor_accuracy_DKTatlas_{analysis_set}_{args.stat}_'
+                        f'{args.distance_metric}_{args.imputation}impute_{qc_mode}'
+                    ),
                     f'{analysis_set.title()} GM Parcel Nearest-Neighbor Accuracy',
                 )
                 print(f'Wrote: {out_csv}', flush=True)

@@ -3274,10 +3274,12 @@ def main():
             all_diagnostics.extend(
                 gm_diagnostics
             )
-            pairs = pair_gmwm_hybrid_subject_pairs(
+            hybrid_pairs_for_metric = pair_gmwm_hybrid_subject_pairs(
                 pairs,
                 gm_pairs,
             )
+        else:
+            hybrid_pairs_for_metric = []
 
         if len(pairs) < args.min_subjects:
             print(
@@ -3290,18 +3292,29 @@ def main():
             )
             continue
 
-        paths = map_paths(
+        native_paths = map_paths(
             args.output_dir,
             metric_spec,
             sensitivity_tag,
-            hybrid=needs_gmwm_hybrid,
+            hybrid=False,
+        )
+        hybrid_paths_for_metric = (
+            map_paths(
+                args.output_dir,
+                metric_spec,
+                sensitivity_tag,
+                hybrid=True,
+            )
+            if needs_gmwm_hybrid
+            else None
         )
 
         result = None
+        hybrid_result = None
 
         if not args.force:
             result = load_existing_result(
-                paths,
+                native_paths,
                 reference,
                 do_outlier_sensitivity=(
                     not args.no_outlier_sensitivity
@@ -3319,16 +3332,45 @@ def main():
                     result,
                     metric_spec,
                     masks,
-                    hybrid=needs_gmwm_hybrid,
+                    hybrid=False,
                 )
                 write_result_maps(
                     result,
-                    paths,
+                    native_paths,
                     reference,
                     do_outlier_sensitivity=(
                         not args.no_outlier_sensitivity
                     ),
                 )
+            if hybrid_paths_for_metric is not None:
+                hybrid_result = load_existing_result(
+                    hybrid_paths_for_metric,
+                    reference,
+                    do_outlier_sensitivity=(
+                        not args.no_outlier_sensitivity
+                    ),
+                )
+                if hybrid_result is not None:
+                    print(
+                        "  Reusing existing GM+WM "
+                        "hybrid maps and "
+                        "regenerating summaries",
+                        flush=True,
+                    )
+                    hybrid_result = restrict_result_to_metric_tissues(
+                        hybrid_result,
+                        metric_spec,
+                        masks,
+                        hybrid=True,
+                    )
+                    write_result_maps(
+                        hybrid_result,
+                        hybrid_paths_for_metric,
+                        reference,
+                        do_outlier_sensitivity=(
+                            not args.no_outlier_sensitivity
+                        ),
+                    )
         values = None
         values_path = None
 
@@ -3352,17 +3394,10 @@ def main():
                     reference,
                     metric_work_dir,
                     metric_slug(metric_spec),
-                    gm_mask=(
-                        masks["gm"]
-                        if needs_gmwm_hybrid
-                        else None
-                    ),
+                    gm_mask=None,
                 )
 
-                if (
-                    "gm" in metric_spec.tissues
-                    or needs_gmwm_hybrid
-                ):
+                if "gm" in metric_spec.tissues:
                     print(
                         "  Processing eroded GM "
                         "compartment",
@@ -3446,17 +3481,113 @@ def main():
                     result,
                     metric_spec,
                     masks,
-                    hybrid=needs_gmwm_hybrid,
+                    hybrid=False,
                 )
 
                 write_result_maps(
                     result,
-                    paths,
+                    native_paths,
                     reference,
                     do_outlier_sensitivity=(
                         not args.no_outlier_sensitivity
                     ),
                 )
+
+            if needs_gmwm_hybrid and hybrid_result is None:
+                if len(hybrid_pairs_for_metric) < args.min_subjects:
+                    print(
+                        "  Skipping GM+WM hybrid: "
+                        "only {0} complete paired "
+                        "subjects with both NODDI "
+                        "models".format(
+                            len(hybrid_pairs_for_metric)
+                        ),
+                        flush=True,
+                    )
+                else:
+                    (
+                        hybrid_values,
+                        hybrid_values_path,
+                    ) = build_metric_memmap(
+                        hybrid_pairs_for_metric,
+                        reference,
+                        metric_work_dir,
+                        metric_slug(metric_spec)
+                        + "-hybrid",
+                        gm_mask=masks["gm"],
+                    )
+                    try:
+                        print(
+                            "  Processing GM+WM "
+                            "hybrid compartments",
+                            flush=True,
+                        )
+                        hybrid_gm_result = process_compartment(
+                            hybrid_values,
+                            masks["gm"],
+                            "GM",
+                            min_subjects=(
+                                args.min_subjects
+                            ),
+                            outlier_z=args.outlier_z,
+                            min_retained_fraction=(
+                                args.min_retained_fraction
+                            ),
+                            remove_zeros=(
+                                not args.allow_zero
+                            ),
+                            chunk_size=args.chunk_size,
+                            do_outlier_sensitivity=(
+                                not args.no_outlier_sensitivity
+                            ),
+                        )
+                        hybrid_wm_result = process_compartment(
+                            hybrid_values,
+                            masks["wm"],
+                            "WM",
+                            min_subjects=(
+                                args.min_subjects
+                            ),
+                            outlier_z=args.outlier_z,
+                            min_retained_fraction=(
+                                args.min_retained_fraction
+                            ),
+                            remove_zeros=(
+                                not args.allow_zero
+                            ),
+                            chunk_size=args.chunk_size,
+                            do_outlier_sensitivity=(
+                                not args.no_outlier_sensitivity
+                            ),
+                        )
+                        hybrid_result = combine_compartment_results(
+                            hybrid_gm_result,
+                            hybrid_wm_result,
+                            masks["gm"],
+                            masks["wm"],
+                        )
+                        hybrid_result = restrict_result_to_metric_tissues(
+                            hybrid_result,
+                            metric_spec,
+                            masks,
+                            hybrid=True,
+                        )
+                        write_result_maps(
+                            hybrid_result,
+                            hybrid_paths_for_metric,
+                            reference,
+                            do_outlier_sensitivity=(
+                                not args.no_outlier_sensitivity
+                            ),
+                        )
+                    finally:
+                        hybrid_values.flush()
+                        del hybrid_values
+                        if (
+                            not args.keep_work_files
+                            and Path(hybrid_values_path).exists()
+                        ):
+                            Path(hybrid_values_path).unlink()
 
             for analysis_set in analysis_sets:
                 for tissue in args.summary_tissues:
@@ -3468,6 +3599,26 @@ def main():
                         ]
                     ):
                         continue
+                    summary_result = (
+                        hybrid_result
+                        if (
+                            tissue == "gmwm"
+                            and needs_gmwm_hybrid
+                            and hybrid_result is not None
+                        )
+                        else result
+                    )
+                    if summary_result is None:
+                        continue
+                    n_summary_pairs = (
+                        len(hybrid_pairs_for_metric)
+                        if (
+                            tissue == "gmwm"
+                            and needs_gmwm_hybrid
+                            and hybrid_result is not None
+                        )
+                        else len(pairs)
+                    )
 
                     display_label = display_labels_by_tissue[
                         tissue
@@ -3483,10 +3634,10 @@ def main():
                             analysis_set,
                             tissue,
                             "primary",
-                            result["primary_icc"],
-                            result["primary_n"],
+                            summary_result["primary_icc"],
+                            summary_result["primary_n"],
                             masks[tissue],
-                            len(pairs),
+                            n_summary_pairs,
                         )
                     )
 
@@ -3498,14 +3649,14 @@ def main():
                                 analysis_set,
                                 tissue,
                                 sensitivity_tag,
-                                result[
+                                summary_result[
                                     "sensitivity_icc"
                                 ],
-                                result[
+                                summary_result[
                                     "sensitivity_n"
                                 ],
                                 masks[tissue],
-                                len(pairs),
+                                n_summary_pairs,
                             )
                         )
 

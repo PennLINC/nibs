@@ -41,7 +41,7 @@ def canonical_metric_name(
     candidates: dict[str, str] = {}
     for spec in specs:
         candidates[norm_token(spec.label)] = spec.label
-        candidates[norm_token(spec.primary_label)] = spec.primary_label
+        candidates[norm_token(spec.primary_label)] = spec.label
         candidates[norm_token(spec.pattern_key)] = spec.label
 
     canonical = candidates.get(norm_token(text))
