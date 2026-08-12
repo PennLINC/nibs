@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from fnmatch import fnmatch
 
 import pandas as pd
 
 from metric_registry import MetricSpec, build_metric_specs, metric_order, norm_token
+
+
+CANONICAL_ALIASES = {
+    'icvf': 'ICVF',
+    'ficvf': 'ICVF',
+    'noddiicvf': 'ICVF',
+    'intraCellularVolumeFraction': 'ICVF',
+    'ngperp': 'NG (Perpendicular)',
+    'ngperpendicular': 'NG (Perpendicular)',
+    'ngperpendicularity': 'NG (Perpendicular)',
+    'ngorthogonal': 'NG (Perpendicular)',
+}
 
 
 def default_patterns_file() -> Path:
@@ -31,10 +44,34 @@ def flattened_patterns(patterns_file: Path | None = None) -> dict[str, str]:
     }
 
 
+def pattern_token_aliases(
+    specs: list[MetricSpec],
+    patterns_file: Path | None = None,
+) -> dict[str, str]:
+    patterns = flattened_patterns(patterns_file)
+    by_pattern_key = {spec.pattern_key: spec for spec in specs}
+    aliases: dict[str, str] = {}
+    for pattern_key, rel_pattern in patterns.items():
+        spec = by_pattern_key.get(pattern_key)
+        if spec is None:
+            continue
+        for token in re.findall(r'(?:param|desc)-([A-Za-z0-9]+)', rel_pattern):
+            aliases[token] = spec.label
+            aliases[f'param{token}'] = spec.label
+        if 'ngperp' in rel_pattern.lower():
+            aliases['ngperp'] = spec.label
+            aliases['ngperpendicular'] = spec.label
+        if 'icvf' in rel_pattern.lower() and spec.label == 'ICVF':
+            aliases['icvf'] = spec.label
+            aliases['noddiicvf'] = spec.label
+    return aliases
+
+
 def canonical_metric_name(
     metric: object,
     specs: list[MetricSpec] | None = None,
     analysis_set: str | None = None,
+    patterns_file: Path | None = None,
 ) -> str | None:
     text = str(metric)
     specs = specs or build_metric_specs(default_patterns_file())
@@ -43,6 +80,11 @@ def canonical_metric_name(
         candidates[norm_token(spec.label)] = spec.label
         candidates[norm_token(spec.primary_label)] = spec.label
         candidates[norm_token(spec.pattern_key)] = spec.label
+    for alias, label in pattern_token_aliases(specs, patterns_file).items():
+        candidates[norm_token(alias)] = label
+    for alias, label in CANONICAL_ALIASES.items():
+        if any(spec.label == label for spec in specs):
+            candidates[norm_token(alias)] = label
 
     canonical = candidates.get(norm_token(text))
     if canonical is None:
@@ -66,7 +108,11 @@ def canonical_metric_from_row(
     spaces: tuple[str, ...] = ('ACPC', 'T1w', 'MNI152NLin2009cAsym'),
 ) -> str | None:
     specs = build_metric_specs(patterns_file or default_patterns_file())
-    direct = canonical_metric_name(row.get('variable_name', ''), specs=specs)
+    direct = canonical_metric_name(
+        row.get('variable_name', ''),
+        specs=specs,
+        patterns_file=patterns_file,
+    )
     if direct is not None:
         return direct
 

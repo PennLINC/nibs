@@ -10,17 +10,12 @@ from collections import Counter
 from glob import glob
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from metric_registry import SOURCE_IMAGE_COLORS, build_metric_specs, metric_display_labels, metric_order
+from metric_registry import build_metric_specs, metric_display_labels, metric_order
 from parcel_metric_utils import add_metric_metadata, canonical_metric_from_row
 
 
@@ -531,33 +526,44 @@ def filter_analysis_set(
     return df.loc[df['metric'].isin(allowed)].copy()
 
 
-def plot_discriminability_summary(
-    df: pd.DataFrame,
-    value_col: str,
+def write_metric_inclusion(
     out_file: Path,
-    title: str,
+    profile_type: str,
+    analysis_set: str,
+    qc_mode: str,
+    tissue: str,
+    expected_labels: list[str],
+    observed_labels: set[str],
+    scored_labels: set[str],
+    display: dict[str, str],
 ) -> None:
-    if df.empty or value_col not in df.columns:
-        return
-    plot_df = df.loc[df['profile_group'] != 'ALL_METRICS'].copy()
-    if plot_df.empty:
-        return
-    plot_df = plot_df.sort_values(value_col, ascending=False)
-    palette = {
-        row.profile_group: SOURCE_IMAGE_COLORS.get(row.source_image, SOURCE_IMAGE_COLORS['Other'])
-        for row in plot_df.itertuples(index=False)
-    }
-    height = max(5, 0.32 * len(plot_df))
-    plt.figure(figsize=(9, height))
-    sns.barplot(data=plot_df, y='profile_group', x=value_col, palette=palette)
-    plt.xlabel(value_col.replace('_', ' ').title())
-    plt.ylabel('')
-    plt.title(title)
-    plt.xlim(0, 1)
-    plt.tight_layout()
-    for ext in ('png', 'pdf'):
-        plt.savefig(out_file.with_suffix(f'.{ext}'), dpi=300)
-    plt.close()
+    rows = []
+    for label in expected_labels:
+        observed = label in observed_labels
+        scored = label in scored_labels
+        rows.append(
+            {
+                'profile_type': profile_type,
+                'analysis_set': analysis_set,
+                'qc_mode': qc_mode,
+                'tissue': tissue,
+                'metric_key': label,
+                'metric': display.get(label, label),
+                'expected': True,
+                'observed_after_qc': observed,
+                'scored': scored,
+                'reason_if_not_scored': (
+                    ''
+                    if scored
+                    else (
+                        'not_observed_after_qc'
+                        if not observed
+                        else 'insufficient_paired_profiles_or_feature_coverage'
+                    )
+                ),
+            }
+        )
+    pd.DataFrame(rows).to_csv(out_file, sep='\t', index=False)
 
 
 def load_wm_long_df(
@@ -719,6 +725,9 @@ def main() -> None:
                 patterns_file=args.patterns_file,
             )
             for analysis_set in ANALYSIS_SETS:
+                expected_labels = metric_order(specs, analysis_set, tissue='wm')
+                observed_labels = set(filtered_wm['metric'])
+                display = metric_display_labels(specs, analysis_set, tissue='wm')
                 set_df = filter_analysis_set(
                     filtered_wm,
                     specs,
@@ -736,8 +745,19 @@ def main() -> None:
                     imputation=args.imputation,
                 )
                 if wm_out.empty:
+                    write_metric_inclusion(
+                        outdir
+                        / f'discriminability_wm_bundles_{analysis_set}_{suffix}_{qc_mode}_metric_inclusion.tsv',
+                        'wm_bundles',
+                        analysis_set,
+                        qc_mode,
+                        'wm',
+                        expected_labels,
+                        observed_labels,
+                        set(),
+                        display,
+                    )
                     continue
-                display = metric_display_labels(specs, analysis_set, tissue='wm')
                 wm_out.insert(0, 'analysis_set', analysis_set)
                 wm_out.insert(1, 'qc_mode', qc_mode)
                 wm_out.insert(2, 'profile_group_key', wm_out['profile_group'])
@@ -749,17 +769,17 @@ def main() -> None:
                 wm_out['source_image'] = wm_out['profile_group_key'].map(source_by_metric).fillna('Other')
                 out_csv = outdir / f'discriminability_wm_bundles_{analysis_set}_{suffix}_{qc_mode}.csv'
                 wm_out.to_csv(out_csv, index=False)
-                plot_discriminability_summary(
-                    wm_out,
-                    'discriminability',
-                    outdir / f'discriminability_wm_bundles_{analysis_set}_{suffix}_{qc_mode}',
-                    f'{analysis_set.title()} WM Bundle Discriminability',
-                )
-                plot_discriminability_summary(
-                    wm_out,
-                    'nearest_neighbor_accuracy',
-                    outdir / f'nearest_neighbor_accuracy_wm_bundles_{analysis_set}_{suffix}_{qc_mode}',
-                    f'{analysis_set.title()} WM Bundle Nearest-Neighbor Accuracy',
+                write_metric_inclusion(
+                    outdir
+                    / f'discriminability_wm_bundles_{analysis_set}_{suffix}_{qc_mode}_metric_inclusion.tsv',
+                    'wm_bundles',
+                    analysis_set,
+                    qc_mode,
+                    'wm',
+                    expected_labels,
+                    observed_labels,
+                    set(wm_out['profile_group_key']),
+                    display,
                 )
                 print(f'Wrote: {out_csv}', flush=True)
 
@@ -779,6 +799,9 @@ def main() -> None:
                 patterns_file=args.patterns_file,
             )
             for analysis_set in ANALYSIS_SETS:
+                expected_labels = metric_order(specs, analysis_set, tissue='gm')
+                observed_labels = set(filtered_dkt['metric'])
+                display = metric_display_labels(specs, analysis_set, tissue='gm')
                 set_df = filter_analysis_set(
                     filtered_dkt,
                     specs,
@@ -796,8 +819,22 @@ def main() -> None:
                     imputation=args.imputation,
                 )
                 if dkt_out.empty:
+                    write_metric_inclusion(
+                        outdir
+                        / (
+                            f'discriminability_DKTatlas_{analysis_set}_{args.stat}_'
+                            f'{args.distance_metric}_{args.imputation}impute_{qc_mode}_metric_inclusion.tsv'
+                        ),
+                        'DKTatlas_parcels',
+                        analysis_set,
+                        qc_mode,
+                        'gm',
+                        expected_labels,
+                        observed_labels,
+                        set(),
+                        display,
+                    )
                     continue
-                display = metric_display_labels(specs, analysis_set, tissue='gm')
                 dkt_out.insert(0, 'analysis_set', analysis_set)
                 dkt_out.insert(1, 'qc_mode', qc_mode)
                 dkt_out.insert(2, 'profile_group_key', dkt_out['profile_group'])
@@ -815,23 +852,20 @@ def main() -> None:
                     )
                 )
                 dkt_out.to_csv(out_csv, index=False)
-                plot_discriminability_summary(
-                    dkt_out,
-                    'discriminability',
-                    outdir / (
+                write_metric_inclusion(
+                    outdir
+                    / (
                         f'discriminability_DKTatlas_{analysis_set}_{args.stat}_'
-                        f'{args.distance_metric}_{args.imputation}impute_{qc_mode}'
+                        f'{args.distance_metric}_{args.imputation}impute_{qc_mode}_metric_inclusion.tsv'
                     ),
-                    f'{analysis_set.title()} GM Parcel Discriminability',
-                )
-                plot_discriminability_summary(
-                    dkt_out,
-                    'nearest_neighbor_accuracy',
-                    outdir / (
-                        f'nearest_neighbor_accuracy_DKTatlas_{analysis_set}_{args.stat}_'
-                        f'{args.distance_metric}_{args.imputation}impute_{qc_mode}'
-                    ),
-                    f'{analysis_set.title()} GM Parcel Nearest-Neighbor Accuracy',
+                    'DKTatlas_parcels',
+                    analysis_set,
+                    qc_mode,
+                    'gm',
+                    expected_labels,
+                    observed_labels,
+                    set(dkt_out['profile_group_key']),
+                    display,
                 )
                 print(f'Wrote: {out_csv}', flush=True)
 

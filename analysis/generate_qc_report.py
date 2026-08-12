@@ -6,9 +6,9 @@ subject/session:
 
 1. Selected ACPC-space tract bundles and their T1w-warped counterparts.
 2. The native T1w DKT parcellation and its ACPC-space warp.
-3. T1w-space myelin-sensitive maps.
-4. Native-T1w DKT parcel coverage for each myelin-sensitive map.
-5. Selected native-ACPC DWI maps with GM/WM tissue distributions.
+3. T1w-space primary non-dMRI scalar maps.
+4. Native-T1w DKT parcel coverage for each T1w-space primary scalar map.
+5. Native-ACPC primary dMRI maps with GM/WM tissue distributions.
 
 The script never modifies source derivatives. Temporary tractogram files and
 generated ACPC tissue-label warps are kept under the report work directory so
@@ -24,11 +24,26 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import textwrap
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Sequence
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(REPO_ROOT))
+
+if 'MPLCONFIGDIR' not in os.environ:
+    mpl_config_dir = Path(os.environ.get('TMPDIR', '/tmp')) / 'nibs_matplotlib'
+    mpl_config_dir.mkdir(parents=True, exist_ok=True)
+    os.environ['MPLCONFIGDIR'] = str(mpl_config_dir)
+if 'XDG_CACHE_HOME' not in os.environ:
+    xdg_cache_dir = Path(os.environ.get('TMPDIR', '/tmp')) / 'nibs_cache'
+    xdg_cache_dir.mkdir(parents=True, exist_ok=True)
+    os.environ['XDG_CACHE_HOME'] = str(xdg_cache_dir)
 
 import matplotlib
 
@@ -43,9 +58,12 @@ from nibabel.affines import apply_affine
 from nibabel.processing import resample_from_to
 from scipy.stats import gaussian_kde
 
+from metric_registry import build_metric_specs, load_patterns, primary_metric_specs
+
 LOGGER = logging.getLogger('qc')
 
 PAGE_SIZE = (16.0, 10.0)
+DEFAULT_PATTERNS_FILE = REPO_ROOT / 'configuration' / 'patterns.json'
 SPACE_COLORS = {'ACPC': '#2A9D8F', 'T1w': '#E76F51'}
 BUNDLE_COLORS = ('#00A6D6', '#F28E2B', '#59A14F', '#AF7AA1')
 MISSING_COLOR = '#9B2226'
@@ -122,121 +140,34 @@ DKT_LABEL_IDS = {
 
 @dataclass(frozen=True)
 class MetricPattern:
-    """A myelin-sensitive scalar map and its T1w-space path pattern."""
+    """A scalar map label and path pattern."""
 
     label: str
     pattern: str
 
 
-MYELIN_METRICS = (
-    MetricPattern(
-        'QSM-SEPIA-E5',
-        'qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+sepia_Chimap.nii.gz',
-    ),
-    MetricPattern(
-        'QSM-X-R2p-E5-X',
-        'qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+chisep+r2p_Chimap.nii.gz',
-    ),
-    MetricPattern(
-        'QSM-X-R2p-E5-Para',
-        'qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+chisep+r2p_para.nii.gz',
-    ),
-    MetricPattern(
-        'QSM-X-R2p-E5-Dia',
-        'qsm/{subject}/{session}/anat/*_space-T1w_desc-E12345+chisep+r2p_dia.nii.gz',
-    ),
-    MetricPattern(
-        'MPRAGE-MyelinW',
-        't1wt2w_ratio/{subject}/{session}/anat/'
-        '{subject}_{session}_run-01_space-T1w_desc-MPRAGEunscaled_myelinw.nii.gz',
-    ),
-    MetricPattern(
-        'SPACE-MyelinW',
-        't1wt2w_ratio/{subject}/{session}/anat/'
-        '{subject}_{session}_run-01_space-T1w_desc-SPACEunscaled_myelinw.nii.gz',
-    ),
-    MetricPattern(
-        'ihMTR',
-        'ihmt/{subject}/{session}/anat/{subject}_{session}_run-01_space-T1w_ihMTR.nii.gz',
-    ),
-    MetricPattern(
-        'ihMTsat-B1c',
-        'ihmt/{subject}/{session}/anat/{subject}_{session}_run-01_space-T1w_ihMTsatB1sq.nii.gz',
-    ),
-    MetricPattern(
-        'G-ihMTsat',
-        'g_ratio/{subject}/{session}/anat/'
-        '{subject}_{session}_run-01_space-T1w_desc-MTsat+ISOVF+ICVF_gratio.nii.gz',
-    ),
-    MetricPattern(
-        'G-ihMTR',
-        'g_ratio/{subject}/{session}/anat/'
-        '{subject}_{session}_run-01_space-T1w_desc-ihMTR+ISOVF+ICVF_gratio.nii.gz',
-    ),
-    MetricPattern(
-        'R1-B1c',
-        'pymp2rage/{subject}/{session}/anat/'
-        '{subject}_{session}_run-01_space-T1w_desc-B1corrected_R1map.nii.gz',
-    ),
-    MetricPattern(
-        'R1',
-        'pymp2rage/{subject}/{session}/anat/{subject}_{session}_run-01_space-T1w_R1map.nii.gz',
-    ),
-)
+def primary_metric_patterns(
+    patterns_file: Path,
+    source_image: str | None,
+    space: str,
+) -> tuple[MetricPattern, ...]:
+    patterns = load_patterns(patterns_file)
+    metrics: list[MetricPattern] = []
+    for spec in primary_metric_specs(build_metric_specs(patterns_file)):
+        if source_image is None:
+            if spec.source_image == 'dMRI':
+                continue
+        elif spec.source_image != source_image:
+            continue
+        pattern = patterns[spec.group][spec.pattern_key].replace('{space}', space)
+        metrics.append(MetricPattern(spec.primary_label, pattern))
+    return tuple(metrics)
+
+
+MYELIN_METRICS = primary_metric_patterns(DEFAULT_PATTERNS_FILE, None, 'T1w')
 METRIC_BY_LABEL = {metric.label: metric for metric in MYELIN_METRICS}
 
-DWI_METRICS = (
-    MetricPattern(
-        'FA',
-        'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-tensor_param-fa_dwimap.nii.gz',
-    ),
-    MetricPattern(
-        'MD',
-        'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-tensor_param-md_dwimap.nii.gz',
-    ),
-    MetricPattern(
-        'RD',
-        'qsirecon/derivatives/qsirecon-TORTOISE_model-tensor/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-tensor_param-rd_dwimap.nii.gz',
-    ),
-    MetricPattern(
-        'ICVF',
-        'qsirecon/derivatives/qsirecon-gmNODDI/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-noddi_param-icvf_dwimap.nii.gz',
-    ),
-    MetricPattern(
-        'MKT',
-        'qsirecon/derivatives/qsirecon-DIPYDKI/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-dki_param-mkt_dwimap.nii.gz',
-    ),
-    MetricPattern(
-        'RK',
-        'qsirecon/derivatives/qsirecon-DIPYDKI/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-dki_param-rk_dwimap.nii.gz',
-    ),
-    MetricPattern(
-        'RTOP',
-        'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-mapmri_param-rtop_dwimap.nii.gz',
-    ),
-    MetricPattern(
-        'RTAP',
-        'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-mapmri_param-rtap_dwimap.nii.gz',
-    ),
-    MetricPattern(
-        'NG',
-        'qsirecon/derivatives/qsirecon-TORTOISE_model-MAPMRI/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-mapmri_param-ng_dwimap.nii.gz',
-    ),
-    MetricPattern(
-        'GFA',
-        'qsirecon/derivatives/qsirecon-DSIStudio/'
-        '{subject}/{session}/dwi/*_space-ACPC_model-gqi_param-gfa_dwimap.nii.gz',
-    ),
-)
+DWI_METRICS = primary_metric_patterns(DEFAULT_PATTERNS_FILE, 'dMRI', 'ACPC')
 DWI_METRIC_BY_LABEL = {metric.label: metric for metric in DWI_METRICS}
 
 
@@ -290,7 +221,7 @@ class ScalarPanelData:
 
 @dataclass
 class DwiPanelData:
-    """Prepared ACPC DWI scalar data for one subject/session."""
+    """Prepared ACPC dMRI scalar data for one subject/session."""
 
     source_path: Path
     acpc_reference: nib.spatialimages.SpatialImage
@@ -1459,7 +1390,7 @@ def myelin_pages(
         figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
         add_page_header(
             figure,
-            f'{subject} | Myelin-sensitive maps',
+            f'{subject} | Primary T1w scalar maps',
             (
                 'For each metric, sessions are consecutive rows. Left: original '
                 'T1w-space map. Right: native T1w GM/WM distributions. Slice '
@@ -1527,7 +1458,7 @@ def myelin_pages(
                     scale_masks.append(source_brain_mask)
                 except Exception as error:
                     LOGGER.exception(
-                        'Failed myelin QC for %s %s %s',
+                        'Failed primary T1w scalar QC for %s %s %s',
                         key.subject,
                         key.session,
                         metric.label,
@@ -1611,7 +1542,7 @@ def myelin_pages(
                         f'{metric.label} | {key.session} | T1w',
                         detail,
                     )
-                    status(statuses, key, 'myelin', metric.label, False, detail)
+                    status(statuses, key, 'primary_t1w', metric.label, False, detail)
                     continue
 
                 plot_orthogonal_montage(
@@ -1632,7 +1563,7 @@ def myelin_pages(
                 status(
                     statuses,
                     key,
-                    'myelin',
+                    'primary_t1w',
                     metric.label,
                     True,
                     (
@@ -1667,7 +1598,7 @@ def dwi_pages(
     statuses: list[StatusEntry],
     page_number: int,
 ) -> int:
-    """Plot selected native ACPC DWI maps with GM/WM distributions."""
+    """Plot native ACPC primary dMRI maps with GM/WM distributions."""
     if not subject_inputs or not metrics:
         return page_number
     subject_inputs = sorted(subject_inputs, key=lambda item: item.key.session)
@@ -1679,7 +1610,7 @@ def dwi_pages(
         figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
         add_page_header(
             figure,
-            f'{subject} | Selected DWI microstructure maps',
+            f'{subject} | Primary dMRI scalar maps',
             (
                 'Sessions are consecutive rows. Left: native ACPC scalar over '
                 'the ACPC T1w. Right: ACPC GM/WM distributions. Slice coordinates '
@@ -1722,14 +1653,14 @@ def dwi_pages(
                 )
                 if any(path is None for path in prerequisites):
                     errors[key] = (
-                        'Missing DWI map, ACPC T1w/brain mask, T1w tissue dseg, '
+                        'Missing dMRI map, ACPC T1w/brain mask, T1w tissue dseg, '
                         'or T1w-to-ACPC transform'
                     )
                     distribution_errors[key] = errors[key]
                     status(
                         statuses,
                         key,
-                        'DWI',
+                        'dMRI',
                         metric.label,
                         False,
                         errors[key],
@@ -1799,7 +1730,7 @@ def dwi_pages(
                     status(
                         statuses,
                         key,
-                        'DWI',
+                        'dMRI',
                         metric.label,
                         True,
                         (f'{source_path}; display brain mask={inputs.acpc_brain_mask}'),
@@ -1807,7 +1738,7 @@ def dwi_pages(
                     status(
                         statuses,
                         key,
-                        'DWI distribution',
+                        'dMRI distribution',
                         metric.label,
                         True,
                         (
@@ -1818,7 +1749,7 @@ def dwi_pages(
                     )
                 except Exception as error:
                     LOGGER.exception(
-                        'Failed DWI QC for %s %s %s',
+                        'Failed dMRI QC for %s %s %s',
                         key.subject,
                         key.session,
                         metric.label,
@@ -1828,7 +1759,7 @@ def dwi_pages(
                     status(
                         statuses,
                         key,
-                        'DWI',
+                        'dMRI',
                         metric.label,
                         False,
                         str(error),
@@ -1845,7 +1776,7 @@ def dwi_pages(
                         figure,
                         grid[row, 0],
                         f'{metric.label} | {key.session} | ACPC',
-                        errors.get(key, 'DWI scalar map could not be prepared'),
+                        errors.get(key, 'dMRI scalar map could not be prepared'),
                     )
                     continue
                 plot_orthogonal_montage(
@@ -1899,7 +1830,7 @@ def cover_page(
     axis.text(
         0.07,
         0.72,
-        'ACPC/T1w bundle, parcellation, myelin, and DWI scalar QC',
+        'ACPC/T1w bundle, parcellation, and primary scalar QC',
         fontsize=15,
         color='#444444',
         va='top',
@@ -1910,8 +1841,8 @@ def cover_page(
         ('Output', str(output)),
         ('Subject/session pairs', str(len(session_keys))),
         ('Bundles', ', '.join(bundle_names)),
-        ('Myelin-sensitive maps', ', '.join(metric.label for metric in metrics)),
-        ('Selected DWI maps', ', '.join(metric.label for metric in dwi_metrics)),
+        ('T1w primary maps', ', '.join(metric.label for metric in metrics)),
+        ('ACPC dMRI primary maps', ', '.join(metric.label for metric in dwi_metrics)),
     ]
     y = 0.59
     for label, value in details:
@@ -2005,26 +1936,41 @@ def summary_pages(
     return page_number
 
 
-def parse_metrics(requested: Sequence[str] | None) -> list[MetricPattern]:
+def parse_metrics(
+    requested: Sequence[str] | None,
+    patterns_file: Path = DEFAULT_PATTERNS_FILE,
+) -> list[MetricPattern]:
+    metric_by_label = {
+        metric.label: metric
+        for metric in primary_metric_patterns(patterns_file, None, 'T1w')
+    }
     if not requested:
-        return list(MYELIN_METRICS)
-    unknown = sorted(set(requested).difference(METRIC_BY_LABEL))
+        return list(metric_by_label.values())
+    unknown = sorted(set(requested).difference(metric_by_label))
     if unknown:
-        raise ValueError(f'Unknown myelin metric(s): {unknown}. Choices: {sorted(METRIC_BY_LABEL)}')
-    return [METRIC_BY_LABEL[label] for label in requested]
+        raise ValueError(
+            f'Unknown T1w primary metric(s): {unknown}. '
+            f'Choices: {sorted(metric_by_label)}'
+        )
+    return [metric_by_label[label] for label in requested]
 
 
 def parse_dwi_metrics(
     requested: Sequence[str] | None,
+    patterns_file: Path = DEFAULT_PATTERNS_FILE,
 ) -> list[MetricPattern]:
+    metric_by_label = {
+        metric.label: metric
+        for metric in primary_metric_patterns(patterns_file, 'dMRI', 'ACPC')
+    }
     if not requested:
-        return list(DWI_METRICS)
-    unknown = sorted(set(requested).difference(DWI_METRIC_BY_LABEL))
+        return list(metric_by_label.values())
+    unknown = sorted(set(requested).difference(metric_by_label))
     if unknown:
         raise ValueError(
-            f'Unknown DWI metric(s): {unknown}. Choices: {sorted(DWI_METRIC_BY_LABEL)}'
+            f'Unknown dMRI primary metric(s): {unknown}. Choices: {sorted(metric_by_label)}'
         )
-    return [DWI_METRIC_BY_LABEL[label] for label in requested]
+    return [metric_by_label[label] for label in requested]
 
 
 def build_session_keys(
@@ -2067,8 +2013,9 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
     output.parent.mkdir(parents=True, exist_ok=True)
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    metrics = parse_metrics(args.myelin_metric)
-    dwi_metrics = parse_dwi_metrics(args.dwi_metric)
+    patterns_file = Path(args.patterns_file).expanduser().resolve()
+    metrics = parse_metrics(args.myelin_metric, patterns_file)
+    dwi_metrics = parse_dwi_metrics(args.dwi_metric, patterns_file)
     bundle_names = args.bundle or [
         'Association_ArcuateFasciculusL',
         'Association_ArcuateFasciculusR',
@@ -2190,6 +2137,12 @@ def build_parser() -> argparse.ArgumentParser:
         help='Override the derivatives directory.',
     )
     parser.add_argument(
+        '--patterns-file',
+        default=DEFAULT_PATTERNS_FILE,
+        type=Path,
+        help='Scalar path pattern registry used to identify primary metrics.',
+    )
+    parser.add_argument(
         '--subject-id',
         action='append',
         help='Subject to include, with or without sub-. Repeat to include several.',
@@ -2219,13 +2172,19 @@ def build_parser() -> argparse.ArgumentParser:
         '--myelin-metric',
         action='append',
         choices=sorted(METRIC_BY_LABEL),
-        help='Myelin-sensitive metric to render. Repeat; default is every listed metric.',
+        help=(
+            'T1w-space primary metric to render. Repeat; default is every '
+            'non-dMRI primary metric. Kept as --myelin-metric for compatibility.'
+        ),
     )
     parser.add_argument(
         '--dwi-metric',
         action='append',
         choices=sorted(DWI_METRIC_BY_LABEL),
-        help='DWI metric to render. Repeat; default is every selected DWI metric.',
+        help=(
+            'ACPC-space dMRI primary metric to render. Repeat; default is every '
+            'primary dMRI metric. Kept as --dwi-metric for compatibility.'
+        ),
     )
     parser.add_argument(
         '--metrics-per-page',
@@ -2261,7 +2220,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--overwrite-warps',
         action='store_true',
-        help='Regenerate cached ACPC tissue label maps used for DWI distributions.',
+        help='Regenerate cached ACPC tissue label maps used for dMRI distributions.',
     )
     parser.add_argument(
         '--strict',

@@ -20,34 +20,19 @@ from pathlib import Path
 from typing import Iterable
 
 try:
-    import matplotlib as mpl
-
-    mpl.use('Agg')
-    import matplotlib.pyplot as plt
     import nibabel as nib
     import numpy as np
     import pandas as pd
-    import seaborn as sns
-    from matplotlib.patches import Patch, Rectangle
     from nibabel.processing import resample_from_to
-    from scipy.cluster.hierarchy import linkage
-    from scipy.spatial.distance import squareform
     from scipy.stats import rankdata
 except ImportError:  # pragma: no cover - checked after argparse handles --help
-    mpl = None
-    plt = None
     nib = None
     np = None
     pd = None
-    sns = None
-    Patch = None
-    Rectangle = None
     resample_from_to = None
-    linkage = None
-    squareform = None
     rankdata = None
 
-from metric_registry import SOURCE_IMAGE_COLORS, MetricSpec
+from metric_registry import MetricSpec
 from metric_registry import (
     build_metric_specs,
     gm_noddi_hybrid_pairs,
@@ -70,12 +55,9 @@ def require_dependencies() -> None:
     missing = [
         name
         for name, module in (
-            ('matplotlib', mpl),
             ('nibabel', nib),
             ('numpy', np),
             ('pandas', pd),
-            ('seaborn', sns),
-            ('scipy', linkage),
             ('scipy.stats', rankdata),
         )
         if module is None
@@ -417,166 +399,6 @@ def compute_profile_correlations(
     return corr_df, count_df, proportion_df, diagnostics
 
 
-def correlation_linkage(corr: pd.DataFrame) -> np.ndarray | None:
-    if len(corr) < 2:
-        return None
-    safe = corr.fillna(0.0).to_numpy(dtype=float)
-    distance = np.clip(1.0 - np.abs(safe), 0.0, 1.0)
-    distance = (distance + distance.T) / 2.0
-    np.fill_diagonal(distance, 0.0)
-    return linkage(squareform(distance, checks=False), method='average', optimal_ordering=True)
-
-
-def plot_correlation_matrix(
-    corr: pd.DataFrame,
-    title: str,
-    out_stem: Path,
-    source_by_metric: dict[str, str],
-    method: str,
-) -> None:
-    """Plot a clustered correlation matrix colored by source image."""
-
-    if corr.empty:
-        return
-
-    z_matrix = correlation_linkage(corr)
-    plot_data = corr.copy()
-    np.fill_diagonal(plot_data.values, np.nan)
-
-    row_colors = pd.Series(
-        {
-            label: SOURCE_IMAGE_COLORS[source_by_metric.get(label, 'Other')]
-            for label in plot_data.index
-        },
-        name='Source image',
-    )
-
-    cmap = sns.diverging_palette(220, 20, as_cmap=True)
-    cmap.set_bad('#e6e6e6')
-
-    grid = sns.clustermap(
-        plot_data,
-        row_linkage=z_matrix,
-        col_linkage=z_matrix,
-        row_cluster=z_matrix is not None,
-        col_cluster=z_matrix is not None,
-        row_colors=row_colors,
-        cmap=cmap,
-        vmin=-1,
-        vmax=1,
-        center=0,
-        linewidths=0,
-        figsize=(12.0, 11.5),
-        dendrogram_ratio=(0.12, 0.025),
-        colors_ratio=0.025,
-        cbar_pos=(0.27, 0.055, 0.46, 0.022),
-        cbar_kws={
-            'orientation': 'horizontal',
-            'label': f'Mean voxelwise {method.title()} r',
-            'ticks': [-1, -0.5, 0, 0.5, 1],
-        },
-    )
-
-    grid.ax_col_dendrogram.set_visible(False)
-    grid.ax_heatmap.set_aspect('equal', adjustable='box')
-    grid.ax_heatmap.set_xlabel('')
-    grid.ax_heatmap.set_ylabel('')
-    grid.ax_heatmap.tick_params(axis='both', length=0)
-
-    plt.setp(
-        grid.ax_heatmap.get_xticklabels(),
-        rotation=45,
-        ha='right',
-        rotation_mode='anchor',
-        fontsize=8,
-    )
-    plt.setp(
-        grid.ax_heatmap.get_yticklabels(),
-        rotation=0,
-        fontsize=8,
-    )
-
-    # Recreate the diagonal as black squares after clustering.
-    row_order = list(grid.data2d.index)
-    column_order = list(grid.data2d.columns)
-    column_position = {label: index for index, label in enumerate(column_order)}
-    for row_index, label in enumerate(row_order):
-        col_index = column_position[label]
-        grid.ax_heatmap.add_patch(
-            Rectangle(
-                (col_index, row_index),
-                1,
-                1,
-                facecolor='black',
-                edgecolor='black',
-                linewidth=0,
-                zorder=5,
-            )
-        )
-
-    observed_sources = {source_by_metric.get(label, 'Other') for label in plot_data.index}
-    handles = [
-        Patch(facecolor=color, edgecolor='none', label=source)
-        for source, color in SOURCE_IMAGE_COLORS.items()
-        if source in observed_sources
-    ]
-    grid.ax_heatmap.legend(
-        handles=handles,
-        title='Source image',
-        loc='upper left',
-        bbox_to_anchor=(1.18, 0.55),
-        frameon=False,
-        fontsize=8,
-        title_fontsize=9,
-    )
-
-    grid.fig.suptitle(title, fontsize=18, y=0.97)
-    grid.fig.subplots_adjust(
-        left=0.08,
-        right=0.82,
-        top=0.92,
-        bottom=0.16,
-    )
-
-    # Reset the color-bar position after subplots_adjust, which can otherwise
-    # move it to the upper-left in some Seaborn/Matplotlib versions.
-    grid.cax.set_position([0.27, 0.055, 0.46, 0.022])
-
-    # Render once, then align the source strip and row dendrogram with the
-    # final heatmap position.
-    grid.fig.canvas.draw()
-    heatmap_position = grid.ax_heatmap.get_position()
-
-    color_position = grid.ax_row_colors.get_position()
-    grid.ax_row_colors.set_position(
-        [
-            color_position.x0,
-            heatmap_position.y0,
-            color_position.width,
-            heatmap_position.height,
-        ]
-    )
-    grid.ax_row_colors.set_ylim(grid.ax_heatmap.get_ylim())
-
-    dendrogram_position = grid.ax_row_dendrogram.get_position()
-    grid.ax_row_dendrogram.set_position(
-        [
-            dendrogram_position.x0,
-            heatmap_position.y0,
-            dendrogram_position.width,
-            heatmap_position.height,
-        ]
-    )
-
-    for extension in ('png', 'pdf'):
-        grid.fig.savefig(
-            out_stem.with_suffix(f'.{extension}'),
-            bbox_inches='tight',
-            dpi=300,
-        )
-    plt.close(grid.fig)
-
-
 def pairwise_coverage_rows(
     count_df: pd.DataFrame,
     proportion_df: pd.DataFrame,
@@ -601,6 +423,43 @@ def pairwise_coverage_rows(
                 }
             )
     return rows
+
+
+def write_metric_inclusion(
+    out_file: Path,
+    tissue: str,
+    analysis_set: str,
+    expected_labels: list[str],
+    observed_labels: set[str],
+    included_labels: list[str],
+    display: dict[str, str],
+) -> None:
+    included = set(included_labels)
+    rows = []
+    for label in expected_labels:
+        observed = label in observed_labels
+        in_matrix = label in included
+        rows.append(
+            {
+                'analysis_set': analysis_set,
+                'tissue': tissue,
+                'metric_key': label,
+                'metric': display.get(label, label),
+                'expected': True,
+                'observed_after_qc': observed,
+                'included': in_matrix,
+                'reason_if_not_included': (
+                    ''
+                    if in_matrix
+                    else (
+                        'not_observed_after_qc'
+                        if not observed
+                        else 'fewer_than_min_metrics_or_no_valid_correlations'
+                    )
+                ),
+            }
+        )
+    pd.DataFrame(rows).to_csv(out_file, sep='\t', index=False)
 
 
 def parse_args() -> argparse.Namespace:
@@ -734,7 +593,6 @@ def main() -> None:
     primary_specs = primary_metric_specs(specs)
     if len(primary_specs) != len(metric_order(specs, 'primary')):
         raise RuntimeError('Primary metric registry contains duplicate labels.')
-    source_by_metric = {spec.label: spec.source_image for spec in specs}
     qc = load_qc_table(args.qc_file)
 
     subjects = (
@@ -912,6 +770,7 @@ def main() -> None:
             for analysis_set in orders
         }
         full_labels = [label for label in orders['full'] if any(label in mat.index for mat in mats)]
+        observed_labels = set(full_labels)
         stack = np.stack(
             [
                 mat.reindex(index=full_labels, columns=full_labels).to_numpy(dtype=float)
@@ -949,6 +808,17 @@ def main() -> None:
 
         for analysis_set, ordered_labels in orders.items():
             labels = [label for label in ordered_labels if label in full_mean_z.index]
+            label_map = display_labels[analysis_set]
+            stem = f'mean_mni_voxelwise_{analysis_set}_{tissue}_{args.correlation}'
+            write_metric_inclusion(
+                args.output_dir / f'{stem}_metric_inclusion.tsv',
+                tissue,
+                analysis_set,
+                ordered_labels,
+                observed_labels,
+                labels,
+                label_map,
+            )
             if len(labels) < 2:
                 continue
             mean_z = full_mean_z.reindex(index=labels, columns=labels)
@@ -957,17 +827,11 @@ def main() -> None:
             mean_counts = full_mean_counts.reindex(index=labels, columns=labels)
             mean_proportions = full_mean_proportions.reindex(index=labels, columns=labels)
             n_subjects = full_n_subjects.reindex(index=labels, columns=labels)
-            label_map = display_labels[analysis_set]
             mean_z = mean_z.rename(index=label_map, columns=label_map)
             mean_r = mean_r.rename(index=label_map, columns=label_map)
             mean_counts = mean_counts.rename(index=label_map, columns=label_map)
             mean_proportions = mean_proportions.rename(index=label_map, columns=label_map)
             n_subjects = n_subjects.rename(index=label_map, columns=label_map)
-            plot_source_by_metric = {
-                label_map.get(label, label): source_by_metric.get(label, 'Other')
-                for label in labels
-            }
-            stem = f'mean_mni_voxelwise_{analysis_set}_{tissue}_{args.correlation}'
             mean_r.to_csv(
                 args.output_dir / f'{stem}_r.tsv',
                 sep='\t',
@@ -992,13 +856,6 @@ def main() -> None:
                 args.output_dir / f'{stem}_nsubjects.tsv',
                 sep='\t',
                 index_label='metric',
-            )
-            plot_correlation_matrix(
-                mean_r,
-                f'{analysis_set.title()} {TISSUE_TITLES[tissue]} MNI Voxelwise {args.correlation.title()} Correlations',
-                args.output_dir / f'{stem}_r',
-                source_by_metric=plot_source_by_metric,
-                method=args.correlation,
             )
 
 

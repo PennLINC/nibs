@@ -7,13 +7,8 @@ import argparse
 import sys
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -27,7 +22,7 @@ from compute_parcel_bundle_discriminability import (
     load_qc_table,
     load_wm_long_df,
 )
-from metric_registry import SOURCE_IMAGE_COLORS, build_metric_specs, metric_display_labels, metric_order
+from metric_registry import build_metric_specs, metric_display_labels, metric_order
 from parcel_metric_utils import add_metric_metadata
 
 
@@ -93,69 +88,44 @@ def compute_icc_table(long_df: pd.DataFrame, profile_type: str, stat: str) -> pd
     return pd.DataFrame(rows).sort_values(['profile_type', 'metric', 'feature']).reset_index(drop=True)
 
 
-def plot_icc_violins(
-    icc_df: pd.DataFrame,
-    out_stem: Path,
-    title: str,
-    source_by_metric: dict[str, str],
+def write_metric_inclusion(
+    out_file: Path,
+    profile_type: str,
+    analysis_set: str,
+    qc_mode: str,
+    tissue: str,
+    expected_labels: list[str],
+    observed_labels: set[str],
+    scored_labels: set[str],
+    display: dict[str, str],
 ) -> None:
-    plot_df = icc_df[np.isfinite(icc_df['ICC2_1'].to_numpy(float))].copy()
-    if plot_df.empty:
-        return
-    summary = (
-        plot_df.groupby('metric')['ICC2_1']
-        .agg(median='median', q25=lambda x: np.percentile(x, 25), q75=lambda x: np.percentile(x, 75))
-        .sort_values('median', ascending=False)
-    )
-    order = list(summary.index)
-    palette = {
-        metric: SOURCE_IMAGE_COLORS.get(source_by_metric.get(metric, 'Other'), SOURCE_IMAGE_COLORS['Other'])
-        for metric in order
-    }
-    height = max(5.5, 0.34 * len(order))
-    fig, ax = plt.subplots(figsize=(10, height))
-    sns.violinplot(
-        data=plot_df,
-        y='metric',
-        x='ICC2_1',
-        order=order,
-        palette=palette,
-        inner=None,
-        cut=0,
-        linewidth=0.8,
-        ax=ax,
-    )
-    sns.stripplot(
-        data=plot_df,
-        y='metric',
-        x='ICC2_1',
-        order=order,
-        color='black',
-        size=1.8,
-        alpha=0.35,
-        ax=ax,
-    )
-    for y_pos, metric in enumerate(order):
-        row = summary.loc[metric]
-        ax.scatter(row['median'], y_pos, s=22, color='white', edgecolor='black', zorder=5)
-        ax.text(
-            1.02,
-            y_pos,
-            f"{row['median']:.2f} [{row['q25']:.2f}, {row['q75']:.2f}]",
-            va='center',
-            ha='left',
-            fontsize=7,
-            transform=ax.get_yaxis_transform(),
+    rows = []
+    for label in expected_labels:
+        observed = label in observed_labels
+        scored = label in scored_labels
+        rows.append(
+            {
+                'profile_type': profile_type,
+                'analysis_set': analysis_set,
+                'qc_mode': qc_mode,
+                'tissue': tissue,
+                'metric_key': label,
+                'metric': display.get(label, label),
+                'expected': True,
+                'observed_after_qc': observed,
+                'scored': scored,
+                'reason_if_not_scored': (
+                    ''
+                    if scored
+                    else (
+                        'not_observed_after_qc'
+                        if not observed
+                        else 'insufficient_paired_subjects_or_features'
+                    )
+                ),
+            }
         )
-    ax.set_xlim(-1, 1)
-    ax.set_xlabel('ICC(2,1)')
-    ax.set_ylabel('')
-    ax.set_title(title)
-    ax.axvline(0, color='black', linewidth=0.7, alpha=0.5)
-    fig.subplots_adjust(right=0.78)
-    for ext in ('png', 'pdf'):
-        fig.savefig(out_stem.with_suffix(f'.{ext}'), dpi=300, bbox_inches='tight')
-    plt.close(fig)
+    pd.DataFrame(rows).to_csv(out_file, sep='\t', index=False)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -209,37 +179,60 @@ def main() -> None:
             )
             for analysis_set in ANALYSIS_SETS:
                 tissue = 'wm' if profile_name == 'wm_bundles' else 'gm'
-                labels = set(
-                    metric_order(
-                        specs,
-                        analysis_set,
-                        tissue=tissue,
-                    )
+                expected_labels = metric_order(
+                    specs,
+                    analysis_set,
+                    tissue=tissue,
                 )
+                observed_labels = set(filtered['metric'])
+                labels = set(expected_labels)
                 set_df = filtered.loc[filtered['metric'].isin(labels)].copy()
+                display = metric_display_labels(specs, analysis_set, tissue=tissue)
+                stem = args.outdir / f'icc_{profile_name}_{analysis_set}_{args.stat}_{qc_mode}'
                 if set_df.empty:
+                    write_metric_inclusion(
+                        stem.with_name(stem.name + '_metric_inclusion.tsv'),
+                        profile_name,
+                        analysis_set,
+                        qc_mode,
+                        tissue,
+                        expected_labels,
+                        observed_labels,
+                        set(),
+                        display,
+                    )
                     continue
                 icc_df = compute_icc_table(set_df, profile_name, args.stat)
                 if icc_df.empty:
+                    write_metric_inclusion(
+                        stem.with_name(stem.name + '_metric_inclusion.tsv'),
+                        profile_name,
+                        analysis_set,
+                        qc_mode,
+                        tissue,
+                        expected_labels,
+                        observed_labels,
+                        set(),
+                        display,
+                    )
                     continue
-                display = metric_display_labels(specs, analysis_set, tissue=tissue)
                 icc_df.insert(0, 'analysis_set', analysis_set)
                 icc_df.insert(1, 'qc_mode', qc_mode)
                 icc_df.insert(2, 'metric_key', icc_df['metric'])
                 icc_df['metric'] = icc_df['metric_key'].map(display).fillna(icc_df['metric_key'])
                 icc_df['source_image'] = icc_df['metric_key'].map(source_by_metric).fillna('Other')
-                source_by_display = {
-                    display.get(label, label): source_by_metric.get(label, 'Other')
-                    for label in labels
-                }
-                stem = args.outdir / f'icc_{profile_name}_{analysis_set}_{args.stat}_{qc_mode}'
                 csv_path = stem.with_name(stem.name + '.csv')
                 icc_df.to_csv(csv_path, index=False)
-                plot_icc_violins(
-                    icc_df,
-                    stem.with_name(stem.name + '_violins'),
-                    f'{analysis_set.title()} {profile_name.replace("_", " ").title()} ICC',
-                    source_by_display,
+                write_metric_inclusion(
+                    stem.with_name(stem.name + '_metric_inclusion.tsv'),
+                    profile_name,
+                    analysis_set,
+                    qc_mode,
+                    tissue,
+                    expected_labels,
+                    observed_labels,
+                    set(icc_df['metric_key']),
+                    display,
                 )
                 print(f'Wrote: {csv_path}', flush=True)
 

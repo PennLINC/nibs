@@ -36,6 +36,8 @@ PRIMARY_METRIC_LABELS = (
     'GFA',
     'ihMTsat-B1c',
     'ihMTR',
+    'R2',
+    'R2*',
     'R1',
     'R1-B1c',
     'MPRAGE-MyelinW',
@@ -43,7 +45,7 @@ PRIMARY_METRIC_LABELS = (
     'G-ihMTsat',
     'G-ihMTR',
     'Q-Ratio-E5-B1c',
-    'QSM-SEPIA-E5',
+    'QSM-SEPIA-E5-X',
     'QSM-X-R2p-E5-X',
     'QSM-X-R2p-E5-Para',
     'QSM-X-R2p-E5-Dia',
@@ -64,6 +66,8 @@ PRIMARY_PATTERN_KEYS = {
     'GFA': 'GQI GFA',
     'ihMTsat-B1c': 'ihMTsat-B1c',
     'ihMTR': 'ihMTR',
+    'R2': 'R2',
+    'R2*': 'R2*-E5',
     'R1': 'R1',
     'R1-B1c': 'R1-B1c',
     'MPRAGE-MyelinW': 'MPRAGE-MyelinW',
@@ -71,21 +75,21 @@ PRIMARY_PATTERN_KEYS = {
     'G-ihMTsat': 'G-ihMTsat',
     'G-ihMTR': 'G-ihMTR',
     'Q-Ratio-E5-B1c': 'Q-Ratio-E5-B1c',
-    'QSM-SEPIA-E5': 'QSM-SEPIA-E5',
+    'QSM-SEPIA-E5-X': 'QSM-SEPIA-E5-X',
     'QSM-X-R2p-E5-X': "QSM-X-R2'-E5-X",
     'QSM-X-R2p-E5-Para': "QSM-X-R2'-E5-Para",
     'QSM-X-R2p-E5-Dia': "QSM-X-R2'-E5-Dia",
 }
 
 SOURCE_IMAGE_COLORS = {
-    'DWI': '#4477AA',
-    'QSM': '#AA3377',
-    'T1w/T2w': '#CCBB44',
-    'ihMT': '#228833',
+    'dMRI': '#3F6FA8',
+    'QSM': '#B13F82',
+    'T1w/T2w': '#B9A224',
+    'ihMT': '#268A4B',
     'g-ratio': '#555555',
-    'R1': '#EE7733',
-    'MESE': '#66CCEE',
-    'MEGRE': '#882255',
+    'R1': '#E86F2A',
+    'MESE': '#0098A7',
+    'MEGRE': '#7B4D9E',
     'Other': '#999999',
 }
 
@@ -119,6 +123,37 @@ def primary_label(pattern_key: str) -> str:
         if key == pattern_key:
             return label
     return display_label(pattern_key)
+
+
+def metric_plot_label(label: str) -> str:
+    """Return the publication-facing label for figures."""
+
+    replacements = {
+        'NG (Perpendicular)': 'NG⊥',
+        'MPRAGE-MyelinW': 'MPRAGE T₁w/T₂w Ratio',
+        'SPACE-MyelinW': 'SPACE T₁w/T₂w Ratio',
+        'QSM-SEPIA-E5-X': 'QSM-SEPIA-E5-χ',
+        'QSM-X-R2p-E5-X': 'QSM-χ-R₂p-E5-χ',
+        'QSM-X-R2p-E5-Para': 'QSM-χ-R₂p-E5-para',
+        'QSM-X-R2p-E5-Dia': 'QSM-χ-R₂p-E5-dia',
+    }
+    if label in replacements:
+        return replacements[label]
+    if label.startswith('QSM-X-'):
+        label = label.replace('QSM-X-', 'QSM-χ-', 1)
+    if label.startswith('QSM-') and label.endswith('-X'):
+        label = f'{label[:-2]}-χ'
+    for source, target in (
+        ('R2p', 'R₂p'),
+        ('R2*', 'R₂*'),
+        ('R2', 'R₂'),
+        ('R1', 'R₁'),
+        ('B1c', 'B₁c'),
+        ('T1w', 'T₁w'),
+        ('T2w', 'T₂w'),
+    ):
+        label = label.replace(source, target)
+    return label
 
 
 def infer_family(group: str, pattern_key: str) -> str:
@@ -155,7 +190,7 @@ def infer_family(group: str, pattern_key: str) -> str:
 
 def source_image_from_group(group: str) -> str:
     if group == 'dMRI':
-        return 'DWI'
+        return 'dMRI'
     if group == 'T1w/T2w Ratio':
         return 'T1w/T2w'
     if group == 'G-Ratio':
@@ -210,7 +245,7 @@ def qc_modalities_for(group: str, pattern_key: str) -> tuple[str, ...]:
             return ('MP2RAGE', 'MEGRE', 'B1+')
         return ('MP2RAGE', 'MEGRE')
     if group == 'QSM':
-        if pattern_key == 'QSM-SEPIA-E5' or pattern_key.endswith('R2pnet-E5-X'):
+        if pattern_key == 'QSM-SEPIA-E5-X' or pattern_key.endswith('R2pnet-E5-X'):
             return ('MEGRE',)
         if "R2'" in pattern_key:
             return ('MEGRE', 'MESE')
@@ -330,7 +365,7 @@ def metric_display_labels(
 
     if analysis_set == 'primary':
         return {
-            spec.label: spec.primary_label
+            spec.label: metric_plot_label(spec.primary_label)
             for spec in primary_metric_specs(
                 specs,
                 tissue=tissue,
@@ -338,7 +373,7 @@ def metric_display_labels(
         }
     if analysis_set == 'full':
         return {
-            spec.label: label_for_spec(spec)
+            spec.label: metric_plot_label(label_for_spec(spec))
             for spec in metric_specs_for_analysis(
                 specs,
                 analysis_set,

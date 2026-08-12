@@ -705,6 +705,7 @@ def main() -> None:
     rows = []
     diagnostics = []
     coverage_rows = []
+    inclusion_rows = []
     for metric_index, spec in enumerate(metric_specs):
         print(f'Metric {metric_index + 1}/{len(metric_specs)}: {spec.label}', flush=True)
         profiles, metric_diagnostics = collect_metric_profiles(
@@ -805,6 +806,46 @@ def main() -> None:
     summary = pd.DataFrame(rows)
     if not summary.empty:
         summary = summary.sort_values(['analysis_set', 'tissue', 'metric']).reset_index(drop=True)
+    coverage_df = pd.DataFrame(coverage_rows)
+    scored_keys = (
+        set(zip(summary['analysis_set'], summary['tissue'], summary['metric_key']))
+        if not summary.empty
+        else set()
+    )
+    for tissue in args.tissues:
+        for analysis_set in analysis_sets:
+            display = display_labels[tissue][analysis_set]
+            for label in metric_order(specs, analysis_set, tissue=tissue):
+                observed = (
+                    not coverage_df.empty
+                    and bool(
+                        (
+                            (coverage_df['metric'] == label)
+                            & (coverage_df['tissue'] == tissue)
+                        ).any()
+                    )
+                )
+                scored = (analysis_set, tissue, label) in scored_keys
+                inclusion_rows.append(
+                    {
+                        'analysis_set': analysis_set,
+                        'tissue': tissue,
+                        'metric_key': label,
+                        'metric': display.get(label, label),
+                        'expected': True,
+                        'observed_after_qc': observed,
+                        'scored': scored,
+                        'reason_if_not_scored': (
+                            ''
+                            if scored
+                            else (
+                                'not_observed_after_qc'
+                                if not observed
+                                else 'insufficient_profiles_or_common_voxels'
+                            )
+                        ),
+                    }
+                )
     suffix = args.distance_metric
     if args.zscore_features:
         suffix = f'zscore_{suffix}'
@@ -813,8 +854,13 @@ def main() -> None:
         sep='\t',
         index=False,
     )
-    pd.DataFrame(coverage_rows).to_csv(
+    coverage_df.to_csv(
         args.output_dir / f'mni_voxelwise_discriminability_mask_coverage_{suffix}.tsv',
+        sep='\t',
+        index=False,
+    )
+    pd.DataFrame(inclusion_rows).to_csv(
+        args.output_dir / f'mni_voxelwise_discriminability_metric_inclusion_{suffix}.tsv',
         sep='\t',
         index=False,
     )

@@ -22,8 +22,7 @@ determination. Because detection is voxelwise across subjects, the paired
 design is preserved and only complete subject pairs are removed.
 
 The same final ICC map is summarized within the fixed eroded GM mask, fixed
-eroded WM mask, and their union. Ranked median/IQR figures are colored by source
-image.
+eroded WM mask, and their union.
 
 The implementation avoids ``from __future__ import annotations`` and newer
 union/generic annotation syntax for compatibility with older Python 3
@@ -60,18 +59,6 @@ try:
 except ImportError:
     distance_transform_edt = None
 
-try:
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from matplotlib.lines import Line2D
-except ImportError:
-    matplotlib = None
-    plt = None
-    Line2D = None
-
-
 SubjectPairInputs = namedtuple(
     "SubjectPairInputs",
     ["subject", "metric_a", "metric_b"],
@@ -94,14 +81,12 @@ DsegPairInputs = namedtuple(
 
 try:
     from metric_registry import (
-        SOURCE_IMAGE_COLORS,
         build_metric_specs,
         gm_noddi_hybrid_pairs,
         metric_display_labels,
         metric_order,
     )
 except ImportError:
-    SOURCE_IMAGE_COLORS = None
     build_metric_specs = None
     gm_noddi_hybrid_pairs = None
     metric_display_labels = None
@@ -132,7 +117,6 @@ def require_dependencies():
         ("numpy", np),
         ("pandas", pd),
         ("scipy", distance_transform_edt),
-        ("matplotlib", matplotlib),
         ("metric_registry", build_metric_specs),
     ):
         if module is None:
@@ -1950,230 +1934,6 @@ def summarize_icc_map(
     return row
 
 
-def plot_ranked_summaries(
-    summary,
-    output_dir,
-):
-    if summary.empty:
-        return
-
-    finite_summary = summary[
-        np.isfinite(
-            pd.to_numeric(
-                summary["median_icc"],
-                errors="coerce",
-            )
-        )
-    ].copy()
-
-    for (
-        analysis_set,
-        analysis,
-        tissue,
-    ), group in finite_summary.groupby(
-        [
-            "analysis_set",
-            "analysis",
-            "tissue",
-        ],
-        sort=True,
-    ):
-        data = group.sort_values(
-            "median_icc",
-            ascending=True,
-        ).reset_index(drop=True)
-
-        if data.empty:
-            continue
-
-        height = max(
-            6.0,
-            0.42 * len(data) + 1.8,
-        )
-
-        fig, ax = plt.subplots(
-            figsize=(
-                10.5,
-                height,
-            )
-        )
-
-        y = np.arange(len(data))
-
-        medians = data[
-            "median_icc"
-        ].to_numpy(dtype=float)
-
-        q25 = data[
-            "q25_icc"
-        ].to_numpy(dtype=float)
-
-        q75 = data[
-            "q75_icc"
-        ].to_numpy(dtype=float)
-
-        colors = [
-            SOURCE_IMAGE_COLORS.get(
-                source,
-                SOURCE_IMAGE_COLORS["Other"],
-            )
-            for source in data["source_image"]
-        ]
-
-        for index in range(len(data)):
-            ax.hlines(
-                y[index],
-                q25[index],
-                q75[index],
-                color=colors[index],
-                linewidth=4,
-            )
-
-            ax.scatter(
-                medians[index],
-                y[index],
-                s=55,
-                color=colors[index],
-                edgecolor="black",
-                linewidth=0.45,
-                zorder=3,
-            )
-
-            ax.text(
-                min(
-                    q75[index] + 0.025,
-                    1.01,
-                ),
-                y[index],
-                "{0:.2f} [{1:.2f}, "
-                "{2:.2f}]".format(
-                    medians[index],
-                    q25[index],
-                    q75[index],
-                ),
-                va="center",
-                ha="left",
-                fontsize=7.5,
-            )
-
-        for value in (
-            0.0,
-            0.50,
-            0.75,
-            0.90,
-        ):
-            ax.axvline(
-                value,
-                color="#888888",
-                linestyle=(
-                    "-"
-                    if value == 0
-                    else ":"
-                ),
-                linewidth=0.8,
-            )
-
-        ax.set_yticks(y)
-        ax.set_yticklabels(
-            data["metric"],
-            fontsize=8,
-        )
-
-        ax.set_xlim(
-            -1.0,
-            1.15,
-        )
-
-        ax.set_xlabel(
-            "Voxelwise ICC(2,1): median [IQR]"
-        )
-        ax.set_ylabel("")
-
-        ax.set_title(
-            "{0} — {1} — {2}".format(
-                TISSUE_LABELS.get(
-                    tissue,
-                    tissue.upper(),
-                ),
-                analysis_set.title(),
-                (
-                    "Primary"
-                    if analysis == "primary"
-                    else analysis
-                ),
-            )
-        )
-
-        ax.grid(False)
-
-        ax.spines[
-            "top"
-        ].set_visible(False)
-
-        ax.spines[
-            "right"
-        ].set_visible(False)
-
-        observed_sources = set(
-            data["source_image"]
-        )
-
-        handles = [
-            Line2D(
-                [0],
-                [0],
-                marker="o",
-                linestyle="none",
-                markersize=7,
-                markerfacecolor=color,
-                markeredgecolor="black",
-                markeredgewidth=0.45,
-                label=source,
-            )
-            for (
-                source,
-                color,
-            ) in SOURCE_IMAGE_COLORS.items()
-            if source in observed_sources
-        ]
-
-        ax.legend(
-            handles=handles,
-            title="Source image",
-            loc="center left",
-            bbox_to_anchor=(
-                1.02,
-                0.5,
-            ),
-            frameon=False,
-        )
-
-        fig.tight_layout()
-
-        stem = (
-            output_dir
-            / "voxelwise_icc_ranked_{0}_{1}_{2}".format(
-                analysis_set,
-                tissue,
-                safe_label(analysis),
-            )
-        )
-
-        for extension in (
-            "png",
-            "pdf",
-        ):
-            fig.savefig(
-                str(stem)
-                + "."
-                + extension,
-                dpi=300,
-                bbox_inches="tight",
-            )
-
-        plt.close(fig)
-
-
 def add_rank_column(summary):
     if summary.empty:
         return summary
@@ -2302,7 +2062,7 @@ def parse_args():
         choices=SUMMARY_TISSUES,
         help=(
             "Compartment to include in summary "
-            "tables and figures. Repeat as "
+            "tables. Repeat as "
             "needed. The ICC map itself is "
             "always computed once over the "
             "union of the fixed eroded GM and "
@@ -2456,7 +2216,7 @@ def parse_args():
         action="store_true",
         help=(
             "Overwrite existing maps. Summary "
-            "tables and figures are always "
+            "tables are always "
             "regenerated."
         ),
     )
@@ -3742,11 +3502,6 @@ def main():
         / "voxelwise_icc_ranked_summary.tsv",
         sep="\t",
         index=False,
-    )
-
-    plot_ranked_summaries(
-        summary,
-        args.output_dir,
     )
 
     print(
