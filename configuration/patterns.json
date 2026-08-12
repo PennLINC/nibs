@@ -76,9 +76,7 @@
     },
     "T1w/T2w Ratio": {
         "MPRAGE-MyelinW": "t1wt2w_ratio/{subject}/{session}/anat/*_space-{space}_desc-MPRAGEunscaled_myelinw.nii.gz",
-        "SPACE-MyelinW": "t1wt2w_ratio/{subject}/{session}/anat/*_space-{space}_desc-SPACEunscaled_myelinw.nii.gz",
-        "Scaled MPRAGE-MyelinW": "t1wt2w_ratio/{subject}/{session}/anat/*_space-{space}_desc-MPRAGEscaled_myelinw.nii.gz",
-        "Scaled SPACE-MyelinW": "t1wt2w_ratio/{subject}/{session}/anat/*_space-{space}_desc-SPACEscaled_myelinw.nii.gz"
+        "SPACE-MyelinW": "t1wt2w_ratio/{subject}/{session}/anat/*_space-{space}_desc-SPACEunscaled_myelinw.nii.gz"
     },
     "G-Ratio": {
         "G-ihMTsat": "g_ratio/{subject}/{session}/anat/*_space-{space}_desc-MTsat+ISOVF+ICVF_gratio.nii.gz",
@@ -91,8 +89,8 @@
         "Q-Ratio-E4-B1c": "q_ratio/{subject}/{session}/anat/*_space-{space}_desc-E2345+B1corrected_qratio.nii.gz"
     },
     "QSM": {
-        "QSM-SEPIA-E5": "qsm/{subject}/{session}/anat/*_space-{space}_desc-E12345+sepia_Chimap.nii.gz",
-        "QSM-SEPIA-E4": "qsm/{subject}/{session}/anat/*_space-{space}_desc-E2345+sepia_Chimap.nii.gz",
+        "QSM-SEPIA-E5-X": "qsm/{subject}/{session}/anat/*_space-{space}_desc-E12345+sepia_Chimap.nii.gz",
+        "QSM-SEPIA-E4-X": "qsm/{subject}/{session}/anat/*_space-{space}_desc-E2345+sepia_Chimap.nii.gz",
         "QSM-X-R2'-E5-X": "qsm/{subject}/{session}/anat/*_space-{space}_desc-E12345+chisep+r2p_Chimap.nii.gz",
         "QSM-X-R2'-E4-X": "qsm/{subject}/{session}/anat/*_space-{space}_desc-E2345+chisep+r2p_Chimap.nii.gz",
         "QSM-X-R2'-E5-Para": "qsm/{subject}/{session}/anat/*_space-{space}_desc-E12345+chisep+r2p_para.nii.gz",
