@@ -188,7 +188,7 @@ def main() -> None:
                 labels = set(expected_labels)
                 set_df = filtered.loc[filtered['metric'].isin(labels)].copy()
                 display = metric_display_labels(specs, analysis_set, tissue=tissue)
-                stem = args.outdir / f'icc_{profile_name}_{analysis_set}_{args.stat}_{qc_mode}'
+                stem = args.outdir / f'icc_{profile_name}_{analysis_set}_{args.stat}'
                 if set_df.empty:
                     write_metric_inclusion(
                         stem.with_name(stem.name + '_metric_inclusion.tsv'),

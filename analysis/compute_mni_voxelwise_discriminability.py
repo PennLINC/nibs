@@ -574,7 +574,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--wm-erosion-mm', type=float, default=0.0)
     parser.add_argument('--outlier-z', type=float, default=6.0)
     parser.add_argument('--chunk-size', type=int, default=50000)
-    parser.add_argument('--min-features', type=int, default=1000)
+    parser.add_argument('--min-features', type=int, default=2)
     parser.add_argument('--allow-zero', action='store_true')
     parser.add_argument('--no-qc', action='store_true')
     args = parser.parse_args()

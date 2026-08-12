@@ -5,9 +5,8 @@ For each subject/session and tissue mask, this script loads configured
 space-MNI152NLin2009cAsym scalar maps, computes pairwise-valid voxelwise
 correlations, Fisher-z transforms them, and averages first within subject and
 then across subjects. Tissue masks come from template-space GM and WM
-probability maps; the combined mask is GM+WM, not CSF-inclusive whole brain.
-Full supplementary matrices are computed first; primary-analysis
-matrices are then written as subsets of those full matrices.
+probability maps. Full supplementary matrices are computed first;
+primary-analysis matrices are then written as subsets of those full matrices.
 """
 
 from __future__ import annotations
@@ -35,19 +34,13 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
 from metric_registry import MetricSpec
 from metric_registry import (
     build_metric_specs,
-    gm_noddi_hybrid_pairs,
     metric_display_labels,
     metric_order,
     primary_metric_specs,
 )
 
 
-TISSUES = ('gm', 'wm', 'gmwm')
-TISSUE_TITLES = {
-    'gm': 'GM',
-    'wm': 'WM',
-    'gmwm': 'GM+WM',
-}
+TISSUES = ('gm', 'wm')
 SPACE = 'MNI152NLin2009cAsym'
 
 
@@ -229,7 +222,7 @@ def build_template_tissue_masks(
         raise RuntimeError('Template GM mask is empty after thresholding/erosion.')
     if not np.any(wm):
         raise RuntimeError('Template WM mask is empty after thresholding/erosion.')
-    return reference, {'gm': gm, 'wm': wm, 'gmwm': gm | wm}
+    return reference, {'gm': gm, 'wm': wm}
 
 
 def robust_outlier_mask(values: np.ndarray, z_threshold: float) -> np.ndarray:
@@ -268,31 +261,6 @@ def metric_paths_for_session(
         if path is not None:
             paths[spec.label] = path
     return paths
-
-
-def apply_gmwm_hybrid_maps(
-    data: pd.DataFrame,
-    gm_mask: np.ndarray,
-    hybrid_pairs: dict[str, str],
-) -> pd.DataFrame:
-    if not hybrid_pairs:
-        return data
-
-    out = data.copy()
-    gm_mask = np.asarray(gm_mask, dtype=bool)
-
-    for wm_label, gm_label in hybrid_pairs.items():
-        if wm_label not in out.columns:
-            continue
-        if gm_label not in out.columns:
-            out = out.drop(columns=[wm_label])
-            continue
-        hybrid = out[wm_label].to_numpy(dtype=np.float32, copy=True)
-        gm_values = out[gm_label].to_numpy(dtype=np.float32, copy=False)
-        hybrid[gm_mask] = gm_values[gm_mask]
-        out[wm_label] = hybrid
-
-    return out
 
 
 def compute_profile_correlations(
@@ -482,7 +450,7 @@ def parse_args() -> argparse.Namespace:
         help='Defaults to <project-root>/derivatives/mni_voxelwise_correlations.',
     )
     parser.add_argument('--outlier-z', type=float, default=6.0)
-    parser.add_argument('--min-voxels', type=int, default=1000)
+    parser.add_argument('--min-voxels', type=int, default=2)
     parser.add_argument(
         '--correlation',
         choices=('pearson', 'spearman'),
@@ -492,7 +460,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--min-metrics',
         type=int,
-        default=4,
+        default=2,
         help='Minimum number of selected metrics required for a subject/session profile.',
     )
     parser.add_argument(
@@ -589,7 +557,6 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     patterns = load_patterns(args.patterns_file)
     specs = build_metric_specs(args.patterns_file)
-    hybrid_pairs = gm_noddi_hybrid_pairs(specs)
     primary_specs = primary_metric_specs(specs)
     if len(primary_specs) != len(metric_order(specs, 'primary')):
         raise RuntimeError('Primary metric registry contains duplicate labels.')
@@ -647,11 +614,7 @@ def main() -> None:
             }
             data = pd.DataFrame(metric_data)
             for tissue in TISSUES:
-                analysis_data = (
-                    apply_gmwm_hybrid_maps(data, tissue_masks['gm'], hybrid_pairs)
-                    if tissue == 'gmwm'
-                    else data
-                )
+                analysis_data = data
                 tissue_labels = [
                     label
                     for label in metric_order(specs, 'full', tissue=tissue)
@@ -682,11 +645,7 @@ def main() -> None:
                     method=args.correlation,
                     outlier_z=args.outlier_z,
                     min_voxels=args.min_voxels,
-                    outlier_masks=(
-                        (tissue_masks['gm'], tissue_masks['wm'])
-                        if tissue == 'gmwm'
-                        else None
-                    ),
+                    outlier_masks=None,
                 )
                 diag.update(
                     {
@@ -809,7 +768,7 @@ def main() -> None:
         for analysis_set, ordered_labels in orders.items():
             labels = [label for label in ordered_labels if label in full_mean_z.index]
             label_map = display_labels[analysis_set]
-            stem = f'mean_mni_voxelwise_{analysis_set}_{tissue}_{args.correlation}'
+            stem = f'mni_voxelwise_{analysis_set}_{tissue}_{args.correlation}'
             write_metric_inclusion(
                 args.output_dir / f'{stem}_metric_inclusion.tsv',
                 tissue,

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Compute voxelwise ICC(2,1) maps in MNI space.
 
-This workflow creates one reliability map per metric rather than separate GM,
-WM, and GM+WM ICC maps. Fixed group-level GM and WM masks are built once
-from template-space GM and WM probability maps. The analysis mask is the union
-of the non-overlapping GM and WM masks.
+This workflow creates one reliability map per metric and summarizes it within
+fixed GM and WM masks. Fixed group-level GM and WM masks are built once from
+template-space GM and WM probability maps. The analysis mask is the union of
+the non-overlapping GM and WM masks.
 
 For each selected metric, the script pairs two sessions within subject and
 computes voxelwise ICC(2,1): two-way random effects, absolute agreement, single
@@ -21,8 +21,7 @@ map. Thus, GM and WM intensity distributions are never pooled for outlier
 determination. Because detection is voxelwise across subjects, the paired
 design is preserved and only complete subject pairs are removed.
 
-The same final ICC map is summarized within the fixed eroded GM mask, fixed
-eroded WM mask, and their union.
+The same final ICC map is summarized within the fixed eroded GM and WM masks.
 
 The implementation avoids ``from __future__ import annotations`` and newer
 union/generic annotation syntax for compatibility with older Python 3
@@ -30,7 +29,6 @@ environments.
 """
 
 import argparse
-import hashlib
 import json
 import re
 import warnings
@@ -63,16 +61,6 @@ SubjectPairInputs = namedtuple(
     "SubjectPairInputs",
     ["subject", "metric_a", "metric_b"],
 )
-HybridSubjectPairInputs = namedtuple(
-    "HybridSubjectPairInputs",
-    [
-        "subject",
-        "metric_a",
-        "metric_b",
-        "gm_metric_a",
-        "gm_metric_b",
-    ],
-)
 DsegPairInputs = namedtuple(
     "DsegPairInputs",
     ["subject", "dseg_a", "dseg_b"],
@@ -82,13 +70,11 @@ DsegPairInputs = namedtuple(
 try:
     from metric_registry import (
         build_metric_specs,
-        gm_noddi_hybrid_pairs,
         metric_display_labels,
         metric_order,
     )
 except ImportError:
     build_metric_specs = None
-    gm_noddi_hybrid_pairs = None
     metric_display_labels = None
     metric_order = None
 
@@ -101,11 +87,10 @@ ANALYSIS_SETS = (
 
 SPACE = "MNI152NLin2009cAsym"
 ROBUST_NORMAL_SCALE = 0.67448975
-SUMMARY_TISSUES = ("gm", "wm", "gmwm")
+SUMMARY_TISSUES = ("gm", "wm")
 TISSUE_LABELS = {
     "gm": "GM",
     "wm": "WM",
-    "gmwm": "GM+WM",
 }
 
 
@@ -175,11 +160,11 @@ def safe_label(value):
 
 
 def metric_slug(metric_spec):
-    base = safe_label(metric_spec.label)
-    digest = hashlib.sha1(
-        str(metric_spec.pattern_key).encode("utf-8")
-    ).hexdigest()[:8]
-    return "{0}-{1}".format(base, digest)
+    label = str(metric_spec.label)
+    label = label.replace("*", "star")
+    label = label.replace("χ", "X")
+    label = label.replace("⊥", "perp")
+    return safe_label(label)
 
 
 def assert_unique_metric_slugs(metric_specs):
@@ -680,35 +665,6 @@ def collect_subject_pairs(
     return pairs, diagnostics
 
 
-def pair_gmwm_hybrid_subject_pairs(
-    wm_pairs,
-    gm_pairs,
-):
-    gm_by_subject = {
-        pair.subject: pair
-        for pair in gm_pairs
-    }
-    paired = []
-
-    for pair in wm_pairs:
-        gm_pair = gm_by_subject.get(
-            pair.subject
-        )
-        if gm_pair is None:
-            continue
-        paired.append(
-            HybridSubjectPairInputs(
-                subject=pair.subject,
-                metric_a=pair.metric_a,
-                metric_b=pair.metric_b,
-                gm_metric_a=gm_pair.metric_a,
-                gm_metric_b=gm_pair.metric_b,
-            )
-        )
-
-    return paired
-
-
 def load_like(
     path,
     reference,
@@ -870,11 +826,6 @@ def build_fixed_tissue_masks(
             overlap_indices[gm_wins]
         ] = False
 
-    analysis_mask = (
-        gm_eroded
-        | wm_eroded
-    )
-
     if not np.any(gm_eroded):
         raise RuntimeError(
             "The template GM mask is empty "
@@ -894,7 +845,6 @@ def build_fixed_tissue_masks(
         "wm_thresholded": wm_thresholded,
         "gm": gm_eroded,
         "wm": wm_eroded,
-        "gmwm": analysis_mask,
         "reference": reference,
     }
 
@@ -1008,24 +958,6 @@ def write_fixed_masks(
         ),
         np.uint8,
         "Fixed template WM analysis and summary mask",
-    )
-
-    write_nifti(
-        masks["gmwm"].astype(np.uint8),
-        reference,
-        output_dir
-        / (
-            "{0}_desc-GMprob{1}WMprob{2}"
-            "ErodedGM{3}mmWM{4}mm_mask.nii.gz"
-        ).format(
-            base,
-            gm_threshold_token,
-            wm_threshold_token,
-            gm_erosion_token,
-            wm_erosion_token,
-        ),
-        np.uint8,
-        "Union of fixed template GM and WM compartments",
     )
 
 
@@ -1774,7 +1706,6 @@ def restrict_result_to_metric_tissues(
     result,
     metric_spec,
     masks,
-    hybrid=False,
 ):
     """Blank map values outside the metric's valid tissue contexts."""
 
@@ -1783,22 +1714,10 @@ def restrict_result_to_metric_tissues(
         dtype=bool,
     )
 
-    if (
-        "gm" not in metric_spec.tissues
-        and not (
-            hybrid
-            and "gmwm" in metric_spec.tissues
-        )
-    ):
+    if "gm" not in metric_spec.tissues:
         invalid |= masks["gm"]
 
-    if (
-        "wm" not in metric_spec.tissues
-        and not (
-            hybrid
-            and "gmwm" in metric_spec.tissues
-        )
-    ):
+    if "wm" not in metric_spec.tissues:
         invalid |= masks["wm"]
 
     if not np.any(invalid):
@@ -2066,7 +1985,7 @@ def parse_args():
             "needed. The ICC map itself is "
             "always computed once over the "
             "union of the fixed eroded GM and "
-            "WM masks. Default: gm, wm, gmwm."
+            "WM masks. Default: gm, wm."
         ),
     )
 
@@ -2135,7 +2054,7 @@ def parse_args():
     parser.add_argument(
         "--min-subjects",
         type=int,
-        default=15,
+        default=3,
         help=(
             "Minimum complete subject pairs "
             "required for ICC at a voxel."
@@ -2479,7 +2398,6 @@ def map_paths(
     output_dir,
     metric_spec,
     sensitivity_tag,
-    hybrid=False,
 ):
     prefix = (
         "metric-{0}_space-{1}".format(
@@ -2488,11 +2406,7 @@ def map_paths(
         )
     )
 
-    primary_desc = (
-        "hybridPrimary"
-        if hybrid
-        else "primary"
-    )
+    primary_desc = "primary"
 
     paths = {
         "primary_icc": (
@@ -2526,14 +2440,7 @@ def map_paths(
     }
 
     if sensitivity_tag is not None:
-        sensitivity_desc = (
-            "hybrid{0}".format(
-                sensitivity_tag[:1].upper()
-                + sensitivity_tag[1:]
-            )
-            if hybrid
-            else sensitivity_tag
-        )
+        sensitivity_desc = sensitivity_tag
         paths.update(
             {
                 "sensitivity_icc": (
@@ -2789,13 +2696,6 @@ def main():
     all_metric_specs = build_metric_specs(
         args.patterns_file
     )
-    spec_by_label = {
-        spec.label: spec
-        for spec in all_metric_specs
-    }
-    hybrid_pairs = gm_noddi_hybrid_pairs(
-        all_metric_specs
-    )
 
     qc = load_qc_table(
         args.qc_file
@@ -2925,13 +2825,9 @@ def main():
         "wm_eroded_voxels": int(
             np.count_nonzero(masks["wm"])
         ),
-        "analysis_mask_voxels": int(
-            np.count_nonzero(masks["gmwm"])
-        ),
         "summary_tissues": list(
             args.summary_tissues
         ),
-        "gmwm_hybrid_noddi_pairs": hybrid_pairs,
         "min_subjects": args.min_subjects,
         "zero_values_excluded": (
             not args.allow_zero
@@ -3010,37 +2906,6 @@ def main():
             diagnostics
         )
 
-        needs_gmwm_hybrid = (
-            "gmwm" in args.summary_tissues
-            and metric_spec.label in hybrid_pairs
-        )
-
-        if needs_gmwm_hybrid:
-            gm_counterpart = spec_by_label[
-                hybrid_pairs[metric_spec.label]
-            ]
-            (
-                gm_pairs,
-                gm_diagnostics,
-            ) = collect_subject_pairs(
-                args.derivatives_dir,
-                patterns,
-                qc,
-                subjects,
-                args.session_a,
-                args.session_b,
-                gm_counterpart,
-            )
-            all_diagnostics.extend(
-                gm_diagnostics
-            )
-            hybrid_pairs_for_metric = pair_gmwm_hybrid_subject_pairs(
-                pairs,
-                gm_pairs,
-            )
-        else:
-            hybrid_pairs_for_metric = []
-
         if len(pairs) < args.min_subjects:
             print(
                 "  Skipping {0}: only {1} "
@@ -3056,21 +2921,9 @@ def main():
             args.output_dir,
             metric_spec,
             sensitivity_tag,
-            hybrid=False,
-        )
-        hybrid_paths_for_metric = (
-            map_paths(
-                args.output_dir,
-                metric_spec,
-                sensitivity_tag,
-                hybrid=True,
-            )
-            if needs_gmwm_hybrid
-            else None
         )
 
         result = None
-        hybrid_result = None
 
         if not args.force:
             result = load_existing_result(
@@ -3092,7 +2945,6 @@ def main():
                     result,
                     metric_spec,
                     masks,
-                    hybrid=False,
                 )
                 write_result_maps(
                     result,
@@ -3102,35 +2954,6 @@ def main():
                         not args.no_outlier_sensitivity
                     ),
                 )
-            if hybrid_paths_for_metric is not None:
-                hybrid_result = load_existing_result(
-                    hybrid_paths_for_metric,
-                    reference,
-                    do_outlier_sensitivity=(
-                        not args.no_outlier_sensitivity
-                    ),
-                )
-                if hybrid_result is not None:
-                    print(
-                        "  Reusing existing GM+WM "
-                        "hybrid maps and "
-                        "regenerating summaries",
-                        flush=True,
-                    )
-                    hybrid_result = restrict_result_to_metric_tissues(
-                        hybrid_result,
-                        metric_spec,
-                        masks,
-                        hybrid=True,
-                    )
-                    write_result_maps(
-                        hybrid_result,
-                        hybrid_paths_for_metric,
-                        reference,
-                        do_outlier_sensitivity=(
-                            not args.no_outlier_sensitivity
-                        ),
-                    )
         values = None
         values_path = None
 
@@ -3241,7 +3064,6 @@ def main():
                     result,
                     metric_spec,
                     masks,
-                    hybrid=False,
                 )
 
                 write_result_maps(
@@ -3253,102 +3075,6 @@ def main():
                     ),
                 )
 
-            if needs_gmwm_hybrid and hybrid_result is None:
-                if len(hybrid_pairs_for_metric) < args.min_subjects:
-                    print(
-                        "  Skipping GM+WM hybrid: "
-                        "only {0} complete paired "
-                        "subjects with both NODDI "
-                        "models".format(
-                            len(hybrid_pairs_for_metric)
-                        ),
-                        flush=True,
-                    )
-                else:
-                    (
-                        hybrid_values,
-                        hybrid_values_path,
-                    ) = build_metric_memmap(
-                        hybrid_pairs_for_metric,
-                        reference,
-                        metric_work_dir,
-                        metric_slug(metric_spec)
-                        + "-hybrid",
-                        gm_mask=masks["gm"],
-                    )
-                    try:
-                        print(
-                            "  Processing GM+WM "
-                            "hybrid compartments",
-                            flush=True,
-                        )
-                        hybrid_gm_result = process_compartment(
-                            hybrid_values,
-                            masks["gm"],
-                            "GM",
-                            min_subjects=(
-                                args.min_subjects
-                            ),
-                            outlier_z=args.outlier_z,
-                            min_retained_fraction=(
-                                args.min_retained_fraction
-                            ),
-                            remove_zeros=(
-                                not args.allow_zero
-                            ),
-                            chunk_size=args.chunk_size,
-                            do_outlier_sensitivity=(
-                                not args.no_outlier_sensitivity
-                            ),
-                        )
-                        hybrid_wm_result = process_compartment(
-                            hybrid_values,
-                            masks["wm"],
-                            "WM",
-                            min_subjects=(
-                                args.min_subjects
-                            ),
-                            outlier_z=args.outlier_z,
-                            min_retained_fraction=(
-                                args.min_retained_fraction
-                            ),
-                            remove_zeros=(
-                                not args.allow_zero
-                            ),
-                            chunk_size=args.chunk_size,
-                            do_outlier_sensitivity=(
-                                not args.no_outlier_sensitivity
-                            ),
-                        )
-                        hybrid_result = combine_compartment_results(
-                            hybrid_gm_result,
-                            hybrid_wm_result,
-                            masks["gm"],
-                            masks["wm"],
-                        )
-                        hybrid_result = restrict_result_to_metric_tissues(
-                            hybrid_result,
-                            metric_spec,
-                            masks,
-                            hybrid=True,
-                        )
-                        write_result_maps(
-                            hybrid_result,
-                            hybrid_paths_for_metric,
-                            reference,
-                            do_outlier_sensitivity=(
-                                not args.no_outlier_sensitivity
-                            ),
-                        )
-                    finally:
-                        hybrid_values.flush()
-                        del hybrid_values
-                        if (
-                            not args.keep_work_files
-                            and Path(hybrid_values_path).exists()
-                        ):
-                            Path(hybrid_values_path).unlink()
-
             for analysis_set in analysis_sets:
                 for tissue in args.summary_tissues:
                     if (
@@ -3359,26 +3085,10 @@ def main():
                         ]
                     ):
                         continue
-                    summary_result = (
-                        hybrid_result
-                        if (
-                            tissue == "gmwm"
-                            and needs_gmwm_hybrid
-                            and hybrid_result is not None
-                        )
-                        else result
-                    )
+                    summary_result = result
                     if summary_result is None:
                         continue
-                    n_summary_pairs = (
-                        len(hybrid_pairs_for_metric)
-                        if (
-                            tissue == "gmwm"
-                            and needs_gmwm_hybrid
-                            and hybrid_result is not None
-                        )
-                        else len(pairs)
-                    )
+                    n_summary_pairs = len(pairs)
 
                     display_label = display_labels_by_tissue[
                         tissue

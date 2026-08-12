@@ -20,7 +20,7 @@ from parcel_metric_utils import add_metric_metadata, canonical_metric_from_row
 
 
 DEFAULT_QC_FILE = Path(__file__).resolve().parents[1] / 'data' / 'manual_qc_modality.tsv'
-QC_MODES = ('metricqc', 'completeqc')
+QC_MODES = ('metricqc',)
 ANALYSIS_SETS = ('primary', 'full')
 RESULT_COLUMNS = [
     'profile_type',
@@ -128,30 +128,6 @@ def apply_metric_qc(
         for _, row in df.iterrows()
     ]
     return df.loc[keep].copy()
-
-
-def apply_complete_qc(
-    df: pd.DataFrame,
-    qc_df: pd.DataFrame,
-    patterns_file: Path,
-    subject_col: str = 'subject',
-) -> pd.DataFrame:
-    modalities = sorted(
-        {
-            modality
-            for metric in df['metric'].dropna().astype(str).unique()
-            for modality in metric_required_modalities(metric, patterns_file)
-        }
-    )
-    complete_subjects = set()
-    for subject in sorted({_normalize_subject(value) for value in df[subject_col].unique()}):
-        if all(
-            _qc_passes(qc_df, subject, f'ses-{session:02d}', tuple(modalities))
-            for session in (1, 2)
-        ):
-            complete_subjects.add(subject)
-    subjects = df[subject_col].map(_normalize_subject)
-    return df.loc[subjects.isin(complete_subjects)].copy()
 
 
 def parse_dkt_filename(path: Path) -> tuple[str, str, str]:
@@ -276,8 +252,6 @@ def apply_qc_mode(
     if profile_type in {'wm', 'dkt'}:
         if qc_mode == 'metricqc':
             return apply_metric_qc(df, qc_df, patterns_file)
-        if qc_mode == 'completeqc':
-            return apply_complete_qc(df, qc_df, patterns_file)
     raise ValueError(f'Unsupported QC mode/profile_type: {qc_mode}/{profile_type}')
 
 
@@ -405,7 +379,6 @@ def _build_profile_matrix(
     min_feature_coverage: float,
     min_profile_coverage: float,
     zscore_features: bool,
-    imputation: str,
 ) -> pd.DataFrame:
     grouped = (
         df[['subject', 'session', feature_col, value_col]]
@@ -437,13 +410,7 @@ def _build_profile_matrix(
     if matrix.empty:
         return matrix
 
-    if imputation == 'mean':
-        matrix = matrix.apply(lambda col: col.fillna(col.mean()), axis=0)
-        matrix = matrix.dropna(axis=1, how='any')
-    elif imputation == 'complete':
-        matrix = matrix.dropna(axis=1, how='any')
-    else:
-        raise ValueError(f'Unsupported imputation mode: {imputation}')
+    matrix = matrix.dropna(axis=1, how='any')
 
     if matrix.empty:
         return matrix
@@ -465,7 +432,6 @@ def _compute_discriminability(
     min_profile_coverage: float,
     distance_metric: str,
     zscore_features: bool,
-    imputation: str,
 ) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     value_col = 'value'
@@ -479,7 +445,6 @@ def _compute_discriminability(
         min_feature_coverage=min_feature_coverage,
         min_profile_coverage=min_profile_coverage,
         zscore_features=zscore_features,
-        imputation=imputation,
     )
     all_score = _score_profile_matrix(
         all_matrix,
@@ -499,7 +464,6 @@ def _compute_discriminability(
             min_feature_coverage=min_feature_coverage,
             min_profile_coverage=min_profile_coverage,
             zscore_features=zscore_features,
-            imputation=imputation,
         )
         score = _score_profile_matrix(
             matrix,
@@ -635,23 +599,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--min-feature-coverage',
         type=float,
-        default=0.8,
+        default=0.0,
         help='Minimum fraction of profiles with finite data required for a feature.',
     )
     parser.add_argument(
         '--min-profile-coverage',
         type=float,
-        default=0.8,
+        default=0.0,
         help='Minimum fraction of retained features required for a subject-session profile.',
-    )
-    parser.add_argument(
-        '--imputation',
-        choices=('mean', 'complete'),
-        default='mean',
-        help=(
-            'How to handle missing retained features: mean fills by feature; '
-            'complete uses only features observed for every paired profile.'
-        ),
     )
     parser.add_argument(
         '--wm-input-globs',
@@ -713,7 +668,7 @@ def main() -> None:
             patterns_file=args.patterns_file,
         )
         wm_df = add_metric_metadata(wm_df, 'metric', args.patterns_file)
-        suffix = f'{args.stat}_{args.distance_metric}_{args.imputation}impute'
+        suffix = f'{args.stat}_{args.distance_metric}'
         if args.prefer_masked:
             suffix = f'masked_preferred_{suffix}'
         for qc_mode in args.qc_mode:
@@ -742,12 +697,11 @@ def main() -> None:
                     min_profile_coverage=args.min_profile_coverage,
                     distance_metric=args.distance_metric,
                     zscore_features=zscore_features,
-                    imputation=args.imputation,
                 )
                 if wm_out.empty:
                     write_metric_inclusion(
                         outdir
-                        / f'discriminability_wm_bundles_{analysis_set}_{suffix}_{qc_mode}_metric_inclusion.tsv',
+                        / f'discriminability_wm_bundles_{analysis_set}_{suffix}_metric_inclusion.tsv',
                         'wm_bundles',
                         analysis_set,
                         qc_mode,
@@ -767,11 +721,11 @@ def main() -> None:
                     .fillna(wm_out['profile_group_key'])
                 )
                 wm_out['source_image'] = wm_out['profile_group_key'].map(source_by_metric).fillna('Other')
-                out_csv = outdir / f'discriminability_wm_bundles_{analysis_set}_{suffix}_{qc_mode}.csv'
+                out_csv = outdir / f'discriminability_wm_bundles_{analysis_set}_{suffix}.csv'
                 wm_out.to_csv(out_csv, index=False)
                 write_metric_inclusion(
                     outdir
-                    / f'discriminability_wm_bundles_{analysis_set}_{suffix}_{qc_mode}_metric_inclusion.tsv',
+                    / f'discriminability_wm_bundles_{analysis_set}_{suffix}_metric_inclusion.tsv',
                     'wm_bundles',
                     analysis_set,
                     qc_mode,
@@ -816,14 +770,13 @@ def main() -> None:
                     min_profile_coverage=args.min_profile_coverage,
                     distance_metric=args.distance_metric,
                     zscore_features=zscore_features,
-                    imputation=args.imputation,
                 )
                 if dkt_out.empty:
                     write_metric_inclusion(
                         outdir
                         / (
                             f'discriminability_DKTatlas_{analysis_set}_{args.stat}_'
-                            f'{args.distance_metric}_{args.imputation}impute_{qc_mode}_metric_inclusion.tsv'
+                            f'{args.distance_metric}_metric_inclusion.tsv'
                         ),
                         'DKTatlas_parcels',
                         analysis_set,
@@ -848,7 +801,7 @@ def main() -> None:
                     outdir
                     / (
                         f'discriminability_DKTatlas_{analysis_set}_{args.stat}_'
-                        f'{args.distance_metric}_{args.imputation}impute_{qc_mode}.csv'
+                        f'{args.distance_metric}.csv'
                     )
                 )
                 dkt_out.to_csv(out_csv, index=False)
@@ -856,7 +809,7 @@ def main() -> None:
                     outdir
                     / (
                         f'discriminability_DKTatlas_{analysis_set}_{args.stat}_'
-                        f'{args.distance_metric}_{args.imputation}impute_{qc_mode}_metric_inclusion.tsv'
+                        f'{args.distance_metric}_metric_inclusion.tsv'
                     ),
                     'DKTatlas_parcels',
                     analysis_set,

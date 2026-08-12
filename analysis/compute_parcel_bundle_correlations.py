@@ -26,7 +26,7 @@ DEFAULT_WM_GLOBS = [
 DEFAULT_DKT_GLOBS = [
     '/cbica/projects/nibs/derivatives/DKTatlas_myelin_stats/sub-*/sub-*_ses-*_run-*_desc-DKTatlas_scalarstats.csv'
 ]
-QC_MODES = ('metricqc', 'completeqc')
+QC_MODES = ('metricqc',)
 ANALYSIS_SETS = ('primary', 'full')
 PROFILE_TYPES = ('wm_bundles', 'gm_parcels')
 
@@ -160,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--qc-mode', choices=QC_MODES, default='metricqc')
     parser.add_argument('--stat', choices=('mean', 'median'), default='median')
     parser.add_argument('--prefer-masked', action='store_true')
-    parser.add_argument('--min-features', type=int, default=10)
+    parser.add_argument('--min-features', type=int, default=2)
     parser.add_argument('--min-group-subjects', type=int, default=1)
     parser.add_argument('--wm-input-globs', nargs='+', default=DEFAULT_WM_GLOBS)
     parser.add_argument('--dkt-input-glob', nargs='+', default=DEFAULT_DKT_GLOBS)
@@ -226,7 +226,7 @@ def main() -> None:
                 analysis_set,
                 tissue=tissue,
             )
-            stem = args.outdir / f'mean_{profile_type}_{analysis_set}_spearman_{args.stat}_{args.qc_mode}'
+            stem = args.outdir / f'{profile_type}_{analysis_set}_spearman_{args.stat}'
             write_metric_inclusion(
                 stem.with_name(stem.name + '_metric_inclusion.tsv'),
                 profile_type,
