@@ -12,7 +12,8 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from compute_parcel_bundle_discriminability import (
+from metric_registry import build_metric_specs, metric_display_labels, metric_order
+from parcel_bundle_io import (
     DEFAULT_DKT_GLOBS,
     DEFAULT_QC_FILE,
     DEFAULT_WM_GLOBS,
@@ -22,7 +23,6 @@ from compute_parcel_bundle_discriminability import (
     load_qc_table,
     load_wm_long_df,
 )
-from metric_registry import build_metric_specs, metric_display_labels, metric_order
 from path_utils import DERIVATIVES_ROOT
 
 

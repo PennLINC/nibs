@@ -6,8 +6,6 @@ import re
 from pathlib import Path
 from fnmatch import fnmatch
 
-import pandas as pd
-
 from metric_registry import MetricSpec, build_metric_specs, metric_order, norm_token
 
 
@@ -169,7 +167,7 @@ def canonical_metric_name(
     patterns_file: Path | None = None,
 ) -> str | None:
     text = str(metric)
-    specs = specs or build_metric_specs(default_patterns_file())
+    specs = specs or build_metric_specs(patterns_file or default_patterns_file())
     candidates: dict[str, str] = {}
     for spec in specs:
         if text in {spec.label, spec.pattern_key}:

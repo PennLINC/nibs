@@ -12,17 +12,17 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from compute_parcel_bundle_discriminability import (
+from metric_registry import build_metric_specs, metric_display_labels, metric_order
+from parcel_bundle_io import (
     DEFAULT_DKT_GLOBS,
     DEFAULT_QC_FILE,
     DEFAULT_WM_GLOBS,
-    _qc_passes,
     load_dkt_long_df,
     load_qc_table,
     load_wm_long_df,
     metric_required_modalities,
+    qc_passes,
 )
-from metric_registry import build_metric_specs, metric_display_labels, metric_order
 from path_utils import DERIVATIVES_ROOT
 
 
@@ -78,7 +78,7 @@ def qc_subset(df: pd.DataFrame, qc_df: pd.DataFrame, metric: str, patterns_file:
         return subset
     modalities = metric_required_modalities(metric, patterns_file)
     keep = [
-        _qc_passes(qc_df, row['subject'], row['session'], modalities)
+        qc_passes(qc_df, row['subject'], row['session'], modalities)
         for _, row in subset.iterrows()
     ]
     return subset.loc[keep].copy()
