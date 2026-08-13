@@ -41,7 +41,7 @@ from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT
 
 
 SPACE = 'MNI152NLin2009cAsym'
-TISSUE_NAMES = {'wm': 'WM', 'gm': 'GM'}
+TISSUE_NAMES = {'wm': 'White Matter', 'gm': 'Gray Matter'}
 BENCHMARKS = (0.0, 0.5, 0.75, 0.9)
 
 
@@ -294,7 +294,7 @@ def draw_interval_panel(
         ax.plot([median, median], [position - 0.23, position + 0.23], color='white', lw=1.8, zorder=3)
         ax.scatter([median], [position], s=24, facecolor='white', edgecolor='#2b2b2b', zorder=4)
         ax.text(
-            -0.40,
+            -0.02,
             position,
             tissue_summary.loc[metric_key, 'metric'],
             transform=ax.get_yaxis_transform(),
@@ -304,11 +304,11 @@ def draw_interval_panel(
             clip_on=False,
         )
         ax.text(
-            -0.02,
+            1.02,
             position,
             f"{median:.2f} [{q25:.2f}, {q75:.2f}]",
             transform=ax.get_yaxis_transform(),
-            ha='right',
+            ha='left',
             va='center',
             fontsize=7.4,
             color='#303030',
@@ -366,7 +366,8 @@ def draw_scatter_panel(ax, summary: pd.DataFrame, title: str) -> None:
 
     x = wide['gm'].to_numpy(float)
     y = wide['wm'].to_numpy(float)
-    lower = float(np.nanmin([x.min(), y.min()]))
+    lower_observed = float(np.nanmin([x.min(), y.min()]))
+    lower = max(0.0, lower_observed - 0.04)
     upper = 1.0
     identity = np.linspace(lower, upper, 200)
     ax.fill_between(identity, lower, identity, color='#eeeeee', zorder=0)
@@ -433,11 +434,10 @@ def add_source_legend(fig, data: pd.DataFrame) -> None:
         Patch(facecolor=color_for_source(source), edgecolor='none', label=source)
         for source in sources
     ]
-    benchmark_handle = Line2D([0], [0], color='#c7c7c7', lw=1.0, label='ICC benchmarks')
     fig.legend(
-        handles=handles + [benchmark_handle],
+        handles=handles,
         loc='lower center',
-        ncol=len(handles) + 1,
+        ncol=len(handles),
         frameon=False,
         title='Source image',
         bbox_to_anchor=(0.5, 0.015),
@@ -470,13 +470,13 @@ def plot_icc_figure(
             'ytick.labelsize': 8.5,
         }
     )
-    fig = plt.figure(figsize=(10.5, 24.0), constrained_layout=False)
+    fig = plt.figure(figsize=(11.6, 24.0), constrained_layout=False)
     grid = fig.add_gridspec(
         3,
         1,
         height_ratios=[1.0, 1.0, 1.0],
-        left=0.38,
-        right=0.96,
+        left=0.28,
+        right=0.82,
         bottom=0.105,
         top=0.985,
         hspace=0.28,
