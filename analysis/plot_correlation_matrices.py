@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from metric_registry import SOURCE_IMAGE_COLORS, build_metric_specs, metric_display_labels
 
 
-def find_project_root() -> Path:
+def find_roots() -> tuple[Path, Path]:
     path = Path(__file__).resolve()
     for parent in path.parents:
         if (
@@ -40,16 +40,17 @@ def find_project_root() -> Path:
             and (parent.parent / 'derivatives').exists()
             and (parent / 'configuration' / 'patterns.json').exists()
         ):
-            return parent.parent
+            return parent.parent, parent
         if (
             (parent / 'configuration' / 'patterns.json').exists()
             and (parent / 'analysis').exists()
         ):
-            return parent
-    return path.parents[1]
+            return parent, parent
+    fallback = path.parents[1]
+    return fallback, fallback
 
 
-PROJECT_ROOT = find_project_root()
+PROJECT_ROOT, CODE_ROOT = find_roots()
 ANALYSIS_SETS = ('primary', 'full')
 TISSUES = ('gm', 'wm')
 MNI_CORRELATIONS = ('pearson', 'spearman')
@@ -366,7 +367,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--patterns-file',
         type=Path,
-        default=PROJECT_ROOT / 'configuration' / 'patterns.json',
+        default=CODE_ROOT / 'configuration' / 'patterns.json',
         help='Metric pattern registry used to assign source-image colors.',
     )
     parser.add_argument(
