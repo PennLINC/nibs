@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from compute_parcel_bundle_discriminability import load_dkt_long_df, load_qc_table, load_wm_long_df
 from compute_parcel_bundle_discriminability import apply_qc_mode
 from metric_registry import build_metric_specs, metric_display_labels, metric_order
-from parcel_metric_utils import add_metric_metadata, safe_label
 from path_utils import DERIVATIVES_ROOT
 
 
@@ -187,7 +186,6 @@ def main() -> None:
             prefer_masked=args.prefer_masked,
             patterns_file=args.patterns_file,
         )
-        wm_df = add_metric_metadata(wm_df, 'metric', args.patterns_file)
         raw_wm_df = wm_df.copy()
         qc_wm_df = apply_qc_mode(
             wm_df,
@@ -203,7 +201,6 @@ def main() -> None:
             stat=args.stat,
             patterns_file=args.patterns_file,
         )
-        gm_df = add_metric_metadata(gm_df, 'metric', args.patterns_file)
         raw_gm_df = gm_df.copy()
         qc_gm_df = apply_qc_mode(
             gm_df,

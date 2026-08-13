@@ -684,7 +684,6 @@ def main() -> None:
             prefer_masked=args.prefer_masked,
             patterns_file=args.patterns_file,
         )
-        wm_df = add_metric_metadata(wm_df, 'metric', args.patterns_file)
         suffix = f'{args.stat}_{args.distance_metric}'
         if args.prefer_masked:
             suffix = f'masked_preferred_{suffix}'
@@ -760,7 +759,6 @@ def main() -> None:
             stat=args.stat,
             patterns_file=args.patterns_file,
         )
-        dkt_df = add_metric_metadata(dkt_df, 'metric', args.patterns_file)
         for qc_mode in args.qc_mode:
             filtered_dkt = apply_qc_mode(
                 dkt_df,

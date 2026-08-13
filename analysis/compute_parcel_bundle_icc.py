@@ -23,7 +23,6 @@ from compute_parcel_bundle_discriminability import (
     load_wm_long_df,
 )
 from metric_registry import build_metric_specs, metric_display_labels, metric_order
-from parcel_metric_utils import add_metric_metadata
 from path_utils import DERIVATIVES_ROOT
 
 
@@ -158,7 +157,6 @@ def main() -> None:
             prefer_masked=args.prefer_masked,
             patterns_file=args.patterns_file,
         )
-        wm_df = add_metric_metadata(wm_df, 'metric', args.patterns_file)
         inputs.append(('wm_bundles', 'wm', wm_df))
     if args.analysis in {'gm', 'both'}:
         gm_df = load_dkt_long_df(
@@ -166,7 +164,6 @@ def main() -> None:
             stat=args.stat,
             patterns_file=args.patterns_file,
         )
-        gm_df = add_metric_metadata(gm_df, 'metric', args.patterns_file)
         inputs.append(('gm_parcels', 'dkt', gm_df))
 
     for profile_name, qc_profile, input_df in inputs:
