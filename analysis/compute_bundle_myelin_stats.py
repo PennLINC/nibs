@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from bundle_mapping_utils import summarize_bundles
 from metric_registry import build_metric_specs, metric_specs_for_analysis
+from path_utils import DERIVATIVES_ROOT
 
 T1W_BUNDLE_GROUPS = {'ihMT', 'MESE', 'MEGRE', 'MP2RAGE', 'T1w/T2w Ratio', 'G-Ratio', 'Q-Ratio', 'QSM'}
 
@@ -28,23 +29,6 @@ UNDERSCORE_PREFIXES = (
     'Commissure',
     'CranialNerve',
 )
-
-
-def _project_root() -> Path:
-    path = Path(__file__).resolve()
-    for parent in path.parents:
-        if (
-            parent.name == 'code'
-            and (parent.parent / 'derivatives').exists()
-            and (parent / 'configuration' / 'patterns.json').exists()
-        ):
-            return parent.parent
-        if (
-            (parent / 'configuration' / 'patterns.json').exists()
-            and (parent / 'analysis').exists()
-        ):
-            return parent
-    return path.parents[1]
 
 
 def _extract_bundle_name(path: str) -> str:
@@ -287,7 +271,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--subject-id', required=True, help='Subject ID without sub- prefix.')
     parser.add_argument(
         '--derivatives-dir',
-        default=str(_project_root() / 'derivatives'),
+        default=str(DERIVATIVES_ROOT),
         help='Derivatives root directory.',
     )
     parser.add_argument(

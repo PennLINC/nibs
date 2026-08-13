@@ -17,9 +17,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from metric_registry import build_metric_specs, metric_display_labels, metric_order
 from parcel_metric_utils import add_metric_metadata, canonical_metric_from_row
+from path_utils import CODE_ROOT, DERIVATIVES_ROOT
 
 
-DEFAULT_QC_FILE = Path(__file__).resolve().parents[1] / 'data' / 'manual_qc_modality.tsv'
+DEFAULT_QC_FILE = CODE_ROOT / 'data' / 'manual_qc_modality.tsv'
 QC_MODES = ('metricqc',)
 ANALYSIS_SETS = ('primary', 'full')
 RESULT_COLUMNS = [
@@ -38,12 +39,15 @@ RESULT_COLUMNS = [
     'n_features',
 ]
 DEFAULT_WM_GLOBS = [
-    '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-*/sub-*/ses-*/dwi/sub-*_ses-*_*_scalarstats.tsv',
-    '/cbica/projects/nibs/derivatives/bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-*_scalarstats.tsv',
+    str(DERIVATIVES_ROOT / 'qsirecon/derivatives/qsirecon-*/sub-*/ses-*/dwi/sub-*_ses-*_*_scalarstats.tsv'),
+    str(DERIVATIVES_ROOT / 'bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-*_scalarstats.tsv'),
 ]
 DEFAULT_DKT_GLOBS = [
-    '/cbica/projects/nibs/derivatives/DKTatlas_myelin_stats/'
-    'sub-*/sub-*_ses-*_run-*_desc-DKTatlas_scalarstats.csv'
+    str(
+        DERIVATIVES_ROOT
+        / 'DKTatlas_myelin_stats'
+        / 'sub-*/sub-*_ses-*_run-*_desc-DKTatlas_scalarstats.csv'
+    )
 ]
 EXCLUDED_DKT_METRICS = {'G-ihMTsat', 'G-ihMTR'}
 FILE_RE = re.compile(r'sub-(?P<sub>[^_]+)_(?P<ses>ses-[^_]+)_(?P<run>run-[^_]+)_')
@@ -228,6 +232,7 @@ def collect_scalarstats(input_globs: list[str], patterns_file: Path) -> pd.DataF
     if not rows:
         return pd.DataFrame()
     out = pd.concat(rows, ignore_index=True)
+    n_rows_before_subject_filters = len(out)
     out['subject_id'] = out['subject_id'].astype(str).str.replace('^sub-', '', regex=True)
     out = out.loc[~out['subject_id'].map(_is_pilot_subject)].copy()
     out['session_id'] = out['session_id'].astype(str)
@@ -235,6 +240,18 @@ def collect_scalarstats(input_globs: list[str], patterns_file: Path) -> pd.DataF
     excluded = out['bundle'].str.contains('|'.join(EXCLUDED_BUNDLE_PATTERNS), regex=True, na=False)
     if excluded.any():
         out = out.loc[~excluded].copy()
+    metric_counts = out['metric'].value_counts().sort_index()
+    print(
+        '[INFO] Loaded WM scalarstats: '
+        f'{len(all_files)} files, {n_rows_before_subject_filters} mapped rows before subject/bundle filters, '
+        f'{len(out)} rows after filters, {len(metric_counts)} canonical metrics.',
+        flush=True,
+    )
+    print(
+        '[INFO] WM canonical metrics after input loading: '
+        + ', '.join(f'{metric}={count}' for metric, count in metric_counts.items()),
+        flush=True,
+    )
     if dropped_counter:
         print('[WARN] Dropped rows with unmapped registry metrics (top 20):', flush=True)
         for (var_name, suffix), count in dropped_counter.most_common(20):
@@ -638,7 +655,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--outdir',
-        default='/cbica/projects/nibs/derivatives/ICC',
+        default=str(DERIVATIVES_ROOT / 'parcel_bundle_discriminability'),
         help='Output directory.',
     )
     parser.add_argument(

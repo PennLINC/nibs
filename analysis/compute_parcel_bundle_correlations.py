@@ -17,14 +17,15 @@ from compute_parcel_bundle_discriminability import load_dkt_long_df, load_qc_tab
 from compute_parcel_bundle_discriminability import apply_qc_mode
 from metric_registry import build_metric_specs, metric_display_labels, metric_order
 from parcel_metric_utils import add_metric_metadata, safe_label
+from path_utils import DERIVATIVES_ROOT
 
 
 DEFAULT_WM_GLOBS = [
-    '/cbica/projects/nibs/derivatives/qsirecon/derivatives/qsirecon-*/sub-*/ses-*/dwi/sub-*_ses-*_*_scalarstats.tsv',
-    '/cbica/projects/nibs/derivatives/bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-*_scalarstats.tsv',
+    str(DERIVATIVES_ROOT / 'qsirecon/derivatives/qsirecon-*/sub-*/ses-*/dwi/sub-*_ses-*_*_scalarstats.tsv'),
+    str(DERIVATIVES_ROOT / 'bundle_myelin_stats/sub-*/ses-*/dwi/sub-*_ses-*_acq-HBCD75_run-01_space-T1w_model-*_scalarstats.tsv'),
 ]
 DEFAULT_DKT_GLOBS = [
-    '/cbica/projects/nibs/derivatives/DKTatlas_myelin_stats/sub-*/sub-*_ses-*_run-*_desc-DKTatlas_scalarstats.csv'
+    str(DERIVATIVES_ROOT / 'DKTatlas_myelin_stats/sub-*/sub-*_ses-*_run-*_desc-DKTatlas_scalarstats.csv')
 ]
 QC_MODES = ('metricqc',)
 ANALYSIS_SETS = ('primary', 'full')
@@ -159,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--patterns-file', type=Path, default=Path(__file__).resolve().parents[1] / 'configuration' / 'patterns.json')
     parser.add_argument('--qc-file', type=Path, default=Path(__file__).resolve().parents[1] / 'data' / 'manual_qc_modality.tsv')
-    parser.add_argument('--outdir', type=Path, default=Path('/cbica/projects/nibs/derivatives/parcel_bundle_correlations'))
+    parser.add_argument('--outdir', type=Path, default=DERIVATIVES_ROOT / 'parcel_bundle_correlations')
     parser.add_argument('--analysis', choices=('wm', 'gm', 'both'), default='both')
     parser.add_argument('--qc-mode', choices=QC_MODES, default='metricqc')
     parser.add_argument('--stat', choices=('mean', 'median'), default='median')

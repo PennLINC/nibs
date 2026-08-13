@@ -24,6 +24,7 @@ from compute_parcel_bundle_discriminability import (
 )
 from metric_registry import build_metric_specs, metric_display_labels, metric_order
 from parcel_metric_utils import add_metric_metadata
+from path_utils import DERIVATIVES_ROOT
 
 
 ANALYSIS_SETS = ('primary', 'full')
@@ -138,7 +139,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--dkt-input-glob', nargs='+', default=DEFAULT_DKT_GLOBS)
     parser.add_argument('--qc-file', type=Path, default=DEFAULT_QC_FILE)
     parser.add_argument('--patterns-file', type=Path, default=Path(__file__).resolve().parents[1] / 'configuration' / 'patterns.json')
-    parser.add_argument('--outdir', type=Path, default=Path('/cbica/projects/nibs/derivatives/parcel_bundle_icc'))
+    parser.add_argument('--outdir', type=Path, default=DERIVATIVES_ROOT / 'parcel_bundle_icc')
     return parser
 
 

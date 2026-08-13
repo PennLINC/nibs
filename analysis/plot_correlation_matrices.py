@@ -30,27 +30,9 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from metric_registry import SOURCE_IMAGE_COLORS, build_metric_specs, metric_display_labels
+from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT
 
 
-def find_roots() -> tuple[Path, Path]:
-    path = Path(__file__).resolve()
-    for parent in path.parents:
-        if (
-            parent.name == 'code'
-            and (parent.parent / 'derivatives').exists()
-            and (parent / 'configuration' / 'patterns.json').exists()
-        ):
-            return parent.parent, parent
-        if (
-            (parent / 'configuration' / 'patterns.json').exists()
-            and (parent / 'analysis').exists()
-        ):
-            return parent, parent
-    fallback = path.parents[1]
-    return fallback, fallback
-
-
-PROJECT_ROOT, CODE_ROOT = find_roots()
 ANALYSIS_SETS = ('primary', 'full')
 TISSUES = ('gm', 'wm')
 MNI_CORRELATIONS = ('pearson', 'spearman')
@@ -77,10 +59,7 @@ def require_dependencies() -> None:
 
 
 def default_parcel_dir() -> Path:
-    local = PROJECT_ROOT / 'derivatives' / 'parcel_bundle_correlations'
-    if local.exists():
-        return local
-    return Path('/cbica/projects/nibs/derivatives/parcel_bundle_correlations')
+    return DERIVATIVES_ROOT / 'parcel_bundle_correlations'
 
 
 def clean_title_token(value: str) -> str:

@@ -23,6 +23,7 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from metric_registry import build_metric_specs, metric_specs_for_analysis
+from path_utils import DERIVATIVES_ROOT
 
 STATS = ('mean', 'median', 'std', 'min', 'max')
 KEY_RE = re.compile(r'(ses-[A-Za-z0-9]+)|(run-[A-Za-z0-9]+)')
@@ -91,23 +92,6 @@ DKT_LABELS: tuple[tuple[int, str, str], ...] = (
     (2034, 'transverse temporal', 'rh'),
     (2035, 'insula', 'rh'),
 )
-
-
-def _project_root() -> Path:
-    path = Path(__file__).resolve()
-    for parent in path.parents:
-        if (
-            parent.name == 'code'
-            and (parent.parent / 'derivatives').exists()
-            and (parent / 'configuration' / 'patterns.json').exists()
-        ):
-            return parent.parent
-        if (
-            (parent / 'configuration' / 'patterns.json').exists()
-            and (parent / 'analysis').exists()
-        ):
-            return parent
-    return path.parents[1]
 
 
 def _dkt_parcel_table() -> pd.DataFrame:
@@ -399,7 +383,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--derivatives-dir',
-        default=str(_project_root() / 'derivatives'),
+        default=str(DERIVATIVES_ROOT),
         help='Derivatives root directory.',
     )
     parser.add_argument(
