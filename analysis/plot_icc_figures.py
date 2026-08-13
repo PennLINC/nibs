@@ -14,7 +14,7 @@ try:
     import numpy as np
     import pandas as pd
     from matplotlib.lines import Line2D
-    from matplotlib.patches import Patch
+    from matplotlib.patches import Patch, Rectangle
 except ImportError:  # pragma: no cover - checked after argparse handles --help
     mpl = None
     plt = None
@@ -23,6 +23,7 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
     pd = None
     Line2D = None
     Patch = None
+    Rectangle = None
 
 try:
     import nibabel as nib
@@ -255,16 +256,7 @@ def metric_order_for_tissue(summary: pd.DataFrame, tissue: str) -> list[str]:
     return tissue_summary['metric_key'].tolist()
 
 
-def axis_limits(values: np.ndarray) -> tuple[float, float]:
-    finite = values[np.isfinite(values)]
-    if finite.size == 0:
-        return -0.1, 1.0
-    low = float(np.nanpercentile(finite, 0.5))
-    x_min = min(-0.1, np.floor((low - 0.05) * 4.0) / 4.0)
-    return max(x_min, -1.0), 1.0
-
-
-def draw_violin_panel(
+def draw_interval_panel(
     ax,
     data: pd.DataFrame,
     summary: pd.DataFrame,
@@ -281,33 +273,47 @@ def draw_violin_panel(
 
     positions = np.arange(len(order))
     for position, metric_key in zip(positions, order):
-        values = tissue_data.loc[tissue_data['metric_key'] == metric_key, 'icc'].to_numpy(float)
-        values = values[np.isfinite(values)]
-        if values.size == 0:
-            continue
         source = tissue_summary.loc[metric_key, 'source_image']
         color = color_for_source(source)
-        parts = ax.violinplot(
-            [values],
-            positions=[position],
-            vert=False,
-            widths=0.78,
-            showmeans=False,
-            showmedians=False,
-            showextrema=False,
-        )
-        for body in parts['bodies']:
-            body.set_facecolor(color)
-            body.set_edgecolor('#2b2b2b')
-            body.set_alpha(0.86)
-            body.set_linewidth(0.8)
         median = tissue_summary.loc[metric_key, 'median']
         q25 = tissue_summary.loc[metric_key, 'q25']
         q75 = tissue_summary.loc[metric_key, 'q75']
-        ax.plot([q25, q75], [position, position], color='#2b2b2b', lw=2.2, solid_capstyle='butt')
-        ax.plot([q25, q25], [position - 0.12, position + 0.12], color='#2b2b2b', lw=1.5)
-        ax.plot([q75, q75], [position - 0.12, position + 0.12], color='#2b2b2b', lw=1.5)
-        ax.scatter([median], [position], s=22, facecolor='white', edgecolor='#2b2b2b', zorder=4)
+        ax.hlines(position, 0.0, 1.0, color='#ececec', lw=0.8, zorder=0)
+        ax.add_patch(
+            Rectangle(
+                (q25, position - 0.20),
+                max(q75 - q25, 0.001),
+                0.40,
+                facecolor=color,
+                edgecolor='#2b2b2b',
+                linewidth=0.8,
+                alpha=0.86,
+                zorder=2,
+            )
+        )
+        ax.plot([median, median], [position - 0.23, position + 0.23], color='white', lw=1.8, zorder=3)
+        ax.scatter([median], [position], s=24, facecolor='white', edgecolor='#2b2b2b', zorder=4)
+        ax.text(
+            -0.40,
+            position,
+            tissue_summary.loc[metric_key, 'metric'],
+            transform=ax.get_yaxis_transform(),
+            ha='right',
+            va='center',
+            fontsize=7.4,
+            clip_on=False,
+        )
+        ax.text(
+            -0.02,
+            position,
+            f"{median:.2f} [{q25:.2f}, {q75:.2f}]",
+            transform=ax.get_yaxis_transform(),
+            ha='right',
+            va='center',
+            fontsize=7.4,
+            color='#303030',
+            clip_on=False,
+        )
 
     for benchmark in BENCHMARKS:
         ax.axvline(
@@ -318,12 +324,14 @@ def draw_violin_panel(
             zorder=0,
         )
     ax.set_yticks(positions)
-    ax.set_yticklabels([tissue_summary.loc[key, 'label'] for key in order], fontsize=8.5)
+    ax.set_yticklabels([])
+    ax.tick_params(axis='y', length=0)
     ax.set_ylim(-0.8, len(order) - 0.2)
-    ax.set_xlim(axis_limits(tissue_data['icc'].to_numpy(float)))
+    ax.set_xlim(0.0, 1.0)
     ax.set_xlabel(xlabel)
     ax.set_title(TISSUE_NAMES[tissue], loc='left', fontweight='bold')
     ax.grid(False)
+    ax.set_box_aspect(1)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
@@ -358,8 +366,7 @@ def draw_scatter_panel(ax, summary: pd.DataFrame, title: str) -> None:
 
     x = wide['gm'].to_numpy(float)
     y = wide['wm'].to_numpy(float)
-    lower = min(-0.1, float(np.nanmin([x.min(), y.min()])) - 0.05)
-    lower = max(-1.0, np.floor(lower * 4.0) / 4.0)
+    lower = float(np.nanmin([x.min(), y.min()]))
     upper = 1.0
     identity = np.linspace(lower, upper, 200)
     ax.fill_between(identity, lower, identity, color='#eeeeee', zorder=0)
@@ -411,6 +418,7 @@ def draw_scatter_panel(ax, summary: pd.DataFrame, title: str) -> None:
     ax.set_xlim(lower, upper)
     ax.set_ylim(lower, upper)
     ax.set_aspect('equal', adjustable='box')
+    ax.set_box_aspect(1)
     ax.set_xlabel(f'Median ICC across GM {title}')
     ax.set_ylabel(f'Median ICC across WM {title}')
     ax.spines['top'].set_visible(False)
@@ -428,10 +436,11 @@ def add_source_legend(fig, data: pd.DataFrame) -> None:
     benchmark_handle = Line2D([0], [0], color='#c7c7c7', lw=1.0, label='ICC benchmarks')
     fig.legend(
         handles=handles + [benchmark_handle],
-        loc='center right',
+        loc='lower center',
+        ncol=len(handles) + 1,
         frameon=False,
         title='Source image',
-        bbox_to_anchor=(0.985, 0.50),
+        bbox_to_anchor=(0.5, 0.015),
     )
 
 
@@ -461,29 +470,35 @@ def plot_icc_figure(
             'ytick.labelsize': 8.5,
         }
     )
-    fig = plt.figure(figsize=(16.5, 13.5), constrained_layout=False)
+    fig = plt.figure(figsize=(10.5, 24.0), constrained_layout=False)
     grid = fig.add_gridspec(
-        2,
-        2,
-        height_ratios=[1.18, 1.0],
-        width_ratios=[1.0, 1.0],
-        left=0.08,
-        right=0.84,
-        bottom=0.07,
-        top=0.92,
-        hspace=0.32,
-        wspace=0.14,
+        3,
+        1,
+        height_ratios=[1.0, 1.0, 1.0],
+        left=0.38,
+        right=0.96,
+        bottom=0.105,
+        top=0.985,
+        hspace=0.28,
     )
     ax_wm = fig.add_subplot(grid[0, 0])
-    ax_gm = fig.add_subplot(grid[0, 1])
-    ax_scatter = fig.add_subplot(grid[1, :])
-    draw_violin_panel(ax_wm, data, summary, 'wm', f'ICC(2,1) across WM {scatter_domain}')
-    draw_violin_panel(ax_gm, data, summary, 'gm', f'ICC(2,1) across GM {scatter_domain}')
+    ax_gm = fig.add_subplot(grid[1, 0])
+    ax_scatter = fig.add_subplot(grid[2, 0])
+    draw_interval_panel(ax_wm, data, summary, 'wm', f'ICC(2,1) across WM {scatter_domain}')
+    draw_interval_panel(ax_gm, data, summary, 'gm', f'ICC(2,1) across GM {scatter_domain}')
     draw_scatter_panel(ax_scatter, summary, scatter_domain)
-    fig.suptitle(title, fontsize=20, y=0.975)
-    fig.text(0.026, 0.935, 'A', fontsize=17, fontweight='bold')
-    fig.text(0.464, 0.935, 'B', fontsize=17, fontweight='bold')
-    fig.text(0.026, 0.455, 'C', fontsize=17, fontweight='bold')
+    for label, ax in zip(('A', 'B', 'C'), (ax_wm, ax_gm, ax_scatter)):
+        ax.text(
+            -0.18,
+            1.03,
+            label,
+            transform=ax.transAxes,
+            fontsize=17,
+            fontweight='bold',
+            ha='left',
+            va='bottom',
+            clip_on=False,
+        )
     add_source_legend(fig, data)
 
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
