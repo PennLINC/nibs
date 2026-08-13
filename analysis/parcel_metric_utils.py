@@ -12,6 +12,12 @@ from metric_registry import MetricSpec, build_metric_specs, metric_order, norm_t
 
 
 CANONICAL_ALIASES = {
+    'tortoisemapmrifa': 'FA (TORTOISE; Inner Shells)',
+    'tortoisemapmrimd': 'MD (TORTOISE; Inner Shells)',
+    'tortoisemapmrird': 'RD (TORTOISE; Inner Shells)',
+    'tortoisetensorfa': 'FA (TORTOISE; Full Shells)',
+    'tortoisetensormd': 'MD (TORTOISE; Full Shells)',
+    'tortoisetensorrd': 'RD (TORTOISE; Full Shells)',
     'icvf': 'ICVF',
     'ficvf': 'ICVF',
     'noddiicvf': 'ICVF',
@@ -20,6 +26,81 @@ CANONICAL_ALIASES = {
     'ngperpendicular': 'NG (Perpendicular)',
     'ngperpendicularity': 'NG (Perpendicular)',
     'ngorthogonal': 'NG (Perpendicular)',
+    'qsmsepiae5': 'QSM-SEPIA-E5-X',
+    'qsmsepiae5x': 'QSM-SEPIA-E5-X',
+    'qsmxr2pe5': 'QSM-X-R2p-E5-X',
+    'qsmxr2pe5x': 'QSM-X-R2p-E5-X',
+    'qsmxr2primee5': 'QSM-X-R2p-E5-X',
+    'qsmxr2primee5x': 'QSM-X-R2p-E5-X',
+}
+
+
+QSI_RECON_ALIASES = {
+    'gmnoddi': {
+        'icvf': 'ICVF (GM)',
+        'ficvf': 'ICVF (GM)',
+        'isovf': 'ISOVF (GM)',
+        'od': 'OD (GM)',
+    },
+    'tortoisemodelmapmri': {
+        'ad': 'AD (TORTOISE; Inner Shells)',
+        'fa': 'FA (TORTOISE; Inner Shells)',
+        'li': 'LI (TORTOISE; Inner Shells)',
+        'rd': 'RD (TORTOISE; Inner Shells)',
+        'md': 'MD (TORTOISE; Inner Shells)',
+        'ng': 'NG',
+        'ngpar': 'NG Parallel',
+        'ngperp': 'NG (Perpendicular)',
+        'pa': 'PA',
+        'path': 'PAth',
+        'rtap': 'RTAP',
+        'rtop': 'RTOP',
+        'rtpp': 'RTPP',
+    },
+    'tortoisemodeltensor': {
+        'ad': 'AD (TORTOISE; Full Shells)',
+        'fa': 'FA (TORTOISE; Full Shells)',
+        'li': 'LI (TORTOISE; Full Shells)',
+        'rd': 'RD (TORTOISE; Full Shells)',
+        'md': 'MD (TORTOISE; Full Shells)',
+    },
+    'dsistudio': {
+        'gfa': 'GFA',
+        'iso': 'GQI ISO',
+        'qa': 'GQI QA',
+        'ad': 'AD (DSIStudio)',
+        'fa': 'FA (DSIStudio)',
+        'md': 'MD (DSIStudio)',
+        'rd': 'RD (DSIStudio)',
+    },
+    'dipy dki': {
+        'ad': 'DKI AD',
+        'ak': 'DKI AK',
+        'fa': 'DKI FA',
+        'kfa': 'DKI KFA',
+        'md': 'DKI MD',
+        'mk': 'DKI MK',
+        'mkt': 'MKT',
+        'rd': 'DKI RD',
+        'rk': 'RK',
+    },
+    'dipydki': {
+        'ad': 'DKI AD',
+        'ak': 'DKI AK',
+        'fa': 'DKI FA',
+        'kfa': 'DKI KFA',
+        'md': 'DKI MD',
+        'mk': 'DKI MK',
+        'mkt': 'MKT',
+        'rd': 'DKI RD',
+        'rk': 'RK',
+    },
+    'noddi': {
+        'icvf': 'ICVF',
+        'ficvf': 'ICVF',
+        'isovf': 'ISOVF',
+        'od': 'OD',
+    },
 }
 
 
@@ -102,12 +183,52 @@ def canonical_metric_name(
     return canonical
 
 
+def canonical_metric_from_qsirecon_context(
+    variable_name: object,
+    qsirecon_suffix: object,
+    source_file: object,
+    source_tsv: object,
+    specs: list[MetricSpec],
+) -> str | None:
+    variable = norm_token(variable_name)
+    context = norm_token(
+        ' '.join(
+            str(value)
+            for value in (qsirecon_suffix, source_file, source_tsv)
+            if value is not None
+        )
+    )
+    if not variable or not context:
+        return None
+
+    available = {spec.label for spec in specs}
+    for recon_key, aliases in QSI_RECON_ALIASES.items():
+        if norm_token(recon_key) not in context:
+            continue
+        label = aliases.get(variable)
+        if label in available:
+            return label
+    return None
+
+
 def canonical_metric_from_row(
     row: pd.Series,
     patterns_file: Path | None = None,
     spaces: tuple[str, ...] = ('ACPC', 'T1w', 'MNI152NLin2009cAsym'),
 ) -> str | None:
     specs = build_metric_specs(patterns_file or default_patterns_file())
+    source_file = str(row.get('source_file', '') or '')
+    source_tsv = str(row.get('source_tsv', '') or '')
+    suffix_direct = canonical_metric_from_qsirecon_context(
+        row.get('variable_name', ''),
+        row.get('qsirecon_suffix', ''),
+        source_file,
+        source_tsv,
+        specs,
+    )
+    if suffix_direct is not None:
+        return suffix_direct
+
     direct = canonical_metric_name(
         row.get('variable_name', ''),
         specs=specs,
@@ -116,8 +237,6 @@ def canonical_metric_from_row(
     if direct is not None:
         return direct
 
-    source_file = str(row.get('source_file', '') or '')
-    source_tsv = str(row.get('source_tsv', '') or '')
     haystack = source_file if source_file else source_tsv
     if not haystack:
         return None

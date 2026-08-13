@@ -30,6 +30,23 @@ UNDERSCORE_PREFIXES = (
 )
 
 
+def _project_root() -> Path:
+    path = Path(__file__).resolve()
+    for parent in path.parents:
+        if (
+            parent.name == 'code'
+            and (parent.parent / 'derivatives').exists()
+            and (parent / 'configuration' / 'patterns.json').exists()
+        ):
+            return parent.parent
+        if (
+            (parent / 'configuration' / 'patterns.json').exists()
+            and (parent / 'analysis').exists()
+        ):
+            return parent
+    return path.parents[1]
+
+
 def _extract_bundle_name(path: str) -> str:
     match = BUNDLE_RE.search(os.path.basename(path))
     if not match:
@@ -60,8 +77,9 @@ def _resolve_scalar_specs(
     subject: str,
     session: str,
     patterns_file: Path,
-) -> list[dict[str, str]]:
+) -> tuple[list[dict[str, str]], list[dict[str, object]]]:
     scalar_specs: list[dict[str, str]] = []
+    inventory_rows: list[dict[str, object]] = []
     for spec in _metric_specs_t1w(patterns_file):
         rel_pattern = _pattern_for_spec(patterns_file, spec.pattern_key)
         subj_pattern = rel_pattern.format(
@@ -70,6 +88,20 @@ def _resolve_scalar_specs(
             space='T1w',
         )
         matches = sorted(glob(os.path.join(deriv_dir, subj_pattern)))
+        inventory_rows.append(
+            {
+                'subject': f'sub-{subject}',
+                'session': session,
+                'metric_key': spec.label,
+                'primary_label': spec.primary_label,
+                'pattern_key': spec.pattern_key,
+                'source_image': spec.source_image,
+                'space': 'T1w',
+                'glob': os.path.join(deriv_dir, subj_pattern),
+                'n_matches': len(matches),
+                'selected_file': matches[0] if matches else '',
+            }
+        )
         if not matches:
             print(f'[WARN] Missing scalar for {spec.label}: {subj_pattern}', flush=True)
             continue
@@ -83,10 +115,10 @@ def _resolve_scalar_specs(
                 'variable_name': spec.label,
                 'path': matches[0],
                 'source_file': matches[0],
-                'qsirecon_suffix': 'myelin_t1w',
+                'qsirecon_suffix': spec.source_image,
             }
         )
-    return scalar_specs
+    return scalar_specs, inventory_rows
 
 
 def _pattern_for_spec(patterns_file: Path, pattern_key: str) -> str:
@@ -204,14 +236,26 @@ def process_subject(
             continue
 
         bundle_names = [_extract_bundle_name(tck_path) for tck_path in tck_files]
-        scalar_specs = _resolve_scalar_specs(deriv_dir, subject, session, patterns_file)
+        scalar_specs, inventory_rows = _resolve_scalar_specs(
+            deriv_dir,
+            subject,
+            session,
+            patterns_file,
+        )
+        out_dir = os.path.join(out_root, f'sub-{subject}', session, 'dwi')
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        inventory_file = os.path.join(
+            out_dir,
+            f'sub-{subject}_{session}_acq-HBCD75_run-01_space-T1w_model-msmt_metric_inventory.tsv',
+        )
+        pd.DataFrame(inventory_rows).to_csv(inventory_file, sep='\t', index=False)
+        print(f'[INFO] Wrote {inventory_file}', flush=True)
         if not scalar_specs:
             print(f'[WARN] No scalar maps found for sub-{subject} {session}', flush=True)
             continue
 
         # Use first scalar image as the tckmap template (all are in T1w space).
         dwiref = scalar_specs[0]['path']
-        out_dir = os.path.join(out_root, f'sub-{subject}', session, 'dwi')
         bundle_stats_file, _ = summarize_bundles(
             dwiref_image=dwiref,
             tck_files=tck_files,
@@ -243,12 +287,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--subject-id', required=True, help='Subject ID without sub- prefix.')
     parser.add_argument(
         '--derivatives-dir',
-        default='/cbica/projects/nibs/derivatives',
+        default=str(_project_root() / 'derivatives'),
         help='Derivatives root directory.',
     )
     parser.add_argument(
         '--out-root',
-        default='/cbica/projects/nibs/derivatives/bundle_myelin_stats',
+        default=None,
         help='Output root for scalarstats TSVs.',
     )
     parser.add_argument(
@@ -272,10 +316,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
+    derivatives_dir = str(Path(args.derivatives_dir))
+    out_root = args.out_root or str(Path(derivatives_dir) / 'bundle_myelin_stats')
     process_subject(
         subject=args.subject_id,
-        deriv_dir=args.derivatives_dir,
-        out_root=args.out_root,
+        deriv_dir=derivatives_dir,
+        out_root=out_root,
         bundle_source=args.bundle_source,
         bundle_params_id=args.bundle_params_id,
         patterns_file=args.patterns_file,

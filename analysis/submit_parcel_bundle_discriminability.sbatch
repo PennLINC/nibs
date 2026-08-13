@@ -20,7 +20,7 @@ PYTHON="${PYTHON:-${HOME}/.conda/envs/myelin_reliability/bin/python}"
   --qc-file "${PROJECT_ROOT}/code/data/manual_qc_modality.tsv" \
   --outdir "${PROJECT_ROOT}/derivatives/parcel_bundle_discriminability" \
   --analysis both \
-  --qc-mode metricqc completeqc \
+  --qc-mode metricqc \
   --stat median \
   --prefer-masked \
   --distance-metric correlation

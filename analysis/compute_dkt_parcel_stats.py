@@ -93,6 +93,23 @@ DKT_LABELS: tuple[tuple[int, str, str], ...] = (
 )
 
 
+def _project_root() -> Path:
+    path = Path(__file__).resolve()
+    for parent in path.parents:
+        if (
+            parent.name == 'code'
+            and (parent.parent / 'derivatives').exists()
+            and (parent / 'configuration' / 'patterns.json').exists()
+        ):
+            return parent.parent
+        if (
+            (parent / 'configuration' / 'patterns.json').exists()
+            and (parent / 'analysis').exists()
+        ):
+            return parent
+    return path.parents[1]
+
+
 def _dkt_parcel_table() -> pd.DataFrame:
     rows = [
         {
@@ -137,8 +154,9 @@ def _build_metric_files(
     subject: str,
     deriv_dir: str,
     patterns_file: Path,
-) -> dict[tuple[str, str], dict[str, str]]:
+) -> tuple[dict[tuple[str, str], dict[str, str]], list[dict[str, object]]]:
     metric_files_by_key: dict[tuple[str, str], dict[str, str]] = defaultdict(dict)
+    inventory_rows: list[dict[str, object]] = []
     subject_tok = f'sub-{subject}'
     patterns = _pattern_lookup(patterns_file)
     for spec in metric_specs_for_analysis(
@@ -153,6 +171,19 @@ def _build_metric_files(
             space=_space_for_spec_group(spec.group),
         )
         matches = sorted(glob(os.path.join(deriv_dir, subj_pattern)))
+        inventory_rows.append(
+            {
+                'subject': subject_tok,
+                'metric_key': spec.label,
+                'primary_label': spec.primary_label,
+                'pattern_key': spec.pattern_key,
+                'source_image': spec.source_image,
+                'space': _space_for_spec_group(spec.group),
+                'glob': os.path.join(deriv_dir, subj_pattern),
+                'n_matches': len(matches),
+                'selected_file': matches[0] if matches else '',
+            }
+        )
         if not matches:
             continue
         for map_file in matches:
@@ -162,7 +193,7 @@ def _build_metric_files(
                 # Keep the first deterministic match for duplicate paths.
                 continue
             metric_files_by_key[key][spec.label] = map_file
-    return metric_files_by_key
+    return metric_files_by_key, inventory_rows
 
 
 def _space_from_path(path: str) -> str:
@@ -211,10 +242,12 @@ def process_subject(
     subject: str,
     deriv_dir: str,
     patterns_file: Path,
+    out_root: str | None = None,
     zero_is_missing: bool = True,
 ) -> None:
     t1w_reg_dir = os.path.join(deriv_dir, 't1w_registration', f'sub-{subject}', 'anat')
-    out_dir = os.path.join(deriv_dir, f'{ATLAS_DESC}_myelin_stats', f'sub-{subject}')
+    out_base = out_root or os.path.join(deriv_dir, f'{ATLAS_DESC}_myelin_stats')
+    out_dir = os.path.join(out_base, f'sub-{subject}')
     os.makedirs(out_dir, exist_ok=True)
 
     dseg_t1w = os.path.join(t1w_reg_dir, f'sub-{subject}_space-T1w_desc-{ATLAS_DESC}_dseg.nii.gz')
@@ -250,7 +283,10 @@ def process_subject(
         dtype=np.int64,
     )
 
-    metric_files_by_key = _build_metric_files(subject, deriv_dir, patterns_file)
+    metric_files_by_key, inventory_rows = _build_metric_files(subject, deriv_dir, patterns_file)
+    inventory_file = os.path.join(out_dir, f'sub-{subject}_desc-{ATLAS_DESC}_metric_inventory.tsv')
+    pd.DataFrame(inventory_rows).to_csv(inventory_file, sep='\t', index=False)
+    print(f'Wrote {inventory_file}', flush=True)
     if not metric_files_by_key:
         print(f'No scalar maps found for sub-{subject}', flush=True)
         return
@@ -362,6 +398,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help='Subject ID without the sub- prefix',
     )
     parser.add_argument(
+        '--derivatives-dir',
+        default=str(_project_root() / 'derivatives'),
+        help='Derivatives root directory.',
+    )
+    parser.add_argument(
+        '--out-root',
+        default=None,
+        help='Output root. Defaults to <derivatives-dir>/DKTatlas_myelin_stats.',
+    )
+    parser.add_argument(
         '--include-zero',
         action='store_true',
         help=(
@@ -379,16 +425,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-    from configuration.config import load_config
-
     args = _build_parser().parse_args()
-    cfg = load_config()
-    # derivatives_dir = os.path.join(cfg["project_root"], "derivatives")
-    derivatives_dir = '/cbica/projects/nibs/derivatives'
     process_subject(
         args.subject_id,
-        derivatives_dir,
+        args.derivatives_dir,
         args.patterns_file,
+        out_root=args.out_root,
         zero_is_missing=not args.include_zero,
     )

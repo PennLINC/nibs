@@ -37,6 +37,7 @@ def write_metric_inclusion(
     analysis_set: str,
     tissue: str,
     expected_labels: list[str],
+    observed_before_qc_labels: set[str],
     observed_labels: set[str],
     included_labels: list[str],
     display: dict[str, str],
@@ -50,13 +51,16 @@ def write_metric_inclusion(
             'metric_key': label,
             'metric': display.get(label, label),
             'expected': True,
+            'observed_in_input_before_qc': label in observed_before_qc_labels,
             'observed_in_input_after_qc': label in observed_labels,
             'included': label in included,
             'reason_if_not_included': (
                 ''
                 if label in included
                 else (
-                    'not_observed_in_input_after_qc'
+                    'not_observed_in_input_before_qc'
+                    if label not in observed_before_qc_labels
+                    else 'not_observed_in_input_after_qc'
                     if label not in observed_labels
                     else 'fewer_than_two_included_metrics_or_no_valid_correlations'
                 )
@@ -183,14 +187,15 @@ def main() -> None:
             patterns_file=args.patterns_file,
         )
         wm_df = add_metric_metadata(wm_df, 'metric', args.patterns_file)
-        wm_df = apply_qc_mode(
+        raw_wm_df = wm_df.copy()
+        qc_wm_df = apply_qc_mode(
             wm_df,
             qc_df,
             args.qc_mode,
             profile_type='wm',
             patterns_file=args.patterns_file,
         )
-        inputs.append(('wm_bundles', wm_df))
+        inputs.append(('wm_bundles', raw_wm_df, qc_wm_df))
     if args.analysis in {'gm', 'both'}:
         gm_df = load_dkt_long_df(
             args.dkt_input_glob,
@@ -198,16 +203,17 @@ def main() -> None:
             patterns_file=args.patterns_file,
         )
         gm_df = add_metric_metadata(gm_df, 'metric', args.patterns_file)
-        gm_df = apply_qc_mode(
+        raw_gm_df = gm_df.copy()
+        qc_gm_df = apply_qc_mode(
             gm_df,
             qc_df,
             args.qc_mode,
             profile_type='dkt',
             patterns_file=args.patterns_file,
         )
-        inputs.append(('gm_parcels', gm_df))
+        inputs.append(('gm_parcels', raw_gm_df, qc_gm_df))
 
-    for profile_type, long_df in inputs:
+    for profile_type, raw_df, long_df in inputs:
         for analysis_set in ANALYSIS_SETS:
             tissue = 'wm' if profile_type == 'wm_bundles' else 'gm'
             expected_labels = metric_order(
@@ -215,6 +221,7 @@ def main() -> None:
                 analysis_set,
                 tissue=tissue,
             )
+            observed_before_qc_labels = set(raw_df['metric'])
             observed_labels = set(long_df['metric'])
             labels = [
                 label
@@ -233,6 +240,7 @@ def main() -> None:
                 analysis_set,
                 tissue,
                 expected_labels,
+                observed_before_qc_labels,
                 observed_labels,
                 labels,
                 display,

@@ -1,160 +1,493 @@
-"""Apply hierarchical clustering to correlation matrices."""
+#!/usr/bin/env python3
+"""Plot clustered metric correlation matrices from saved correlation TSVs."""
 
-import os
+from __future__ import annotations
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sns
-from scipy.cluster.hierarchy import linkage, leaves_list
-from scipy.spatial.distance import squareform
+import argparse
+import sys
+from pathlib import Path
 
+try:
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    from matplotlib.patches import Patch, Rectangle
+    from scipy.cluster.hierarchy import linkage
+    from scipy.spatial.distance import squareform
+except ImportError:  # pragma: no cover - checked after argparse handles --help
+    mpl = None
+    plt = None
+    np = None
+    pd = None
+    sns = None
+    Patch = None
+    Rectangle = None
+    linkage = None
+    squareform = None
 
-SELECTED_SCALARS = [
-    'DSIStudio Tensor MD',
-    'DSIStudio Tensor FA',
-    'DSIStudio Tensor RD',
-    'DSIStudio GQI GFA',
-    'NODDI ICVF',
-    'DKI MKT',
-    'DKI RK',
-    'TORTOISE MAPMRI RTOP',
-    'TORTOISE MAPMRI RTAP',
-    'TORTOISE MAPMRI NG',
-    'ihMTR',
-    'ihMTsat-B1c',
-    'R1',
-    'R1-B1c',
-    'MPRAGE-MyelinW',
-    'SPACE-MyelinW',
-    'QSM-SEPIA-E5',
-    "QSM-X-R2'-E5-X",
-    "QSM-X-R2'-E5-Para",
-    "QSM-X-R2'-E5-Dia",
-]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from metric_registry import SOURCE_IMAGE_COLORS, build_metric_specs, metric_display_labels
 
 
-def mirror_linkage(Z):
-    """Reverse dendrogram orientation by swapping children at every merge."""
-    Z_flipped = Z.copy()
-    Z_flipped[:, [0, 1]] = Z_flipped[:, [1, 0]]
-    return Z_flipped
+def find_project_root() -> Path:
+    path = Path(__file__).resolve()
+    for parent in path.parents:
+        if (
+            parent.name == 'code'
+            and (parent.parent / 'derivatives').exists()
+            and (parent / 'configuration' / 'patterns.json').exists()
+        ):
+            return parent.parent
+        if (
+            (parent / 'configuration' / 'patterns.json').exists()
+            and (parent / 'analysis').exists()
+        ):
+            return parent
+    return path.parents[1]
 
 
-def save_clustermap(df, linkage_matrix, title, out_file, color_mapper=None):
-    n = df.shape[0]
-    font_size = max(10, min(16, round(900 / n)))
-    cmap = sns.diverging_palette(230, 20, as_cmap=True)
-    cmap.set_bad('black')
-    diagonal_mask = pd.DataFrame(np.eye(n, dtype=bool), index=df.index, columns=df.columns)
-    ax = sns.clustermap(
-        df,
-        figsize=(20, 20),
+PROJECT_ROOT = find_project_root()
+ANALYSIS_SETS = ('primary', 'full')
+TISSUES = ('gm', 'wm')
+MNI_CORRELATIONS = ('pearson', 'spearman')
+PARCEL_STAT = 'median'
+
+
+def require_dependencies() -> None:
+    missing = [
+        name
+        for name, module in (
+            ('matplotlib', mpl),
+            ('numpy', np),
+            ('pandas', pd),
+            ('seaborn', sns),
+            ('scipy.cluster', linkage),
+        )
+        if module is None
+    ]
+    if missing:
+        raise RuntimeError(
+            'Missing required Python packages: '
+            f'{", ".join(missing)}. Activate the NIBS analysis environment first.'
+        )
+
+
+def default_parcel_dir() -> Path:
+    local = PROJECT_ROOT / 'derivatives' / 'parcel_bundle_correlations'
+    if local.exists():
+        return local
+    return Path('/cbica/projects/nibs/derivatives/parcel_bundle_correlations')
+
+
+def clean_title_token(value: str) -> str:
+    return str(value).replace('_', ' ').title()
+
+
+def figure_size(n_metrics: int) -> tuple[float, float]:
+    side = max(10.5, min(30.0, 4.8 + 0.44 * n_metrics))
+    return side, side
+
+
+def label_fontsize(n_metrics: int) -> float:
+    if n_metrics <= 28:
+        return 8.5
+    if n_metrics <= 45:
+        return 7.0
+    if n_metrics <= 70:
+        return 5.8
+    return 4.8
+
+
+def title_fontsize(n_metrics: int) -> float:
+    return max(14.0, min(24.0, 27.0 - 0.12 * n_metrics))
+
+
+def load_correlation_matrix(path: Path) -> pd.DataFrame:
+    corr = pd.read_csv(path, sep='\t', index_col=0)
+    corr.index = corr.index.astype(str)
+    corr.columns = corr.columns.astype(str)
+    labels = list(corr.index)
+    missing_columns = [label for label in labels if label not in corr.columns]
+    if missing_columns:
+        raise RuntimeError(
+            f'{path} is not a square metric-by-metric matrix; missing columns: '
+            f'{", ".join(missing_columns[:10])}'
+        )
+    corr = corr.loc[labels, labels].apply(pd.to_numeric, errors='coerce')
+    values = corr.to_numpy(dtype=float)
+    values = (values + values.T) / 2.0
+    corr.loc[:, :] = values
+    return corr
+
+
+def source_lookup(patterns_file: Path, analysis_set: str, tissue: str) -> dict[str, str]:
+    specs = build_metric_specs(patterns_file)
+    labels = metric_display_labels(specs, analysis_set, tissue=tissue)
+    lookup: dict[str, str] = {}
+    for spec in specs:
+        display = labels.get(spec.label)
+        candidates = {
+            spec.label,
+            spec.primary_label,
+            display,
+            labels.get(spec.primary_label),
+        }
+        for candidate in candidates:
+            if candidate:
+                lookup[str(candidate)] = spec.source_image
+    return lookup
+
+
+def correlation_linkage(corr: pd.DataFrame):
+    if corr.shape[0] < 2:
+        return None
+    safe = corr.fillna(0.0).to_numpy(dtype=float)
+    safe = np.clip((safe + safe.T) / 2.0, -1.0, 1.0)
+    distance = np.clip(1.0 - np.abs(safe), 0.0, 1.0)
+    np.fill_diagonal(distance, 0.0)
+    return linkage(squareform(distance, checks=False), method='average', optimal_ordering=True)
+
+
+def draw_diagonal(grid, color: str = 'black') -> None:
+    row_order = list(grid.data2d.index)
+    column_order = list(grid.data2d.columns)
+    column_position = {label: index for index, label in enumerate(column_order)}
+    for row_index, label in enumerate(row_order):
+        col_index = column_position.get(label)
+        if col_index is None:
+            continue
+        grid.ax_heatmap.add_patch(
+            Rectangle(
+                (col_index, row_index),
+                1,
+                1,
+                facecolor=color,
+                edgecolor=color,
+                linewidth=0,
+                zorder=5,
+            )
+        )
+
+
+def add_source_annotation(
+    grid,
+    source_by_label: dict[str, str],
+    width: float = 0.018,
+    gap: float = 0.004,
+) -> None:
+    grid.fig.canvas.draw()
+    heatmap_position = grid.ax_heatmap.get_position()
+    dendrogram_position = grid.ax_row_dendrogram.get_position()
+    grid.ax_row_dendrogram.set_position(
+        [
+            dendrogram_position.x0,
+            heatmap_position.y0,
+            max(dendrogram_position.width - width - gap, 0.01),
+            heatmap_position.height,
+        ]
+    )
+
+    labels = list(grid.data2d.index)
+    colors = np.array(
+        [
+            mpl.colors.to_rgba(
+                SOURCE_IMAGE_COLORS.get(
+                    source_by_label.get(label, 'Other'),
+                    SOURCE_IMAGE_COLORS['Other'],
+                )
+            )
+            for label in labels
+        ]
+    ).reshape(len(labels), 1, 4)
+    bar_x0 = heatmap_position.x0 - width - gap
+    bar_ax = grid.fig.add_axes(
+        [
+            bar_x0,
+            heatmap_position.y0,
+            width,
+            heatmap_position.height,
+        ]
+    )
+    bar_ax.imshow(colors, aspect='auto', interpolation='nearest', origin='upper')
+    bar_ax.set_xlim(-0.5, 0.5)
+    bar_ax.set_ylim(len(labels) - 0.5, -0.5)
+    bar_ax.set_xticks([])
+    bar_ax.set_yticks([])
+    for spine in bar_ax.spines.values():
+        spine.set_visible(False)
+    bar_ax.text(
+        0.5,
+        -0.018,
+        'Source image',
+        transform=bar_ax.transAxes,
+        rotation=45,
+        ha='right',
+        va='top',
+        rotation_mode='anchor',
+        fontsize=9,
+    )
+
+
+def plot_matrix(
+    corr: pd.DataFrame,
+    source_by_label: dict[str, str],
+    title: str,
+    cbar_label: str,
+    out_stem: Path,
+) -> None:
+    n_metrics = corr.shape[0]
+    z_matrix = correlation_linkage(corr)
+    plot_data = corr.copy()
+    np.fill_diagonal(plot_data.values, np.nan)
+    cmap = sns.diverging_palette(220, 20, as_cmap=True)
+    cmap.set_bad('#eeeeee')
+
+    grid = sns.clustermap(
+        plot_data,
+        row_linkage=z_matrix,
+        col_linkage=z_matrix,
+        row_cluster=z_matrix is not None,
+        col_cluster=z_matrix is not None,
         cmap=cmap,
-        mask=diagonal_mask,
-        cbar_pos=None,
-        dendrogram_ratio=(0.1, 0),
-        row_colors=color_mapper,
-        row_linkage=linkage_matrix,
-        col_linkage=linkage_matrix,
         vmin=-1,
         vmax=1,
+        center=0,
+        linewidths=0,
+        xticklabels=True,
+        yticklabels=True,
+        figsize=figure_size(n_metrics),
+        dendrogram_ratio=(0.12, 0.025),
+        cbar_pos=(0.26, 0.055, 0.48, 0.022),
+        cbar_kws={
+            'orientation': 'horizontal',
+            'label': cbar_label,
+            'ticks': [-1, -0.5, 0, 0.5, 1],
+        },
     )
-    ticks = np.arange(0, n) + 0.5
-    ax.ax_heatmap.set_xticks(ticks)
-    ax.ax_heatmap.set_xticklabels(ax.data2d.index, fontsize=font_size, rotation=45, ha='right')
-    ax.ax_heatmap.set_yticks(ticks)
-    ax.ax_heatmap.set_yticklabels(ax.data2d.index, fontsize=font_size)
-    ax.ax_heatmap.set_ylabel(None)
-    if color_mapper is not None:
-        ax.ax_row_colors.set_xticks([])
-    ax.figure.suptitle(title, fontsize=36, y=1.02)
-    cbar_ax = ax.figure.add_axes([0.25, -0.04, 0.5, 0.02])
-    sm = mpl.cm.ScalarMappable(cmap=cmap, norm=mpl.colors.Normalize(vmin=-1, vmax=1))
-    sm.set_array([])
-    cbar = ax.figure.colorbar(sm, cax=cbar_ax, orientation='horizontal', label='Pearson $r$')
-    cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
-    cbar.set_ticklabels(['-1', '-0.5', '0', '0.5', '1'])
-    cbar.ax.tick_params(labelsize=20)
-    cbar.set_label('Pearson $r$', size=20)
-    ax.figure.savefig(out_file, bbox_inches='tight')
-    ax.figure.savefig(out_file.replace('.pdf', '.png'), bbox_inches='tight')
-    plt.close()
+    grid.ax_col_dendrogram.set_visible(False)
+    grid.ax_heatmap.set_aspect('equal', adjustable='box')
+    grid.ax_heatmap.set_xlabel('')
+    grid.ax_heatmap.set_ylabel('')
+    grid.ax_heatmap.tick_params(axis='both', length=0, pad=4)
+
+    fs = label_fontsize(n_metrics)
+    ticks = np.arange(n_metrics) + 0.5
+    grid.ax_heatmap.set_xticks(ticks)
+    grid.ax_heatmap.set_yticks(ticks)
+    grid.ax_heatmap.set_xticklabels(list(grid.data2d.columns))
+    grid.ax_heatmap.set_yticklabels(list(grid.data2d.index))
+    plt.setp(
+        grid.ax_heatmap.get_xticklabels(),
+        rotation=45,
+        ha='right',
+        rotation_mode='anchor',
+        fontsize=fs,
+    )
+    plt.setp(
+        grid.ax_heatmap.get_yticklabels(),
+        rotation=0,
+        fontsize=fs,
+    )
+
+    observed_sources = [
+        source
+        for source in SOURCE_IMAGE_COLORS
+        if source in {source_by_label.get(label, 'Other') for label in plot_data.index}
+    ]
+    handles = [
+        Patch(facecolor=SOURCE_IMAGE_COLORS[source], edgecolor='none', label=source)
+        for source in observed_sources
+    ]
+    grid.ax_heatmap.legend(
+        handles=handles,
+        title='Source image',
+        loc='upper left',
+        bbox_to_anchor=(1.22, 0.55),
+        frameon=False,
+        fontsize=max(7.0, fs),
+        title_fontsize=max(8.0, fs + 1),
+    )
+
+    grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.985)
+    grid.fig.subplots_adjust(left=0.075, right=0.82, top=0.93, bottom=0.17)
+    grid.cax.set_position([0.26, 0.055, 0.48, 0.022])
+    draw_diagonal(grid)
+    add_source_annotation(grid, source_by_label)
+
+    out_stem.parent.mkdir(parents=True, exist_ok=True)
+    for extension in ('pdf', 'png'):
+        out_path = out_stem.with_suffix(f'.{extension}')
+        grid.fig.savefig(out_path, bbox_inches='tight', dpi=300)
+        print(f'Wrote: {out_path}', flush=True)
+    plt.close(grid.fig)
+
+
+def mni_input_path(mni_dir: Path, analysis_set: str, tissue: str, correlation: str) -> Path:
+    return mni_dir / f'mni_voxelwise_{analysis_set}_{tissue}_{correlation}_r.tsv'
+
+
+def parcel_input_path(parcel_dir: Path, analysis_set: str, tissue: str, stat: str) -> Path:
+    profile_type = 'gm_parcels' if tissue == 'gm' else 'wm_bundles'
+    return parcel_dir / f'{profile_type}_{analysis_set}_spearman_{stat}_r.tsv'
+
+
+def selected_values(values: list[str], all_values: tuple[str, ...]) -> list[str]:
+    if 'both' in values:
+        return list(all_values)
+    return values
+
+
+def plot_if_available(
+    input_path: Path,
+    output_stem: Path,
+    source_by_label: dict[str, str],
+    title: str,
+    cbar_label: str,
+    strict: bool,
+) -> None:
+    if not input_path.exists():
+        message = f'Missing input, skipping: {input_path}'
+        if strict:
+            raise FileNotFoundError(message)
+        print(f'[WARN] {message}', flush=True)
+        return
+    corr = load_correlation_matrix(input_path)
+    if corr.empty:
+        print(f'[WARN] Empty matrix, skipping: {input_path}', flush=True)
+        return
+    plot_matrix(corr, source_by_label, title, cbar_label, output_stem)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '--patterns-file',
+        type=Path,
+        default=PROJECT_ROOT / 'configuration' / 'patterns.json',
+        help='Metric pattern registry used to assign source-image colors.',
+    )
+    parser.add_argument(
+        '--mni-dir',
+        type=Path,
+        default=PROJECT_ROOT / 'derivatives' / 'mni_voxelwise_correlations',
+        help='Directory containing compute_mni_voxelwise_correlations.py TSV outputs.',
+    )
+    parser.add_argument(
+        '--parcel-dir',
+        type=Path,
+        default=default_parcel_dir(),
+        help='Directory containing compute_parcel_bundle_correlations.py TSV outputs.',
+    )
+    parser.add_argument(
+        '--output-dir',
+        type=Path,
+        default=PROJECT_ROOT / 'figures' / 'correlation_matrices',
+        help='Directory for clustered correlation matrix figures.',
+    )
+    parser.add_argument(
+        '--analysis-set',
+        nargs='+',
+        choices=('primary', 'full', 'both'),
+        default=['both'],
+        help='Metric set(s) to plot.',
+    )
+    parser.add_argument(
+        '--tissue',
+        nargs='+',
+        choices=('gm', 'wm', 'both'),
+        default=['both'],
+        help='Tissue/profile(s) to plot.',
+    )
+    parser.add_argument(
+        '--mni-correlation',
+        nargs='+',
+        choices=('pearson', 'spearman', 'both'),
+        default=['pearson'],
+        help='MNI voxelwise correlation method(s) to plot.',
+    )
+    parser.add_argument(
+        '--parcel-stat',
+        choices=('mean', 'median'),
+        default=PARCEL_STAT,
+        help='Parcel/bundle summary statistic used in parcel correlation filenames.',
+    )
+    parser.add_argument(
+        '--strict',
+        action='store_true',
+        help='Fail instead of warning when an expected input matrix is missing.',
+    )
+    parser.add_argument(
+        '--skip-mni',
+        action='store_true',
+        help='Do not plot MNI voxelwise matrices.',
+    )
+    parser.add_argument(
+        '--skip-parcel',
+        action='store_true',
+        help='Do not plot GM parcel / WM bundle matrices.',
+    )
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    require_dependencies()
+    mpl.rcParams['font.family'] = 'Arial'
+    mpl.rcParams['pdf.fonttype'] = 42
+    mpl.rcParams['ps.fonttype'] = 42
+    sns.set_theme(style='white', font='Arial')
+
+    analysis_sets = selected_values(args.analysis_set, ANALYSIS_SETS)
+    tissues = selected_values(args.tissue, TISSUES)
+    mni_correlations = selected_values(args.mni_correlation, MNI_CORRELATIONS)
+
+    for analysis_set in analysis_sets:
+        for tissue in tissues:
+            source_by_label = source_lookup(args.patterns_file, analysis_set, tissue)
+            tissue_title = 'GM' if tissue == 'gm' else 'WM'
+
+            if not args.skip_mni:
+                for correlation in mni_correlations:
+                    corr_title = 'Pearson' if correlation == 'pearson' else 'Spearman'
+                    title = (
+                        f'{clean_title_token(analysis_set)} {tissue_title} '
+                        f'MNI Voxelwise {corr_title} Correlations'
+                    )
+                    out_stem = (
+                        args.output_dir
+                        / f'mni_voxelwise_{analysis_set}_{tissue}_{correlation}_correlations'
+                    )
+                    plot_if_available(
+                        mni_input_path(args.mni_dir, analysis_set, tissue, correlation),
+                        out_stem,
+                        source_by_label,
+                        title,
+                        f'Mean voxelwise {corr_title} r',
+                        args.strict,
+                    )
+
+            if not args.skip_parcel:
+                profile_title = 'GM Parcels' if tissue == 'gm' else 'WM Bundles'
+                title = (
+                    f'{clean_title_token(analysis_set)} {profile_title} '
+                    'Spearman Correlations'
+                )
+                out_stem = (
+                    args.output_dir
+                    / f'parcel_bundle_{analysis_set}_{tissue}_spearman_{args.parcel_stat}_correlations'
+                )
+                plot_if_available(
+                    parcel_input_path(args.parcel_dir, analysis_set, tissue, args.parcel_stat),
+                    out_stem,
+                    source_by_label,
+                    title,
+                    'Mean Spearman rho',
+                    args.strict,
+                )
 
 
 if __name__ == '__main__':
-    _script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    grouping_df = pd.read_table(
-        os.path.join(_script_dir, '..', 'configuration', 'scalar_groups.tsv'),
-        index_col='scalar',
-    )
-    out_dir = os.path.join(_script_dir, '..', 'figures', 'correlation_matrices')
-    os.makedirs(out_dir, exist_ok=True)
-
-    names = {
-        'Whole Brain': 'mean_wb_corr_mat.tsv',
-        'Gray Matter': 'mean_gm_corr_mat.tsv',
-        'White Matter': 'mean_wm_corr_mat.tsv',
-        'Cortical Gray Matter': 'mean_cortical_gm_corr_mat.tsv',
-        'Deep Gray Matter': 'mean_deep_gm_corr_mat.tsv',
-    }
-
-    modality_groups = list(grouping_df['group'].unique())
-    pal = sns.color_palette('hls', len(modality_groups))
-    color_mapper = pd.Series(
-        {scalar: pal[modality_groups.index(row['group'])] for scalar, row in grouping_df.iterrows()}
-    )
-
-    groups = ['all', 'dMRI', 'QSM', 'selected']
-    for group in groups:
-        for i_name, (title, filename) in enumerate(names.items()):
-            df = pd.read_table(
-                os.path.join(_script_dir, '..', 'data', filename),
-                index_col='Image',
-            )
-            df = df.apply(np.tanh)
-            arr = df.values
-            np.fill_diagonal(arr, 1)
-            df.loc[:, :] = arr
-
-            if group == 'all':
-                df_reduced = df.copy()
-            elif group in ('dMRI', 'QSM'):
-                cols = grouping_df.loc[grouping_df['group'] == group].index.tolist()
-                df_reduced = df.loc[cols, cols]
-            else:
-                df_reduced = df.loc[SELECTED_SCALARS, SELECTED_SCALARS]
-
-            # Cluster on the pairwise distance d_ij = 1 - |r_ij|. Passing the
-            # condensed distance vector (via squareform) makes scipy treat the
-            # input as precomputed distances rather than as an observation matrix.
-            dist = 1 - np.abs(df_reduced.values)
-            np.fill_diagonal(dist, 0)
-            condensed = squareform(dist, checks=False)
-            linkage_matrix = linkage(condensed, method='average', optimal_ordering=True)
-            leaves = leaves_list(linkage_matrix)
-
-            if i_name == 0:
-                first_leaves = leaves
-                reversed_order = False
-            else:
-                rv_corr = np.corrcoef(leaves[::-1], first_leaves)[0, 1]
-                fwd_corr = np.corrcoef(leaves, first_leaves)[0, 1]
-                reversed_order = rv_corr > fwd_corr
-                if reversed_order:
-                    print(
-                        f'{title} forward correlation: {fwd_corr}, reverse correlation: {rv_corr}'
-                    )
-                    print(f'{title} is reversed')
-
-            stem = filename.split('.')[0]
-            stem = stem.replace('_corr_mat', '').replace('mean_', '')
-            out_file = os.path.join(out_dir, f'group-{group}_tissue-{stem}_corrmat.pdf')
-
-            if reversed_order:
-                linkage_matrix = mirror_linkage(linkage_matrix)
-
-            row_colors = color_mapper if group not in ('dMRI', 'QSM') else None
-            save_clustermap(df_reduced, linkage_matrix, title, out_file, color_mapper=row_colors)
+    main()
