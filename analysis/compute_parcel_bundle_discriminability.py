@@ -16,7 +16,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from metric_registry import build_metric_specs, metric_display_labels, metric_order
-from parcel_metric_utils import add_metric_metadata, canonical_metric_from_row
+from parcel_metric_utils import add_metric_metadata, canonical_metric_from_row, canonical_metric_name
 from path_utils import CODE_ROOT, DERIVATIVES_ROOT
 
 
@@ -180,8 +180,34 @@ def build_value_table(
         var_name='metric_stat',
         value_name='value',
     )
+    raw_metric_names = value_df['metric_stat'].str[: -(len(stat) + 1)]
+    unmapped_metrics = sorted(
+        {
+            metric
+            for metric in raw_metric_names
+            if canonical_metric_name(metric, patterns_file=patterns_file) is None
+        }
+    )
     value_df['metric'] = value_df['metric_stat'].str[: -(len(stat) + 1)]
     value_df = add_metric_metadata(value_df, 'metric', patterns_file)
+    metric_counts = value_df['metric'].value_counts().sort_index()
+    print(
+        '[INFO] Loaded DKT parcel stats: '
+        f'{len(df)} parcel rows, {len(metric_cols)} {stat} metric columns, '
+        f'{len(value_df)} mapped long rows, {len(metric_counts)} canonical metrics.',
+        flush=True,
+    )
+    print(
+        '[INFO] DKT canonical metrics after input loading: '
+        + ', '.join(f'{metric}={count}' for metric, count in metric_counts.items()),
+        flush=True,
+    )
+    if unmapped_metrics:
+        print(
+            '[WARN] Dropped DKT metric columns with unmapped registry metrics: '
+            + ', '.join(unmapped_metrics[:40]),
+            flush=True,
+        )
     value_df['parcel'] = (
         value_df['parcel_hemi'].astype(str) + '_' + value_df['parcel_name'].astype(str)
     )

@@ -148,6 +148,20 @@ def pattern_token_aliases(
     return aliases
 
 
+def canonical_lookup_token(text: object) -> str:
+    """Normalize labels while preserving meaningful metric symbols."""
+
+    value = str(text)
+    for source, target in (
+        ('*', 'star'),
+        ("'", 'prime'),
+        ('χ', 'chi'),
+        ('⊥', 'perp'),
+    ):
+        value = value.replace(source, target)
+    return norm_token(value)
+
+
 def canonical_metric_name(
     metric: object,
     specs: list[MetricSpec] | None = None,
@@ -158,16 +172,23 @@ def canonical_metric_name(
     specs = specs or build_metric_specs(default_patterns_file())
     candidates: dict[str, str] = {}
     for spec in specs:
-        candidates[norm_token(spec.label)] = spec.label
-        candidates[norm_token(spec.primary_label)] = spec.label
-        candidates[norm_token(spec.pattern_key)] = spec.label
+        if text in {spec.label, spec.pattern_key}:
+            return spec.label
+    for spec in specs:
+        if text == spec.primary_label:
+            return spec.label
+    for spec in specs:
+        candidates.setdefault(canonical_lookup_token(spec.label), spec.label)
+        candidates.setdefault(canonical_lookup_token(spec.pattern_key), spec.label)
+    for spec in specs:
+        candidates.setdefault(canonical_lookup_token(spec.primary_label), spec.label)
     for alias, label in pattern_token_aliases(specs, patterns_file).items():
-        candidates[norm_token(alias)] = label
+        candidates.setdefault(canonical_lookup_token(alias), label)
     for alias, label in CANONICAL_ALIASES.items():
         if any(spec.label == label for spec in specs):
-            candidates[norm_token(alias)] = label
+            candidates.setdefault(canonical_lookup_token(alias), label)
 
-    canonical = candidates.get(norm_token(text))
+    canonical = candidates.get(canonical_lookup_token(text))
     if canonical is None:
         return None
 
