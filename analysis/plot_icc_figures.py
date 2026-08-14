@@ -97,6 +97,13 @@ def color_for_source(source: str) -> str:
     return SOURCE_IMAGE_COLORS.get(source, SOURCE_IMAGE_COLORS['Other'])
 
 
+def source_display_label(source: str) -> str:
+    return {
+        'T1w/T2w': 'T₁w/T₂w',
+        'R1': 'R₁',
+    }.get(source, source)
+
+
 def format_summary(values: np.ndarray) -> str:
     finite = values[np.isfinite(values)]
     if finite.size == 0:
@@ -278,7 +285,6 @@ def draw_interval_panel(
         median = tissue_summary.loc[metric_key, 'median']
         q25 = tissue_summary.loc[metric_key, 'q25']
         q75 = tissue_summary.loc[metric_key, 'q75']
-        ax.hlines(position, 0.0, 1.0, color='#ececec', lw=0.8, zorder=0)
         ax.add_patch(
             Rectangle(
                 (q25, position - 0.20),
@@ -300,7 +306,7 @@ def draw_interval_panel(
             transform=ax.get_yaxis_transform(),
             ha='right',
             va='center',
-            fontsize=7.4,
+            fontsize=8.5,
             clip_on=False,
         )
         ax.text(
@@ -310,8 +316,8 @@ def draw_interval_panel(
             transform=ax.get_yaxis_transform(),
             ha='left',
             va='center',
-            fontsize=7.4,
-            color='#303030',
+            fontsize=8.5,
+            color='black',
             clip_on=False,
         )
 
@@ -336,51 +342,87 @@ def draw_interval_panel(
     ax.spines['right'].set_visible(False)
 
 
-def label_offsets(n_labels: int) -> list[tuple[float, float]]:
-    pattern = [
-        (0.030, 0.030),
-        (0.034, -0.032),
-        (-0.075, 0.030),
-        (-0.078, -0.034),
-        (0.046, 0.062),
-        (-0.090, 0.060),
-        (0.060, -0.060),
-        (-0.102, -0.058),
-    ]
-    return [pattern[index % len(pattern)] for index in range(n_labels)]
-
-
-def repel_label_positions(
-    points: list[tuple[float, float]],
-    offsets: list[tuple[float, float]],
+def label_box(
+    x: float,
+    y: float,
+    label: str,
+    ha: str,
     lower: float,
     upper: float,
-) -> list[tuple[float, float]]:
-    positions = [
-        (
-            float(np.clip(x + dx, lower + 0.015, upper - 0.015)),
-            float(np.clip(y + dy, lower + 0.015, upper - 0.015)),
-        )
-        for (x, y), (dx, dy) in zip(points, offsets)
+) -> tuple[float, float, float, float]:
+    span = upper - lower
+    width = span * min(0.18, max(0.035, 0.0060 * len(label)))
+    height = span * 0.030
+    x0, x1 = (x, x + width) if ha == 'left' else (x - width, x)
+    return x0, x1, y - height / 2.0, y + height / 2.0
+
+
+def boxes_overlap(
+    first: tuple[float, float, float, float],
+    second: tuple[float, float, float, float],
+) -> bool:
+    return not (
+        first[1] < second[0]
+        or second[1] < first[0]
+        or first[3] < second[2]
+        or second[3] < first[2]
+    )
+
+
+def scatter_label_layout(
+    wide: pd.DataFrame,
+    meta: pd.DataFrame,
+    lower: float,
+    upper: float,
+) -> dict[str, tuple[float, float, str, bool]]:
+    span = upper - lower
+    pad = 0.012 * span
+    near_offsets = [
+        (0.012, 0.012, 'left'),
+        (0.012, -0.012, 'left'),
+        (-0.012, 0.012, 'right'),
+        (-0.012, -0.012, 'right'),
+        (0.020, 0.000, 'left'),
+        (-0.020, 0.000, 'right'),
     ]
-    min_dx = 0.050 * (upper - lower)
-    min_dy = 0.030 * (upper - lower)
-    for _ in range(80):
-        moved = False
-        for i in range(len(positions)):
-            xi, yi = positions[i]
-            for j in range(i + 1, len(positions)):
-                xj, yj = positions[j]
-                if abs(xi - xj) >= min_dx or abs(yi - yj) >= min_dy:
-                    continue
-                direction = 1.0 if yj >= yi else -1.0
-                yj = float(np.clip(yj + direction * min_dy, lower + 0.015, upper - 0.015))
-                xj = float(np.clip(xj + (0.35 * min_dx if xj >= xi else -0.35 * min_dx), lower + 0.015, upper - 0.015))
-                positions[j] = (xj, yj)
-                moved = True
-        if not moved:
-            break
-    return positions
+    far_offsets = [
+        (0.042, 0.036, 'left'),
+        (0.042, -0.036, 'left'),
+        (-0.050, 0.036, 'right'),
+        (-0.050, -0.036, 'right'),
+        (0.065, 0.000, 'left'),
+        (-0.065, 0.000, 'right'),
+    ]
+    occupied: list[tuple[float, float, float, float]] = []
+    layout: dict[str, tuple[float, float, str, bool]] = {}
+    ranked_metrics = sorted(
+        wide.index,
+        key=lambda key: (float(wide.loc[key, 'wm']), float(wide.loc[key, 'gm'])),
+        reverse=True,
+    )
+    for metric_key in ranked_metrics:
+        row = wide.loc[metric_key]
+        label = str(meta.loc[metric_key, 'metric'])
+        choices = [(False, *offset) for offset in near_offsets] + [
+            (True, *offset) for offset in far_offsets
+        ]
+        best: tuple[float, float, str, bool] | None = None
+        for leader, dx, dy, ha in choices:
+            x = float(np.clip(row['gm'] + dx * span, lower + pad, upper - pad))
+            y = float(np.clip(row['wm'] + dy * span, lower + pad, upper - pad))
+            box = label_box(x, y, label, ha, lower, upper)
+            if not any(boxes_overlap(box, other) for other in occupied):
+                best = (x, y, ha, leader)
+                occupied.append(box)
+                break
+        if best is None:
+            dx, dy, ha = far_offsets[len(layout) % len(far_offsets)]
+            x = float(np.clip(row['gm'] + dx * span, lower + pad, upper - pad))
+            y = float(np.clip(row['wm'] + dy * span, lower + pad, upper - pad))
+            best = (x, y, ha, True)
+            occupied.append(label_box(x, y, label, ha, lower, upper))
+        layout[metric_key] = best
+    return layout
 
 
 def draw_scatter_panel(
@@ -416,12 +458,12 @@ def draw_scatter_panel(
         ax.axvline(benchmark, color='#e0e0e0', lw=0.8, zorder=0)
         ax.axhline(benchmark, color='#e0e0e0', lw=0.8, zorder=0)
 
-    points = [(float(row['gm']), float(row['wm'])) for _, row in wide.iterrows()]
-    label_positions = repel_label_positions(points, label_offsets(len(wide)), lower, upper)
-    for (metric_key, row), (label_x, label_y) in zip(wide.iterrows(), label_positions):
+    label_positions = scatter_label_layout(wide, meta, lower, upper)
+    for metric_key, row in wide.iterrows():
         source = meta.loc[metric_key, 'source_image']
         color = color_for_source(source)
         label = meta.loc[metric_key, 'metric']
+        label_x, label_y, label_ha, use_leader = label_positions[metric_key]
         ax.scatter(
             row['gm'],
             row['wm'],
@@ -432,40 +474,56 @@ def draw_scatter_panel(
             alpha=0.95,
             zorder=3,
         )
-        ax.annotate(
-            label,
-            xy=(row['gm'], row['wm']),
-            xytext=(label_x, label_y),
-            textcoords='data',
-            arrowprops={
-                'arrowstyle': '-',
-                'color': color,
-                'alpha': 0.55,
-                'lw': 0.6,
-                'shrinkA': 1,
-                'shrinkB': 4,
-            },
-            fontsize=7.0,
-            color=color,
-            ha='left' if label_x >= row['gm'] else 'right',
-            va='center',
-            zorder=4,
-        )
+        if use_leader:
+            ax.annotate(
+                label,
+                xy=(row['gm'], row['wm']),
+                xytext=(label_x, label_y),
+                textcoords='data',
+                arrowprops={
+                    'arrowstyle': '-',
+                    'color': color,
+                    'alpha': 0.55,
+                    'lw': 0.6,
+                    'shrinkA': 1,
+                    'shrinkB': 4,
+                },
+                fontsize=7.8,
+                color=color,
+                ha=label_ha,
+                va='center',
+                zorder=4,
+            )
+        else:
+            ax.text(
+                label_x,
+                label_y,
+                label,
+                fontsize=7.8,
+                color=color,
+                ha=label_ha,
+                va='center',
+                zorder=4,
+            )
     ax.text(
-        lower + 0.12 * (upper - lower),
-        upper - 0.16 * (upper - lower),
+        0.12,
+        0.81,
         'WM ICC > GM ICC',
+        transform=ax.transAxes,
         color='#6a6a6a',
-        fontsize=10,
+        fontsize=11,
         fontstyle='italic',
+        bbox={'facecolor': 'white', 'edgecolor': 'none', 'alpha': 0.80, 'pad': 1.0},
     )
     ax.text(
-        upper - 0.34 * (upper - lower),
-        lower + 0.10 * (upper - lower),
+        0.66,
+        0.13,
         'GM ICC > WM ICC',
+        transform=ax.transAxes,
         color='#6a6a6a',
-        fontsize=10,
+        fontsize=11,
         fontstyle='italic',
+        bbox={'facecolor': '#eeeeee', 'edgecolor': 'none', 'alpha': 0.80, 'pad': 1.0},
     )
     ax.set_xlim(lower, upper)
     ax.set_ylim(lower, upper)
@@ -482,7 +540,11 @@ def add_source_legend(fig, data: pd.DataFrame) -> None:
     if not sources:
         return
     handles = [
-        Patch(facecolor=color_for_source(source), edgecolor='none', label=source)
+        Patch(
+            facecolor=color_for_source(source),
+            edgecolor='none',
+            label=source_display_label(source),
+        )
         for source in sources
     ]
     fig.legend(
@@ -491,7 +553,9 @@ def add_source_legend(fig, data: pd.DataFrame) -> None:
         ncol=min(4, len(handles)),
         frameon=False,
         title='Source image',
-        bbox_to_anchor=(0.5, 0.018),
+        bbox_to_anchor=(0.5, 0.012),
+        fontsize=10,
+        title_fontsize=10.5,
     )
 
 
@@ -516,22 +580,22 @@ def plot_icc_figure(
             'font.family': 'Arial',
             'pdf.fonttype': 42,
             'ps.fonttype': 42,
-            'axes.titlesize': 13,
-            'axes.labelsize': 11,
-            'xtick.labelsize': 9,
-            'ytick.labelsize': 8.5,
+            'axes.titlesize': 14.5,
+            'axes.labelsize': 12.0,
+            'xtick.labelsize': 10.2,
+            'ytick.labelsize': 9.5,
         }
     )
-    fig = plt.figure(figsize=(9.8, 22.0), constrained_layout=False)
+    fig = plt.figure(figsize=(8.7, 20.0), constrained_layout=False)
     grid = fig.add_gridspec(
         3,
         1,
         height_ratios=[1.0, 1.0, 1.0],
-        left=0.235,
-        right=0.80,
-        bottom=0.082,
+        left=0.245,
+        right=0.845,
+        bottom=0.075,
         top=0.985,
-        hspace=0.22,
+        hspace=0.12,
     )
     ax_wm = fig.add_subplot(grid[0, 0])
     ax_gm = fig.add_subplot(grid[1, 0])
@@ -545,7 +609,7 @@ def plot_icc_figure(
             1.03,
             label,
             transform=ax.transAxes,
-            fontsize=17,
+            fontsize=18,
             fontweight='bold',
             ha='left',
             va='bottom',

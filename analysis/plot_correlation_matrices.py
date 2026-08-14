@@ -74,16 +74,23 @@ def figure_size(n_metrics: int) -> tuple[float, float]:
 
 def label_fontsize(n_metrics: int) -> float:
     if n_metrics <= 28:
-        return 10.0
+        return 12.2
     if n_metrics <= 45:
-        return 8.2
+        return 9.6
     if n_metrics <= 70:
-        return 6.8
-    return 5.6
+        return 7.6
+    return 6.3
 
 
 def title_fontsize(n_metrics: int) -> float:
     return max(18.0, min(26.0, 29.0 - 0.10 * n_metrics))
+
+
+def source_display_label(source: str) -> str:
+    return {
+        'T1w/T2w': 'T₁w/T₂w',
+        'R1': 'R₁',
+    }.get(source, source)
 
 
 def load_correlation_matrix(path: Path) -> pd.DataFrame:
@@ -279,22 +286,29 @@ def plot_matrix(
         if source in {source_by_label.get(label, 'Other') for label in plot_data.index}
     ]
     handles = [
-        Patch(facecolor=SOURCE_IMAGE_COLORS[source], edgecolor='none', label=source)
+        Patch(
+            facecolor=SOURCE_IMAGE_COLORS[source],
+            edgecolor='none',
+            label=source_display_label(source),
+        )
         for source in observed_sources
     ]
-    grid.ax_heatmap.legend(
+    grid.fig.legend(
         handles=handles,
         title='Source image',
-        loc='upper left',
-        bbox_to_anchor=(1.08, 0.55),
+        loc='lower center',
+        bbox_to_anchor=(0.5, 0.010),
+        ncol=max(1, len(handles)),
         frameon=False,
-        fontsize=max(7.0, fs),
-        title_fontsize=max(8.0, fs + 1),
+        fontsize=max(9.0, fs - 0.5),
+        title_fontsize=max(10.0, fs),
     )
 
-    grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.972)
-    grid.fig.subplots_adjust(left=0.07, right=0.855, top=0.948, bottom=0.14)
-    grid.cax.set_position([0.30, 0.062, 0.40, 0.022])
+    grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.965)
+    grid.fig.subplots_adjust(left=0.062, right=0.93, top=0.943, bottom=0.185)
+    grid.cax.set_position([0.30, 0.064, 0.40, 0.024])
+    grid.cax.tick_params(labelsize=max(9.0, fs - 0.5), length=3)
+    grid.cax.xaxis.label.set_size(max(10.0, fs))
     draw_diagonal(grid)
     add_source_annotation(grid, source_by_label)
 
