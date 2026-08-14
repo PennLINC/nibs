@@ -92,6 +92,20 @@ TABLE_ORDER = {
         'RTAP',
         'RTOP',
     ),
+    'B1': ('B1',),
+    'R1': (
+        'R1',
+        'R1-B1c',
+    ),
+    'MESE': ('R2',),
+    'ihMT': (
+        'ihMTR',
+        'ihMTsat-B1c',
+    ),
+    'MEGRE': (
+        'R2*',
+        'Q-Ratio-E5-B1c',
+    ),
     'QSM': (
         'QSM-SEPIA-E5-X',
         'QSM-X-R2p-E5-X',
@@ -102,31 +116,17 @@ TABLE_ORDER = {
         'MPRAGE-MyelinW',
         'SPACE-MyelinW',
     ),
-    'ihMT': (
-        'ihMTR',
-        'ihMTsat-B1c',
-    ),
     'g-ratio': (
         'G-ihMTR',
         'G-ihMTsat',
     ),
-    'R1': (
-        'R1',
-        'R1-B1c',
-    ),
-    'MEGRE': (
-        'R2*',
-        'Q-Ratio-E5-B1c',
-    ),
-    'MESE': ('R2',),
-    'B1': ('B1',),
 }
 
 LAYOUT_ROWS = (
     ('dMRI',),
-    ('QSM', 'T1w/T2w'),
-    ('ihMT', 'g-ratio', 'MEGRE'),
-    ('R1', 'MESE', 'B1'),
+    ('B1', 'R1', 'MESE', 'ihMT'),
+    ('MEGRE', 'QSM'),
+    ('T1w/T2w', 'g-ratio'),
 )
 
 PANEL_LABELS = {
@@ -754,7 +754,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--output',
-        default=REPO_ROOT / 'figures' / 'scalars' / 'primary_brain_maps',
+        default=REPO_ROOT / 'figures' / 'scalars' / 'primary_brain_maps_compact',
         type=Path,
         help='Output path stem, or a .png/.pdf path whose suffix will be replaced.',
     )
