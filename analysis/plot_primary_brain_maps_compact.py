@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Plot group-average axial slices of the 27 primary NIBS brain maps.
+"""Plot compact group-average axial slices of the primary NIBS brain maps.
 
 The figure uses one axial slice in MNI152NLin2009cAsym space for every map.
 Scalar overlays are displayed with one shared colormap, while each map's color
 limits are its 5th and 95th percentiles within GM+WM tissue voxels after
 voxelwise averaging across QC-passing images.
+
+This experimental variant preserves the metric logic from
+plot_primary_brain_maps.py but uses tighter slice cropping and more aggressive
+layout packing to reduce whitespace.
 """
 
 from __future__ import annotations
@@ -63,6 +67,7 @@ LOGGER = logging.getLogger('primary_maps')
 
 MNI_SPACE = 'MNI152NLin2009cAsym'
 DISPLAY_PERCENTILES = (5.0, 95.0)
+SLICE_CROP_PADDING = 4
 B1_PATTERN = (
     'pymp2rage/{subject}/{session}/fmap/'
     '{subject}_{session}_run-01_space-MNI152NLin2009cAsym_TB1map.nii.gz'
@@ -150,6 +155,7 @@ class TissueSpace:
     brain_mask: np.ndarray
     background: np.ndarray
     slice_index: int
+    slice_crop: tuple[slice, slice]
 
 
 @dataclass(frozen=True)
@@ -353,7 +359,22 @@ def load_mni_tissue_space(
         brain_mask=brain_mask,
         background=tissue_probability,
         slice_index=middle_axial_slice(mask),
+        slice_crop=axial_crop(mask, middle_axial_slice(mask), SLICE_CROP_PADDING),
     )
+
+
+def axial_crop(mask: np.ndarray, slice_index: int, padding: int) -> tuple[slice, slice]:
+    slice_mask = axial_slice(mask, slice_index)
+    coordinates = np.argwhere(slice_mask)
+    if not coordinates.size:
+        return slice(None), slice(None)
+    row_min, col_min = coordinates.min(axis=0)
+    row_max, col_max = coordinates.max(axis=0)
+    row_min = max(int(row_min) - padding, 0)
+    col_min = max(int(col_min) - padding, 0)
+    row_max = min(int(row_max) + padding + 1, slice_mask.shape[0])
+    col_max = min(int(col_max) + padding + 1, slice_mask.shape[1])
+    return slice(row_min, row_max), slice(col_min, col_max)
 
 
 def robust_background_limits(data: np.ndarray, mask: np.ndarray) -> tuple[float, float]:
@@ -430,6 +451,14 @@ def axial_slice(data: np.ndarray, slice_index: int) -> np.ndarray:
     return np.rot90(data[:, :, slice_index])
 
 
+def cropped_axial_slice(
+    data: np.ndarray | np.ma.MaskedArray,
+    slice_index: int,
+    crop: tuple[slice, slice],
+) -> np.ndarray | np.ma.MaskedArray:
+    return axial_slice(data, slice_index)[crop]
+
+
 def format_label(label: str) -> str:
     return metric_plot_label(label)
 
@@ -486,8 +515,9 @@ def plot_panel(
     gray_cmap.set_bad((1, 1, 1, 0))
     scalar_cmap = plt.get_cmap(cmap).copy()
     scalar_cmap.set_bad((1, 1, 1, 0))
+    crop = tissue_space.slice_crop
     ax.imshow(
-        axial_slice(background, z_index),
+        cropped_axial_slice(background, z_index, crop),
         cmap=gray_cmap,
         vmin=bg_limits[0],
         vmax=bg_limits[1],
@@ -495,18 +525,18 @@ def plot_panel(
     )
     overlay = np.ma.masked_where(~panel.tissue_mask, panel.data)
     ax.imshow(
-        axial_slice(overlay, z_index),
+        cropped_axial_slice(overlay, z_index, crop),
         cmap=scalar_cmap,
         vmin=panel.limits[0],
         vmax=panel.limits[1],
         alpha=0.82,
         interpolation='nearest',
     )
-    slice_shape = axial_slice(background, z_index).shape
+    slice_shape = cropped_axial_slice(background, z_index, crop).shape
     ax.set_xlim(-0.5, slice_shape[1] - 0.5)
     ax.set_ylim(slice_shape[0] - 0.5, -0.5)
     ax.set_aspect('equal')
-    ax.set_title(display_label(panel.metric.spec), fontsize=9.0, pad=1.5)
+    ax.set_title(display_label(panel.metric.spec), fontsize=8.7, pad=0.8)
     ax.set_axis_off()
 
 
@@ -538,19 +568,19 @@ def plot_figure(
             packed_rows.append(packed_row)
 
     row_panel_counts = [max(group[-1] for group in row) for row in packed_rows]
-    height_ratios = [0.22 + rows for rows in row_panel_counts]
-    figure_height = 0.22 + 1.38 * sum(row_panel_counts) + 0.12 * len(packed_rows)
-    figure_width = 10.2
+    height_ratios = [0.18 + rows for rows in row_panel_counts]
+    figure_height = 0.12 + 1.08 * sum(row_panel_counts) + 0.06 * len(packed_rows)
+    figure_width = 8.55
     fig = plt.figure(figsize=(figure_width, figure_height), facecolor='white')
     outer = fig.add_gridspec(
         len(packed_rows),
         max_columns,
-        left=0.035,
-        right=0.985,
-        top=0.985,
-        bottom=0.035,
-        hspace=0.095,
-        wspace=0.018,
+        left=0.025,
+        right=0.99,
+        top=0.99,
+        bottom=0.028,
+        hspace=0.045,
+        wspace=0.006,
         height_ratios=height_ratios,
     )
     bg_limits = {
@@ -569,19 +599,19 @@ def plot_figure(
             nested = group_spec.subgridspec(
                 rows + 1,
                 width,
-                height_ratios=[0.30] + [1] * rows,
-                hspace=0.10,
+                height_ratios=[0.22] + [1] * rows,
+                hspace=0.035,
                 wspace=0.0,
             )
             title_axis = fig.add_subplot(nested[0, :])
             title_axis.set_axis_off()
             title_axis.text(
-                0.03,
-                0.72,
+                0.025,
+                0.70,
                 group_label(group),
                 ha='left',
                 va='center',
-                fontsize=11.5,
+                fontsize=10.5,
                 fontweight='bold',
                 color=color,
             )
@@ -612,9 +642,9 @@ def plot_figure(
         colorbar_spec = outer[-1, bottom_used_width:max_columns]
         colorbar_host = fig.add_subplot(colorbar_spec)
         colorbar_host.set_axis_off()
-        colorbar_axis = colorbar_host.inset_axes([0.18, 0.54, 0.62, 0.07])
+        colorbar_axis = colorbar_host.inset_axes([0.22, 0.49, 0.52, 0.08])
     else:
-        colorbar_axis = fig.add_axes([0.38, 0.026, 0.24, 0.012])
+        colorbar_axis = fig.add_axes([0.40, 0.024, 0.20, 0.012])
     colorbar = fig.colorbar(
         ScalarMappable(norm=mcolors.Normalize(vmin=5, vmax=95), cmap=cmap),
         cax=colorbar_axis,
