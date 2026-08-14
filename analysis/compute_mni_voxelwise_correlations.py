@@ -232,8 +232,8 @@ def smriprep_dseg_candidates(
     session: str,
     space: str,
 ) -> tuple[Path, ...]:
-    base_name = f'{subject}_acq-MAGE_rec-refaced_run-01_space-{space}_dseg.nii.gz'
-    session_name = f'{subject}_{session}_acq-MAGE_rec-refaced_run-01_space-{space}_dseg.nii.gz'
+    base_name = f'{subject}_acq-*_rec-refaced_run-01_space-{space}_dseg.nii.gz'
+    session_name = f'{subject}_{session}_acq-*_rec-refaced_run-01_space-{space}_dseg.nii.gz'
     return (
         derivatives / 'smriprep' / subject / 'anat' / base_name,
         derivatives / 'smriprep' / subject / session / 'anat' / session_name,
@@ -246,10 +246,7 @@ def find_smriprep_dseg(
     session: str,
     space: str,
 ) -> Path | None:
-    for path in smriprep_dseg_candidates(derivatives, subject, session, space):
-        if path.exists():
-            return path
-    return None
+    return first_glob(smriprep_dseg_candidates(derivatives, subject, session, space))
 
 
 def build_subject_tissue_masks(
