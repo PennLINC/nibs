@@ -169,11 +169,17 @@ def add_source_annotation(
     grid.fig.canvas.draw()
     heatmap_position = grid.ax_heatmap.get_position()
     dendrogram_position = grid.ax_row_dendrogram.get_position()
+    bar_x0 = heatmap_position.x0 - width - gap
+    dendrogram_gap = 0.002
+    dendrogram_width = min(
+        dendrogram_position.width,
+        max(0.040, bar_x0 - dendrogram_position.x0 - dendrogram_gap),
+    )
     grid.ax_row_dendrogram.set_position(
         [
-            dendrogram_position.x0,
+            bar_x0 - dendrogram_gap - dendrogram_width,
             heatmap_position.y0,
-            max(dendrogram_position.width - width - gap, 0.01),
+            dendrogram_width,
             heatmap_position.height,
         ]
     )
@@ -190,7 +196,6 @@ def add_source_annotation(
             for label in labels
         ]
     ).reshape(len(labels), 1, 4)
-    bar_x0 = heatmap_position.x0 - width - gap
     bar_ax = grid.fig.add_axes(
         [
             bar_x0,
@@ -207,8 +212,8 @@ def add_source_annotation(
     for spine in bar_ax.spines.values():
         spine.set_visible(False)
     bar_ax.text(
-        0.5,
-        -0.018,
+        -0.10,
+        -0.026,
         'Source image',
         transform=bar_ax.transAxes,
         rotation=45,
