@@ -678,7 +678,7 @@ def group_label(group: str) -> str:
     if group == 'B1':
         return math_label('B₁', bold=True)
     if group == 'g-ratio':
-        return '𝙜-ratio'
+        return 'g-ratio'
     return math_label(group, bold=True)
 
 
@@ -1002,9 +1002,21 @@ def plot_figure(
             packed_rows.append(packed_row)
 
     row_panel_counts = [max(group[-1] for group in row) for row in packed_rows]
-    height_ratios = [0.34 + rows for rows in row_panel_counts]
-    figure_width = 7.45
-    figure_height = 0.20 + 1.11 * sum(row_panel_counts) + 0.13 * len(packed_rows)
+    row_header_ratios = []
+    for packed_row in packed_rows:
+        groups = {group for group, *_ in packed_row}
+        if 'dMRI' in groups:
+            row_header_ratios.append(0.26)
+        elif {'T1w/T2w', 'g-ratio'} & groups:
+            row_header_ratios.append(0.50)
+        else:
+            row_header_ratios.append(0.34)
+    height_ratios = [
+        header + rows
+        for header, rows in zip(row_header_ratios, row_panel_counts)
+    ]
+    figure_width = 7.30
+    figure_height = 0.22 + 0.99 * sum(height_ratios) + 0.13 * len(packed_rows)
     fig = plt.figure(figsize=(figure_width, figure_height), facecolor='white')
     outer = fig.add_gridspec(
         len(packed_rows),
@@ -1014,7 +1026,7 @@ def plot_figure(
         top=0.990,
         bottom=0.035,
         hspace=0.045,
-        wspace=0.012,
+        wspace=0.008,
         height_ratios=height_ratios,
     )
     bg_limits = {
@@ -1031,7 +1043,7 @@ def plot_figure(
             group_spec = outer[row_index, start_column : start_column + width]
             group_axis = add_group_box(fig, group_spec, color)
             add_group_label(group_axis, group, color)
-            header_ratio = 0.26 if group == 'dMRI' else (0.50 if group == 'T1w/T2w' else 0.34)
+            header_ratio = row_header_ratios[row_index]
             nested = group_spec.subgridspec(
                 rows + 1,
                 width,
