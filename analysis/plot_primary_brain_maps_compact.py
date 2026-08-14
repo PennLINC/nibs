@@ -894,39 +894,40 @@ def plot_group_panels_inches(
     cmap: str,
     color: str,
 ) -> None:
+    style = group_inch_style(group)
     host_axis.text(
         0.015,
         0.965,
         group_label(group),
         ha='left',
         va='top',
-        fontsize=9.8,
+        fontsize=style['group_fontsize'],
         fontweight='bold',
         color=color,
         transform=host_axis.transAxes,
     )
     total_panel_width = (
         columns * PANEL_WIDTH_IN
-        + max(columns - 1, 0) * PANEL_GAP_IN
+        + max(columns - 1, 0) * style['panel_gap']
     )
     x_start = left + (group_width - total_panel_width) / 2.0
 
     for panel_index, panel in enumerate(group_panels):
         panel_row = panel_index // columns
         panel_column = panel_index % columns
-        x0 = x_start + panel_column * (PANEL_WIDTH_IN + PANEL_GAP_IN)
+        x0 = x_start + panel_column * (PANEL_WIDTH_IN + style['panel_gap'])
         y0 = (
             bottom
-            + GROUP_BOTTOM_PAD_IN
-            + (rows - panel_row - 1) * (PANEL_HEIGHT_IN + PANEL_ROW_GAP_IN)
+            + style['bottom_pad']
+            + (rows - panel_row - 1) * (PANEL_HEIGHT_IN + style['row_gap'])
         )
         fig.text(
             (x0 + PANEL_WIDTH_IN / 2.0) / figure_width,
-            (y0 + PANEL_HEIGHT_IN + 0.018) / figure_height,
+            (y0 + PANEL_HEIGHT_IN + 0.026) / figure_height,
             display_label(panel.metric.spec),
             ha='center',
             va='bottom',
-            fontsize=7.9,
+            fontsize=style['label_fontsize'],
             color='black',
         )
         axis = fig.add_axes(
