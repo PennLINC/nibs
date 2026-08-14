@@ -163,8 +163,8 @@ def draw_diagonal(grid, color: str = 'black') -> None:
 def add_source_annotation(
     grid,
     source_by_label: dict[str, str],
-    width: float = 0.018,
-    gap: float = 0.004,
+    width: float = 0.020,
+    gap: float = 0.001,
 ) -> None:
     grid.fig.canvas.draw()
     heatmap_position = grid.ax_heatmap.get_position()
@@ -215,7 +215,7 @@ def add_source_annotation(
         ha='right',
         va='top',
         rotation_mode='anchor',
-        fontsize=9,
+        fontsize=11.5,
     )
 
 
@@ -247,8 +247,8 @@ def plot_matrix(
         xticklabels=True,
         yticklabels=True,
         figsize=figure_size(n_metrics),
-        dendrogram_ratio=(0.10, 0.001),
-        cbar_pos=(0.29, 0.07, 0.42, 0.022),
+        dendrogram_ratio=(0.075, 0.001),
+        cbar_pos=(0.29, 0.065, 0.42, 0.022),
         cbar_kws={
             'orientation': 'horizontal',
             'label': cbar_label,
@@ -297,7 +297,7 @@ def plot_matrix(
         handles=handles,
         title='Source image',
         loc='lower center',
-        bbox_to_anchor=(0.5, 0.010),
+        bbox_to_anchor=(0.5, 0.004),
         ncol=max(1, len(handles)),
         frameon=False,
         fontsize=max(9.0, fs - 0.5),
@@ -305,10 +305,11 @@ def plot_matrix(
     )
 
     grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.965)
-    grid.fig.subplots_adjust(left=0.062, right=0.93, top=0.943, bottom=0.185)
-    grid.cax.set_position([0.30, 0.064, 0.40, 0.024])
+    grid.fig.subplots_adjust(left=0.052, right=0.93, top=0.943, bottom=0.255)
+    grid.cax.set_position([0.30, 0.076, 0.40, 0.024])
     grid.cax.tick_params(labelsize=max(9.0, fs - 0.5), length=3)
     grid.cax.xaxis.label.set_size(max(10.0, fs))
+    grid.cax.xaxis.labelpad = 4
     draw_diagonal(grid)
     add_source_annotation(grid, source_by_label)
 
