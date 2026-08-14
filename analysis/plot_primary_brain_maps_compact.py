@@ -677,6 +677,8 @@ def display_label(spec: MetricSpec) -> str:
 def group_label(group: str) -> str:
     if group == 'B1':
         return math_label('B₁', bold=True)
+    if group == 'g-ratio':
+        return r'$\mathit{g}$-ratio'
     return math_label(group, bold=True)
 
 
@@ -1029,7 +1031,7 @@ def plot_figure(
             group_spec = outer[row_index, start_column : start_column + width]
             group_axis = add_group_box(fig, group_spec, color)
             add_group_label(group_axis, group, color)
-            header_ratio = 0.50 if group == 'T1w/T2w' else 0.34
+            header_ratio = 0.26 if group == 'dMRI' else (0.50 if group == 'T1w/T2w' else 0.34)
             nested = group_spec.subgridspec(
                 rows + 1,
                 width,
