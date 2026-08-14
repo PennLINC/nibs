@@ -139,6 +139,56 @@ PANEL_LABELS = {
     'B1': 'B₁ map',
 }
 
+STACKED_PANEL_GROUPS = {'T1w/T2w'}
+
+GROUP_PANEL_STYLE = {
+    'dMRI': {
+        'xpad': 0.070,
+        'top_pad': 0.115,
+        'bottom_pad': 0.018,
+        'col_gap': 0.045,
+        'row_gap': 0.145,
+        'label_offset': 0.010,
+        'panel_width_cap': 0.105,
+        'label_fontsize': 8.1,
+        'group_fontsize': 10.5,
+    },
+    'QSM': {
+        'xpad': 0.040,
+        'top_pad': 0.190,
+        'bottom_pad': 0.025,
+        'col_gap': 0.030,
+        'row_gap': 0.080,
+        'label_offset': 0.010,
+        'panel_width_cap': 0.190,
+        'label_fontsize': 7.8,
+        'group_fontsize': 10.3,
+    },
+    'T1w/T2w': {
+        'xpad': 0.160,
+        'top_pad': 0.105,
+        'bottom_pad': 0.035,
+        'col_gap': 0.055,
+        'row_gap': 0.150,
+        'label_offset': 0.010,
+        'panel_width_cap': 0.460,
+        'label_fontsize': 7.2,
+        'group_fontsize': 10.0,
+    },
+}
+
+DEFAULT_PANEL_STYLE = {
+    'xpad': 0.075,
+    'top_pad': 0.175,
+    'bottom_pad': 0.030,
+    'col_gap': 0.060,
+    'row_gap': 0.075,
+    'label_offset': 0.012,
+    'panel_width_cap': 0.270,
+    'label_fontsize': 8.3,
+    'group_fontsize': 10.3,
+}
+
 
 @dataclass(frozen=True)
 class ResolvedMetric:
@@ -634,8 +684,83 @@ def plot_panel(
     ax.set_xlim(-0.5, slice_shape[1] - 0.5)
     ax.set_ylim(slice_shape[0] - 0.5, -0.5)
     ax.set_aspect('equal')
-    ax.set_title(display_label(panel.metric.spec), fontsize=8.7, pad=0.8)
     ax.set_axis_off()
+
+
+def panel_style(group: str) -> dict[str, float]:
+    style = DEFAULT_PANEL_STYLE.copy()
+    style.update(GROUP_PANEL_STYLE.get(group, {}))
+    return style
+
+
+def plot_group_panels(
+    host_axis: plt.Axes,
+    group: str,
+    group_panels: Sequence[PreparedPanel],
+    rows: int,
+    width: int,
+    tissue_spaces: dict[str, TissueSpace],
+    bg_limits: dict[str, tuple[float, float]],
+    cmap: str,
+    color: str,
+) -> None:
+    style = panel_style(group)
+    host_axis.text(
+        0.018,
+        0.965,
+        group_label(group),
+        ha='left',
+        va='top',
+        fontsize=style['group_fontsize'],
+        fontweight='bold',
+        color=color,
+        transform=host_axis.transAxes,
+    )
+
+    panel_area_width = 1.0 - 2.0 * style['xpad']
+    panel_area_height = 1.0 - style['top_pad'] - style['bottom_pad']
+    panel_height = (
+        panel_area_height - style['row_gap'] * max(rows - 1, 0)
+    ) / rows
+    cell_width = (
+        panel_area_width - style['col_gap'] * max(width - 1, 0)
+    ) / width
+    panel_width = min(cell_width, style['panel_width_cap'])
+    total_width = panel_width * width + style['col_gap'] * max(width - 1, 0)
+    x_start = 0.5 - total_width / 2.0
+
+    for panel_index in range(rows * width):
+        if panel_index >= len(group_panels):
+            continue
+        panel_row = panel_index // width
+        panel_column = panel_index % width
+        x0 = x_start + panel_column * (panel_width + style['col_gap'])
+        y0 = (
+            style['bottom_pad']
+            + (rows - panel_row - 1) * (panel_height + style['row_gap'])
+        )
+        label = display_label(group_panels[panel_index].metric.spec)
+        host_axis.text(
+            x0 + panel_width / 2.0,
+            y0 + panel_height + style['label_offset'],
+            label,
+            ha='center',
+            va='bottom',
+            fontsize=style['label_fontsize'],
+            color='black',
+            transform=host_axis.transAxes,
+        )
+        axis = host_axis.inset_axes([x0, y0, panel_width, panel_height])
+        axis.set_zorder(2)
+        axis.set_facecolor((1, 1, 1, 0))
+        panel = group_panels[panel_index]
+        plot_panel(
+            axis,
+            panel,
+            tissue_spaces[panel.metric.space],
+            cmap,
+            bg_limits[panel.metric.space],
+        )
 
 
 def plot_figure(
@@ -658,7 +783,7 @@ def plot_figure(
             group_panels = panels_by_group.get(group, [])
             if not group_panels:
                 continue
-            width = min(max_columns - current_width, len(group_panels))
+            width = 1 if group in STACKED_PANEL_GROUPS else min(max_columns - current_width, len(group_panels))
             rows = int(np.ceil(len(group_panels) / width))
             packed_row.append((group, group_panels, current_width, width, rows))
             current_width += width
@@ -693,44 +818,18 @@ def plot_figure(
         for group, group_panels, start_column, width, rows in packed_row:
             color = FIGURE_SOURCE_COLORS[group]
             group_spec = outer[row_index, start_column : start_column + width]
-            add_group_box(fig, group_spec, color)
-            nested = group_spec.subgridspec(
-                rows + 1,
+            group_axis = add_group_box(fig, group_spec, color)
+            plot_group_panels(
+                group_axis,
+                group,
+                group_panels,
+                rows,
                 width,
-                height_ratios=[0.22] + [1] * rows,
-                hspace=0.035,
-                wspace=0.0,
+                tissue_spaces,
+                bg_limits,
+                cmap,
+                color,
             )
-            title_axis = fig.add_subplot(nested[0, :])
-            title_axis.set_axis_off()
-            title_axis.text(
-                0.025,
-                0.70,
-                group_label(group),
-                ha='left',
-                va='center',
-                fontsize=10.5,
-                fontweight='bold',
-                color=color,
-            )
-
-            for panel_index in range(rows * width):
-                panel_row = panel_index // width
-                panel_column = panel_index % width
-                axis = fig.add_subplot(nested[panel_row + 1, panel_column])
-                axis.set_zorder(2)
-                axis.set_facecolor((1, 1, 1, 0))
-                if panel_index >= len(group_panels):
-                    axis.set_axis_off()
-                    continue
-                panel = group_panels[panel_index]
-                plot_panel(
-                    axis,
-                    panel,
-                    tissue_spaces[panel.metric.space],
-                    cmap,
-                    bg_limits[panel.metric.space],
-                )
 
     bottom_used_width = max(
         start_column + width
