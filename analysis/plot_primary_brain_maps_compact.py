@@ -693,6 +693,25 @@ def add_group_box(fig: plt.Figure, spec, color: str):
     return axis
 
 
+def add_group_label(
+    axis: plt.Axes,
+    group: str,
+    color: str,
+) -> None:
+    axis.annotate(
+        group_label(group),
+        xy=(0, 1),
+        xycoords='axes fraction',
+        xytext=(5, -4),
+        textcoords='offset points',
+        ha='left',
+        va='top',
+        fontsize=10.2,
+        fontweight='bold',
+        color=color,
+    )
+
+
 def plot_panel(
     ax: plt.Axes,
     panel: PreparedPanel,
@@ -993,7 +1012,7 @@ def plot_figure(
         top=0.990,
         bottom=0.035,
         hspace=0.045,
-        wspace=0.001,
+        wspace=0.012,
         height_ratios=height_ratios,
     )
     bg_limits = {
@@ -1008,7 +1027,8 @@ def plot_figure(
         for group, group_panels, start_column, width, rows in packed_row:
             color = FIGURE_SOURCE_COLORS[group]
             group_spec = outer[row_index, start_column : start_column + width]
-            add_group_box(fig, group_spec, color)
+            group_axis = add_group_box(fig, group_spec, color)
+            add_group_label(group_axis, group, color)
             header_ratio = 0.50 if group == 'T1w/T2w' else 0.34
             nested = group_spec.subgridspec(
                 rows + 1,
@@ -1019,16 +1039,6 @@ def plot_figure(
             )
             title_axis = fig.add_subplot(nested[0, :])
             title_axis.set_axis_off()
-            title_axis.text(
-                0.020,
-                0.68,
-                group_label(group),
-                ha='left',
-                va='center',
-                fontsize=10.2,
-                fontweight='bold',
-                color=color,
-            )
 
             for panel_index in range(rows * width):
                 panel_row = panel_index // width
