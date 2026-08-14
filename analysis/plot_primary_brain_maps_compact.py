@@ -982,14 +982,14 @@ def plot_figure(
 
     row_panel_counts = [max(group[-1] for group in row) for row in packed_rows]
     height_ratios = [0.34 + rows for rows in row_panel_counts]
-    figure_width = 8.45
+    figure_width = 7.85
     figure_height = 0.20 + 1.11 * sum(row_panel_counts) + 0.13 * len(packed_rows)
     fig = plt.figure(figsize=(figure_width, figure_height), facecolor='white')
     outer = fig.add_gridspec(
         len(packed_rows),
         max_columns,
-        left=0.030,
-        right=0.990,
+        left=0.025,
+        right=0.995,
         top=0.990,
         bottom=0.035,
         hspace=0.045,
@@ -1056,7 +1056,7 @@ def plot_figure(
         colorbar_spec = outer[-1, bottom_used_width:max_columns]
         colorbar_host = fig.add_subplot(colorbar_spec)
         colorbar_host.set_axis_off()
-        colorbar_axis = colorbar_host.inset_axes([0.17, 0.52, 0.66, 0.075])
+        colorbar_axis = colorbar_host.inset_axes([0.20, 0.52, 0.60, 0.075])
     else:
         colorbar_axis = fig.add_axes([0.40, 0.024, 0.20, 0.012])
     colorbar = fig.colorbar(
