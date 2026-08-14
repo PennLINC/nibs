@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import logging
 import os
 import sys
@@ -67,6 +68,7 @@ LOGGER = logging.getLogger('primary_maps')
 
 MNI_SPACE = 'MNI152NLin2009cAsym'
 DISPLAY_PERCENTILES = (5.0, 95.0)
+CACHE_VERSION = 1
 SLICE_CROP_PADDING = 4
 B1_PATTERN = (
     'pymp2rage/{subject}/{session}/fmap/'
@@ -156,6 +158,7 @@ class TissueSpace:
     background: np.ndarray
     slice_index: int
     slice_crop: tuple[slice, slice]
+    tissue_probability_threshold: float
 
 
 @dataclass(frozen=True)
@@ -353,13 +356,15 @@ def load_mni_tissue_space(
     tissue_probability = gm_probability + wm_probability
     mask = tissue_probability >= tissue_probability_threshold
     brain_mask = tissue_probability > 0
+    slice_index = middle_axial_slice(mask)
     return TissueSpace(
         reference=reference,
         mask=mask,
         brain_mask=brain_mask,
         background=tissue_probability,
-        slice_index=middle_axial_slice(mask),
-        slice_crop=axial_crop(mask, middle_axial_slice(mask), SLICE_CROP_PADDING),
+        slice_index=slice_index,
+        slice_crop=axial_crop(mask, slice_index, SLICE_CROP_PADDING),
+        tissue_probability_threshold=tissue_probability_threshold,
     )
 
 
@@ -424,26 +429,118 @@ def voxelwise_average(
     return average, count
 
 
+def safe_cache_slug(value: str) -> str:
+    return ''.join(char if char.isalnum() else '-' for char in value).strip('-')
+
+
+def panel_cache_path(cache_dir: Path, metric: ResolvedMetric) -> Path:
+    slug = safe_cache_slug(metric.spec.primary_label)
+    return cache_dir / f'{metric.source_group}_{slug}_{metric.space}_average.npz'
+
+
+def panel_cache_metadata(
+    metric: ResolvedMetric,
+    tissue_space: TissueSpace,
+) -> dict[str, object]:
+    reference = tissue_space.reference
+    return {
+        'version': CACHE_VERSION,
+        'metric': metric.spec.primary_label,
+        'source_group': metric.source_group,
+        'space': metric.space,
+        'pattern': metric.pattern,
+        'paths': [str(path) for path in metric.paths],
+        'contributors': [list(item) for item in metric.contributors],
+        'reference_shape': list(reference.shape),
+        'reference_affine': np.asarray(reference.affine).round(6).tolist(),
+        'tissue_probability_threshold': tissue_space.tissue_probability_threshold,
+        'display_percentiles': list(DISPLAY_PERCENTILES),
+    }
+
+
+def load_cached_panel(
+    cache_dir: Path,
+    metric: ResolvedMetric,
+    tissue_space: TissueSpace,
+) -> PreparedPanel | None:
+    cache_path = panel_cache_path(cache_dir, metric)
+    if not cache_path.exists():
+        return None
+    expected_metadata = panel_cache_metadata(metric, tissue_space)
+    try:
+        with np.load(cache_path, allow_pickle=False) as cache:
+            metadata = json.loads(str(cache['metadata'].item()))
+            if metadata != expected_metadata:
+                LOGGER.info('%s: cached average is stale', metric.spec.primary_label)
+                return None
+            data = np.asarray(cache['data'], dtype=np.float32)
+            contributor_count = np.asarray(cache['contributor_count'], dtype=np.uint16)
+            limits = tuple(float(value) for value in cache['limits'])
+    except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        LOGGER.warning('%s: ignoring unreadable average cache %s (%s)', metric.spec.primary_label, cache_path, exc)
+        return None
+    tissue_mask = tissue_space.mask & np.isfinite(data)
+    LOGGER.info('%s: loaded cached average map', metric.spec.primary_label)
+    return PreparedPanel(
+        metric=metric,
+        data=data,
+        reference=tissue_space.reference,
+        tissue_mask=tissue_mask,
+        contributor_count=contributor_count,
+        limits=(limits[0], limits[1]),
+    )
+
+
+def save_cached_panel(
+    cache_dir: Path,
+    panel: PreparedPanel,
+    tissue_space: TissueSpace,
+) -> None:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = panel_cache_path(cache_dir, panel.metric)
+    metadata = json.dumps(
+        panel_cache_metadata(panel.metric, tissue_space),
+        sort_keys=True,
+        separators=(',', ':'),
+    )
+    np.savez_compressed(
+        cache_path,
+        data=panel.data,
+        contributor_count=panel.contributor_count,
+        limits=np.asarray(panel.limits, dtype=np.float32),
+        metadata=np.asarray(metadata),
+    )
+
+
 def prepare_panels(
     resolved_metrics: Sequence[ResolvedMetric],
     tissue_spaces: dict[str, TissueSpace],
+    average_cache_dir: Path | None = None,
+    recalculate_average_maps: bool = False,
 ) -> list[PreparedPanel]:
     panels: list[PreparedPanel] = []
     for metric in resolved_metrics:
         tissue_space = tissue_spaces[metric.space]
+        if average_cache_dir is not None and not recalculate_average_maps:
+            cached_panel = load_cached_panel(average_cache_dir, metric, tissue_space)
+            if cached_panel is not None:
+                panels.append(cached_panel)
+                continue
         data, contributor_count = voxelwise_average(metric.paths, tissue_space.reference)
         tissue_mask = tissue_space.mask & np.isfinite(data)
         limits = scalar_limits(data, tissue_mask)
-        panels.append(
-            PreparedPanel(
-                metric=metric,
-                data=data,
-                reference=tissue_space.reference,
-                tissue_mask=tissue_mask,
-                contributor_count=contributor_count,
-                limits=limits,
-            )
+        panel = PreparedPanel(
+            metric=metric,
+            data=data,
+            reference=tissue_space.reference,
+            tissue_mask=tissue_mask,
+            contributor_count=contributor_count,
+            limits=limits,
         )
+        if average_cache_dir is not None:
+            save_cached_panel(average_cache_dir, panel, tissue_space)
+            LOGGER.info('%s: wrote cached average map', metric.spec.primary_label)
+        panels.append(panel)
     return panels
 
 
@@ -759,6 +856,16 @@ def build_parser() -> argparse.ArgumentParser:
         help='Output path stem, or a .png/.pdf path whose suffix will be replaced.',
     )
     parser.add_argument(
+        '--average-cache-dir',
+        type=Path,
+        help='Directory for cached group-average maps. Defaults to <output>_average_cache.',
+    )
+    parser.add_argument(
+        '--recalculate-average-maps',
+        action='store_true',
+        help='Recompute group-average maps even if matching cached maps exist.',
+    )
+    parser.add_argument(
         '--cmap',
         default='viridis',
         help='Matplotlib colormap used for every scalar overlay.',
@@ -798,6 +905,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_base = Path(args.output).expanduser().resolve()
     if output_base.suffix.lower() in {'.png', '.pdf'}:
         output_base = output_base.with_suffix('')
+    if output_base.name == 'primary_brain_maps':
+        raise ValueError(
+            'The compact script must use a distinct output stem. '
+            'Use the default primary_brain_maps_compact, or pass --output with '
+            'a compact-specific folder or filename.'
+        )
+    average_cache_dir = (
+        Path(args.average_cache_dir).expanduser().resolve()
+        if args.average_cache_dir
+        else output_base.with_name(f'{output_base.name}_average_cache')
+    )
 
     metric_specs = table_metric_specs(Path(args.patterns_file).expanduser().resolve())
     qc_rows = load_qc_rows(Path(args.qc_file).expanduser().resolve())
@@ -815,7 +933,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.tissue_probability_threshold,
         )
     }
-    panels = prepare_panels(resolved_metrics, tissue_spaces)
+    panels = prepare_panels(
+        resolved_metrics,
+        tissue_spaces,
+        average_cache_dir=average_cache_dir,
+        recalculate_average_maps=args.recalculate_average_maps,
+    )
     plot_figure(
         panels,
         tissue_spaces,

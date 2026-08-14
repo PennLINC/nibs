@@ -4,9 +4,10 @@
 For each subject/session and tissue mask, this script loads configured
 space-MNI152NLin2009cAsym scalar maps, computes pairwise-valid voxelwise
 correlations, Fisher-z transforms them, and averages first within subject and
-then across subjects. Tissue masks come from template-space GM and WM
-probability maps. Full supplementary matrices are computed first;
-primary-analysis matrices are then written as subsets of those full matrices.
+then across subjects. By default, tissue masks come from each subject/session's
+smriprep MNI-space deterministic dseg, with GM=1 and WM=2. Full supplementary
+matrices are computed first; primary-analysis matrices are then written as
+subsets of those full matrices.
 """
 
 from __future__ import annotations
@@ -222,6 +223,48 @@ def build_template_tissue_masks(
         raise RuntimeError('Template GM mask is empty after thresholding/erosion.')
     if not np.any(wm):
         raise RuntimeError('Template WM mask is empty after thresholding/erosion.')
+    return reference, {'gm': gm, 'wm': wm}
+
+
+def smriprep_dseg_candidates(
+    derivatives: Path,
+    subject: str,
+    session: str,
+    space: str,
+) -> tuple[Path, ...]:
+    base_name = f'{subject}_acq-MAGE_rec-refaced_run-01_space-{space}_dseg.nii.gz'
+    session_name = f'{subject}_{session}_acq-MAGE_rec-refaced_run-01_space-{space}_dseg.nii.gz'
+    return (
+        derivatives / 'smriprep' / subject / 'anat' / base_name,
+        derivatives / 'smriprep' / subject / session / 'anat' / session_name,
+    )
+
+
+def find_smriprep_dseg(
+    derivatives: Path,
+    subject: str,
+    session: str,
+    space: str,
+) -> Path | None:
+    for path in smriprep_dseg_candidates(derivatives, subject, session, space):
+        if path.exists():
+            return path
+    return None
+
+
+def build_subject_tissue_masks(
+    dseg: Path,
+    gm_erosion_mm: float,
+    wm_erosion_mm: float,
+) -> tuple[nib.spatialimages.SpatialImage, dict[str, np.ndarray]]:
+    reference = nib.load(str(dseg))
+    segmentation = load_like(dseg, reference, order=0).reshape(-1)
+    gm = erode_mask_mm(np.rint(segmentation).astype(np.int16) == 1, reference, gm_erosion_mm)
+    wm = erode_mask_mm(np.rint(segmentation).astype(np.int16) == 2, reference, wm_erosion_mm)
+    if not np.any(gm):
+        raise RuntimeError(f'Subject GM mask is empty after erosion: {dseg}')
+    if not np.any(wm):
+        raise RuntimeError(f'Subject WM mask is empty after erosion: {dseg}')
     return reference, {'gm': gm, 'wm': wm}
 
 
@@ -464,16 +507,22 @@ def parse_args() -> argparse.Namespace:
         help='Minimum number of selected metrics required for a subject/session profile.',
     )
     parser.add_argument(
+        '--tissue-mask-source',
+        choices=('subject-dseg', 'template-probseg'),
+        default='subject-dseg',
+        help='Use subject/session smriprep dseg masks, or the same template probability masks for every profile.',
+    )
+    parser.add_argument(
         '--gm-probseg',
         type=Path,
         default=None,
-        help='Template-space GM probability map. Defaults to <project-root>/code/data/tpl-MNI152NLin2009cAsym_res-01_label-GM_probseg.nii.gz.',
+        help='Template-space GM probability map used with --tissue-mask-source template-probseg.',
     )
     parser.add_argument(
         '--wm-probseg',
         type=Path,
         default=None,
-        help='Template-space WM probability map. Defaults to <project-root>/code/data/tpl-MNI152NLin2009cAsym_res-01_label-WM_probseg.nii.gz.',
+        help='Template-space WM probability map used with --tissue-mask-source template-probseg.',
     )
     parser.add_argument('--gm-threshold', type=float, default=0.50)
     parser.add_argument('--wm-threshold', type=float, default=0.50)
@@ -538,16 +587,17 @@ def parse_args() -> argparse.Namespace:
         )
     else:
         args.wm_probseg = args.wm_probseg.expanduser().resolve()
-    if not args.gm_probseg.exists():
-        raise FileNotFoundError(f'GM probability map not found: {args.gm_probseg}')
-    if not args.wm_probseg.exists():
-        raise FileNotFoundError(f'WM probability map not found: {args.wm_probseg}')
-    if not (0.0 < args.gm_threshold <= 1.0):
-        parser.error('--gm-threshold must be in (0, 1].')
-    if not (0.0 < args.wm_threshold <= 1.0):
-        parser.error('--wm-threshold must be in (0, 1].')
+    if args.tissue_mask_source == 'template-probseg':
+        if not args.gm_probseg.exists():
+            raise FileNotFoundError(f'GM probability map not found: {args.gm_probseg}')
+        if not args.wm_probseg.exists():
+            raise FileNotFoundError(f'WM probability map not found: {args.wm_probseg}')
+        if not (0.0 < args.gm_threshold <= 1.0):
+            parser.error('--gm-threshold must be in (0, 1].')
+        if not (0.0 < args.wm_threshold <= 1.0):
+            parser.error('--wm-threshold must be in (0, 1].')
     if args.gm_erosion_mm < 0 or args.wm_erosion_mm < 0:
-        parser.error('Template mask erosion distances must be nonnegative.')
+        parser.error('Tissue mask erosion distances must be nonnegative.')
     return args
 
 
@@ -569,14 +619,17 @@ def main() -> None:
     )
     diagnostics: list[dict[str, object]] = []
     pairwise_coverage: list[dict[str, object]] = []
-    reference, tissue_masks = build_template_tissue_masks(
-        args.gm_probseg,
-        args.wm_probseg,
-        args.gm_threshold,
-        args.wm_threshold,
-        args.gm_erosion_mm,
-        args.wm_erosion_mm,
-    )
+    template_reference = None
+    template_tissue_masks = None
+    if args.tissue_mask_source == 'template-probseg':
+        template_reference, template_tissue_masks = build_template_tissue_masks(
+            args.gm_probseg,
+            args.wm_probseg,
+            args.gm_threshold,
+            args.wm_threshold,
+            args.gm_erosion_mm,
+            args.wm_erosion_mm,
+        )
     z_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUES}
     count_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUES}
     proportion_mats: dict[str, list[pd.DataFrame]] = {tissue: [] for tissue in TISSUES}
@@ -608,6 +661,58 @@ def main() -> None:
                 print(f'Skipping {subject} {session}: only {len(metric_paths)} metrics')
                 continue
 
+            if args.tissue_mask_source == 'subject-dseg':
+                dseg_path = find_smriprep_dseg(args.derivatives_dir, subject, session, SPACE)
+                if dseg_path is None:
+                    diagnostics.append(
+                        {
+                            'subject': subject,
+                            'session': session,
+                            'tissue': 'all',
+                            'n_metrics': len(metric_paths),
+                            'n_tissue_voxels': 0,
+                            'n_valid_metric_pairs': 0,
+                            'n_total_metric_pairs': 0,
+                            'reason': 'missing_subject_dseg',
+                            'tissue_mask_source': args.tissue_mask_source,
+                            'tissue_mask_file': '',
+                            'metrics': ','.join(metric_paths),
+                        }
+                    )
+                    print(f'Skipping {subject} {session}: missing smriprep MNI dseg')
+                    continue
+                try:
+                    reference, tissue_masks = build_subject_tissue_masks(
+                        dseg_path,
+                        args.gm_erosion_mm,
+                        args.wm_erosion_mm,
+                    )
+                except RuntimeError as exc:
+                    diagnostics.append(
+                        {
+                            'subject': subject,
+                            'session': session,
+                            'tissue': 'all',
+                            'n_metrics': len(metric_paths),
+                            'n_tissue_voxels': 0,
+                            'n_valid_metric_pairs': 0,
+                            'n_total_metric_pairs': 0,
+                            'reason': str(exc),
+                            'tissue_mask_source': args.tissue_mask_source,
+                            'tissue_mask_file': str(dseg_path),
+                            'metrics': ','.join(metric_paths),
+                        }
+                    )
+                    print(f'Skipping {subject} {session}: {exc}')
+                    continue
+                tissue_mask_file = str(dseg_path)
+            else:
+                reference = template_reference
+                tissue_masks = template_tissue_masks
+                if reference is None or tissue_masks is None:
+                    raise RuntimeError('Template tissue masks were not initialized.')
+                tissue_mask_file = f'{args.gm_probseg},{args.wm_probseg}'
+
             metric_data = {
                 label: load_like(path, reference, order=1).reshape(-1)
                 for label, path in metric_paths.items()
@@ -632,8 +737,8 @@ def main() -> None:
                             'n_valid_metric_pairs': 0,
                             'n_total_metric_pairs': 0,
                             'reason': 'too_few_tissue_eligible_metrics',
-                            'gm_probseg': str(args.gm_probseg),
-                            'wm_probseg': str(args.wm_probseg),
+                            'tissue_mask_source': args.tissue_mask_source,
+                            'tissue_mask_file': tissue_mask_file,
                             'metrics': ','.join(tissue_labels),
                         }
                     )
@@ -651,8 +756,8 @@ def main() -> None:
                     {
                         'subject': subject,
                         'session': session,
-                        'gm_probseg': str(args.gm_probseg),
-                        'wm_probseg': str(args.wm_probseg),
+                        'tissue_mask_source': args.tissue_mask_source,
+                        'tissue_mask_file': tissue_mask_file,
                         'metrics': ','.join(tissue_data.columns),
                     }
                 )
