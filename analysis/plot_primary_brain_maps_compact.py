@@ -678,7 +678,7 @@ def group_label(group: str) -> str:
     if group == 'B1':
         return math_label('B₁', bold=True)
     if group == 'g-ratio':
-        return r'$\mathit{g}$-ratio'
+        return r'$\mathbf{\mathit{g}}$-ratio'
     return math_label(group, bold=True)
 
 
