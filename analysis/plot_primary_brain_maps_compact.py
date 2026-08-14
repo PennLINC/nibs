@@ -678,7 +678,7 @@ def group_label(group: str) -> str:
     if group == 'B1':
         return math_label('B₁', bold=True)
     if group == 'g-ratio':
-        return r'$\mathbf{\mathit{g}}$-ratio'
+        return '𝙜-ratio'
     return math_label(group, bold=True)
 
 
@@ -1003,14 +1003,14 @@ def plot_figure(
 
     row_panel_counts = [max(group[-1] for group in row) for row in packed_rows]
     height_ratios = [0.34 + rows for rows in row_panel_counts]
-    figure_width = 7.85
+    figure_width = 7.45
     figure_height = 0.20 + 1.11 * sum(row_panel_counts) + 0.13 * len(packed_rows)
     fig = plt.figure(figsize=(figure_width, figure_height), facecolor='white')
     outer = fig.add_gridspec(
         len(packed_rows),
         max_columns,
-        left=0.025,
-        right=0.995,
+        left=0.022,
+        right=0.997,
         top=0.990,
         bottom=0.035,
         hspace=0.045,
