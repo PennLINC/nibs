@@ -728,8 +728,10 @@ def plot_panel(
     ax.set_xlim(-0.5, slice_shape[1] - 0.5)
     ax.set_ylim(slice_shape[0] - 0.5, -0.5)
     ax.set_aspect('equal')
-    title_fontsize = 7.4 if '\n' in display_label(panel.metric.spec) else 8.2
-    ax.set_title(display_label(panel.metric.spec), fontsize=title_fontsize, pad=1.0, linespacing=0.92)
+    label = display_label(panel.metric.spec)
+    title_fontsize = 7.2 if '\n' in label else 8.2
+    title_pad = 3.1 if '\n' in label else 1.2
+    ax.set_title(label, fontsize=title_fontsize, pad=title_pad, linespacing=0.92)
     ax.set_axis_off()
 
 
@@ -980,8 +982,8 @@ def plot_figure(
 
     row_panel_counts = [max(group[-1] for group in row) for row in packed_rows]
     height_ratios = [0.34 + rows for rows in row_panel_counts]
-    figure_width = 8.9
-    figure_height = 0.18 + 1.08 * sum(row_panel_counts) + 0.13 * len(packed_rows)
+    figure_width = 8.45
+    figure_height = 0.20 + 1.11 * sum(row_panel_counts) + 0.13 * len(packed_rows)
     fig = plt.figure(figsize=(figure_width, figure_height), facecolor='white')
     outer = fig.add_gridspec(
         len(packed_rows),
@@ -991,7 +993,7 @@ def plot_figure(
         top=0.990,
         bottom=0.035,
         hspace=0.045,
-        wspace=0.006,
+        wspace=0.001,
         height_ratios=height_ratios,
     )
     bg_limits = {
@@ -1011,7 +1013,7 @@ def plot_figure(
                 rows + 1,
                 width,
                 height_ratios=[0.34] + [1] * rows,
-                hspace=0.06,
+                hspace=0.13 if rows > 1 else 0.06,
                 wspace=0.0,
             )
             title_axis = fig.add_subplot(nested[0, :])
