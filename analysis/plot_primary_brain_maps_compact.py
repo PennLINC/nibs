@@ -199,6 +199,36 @@ GROUP_BOTTOM_PAD_IN = 0.08
 GROUP_GAP_IN = 0.035
 ROW_GAP_IN = 0.070
 FIGURE_MARGIN_IN = 0.12
+GROUP_INCH_STYLE = {
+    'dMRI': {
+        'panel_gap': 0.075,
+        'row_gap': 0.18,
+        'xpad': 0.12,
+        'top_pad': 0.42,
+        'bottom_pad': 0.08,
+        'label_fontsize': 7.9,
+        'group_fontsize': 10.0,
+    },
+    'QSM': {
+        'panel_gap': 0.42,
+        'row_gap': 0.24,
+        'xpad': 0.20,
+        'top_pad': 0.44,
+        'bottom_pad': 0.08,
+        'label_fontsize': 6.9,
+        'group_fontsize': 9.8,
+    },
+    'T1w/T2w': {
+        'panel_gap': 0.18,
+        'row_gap': 0.34,
+        'xpad': 0.28,
+        'top_pad': 0.42,
+        'bottom_pad': 0.10,
+        'label_fontsize': 7.1,
+        'group_fontsize': 9.5,
+        'min_width': 2.25,
+    },
+}
 LONG_LABEL_WIDTH_IN = {
     'T1w/T2w': 1.92,
 }
@@ -785,19 +815,34 @@ def group_grid_shape(group: str, n_panels: int) -> tuple[int, int]:
     return 1, n_panels
 
 
+def group_inch_style(group: str) -> dict[str, float]:
+    style = {
+        'panel_gap': PANEL_GAP_IN,
+        'row_gap': PANEL_ROW_GAP_IN,
+        'xpad': GROUP_XPAD_IN,
+        'top_pad': GROUP_TOP_PAD_IN,
+        'bottom_pad': GROUP_BOTTOM_PAD_IN,
+        'label_fontsize': 7.9,
+        'group_fontsize': 9.8,
+        'min_width': LONG_LABEL_WIDTH_IN.get(group, 0.0),
+    }
+    style.update(GROUP_INCH_STYLE.get(group, {}))
+    return style
+
+
 def group_size_inches(group: str, n_panels: int) -> tuple[float, float, int, int]:
+    style = group_inch_style(group)
     rows, columns = group_grid_shape(group, n_panels)
     panel_area_width = (
         columns * PANEL_WIDTH_IN
-        + max(columns - 1, 0) * PANEL_GAP_IN
+        + max(columns - 1, 0) * style['panel_gap']
     )
-    min_width = LONG_LABEL_WIDTH_IN.get(group, 0.0)
-    width = max(panel_area_width + 2 * GROUP_XPAD_IN, min_width)
+    width = max(panel_area_width + 2 * style['xpad'], style['min_width'])
     height = (
-        GROUP_TOP_PAD_IN
+        style['top_pad']
         + rows * PANEL_HEIGHT_IN
-        + max(rows - 1, 0) * PANEL_ROW_GAP_IN
-        + GROUP_BOTTOM_PAD_IN
+        + max(rows - 1, 0) * style['row_gap']
+        + style['bottom_pad']
     )
     return width, height, rows, columns
 
