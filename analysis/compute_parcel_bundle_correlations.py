@@ -29,6 +29,7 @@ from path_utils import DERIVATIVES_ROOT
 
 ANALYSIS_SETS = ('primary', 'full')
 PROFILE_TYPES = ('wm_bundles', 'gm_parcels')
+CORRELATION_METHODS = ('spearman', 'pearson')
 
 
 def write_metric_inclusion(
@@ -79,7 +80,11 @@ def selected_profile_types(analysis: str) -> list[str]:
     return list(PROFILE_TYPES)
 
 
-def pairwise_profile_correlation(profile: pd.DataFrame, min_features: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+def pairwise_profile_correlation(
+    profile: pd.DataFrame,
+    min_features: int,
+    method: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     metrics = list(profile.columns)
     corr = np.full((len(metrics), len(metrics)), np.nan, dtype=float)
     counts = np.zeros((len(metrics), len(metrics)), dtype=np.int64)
@@ -94,8 +99,14 @@ def pairwise_profile_correlation(profile: pd.DataFrame, min_features: int) -> tu
             counts[j, i] = n_valid
             if n_valid < min_features:
                 continue
-            x = rankdata(values[valid, i])
-            y = rankdata(values[valid, j])
+            if method == 'spearman':
+                x = rankdata(values[valid, i])
+                y = rankdata(values[valid, j])
+            elif method == 'pearson':
+                x = values[valid, i]
+                y = values[valid, j]
+            else:
+                raise ValueError(f'Unsupported correlation method: {method}')
             if np.std(x) == 0 or np.std(y) == 0:
                 continue
             value = float(np.corrcoef(x, y)[0, 1])
@@ -112,6 +123,7 @@ def mean_correlation_matrix(
     labels: list[str],
     min_features: int,
     min_group_subjects: int,
+    method: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     subject_z_mats = []
     subject_count_mats = []
@@ -124,7 +136,7 @@ def mean_correlation_matrix(
             profile = profile.dropna(axis=1, how='all')
             if profile.shape[1] < 2:
                 continue
-            corr, count = pairwise_profile_correlation(profile, min_features)
+            corr, count = pairwise_profile_correlation(profile, min_features, method)
             z = np.arctanh(np.clip(corr, -0.999999, 0.999999))
             np.fill_diagonal(z.values, 0.0)
             session_z_mats.append(z.reindex(index=labels, columns=labels))
@@ -162,6 +174,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--outdir', type=Path, default=DERIVATIVES_ROOT / 'parcel_bundle_correlations')
     parser.add_argument('--analysis', choices=('wm', 'gm', 'both'), default='both')
     parser.add_argument('--qc-mode', choices=QC_MODES, default='metricqc')
+    parser.add_argument(
+        '--correlation',
+        nargs='+',
+        choices=(*CORRELATION_METHODS, 'both'),
+        default=['both'],
+        help='Correlation method(s) to compute.',
+    )
     parser.add_argument('--stat', choices=('mean', 'median'), default='median')
     parser.add_argument('--prefer-masked', action='store_true')
     parser.add_argument('--min-features', type=int, default=2)
@@ -177,6 +196,11 @@ def main() -> None:
     specs = build_metric_specs(args.patterns_file)
 
     qc_df = load_qc_table(args.qc_file)
+    correlation_methods = (
+        list(CORRELATION_METHODS)
+        if 'both' in args.correlation
+        else list(dict.fromkeys(args.correlation))
+    )
 
     inputs = []
     if args.analysis in {'wm', 'both'}:
@@ -231,33 +255,35 @@ def main() -> None:
                 analysis_set,
                 tissue=tissue,
             )
-            stem = args.outdir / f'{profile_type}_{analysis_set}_spearman_{args.stat}'
-            write_metric_inclusion(
-                stem.with_name(stem.name + '_metric_inclusion.tsv'),
-                profile_type,
-                analysis_set,
-                tissue,
-                expected_labels,
-                observed_before_qc_labels,
-                observed_labels,
-                labels,
-                display,
-            )
-            if len(labels) < 2:
-                continue
-            corr, counts, nsubjects = mean_correlation_matrix(
-                long_df,
-                labels,
-                args.min_features,
-                args.min_group_subjects,
-            )
-            corr = corr.rename(index=display, columns=display)
-            counts = counts.rename(index=display, columns=display)
-            nsubjects = nsubjects.rename(index=display, columns=display)
-            corr.to_csv(stem.with_name(stem.name + '_r.tsv'), sep='\t')
-            counts.to_csv(stem.with_name(stem.name + '_mean_pairwise_nfeatures.tsv'), sep='\t')
-            nsubjects.to_csv(stem.with_name(stem.name + '_nsubjects.tsv'), sep='\t')
-            print(f'Wrote: {stem}_r.tsv', flush=True)
+            for correlation_method in correlation_methods:
+                stem = args.outdir / f'{profile_type}_{analysis_set}_{correlation_method}_{args.stat}'
+                write_metric_inclusion(
+                    stem.with_name(stem.name + '_metric_inclusion.tsv'),
+                    profile_type,
+                    analysis_set,
+                    tissue,
+                    expected_labels,
+                    observed_before_qc_labels,
+                    observed_labels,
+                    labels,
+                    display,
+                )
+                if len(labels) < 2:
+                    continue
+                corr, counts, nsubjects = mean_correlation_matrix(
+                    long_df,
+                    labels,
+                    args.min_features,
+                    args.min_group_subjects,
+                    correlation_method,
+                )
+                corr = corr.rename(index=display, columns=display)
+                counts = counts.rename(index=display, columns=display)
+                nsubjects = nsubjects.rename(index=display, columns=display)
+                corr.to_csv(stem.with_name(stem.name + '_r.tsv'), sep='\t')
+                counts.to_csv(stem.with_name(stem.name + '_mean_pairwise_nfeatures.tsv'), sep='\t')
+                nsubjects.to_csv(stem.with_name(stem.name + '_nsubjects.tsv'), sep='\t')
+                print(f'Wrote: {stem}_r.tsv', flush=True)
 
 
 if __name__ == '__main__':

@@ -37,6 +37,7 @@ ANALYSIS_SETS = ('primary', 'full')
 TISSUES = ('gm', 'wm')
 MNI_CORRELATIONS = ('pearson', 'spearman')
 PARCEL_STAT = 'median'
+PARCEL_CORRELATIONS = ('spearman', 'pearson')
 
 
 def require_dependencies() -> None:
@@ -67,22 +68,22 @@ def clean_title_token(value: str) -> str:
 
 
 def figure_size(n_metrics: int) -> tuple[float, float]:
-    side = max(10.5, min(30.0, 4.8 + 0.44 * n_metrics))
+    side = max(9.6, min(28.0, 4.3 + 0.40 * n_metrics))
     return side, side
 
 
 def label_fontsize(n_metrics: int) -> float:
     if n_metrics <= 28:
-        return 8.5
+        return 10.0
     if n_metrics <= 45:
-        return 7.0
+        return 8.2
     if n_metrics <= 70:
-        return 5.8
-    return 4.8
+        return 6.8
+    return 5.6
 
 
 def title_fontsize(n_metrics: int) -> float:
-    return max(14.0, min(24.0, 27.0 - 0.12 * n_metrics))
+    return max(18.0, min(26.0, 29.0 - 0.10 * n_metrics))
 
 
 def load_correlation_matrix(path: Path) -> pd.DataFrame:
@@ -239,8 +240,8 @@ def plot_matrix(
         xticklabels=True,
         yticklabels=True,
         figsize=figure_size(n_metrics),
-        dendrogram_ratio=(0.12, 0.025),
-        cbar_pos=(0.26, 0.055, 0.48, 0.022),
+        dendrogram_ratio=(0.10, 0.001),
+        cbar_pos=(0.29, 0.07, 0.42, 0.022),
         cbar_kws={
             'orientation': 'horizontal',
             'label': cbar_label,
@@ -285,15 +286,15 @@ def plot_matrix(
         handles=handles,
         title='Source image',
         loc='upper left',
-        bbox_to_anchor=(1.22, 0.55),
+        bbox_to_anchor=(1.08, 0.55),
         frameon=False,
         fontsize=max(7.0, fs),
         title_fontsize=max(8.0, fs + 1),
     )
 
-    grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.985)
-    grid.fig.subplots_adjust(left=0.075, right=0.82, top=0.93, bottom=0.17)
-    grid.cax.set_position([0.26, 0.055, 0.48, 0.022])
+    grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.972)
+    grid.fig.subplots_adjust(left=0.07, right=0.855, top=0.948, bottom=0.14)
+    grid.cax.set_position([0.30, 0.062, 0.40, 0.022])
     draw_diagonal(grid)
     add_source_annotation(grid, source_by_label)
 
@@ -309,9 +310,15 @@ def mni_input_path(mni_dir: Path, analysis_set: str, tissue: str, correlation: s
     return mni_dir / f'mni_voxelwise_{analysis_set}_{tissue}_{correlation}_r.tsv'
 
 
-def parcel_input_path(parcel_dir: Path, analysis_set: str, tissue: str, stat: str) -> Path:
+def parcel_input_path(
+    parcel_dir: Path,
+    analysis_set: str,
+    tissue: str,
+    correlation: str,
+    stat: str,
+) -> Path:
     profile_type = 'gm_parcels' if tissue == 'gm' else 'wm_bundles'
-    return parcel_dir / f'{profile_type}_{analysis_set}_spearman_{stat}_r.tsv'
+    return parcel_dir / f'{profile_type}_{analysis_set}_{correlation}_{stat}_r.tsv'
 
 
 def selected_values(values: list[str], all_values: tuple[str, ...]) -> list[str]:
@@ -395,6 +402,13 @@ def build_parser() -> argparse.ArgumentParser:
         help='Parcel/bundle summary statistic used in parcel correlation filenames.',
     )
     parser.add_argument(
+        '--parcel-correlation',
+        nargs='+',
+        choices=(*PARCEL_CORRELATIONS, 'both'),
+        default=['both'],
+        help='GM parcel / WM bundle correlation method(s) to plot.',
+    )
+    parser.add_argument(
         '--strict',
         action='store_true',
         help='Fail instead of warning when an expected input matrix is missing.',
@@ -423,6 +437,7 @@ def main() -> None:
     analysis_sets = selected_values(args.analysis_set, ANALYSIS_SETS)
     tissues = selected_values(args.tissue, TISSUES)
     mni_correlations = selected_values(args.mni_correlation, MNI_CORRELATIONS)
+    parcel_correlations = selected_values(args.parcel_correlation, PARCEL_CORRELATIONS)
 
     for analysis_set in analysis_sets:
         for tissue in tissues:
@@ -445,28 +460,38 @@ def main() -> None:
                         out_stem,
                         source_by_label,
                         title,
-                        f'Mean voxelwise {corr_title} r',
+                        r'Mean voxelwise Pearson $r$'
+                        if correlation == 'pearson'
+                        else 'Mean voxelwise Spearman ρ',
                         args.strict,
                     )
 
             if not args.skip_parcel:
                 profile_title = 'GM Parcels' if tissue == 'gm' else 'WM Bundles'
-                title = (
-                    f'{clean_title_token(analysis_set)} {profile_title} '
-                    'Spearman Correlations'
-                )
-                out_stem = (
-                    args.output_dir
-                    / f'parcel_bundle_{analysis_set}_{tissue}_spearman_{args.parcel_stat}_correlations'
-                )
-                plot_if_available(
-                    parcel_input_path(args.parcel_dir, analysis_set, tissue, args.parcel_stat),
-                    out_stem,
-                    source_by_label,
-                    title,
-                    'Mean Spearman rho',
-                    args.strict,
-                )
+                for correlation in parcel_correlations:
+                    corr_title = 'Pearson' if correlation == 'pearson' else 'Spearman'
+                    title = (
+                        f'{clean_title_token(analysis_set)} {profile_title} '
+                        f'{corr_title} Correlations'
+                    )
+                    out_stem = (
+                        args.output_dir
+                        / f'parcel_bundle_{analysis_set}_{tissue}_{correlation}_{args.parcel_stat}_correlations'
+                    )
+                    plot_if_available(
+                        parcel_input_path(
+                            args.parcel_dir,
+                            analysis_set,
+                            tissue,
+                            correlation,
+                            args.parcel_stat,
+                        ),
+                        out_stem,
+                        source_by_label,
+                        title,
+                        r'Mean Pearson $r$' if correlation == 'pearson' else 'Mean Spearman ρ',
+                        args.strict,
+                    )
 
 
 if __name__ == '__main__':

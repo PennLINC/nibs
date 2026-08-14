@@ -338,17 +338,57 @@ def draw_interval_panel(
 
 def label_offsets(n_labels: int) -> list[tuple[float, float]]:
     pattern = [
-        (0.012, 0.012),
-        (0.012, -0.018),
-        (-0.055, 0.014),
-        (-0.055, -0.02),
-        (0.02, 0.035),
-        (-0.07, 0.036),
+        (0.030, 0.030),
+        (0.034, -0.032),
+        (-0.075, 0.030),
+        (-0.078, -0.034),
+        (0.046, 0.062),
+        (-0.090, 0.060),
+        (0.060, -0.060),
+        (-0.102, -0.058),
     ]
     return [pattern[index % len(pattern)] for index in range(n_labels)]
 
 
-def draw_scatter_panel(ax, summary: pd.DataFrame, title: str) -> None:
+def repel_label_positions(
+    points: list[tuple[float, float]],
+    offsets: list[tuple[float, float]],
+    lower: float,
+    upper: float,
+) -> list[tuple[float, float]]:
+    positions = [
+        (
+            float(np.clip(x + dx, lower + 0.015, upper - 0.015)),
+            float(np.clip(y + dy, lower + 0.015, upper - 0.015)),
+        )
+        for (x, y), (dx, dy) in zip(points, offsets)
+    ]
+    min_dx = 0.050 * (upper - lower)
+    min_dy = 0.030 * (upper - lower)
+    for _ in range(80):
+        moved = False
+        for i in range(len(positions)):
+            xi, yi = positions[i]
+            for j in range(i + 1, len(positions)):
+                xj, yj = positions[j]
+                if abs(xi - xj) >= min_dx or abs(yi - yj) >= min_dy:
+                    continue
+                direction = 1.0 if yj >= yi else -1.0
+                yj = float(np.clip(yj + direction * min_dy, lower + 0.015, upper - 0.015))
+                xj = float(np.clip(xj + (0.35 * min_dx if xj >= xi else -0.35 * min_dx), lower + 0.015, upper - 0.015))
+                positions[j] = (xj, yj)
+                moved = True
+        if not moved:
+            break
+    return positions
+
+
+def draw_scatter_panel(
+    ax,
+    summary: pd.DataFrame,
+    gm_domain: str,
+    wm_domain: str,
+) -> None:
     wide = summary.pivot_table(
         index='metric_key',
         columns='tissue',
@@ -376,8 +416,9 @@ def draw_scatter_panel(ax, summary: pd.DataFrame, title: str) -> None:
         ax.axvline(benchmark, color='#e0e0e0', lw=0.8, zorder=0)
         ax.axhline(benchmark, color='#e0e0e0', lw=0.8, zorder=0)
 
-    offsets = label_offsets(len(wide))
-    for (metric_key, row), (dx, dy) in zip(wide.iterrows(), offsets):
+    points = [(float(row['gm']), float(row['wm'])) for _, row in wide.iterrows()]
+    label_positions = repel_label_positions(points, label_offsets(len(wide)), lower, upper)
+    for (metric_key, row), (label_x, label_y) in zip(wide.iterrows(), label_positions):
         source = meta.loc[metric_key, 'source_image']
         color = color_for_source(source)
         label = meta.loc[metric_key, 'metric']
@@ -391,14 +432,24 @@ def draw_scatter_panel(ax, summary: pd.DataFrame, title: str) -> None:
             alpha=0.95,
             zorder=3,
         )
-        ax.text(
-            row['gm'] + dx,
-            row['wm'] + dy,
+        ax.annotate(
             label,
+            xy=(row['gm'], row['wm']),
+            xytext=(label_x, label_y),
+            textcoords='data',
+            arrowprops={
+                'arrowstyle': '-',
+                'color': color,
+                'alpha': 0.55,
+                'lw': 0.6,
+                'shrinkA': 1,
+                'shrinkB': 4,
+            },
             fontsize=7.0,
             color=color,
-            ha='left' if dx >= 0 else 'right',
+            ha='left' if label_x >= row['gm'] else 'right',
             va='center',
+            zorder=4,
         )
     ax.text(
         lower + 0.12 * (upper - lower),
@@ -420,8 +471,8 @@ def draw_scatter_panel(ax, summary: pd.DataFrame, title: str) -> None:
     ax.set_ylim(lower, upper)
     ax.set_aspect('equal', adjustable='box')
     ax.set_box_aspect(1)
-    ax.set_xlabel(f'Median ICC across GM {title}')
-    ax.set_ylabel(f'Median ICC across WM {title}')
+    ax.set_xlabel(f'Median ICC across {gm_domain}')
+    ax.set_ylabel(f'Median ICC across {wm_domain}')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
@@ -437,10 +488,10 @@ def add_source_legend(fig, data: pd.DataFrame) -> None:
     fig.legend(
         handles=handles,
         loc='lower center',
-        ncol=len(handles),
+        ncol=min(4, len(handles)),
         frameon=False,
         title='Source image',
-        bbox_to_anchor=(0.5, 0.015),
+        bbox_to_anchor=(0.5, 0.018),
     )
 
 
@@ -448,7 +499,8 @@ def plot_icc_figure(
     data: pd.DataFrame,
     output_prefix: Path,
     title: str,
-    scatter_domain: str,
+    gm_domain: str,
+    wm_domain: str,
 ) -> None:
     if data.empty:
         raise RuntimeError(f'No ICC data available for {title}')
@@ -470,23 +522,23 @@ def plot_icc_figure(
             'ytick.labelsize': 8.5,
         }
     )
-    fig = plt.figure(figsize=(11.6, 24.0), constrained_layout=False)
+    fig = plt.figure(figsize=(9.8, 22.0), constrained_layout=False)
     grid = fig.add_gridspec(
         3,
         1,
         height_ratios=[1.0, 1.0, 1.0],
-        left=0.28,
-        right=0.82,
-        bottom=0.105,
+        left=0.235,
+        right=0.80,
+        bottom=0.082,
         top=0.985,
-        hspace=0.28,
+        hspace=0.22,
     )
     ax_wm = fig.add_subplot(grid[0, 0])
     ax_gm = fig.add_subplot(grid[1, 0])
     ax_scatter = fig.add_subplot(grid[2, 0])
-    draw_interval_panel(ax_wm, data, summary, 'wm', f'ICC(2,1) across WM {scatter_domain}')
-    draw_interval_panel(ax_gm, data, summary, 'gm', f'ICC(2,1) across GM {scatter_domain}')
-    draw_scatter_panel(ax_scatter, summary, scatter_domain)
+    draw_interval_panel(ax_wm, data, summary, 'wm', f'ICC(2,1) across {wm_domain}')
+    draw_interval_panel(ax_gm, data, summary, 'gm', f'ICC(2,1) across {gm_domain}')
+    draw_scatter_panel(ax_scatter, summary, gm_domain, wm_domain)
     for label, ax in zip(('A', 'B', 'C'), (ax_wm, ax_gm, ax_scatter)):
         ax.text(
             -0.18,
@@ -543,7 +595,8 @@ def main() -> None:
             parcel_data,
             args.output_dir / f'icc_parcel_bundle_{args.analysis_set}_{args.stat}',
             f'{args.analysis_set.title()} Parcel/Bundle ICC',
-            'parcels/bundles',
+            gm_domain='GM parcels',
+            wm_domain='WM bundles',
         )
 
     if not args.skip_voxelwise:
@@ -558,7 +611,8 @@ def main() -> None:
             voxel_data,
             args.output_dir / f'icc_mni_voxelwise_{args.analysis_set}_{args.voxelwise_analysis}',
             f'{args.analysis_set.title()} MNI Voxelwise ICC',
-            'voxels',
+            gm_domain='GM voxels',
+            wm_domain='WM voxels',
         )
 
 

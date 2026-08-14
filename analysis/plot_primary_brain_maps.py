@@ -63,6 +63,14 @@ LOGGER = logging.getLogger('primary_maps')
 
 MNI_SPACE = 'MNI152NLin2009cAsym'
 DISPLAY_PERCENTILES = (5.0, 95.0)
+B1_PATTERN = (
+    'pymp2rage/{subject}/{session}/fmap/'
+    '{subject}_{session}_run-01_space-MNI152NLin2009cAsym_TB1map.nii.gz'
+)
+FIGURE_SOURCE_COLORS = {
+    **SOURCE_IMAGE_COLORS,
+    'B1': '#7A6A2A',
+}
 
 TABLE_ORDER = {
     'dMRI': (
@@ -106,13 +114,14 @@ TABLE_ORDER = {
         'Q-Ratio-E5-B1c',
     ),
     'MESE': ('R2',),
+    'B1': ('B1',),
 }
 
 LAYOUT_ROWS = (
     ('dMRI',),
     ('QSM', 'T1w/T2w'),
     ('ihMT', 'g-ratio', 'MEGRE'),
-    ('R1', 'MESE'),
+    ('R1', 'MESE', 'B1'),
 )
 
 PANEL_LABELS = {
@@ -120,6 +129,7 @@ PANEL_LABELS = {
     'SPACE-MyelinW': 'SPACE T1w/T2w Ratio',
     'QSM-X-R2p-E5-Para': 'QSM-X-R2p-E5-para',
     'QSM-X-R2p-E5-Dia': 'QSM-X-R2p-E5-dia',
+    'B1': 'B1 map',
 }
 
 
@@ -201,12 +211,31 @@ def table_metric_specs(patterns_file: Path) -> list[tuple[str, MetricSpec, str]]
     ordered: list[tuple[str, MetricSpec, str]] = []
     for source_group, labels in TABLE_ORDER.items():
         for label in labels:
+            if label == 'B1':
+                ordered.append(
+                    (
+                        source_group,
+                        MetricSpec(
+                            label='B1',
+                            primary_label='B1',
+                            pattern_key='B1',
+                            group='B1',
+                            family='B1',
+                            source_image='B1',
+                            qc_modalities=('B1+',),
+                            tissues=('gm', 'wm'),
+                            primary=False,
+                        ),
+                        B1_PATTERN,
+                    )
+                )
+                continue
             spec = by_primary.get(label)
             if spec is None:
                 raise KeyError(f'Primary metric {label!r} was not found in {patterns_file}')
             ordered.append((source_group, spec, patterns[spec.group][spec.pattern_key]))
-    if len(ordered) != 27:
-        raise RuntimeError(f'Expected 27 primary metrics, found {len(ordered)}')
+    if len(ordered) != 28:
+        raise RuntimeError(f'Expected 27 primary metrics plus B1, found {len(ordered)}')
     return ordered
 
 
@@ -425,19 +454,21 @@ def display_label(spec: MetricSpec) -> str:
 
 
 def group_label(group: str) -> str:
+    if group == 'B1':
+        return math_label('B1', bold=True)
     return math_label(group, bold=True)
 
 
-def add_group_background(fig: plt.Figure, spec, color: str):
+def add_group_box(fig: plt.Figure, spec, color: str):
     axis = fig.add_subplot(spec)
     axis.set_zorder(0)
-    axis.set_facecolor(mcolors.to_rgba(color, 0.13))
+    axis.set_facecolor('white')
     axis.set_xticks([])
     axis.set_yticks([])
     for spine in axis.spines.values():
         spine.set_visible(True)
-        spine.set_linewidth(0.9)
-        spine.set_edgecolor(mcolors.to_rgba(color, 0.38))
+        spine.set_linewidth(1.25)
+        spine.set_edgecolor(mcolors.to_rgba(color, 0.72))
     return axis
 
 
@@ -475,7 +506,7 @@ def plot_panel(
     ax.set_xlim(-0.5, slice_shape[1] - 0.5)
     ax.set_ylim(slice_shape[0] - 0.5, -0.5)
     ax.set_aspect('equal')
-    ax.set_title(display_label(panel.metric.spec), fontsize=9.2, pad=2.5)
+    ax.set_title(display_label(panel.metric.spec), fontsize=9.0, pad=1.5)
     ax.set_axis_off()
 
 
@@ -507,9 +538,9 @@ def plot_figure(
             packed_rows.append(packed_row)
 
     row_panel_counts = [max(group[-1] for group in row) for row in packed_rows]
-    height_ratios = [0.3 + rows for rows in row_panel_counts]
-    figure_height = 0.28 + 1.55 * sum(row_panel_counts) + 0.26 * len(packed_rows)
-    figure_width = 11.2
+    height_ratios = [0.22 + rows for rows in row_panel_counts]
+    figure_height = 0.22 + 1.38 * sum(row_panel_counts) + 0.12 * len(packed_rows)
+    figure_width = 10.2
     fig = plt.figure(figsize=(figure_width, figure_height), facecolor='white')
     outer = fig.add_gridspec(
         len(packed_rows),
@@ -518,8 +549,8 @@ def plot_figure(
         right=0.985,
         top=0.985,
         bottom=0.035,
-        hspace=0.18,
-        wspace=0.035,
+        hspace=0.095,
+        wspace=0.018,
         height_ratios=height_ratios,
     )
     bg_limits = {
@@ -532,15 +563,15 @@ def plot_figure(
 
     for row_index, packed_row in enumerate(packed_rows):
         for group, group_panels, start_column, width, rows in packed_row:
-            color = SOURCE_IMAGE_COLORS[group]
+            color = FIGURE_SOURCE_COLORS[group]
             group_spec = outer[row_index, start_column : start_column + width]
-            add_group_background(fig, group_spec, color)
+            add_group_box(fig, group_spec, color)
             nested = group_spec.subgridspec(
                 rows + 1,
                 width,
-                height_ratios=[0.22] + [1] * rows,
-                hspace=0.12,
-                wspace=0.05,
+                height_ratios=[0.16] + [1] * rows,
+                hspace=0.045,
+                wspace=0.0,
             )
             title_axis = fig.add_subplot(nested[0, :])
             title_axis.set_axis_off()
@@ -581,9 +612,9 @@ def plot_figure(
         colorbar_spec = outer[-1, bottom_used_width:max_columns]
         colorbar_host = fig.add_subplot(colorbar_spec)
         colorbar_host.set_axis_off()
-        colorbar_axis = colorbar_host.inset_axes([0.17, 0.52, 0.74, 0.075])
+        colorbar_axis = colorbar_host.inset_axes([0.18, 0.54, 0.62, 0.07])
     else:
-        colorbar_axis = fig.add_axes([0.36, 0.026, 0.28, 0.012])
+        colorbar_axis = fig.add_axes([0.38, 0.026, 0.24, 0.012])
     colorbar = fig.colorbar(
         ScalarMappable(norm=mcolors.Normalize(vmin=5, vmax=95), cmap=cmap),
         cax=colorbar_axis,
