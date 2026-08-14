@@ -189,6 +189,20 @@ DEFAULT_PANEL_STYLE = {
     'group_fontsize': 10.3,
 }
 
+PANEL_WIDTH_IN = 0.62
+PANEL_HEIGHT_IN = 0.86
+PANEL_GAP_IN = 0.18
+PANEL_ROW_GAP_IN = 0.24
+GROUP_XPAD_IN = 0.13
+GROUP_TOP_PAD_IN = 0.28
+GROUP_BOTTOM_PAD_IN = 0.08
+GROUP_GAP_IN = 0.035
+ROW_GAP_IN = 0.070
+FIGURE_MARGIN_IN = 0.12
+LONG_LABEL_WIDTH_IN = {
+    'T1w/T2w': 1.92,
+}
+
 
 @dataclass(frozen=True)
 class ResolvedMetric:
@@ -763,6 +777,132 @@ def plot_group_panels(
         )
 
 
+def group_grid_shape(group: str, n_panels: int) -> tuple[int, int]:
+    if group in STACKED_PANEL_GROUPS:
+        return n_panels, 1
+    if group == 'dMRI':
+        return 2, int(np.ceil(n_panels / 2))
+    return 1, n_panels
+
+
+def group_size_inches(group: str, n_panels: int) -> tuple[float, float, int, int]:
+    rows, columns = group_grid_shape(group, n_panels)
+    panel_area_width = (
+        columns * PANEL_WIDTH_IN
+        + max(columns - 1, 0) * PANEL_GAP_IN
+    )
+    min_width = LONG_LABEL_WIDTH_IN.get(group, 0.0)
+    width = max(panel_area_width + 2 * GROUP_XPAD_IN, min_width)
+    height = (
+        GROUP_TOP_PAD_IN
+        + rows * PANEL_HEIGHT_IN
+        + max(rows - 1, 0) * PANEL_ROW_GAP_IN
+        + GROUP_BOTTOM_PAD_IN
+    )
+    return width, height, rows, columns
+
+
+def add_group_box_at(
+    fig: plt.Figure,
+    left: float,
+    bottom: float,
+    width: float,
+    height: float,
+    figure_width: float,
+    figure_height: float,
+    color: str,
+) -> plt.Axes:
+    axis = fig.add_axes(
+        [
+            left / figure_width,
+            bottom / figure_height,
+            width / figure_width,
+            height / figure_height,
+        ]
+    )
+    axis.set_zorder(0)
+    axis.set_facecolor('white')
+    axis.set_xticks([])
+    axis.set_yticks([])
+    for spine in axis.spines.values():
+        spine.set_visible(True)
+        spine.set_linewidth(1.25)
+        spine.set_edgecolor(mcolors.to_rgba(color, 0.72))
+    return axis
+
+
+def plot_group_panels_inches(
+    fig: plt.Figure,
+    host_axis: plt.Axes,
+    group: str,
+    group_panels: Sequence[PreparedPanel],
+    left: float,
+    bottom: float,
+    group_width: float,
+    group_height: float,
+    rows: int,
+    columns: int,
+    figure_width: float,
+    figure_height: float,
+    tissue_spaces: dict[str, TissueSpace],
+    bg_limits: dict[str, tuple[float, float]],
+    cmap: str,
+    color: str,
+) -> None:
+    host_axis.text(
+        0.015,
+        0.965,
+        group_label(group),
+        ha='left',
+        va='top',
+        fontsize=9.8,
+        fontweight='bold',
+        color=color,
+        transform=host_axis.transAxes,
+    )
+    total_panel_width = (
+        columns * PANEL_WIDTH_IN
+        + max(columns - 1, 0) * PANEL_GAP_IN
+    )
+    x_start = left + (group_width - total_panel_width) / 2.0
+
+    for panel_index, panel in enumerate(group_panels):
+        panel_row = panel_index // columns
+        panel_column = panel_index % columns
+        x0 = x_start + panel_column * (PANEL_WIDTH_IN + PANEL_GAP_IN)
+        y0 = (
+            bottom
+            + GROUP_BOTTOM_PAD_IN
+            + (rows - panel_row - 1) * (PANEL_HEIGHT_IN + PANEL_ROW_GAP_IN)
+        )
+        fig.text(
+            (x0 + PANEL_WIDTH_IN / 2.0) / figure_width,
+            (y0 + PANEL_HEIGHT_IN + 0.018) / figure_height,
+            display_label(panel.metric.spec),
+            ha='center',
+            va='bottom',
+            fontsize=7.9,
+            color='black',
+        )
+        axis = fig.add_axes(
+            [
+                x0 / figure_width,
+                y0 / figure_height,
+                PANEL_WIDTH_IN / figure_width,
+                PANEL_HEIGHT_IN / figure_height,
+            ]
+        )
+        axis.set_zorder(2)
+        axis.set_facecolor((1, 1, 1, 0))
+        plot_panel(
+            axis,
+            panel,
+            tissue_spaces[panel.metric.space],
+            cmap,
+            bg_limits[panel.metric.space],
+        )
+
+
 def plot_figure(
     panels: Sequence[PreparedPanel],
     tissue_spaces: dict[str, TissueSpace],
@@ -770,42 +910,44 @@ def plot_figure(
     cmap: str,
     max_columns: int,
 ) -> None:
+    _ = max_columns
     panels_by_group = {
         group: [panel for panel in panels if panel.metric.source_group == group]
         for group in TABLE_ORDER
     }
 
-    packed_rows: list[list[tuple[str, list[PreparedPanel], int, int, int]]] = []
+    packed_rows: list[list[tuple[str, list[PreparedPanel], float, float, int, int]]] = []
     for layout_row in LAYOUT_ROWS:
-        packed_row: list[tuple[str, list[PreparedPanel], int, int, int]] = []
-        current_width = 0
+        packed_row: list[tuple[str, list[PreparedPanel], float, float, int, int]] = []
         for group in layout_row:
             group_panels = panels_by_group.get(group, [])
             if not group_panels:
                 continue
-            width = 1 if group in STACKED_PANEL_GROUPS else min(max_columns - current_width, len(group_panels))
-            rows = int(np.ceil(len(group_panels) / width))
-            packed_row.append((group, group_panels, current_width, width, rows))
-            current_width += width
+            width, height, rows, columns = group_size_inches(group, len(group_panels))
+            packed_row.append((group, group_panels, width, height, rows, columns))
         if packed_row:
             packed_rows.append(packed_row)
 
-    row_panel_counts = [max(group[-1] for group in row) for row in packed_rows]
-    height_ratios = [0.18 + rows for rows in row_panel_counts]
-    figure_height = 0.12 + 1.08 * sum(row_panel_counts) + 0.06 * len(packed_rows)
-    figure_width = 8.55
-    fig = plt.figure(figsize=(figure_width, figure_height), facecolor='white')
-    outer = fig.add_gridspec(
-        len(packed_rows),
-        max_columns,
-        left=0.025,
-        right=0.99,
-        top=0.99,
-        bottom=0.028,
-        hspace=0.045,
-        wspace=0.006,
-        height_ratios=height_ratios,
+    row_widths = [
+        sum(group[2] for group in row) + GROUP_GAP_IN * max(len(row) - 1, 0)
+        for row in packed_rows
+    ]
+    row_heights = [max(group[3] for group in row) for row in packed_rows]
+    colorbar_width = 2.25
+    colorbar_height = 0.54
+    bottom_row_extra_width = (
+        GROUP_GAP_IN + colorbar_width if packed_rows else 0.0
     )
+    figure_width = max(
+        max(row_widths[:-1], default=0.0),
+        (row_widths[-1] + bottom_row_extra_width) if row_widths else 0.0,
+    ) + 2 * FIGURE_MARGIN_IN
+    figure_height = (
+        sum(row_heights)
+        + ROW_GAP_IN * max(len(row_heights) - 1, 0)
+        + 2 * FIGURE_MARGIN_IN
+    )
+    fig = plt.figure(figsize=(figure_width, figure_height), facecolor='white')
     bg_limits = {
         space: robust_background_limits(
             np.asarray(tissue.reference.get_fdata(), dtype=np.float32),
@@ -814,34 +956,56 @@ def plot_figure(
         for space, tissue in tissue_spaces.items()
     }
 
+    current_top = figure_height - FIGURE_MARGIN_IN
     for row_index, packed_row in enumerate(packed_rows):
-        for group, group_panels, start_column, width, rows in packed_row:
+        row_height = row_heights[row_index]
+        y0 = current_top - row_height
+        x0 = FIGURE_MARGIN_IN
+        for group, group_panels, group_width, group_height, rows, columns in packed_row:
             color = FIGURE_SOURCE_COLORS[group]
-            group_spec = outer[row_index, start_column : start_column + width]
-            group_axis = add_group_box(fig, group_spec, color)
-            plot_group_panels(
+            group_bottom = y0 + row_height - group_height
+            group_axis = add_group_box_at(
+                fig,
+                x0,
+                group_bottom,
+                group_width,
+                group_height,
+                figure_width,
+                figure_height,
+                color,
+            )
+            plot_group_panels_inches(
+                fig,
                 group_axis,
                 group,
                 group_panels,
+                x0,
+                group_bottom,
+                group_width,
+                group_height,
                 rows,
-                width,
+                columns,
+                figure_width,
+                figure_height,
                 tissue_spaces,
                 bg_limits,
                 cmap,
                 color,
             )
+            x0 += group_width + GROUP_GAP_IN
+        if row_index == len(packed_rows) - 1:
+            colorbar_left = x0 + 0.30
+            colorbar_bottom = y0 + max((row_height - colorbar_height) / 2.0, 0.0)
+        current_top = y0 - ROW_GAP_IN
 
-    bottom_used_width = max(
-        start_column + width
-        for _, _, start_column, width, _ in packed_rows[-1]
+    colorbar_axis = fig.add_axes(
+        [
+            colorbar_left / figure_width,
+            (colorbar_bottom + 0.30) / figure_height,
+            colorbar_width / figure_width,
+            0.10 / figure_height,
+        ]
     )
-    if bottom_used_width < max_columns:
-        colorbar_spec = outer[-1, bottom_used_width:max_columns]
-        colorbar_host = fig.add_subplot(colorbar_spec)
-        colorbar_host.set_axis_off()
-        colorbar_axis = colorbar_host.inset_axes([0.22, 0.49, 0.52, 0.08])
-    else:
-        colorbar_axis = fig.add_axes([0.40, 0.024, 0.20, 0.012])
     colorbar = fig.colorbar(
         ScalarMappable(norm=mcolors.Normalize(vmin=5, vmax=95), cmap=cmap),
         cax=colorbar_axis,
