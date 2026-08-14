@@ -730,7 +730,7 @@ def plot_panel(
     ax.set_aspect('equal')
     label = display_label(panel.metric.spec)
     title_fontsize = 7.2 if '\n' in label else 8.2
-    title_pad = 3.1 if '\n' in label else 1.2
+    title_pad = 4.4 if '\n' in label else 1.2
     ax.set_title(label, fontsize=title_fontsize, pad=title_pad, linespacing=0.92)
     ax.set_axis_off()
 
@@ -1009,11 +1009,12 @@ def plot_figure(
             color = FIGURE_SOURCE_COLORS[group]
             group_spec = outer[row_index, start_column : start_column + width]
             add_group_box(fig, group_spec, color)
+            header_ratio = 0.50 if group == 'T1w/T2w' else 0.34
             nested = group_spec.subgridspec(
                 rows + 1,
                 width,
-                height_ratios=[0.34] + [1] * rows,
-                hspace=0.13 if rows > 1 else 0.06,
+                height_ratios=[header_ratio] + [1] * rows,
+                hspace=0.20 if rows > 1 else 0.075,
                 wspace=0.0,
             )
             title_axis = fig.add_subplot(nested[0, :])
