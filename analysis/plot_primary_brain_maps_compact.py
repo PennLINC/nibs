@@ -434,8 +434,9 @@ def safe_cache_slug(value: str) -> str:
 
 
 def panel_cache_path(cache_dir: Path, metric: ResolvedMetric) -> Path:
+    group_slug = safe_cache_slug(metric.source_group)
     slug = safe_cache_slug(metric.spec.primary_label)
-    return cache_dir / f'{metric.source_group}_{slug}_{metric.space}_average.npz'
+    return cache_dir / f'{group_slug}_{slug}_{metric.space}_average.npz'
 
 
 def panel_cache_metadata(
