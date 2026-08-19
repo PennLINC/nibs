@@ -746,8 +746,9 @@ def plot_panel(
         interpolation='nearest',
     )
     slice_shape = cropped_axial_slice(background, z_index, crop).shape
+    bottom_margin = max(1.5, 0.025 * slice_shape[0])
     ax.set_xlim(-0.5, slice_shape[1] - 0.5)
-    ax.set_ylim(slice_shape[0] - 0.5, -0.5)
+    ax.set_ylim(slice_shape[0] - 0.5 + bottom_margin, -0.5)
     ax.set_aspect('equal')
     label = display_label(panel.metric.spec)
     title_fontsize = 7.2 if '\n' in label else 8.2
