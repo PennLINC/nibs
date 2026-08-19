@@ -28,13 +28,13 @@ from path_utils import DERIVATIVES_ROOT, PROJECT_ROOT
 
 
 EFFECT_LABELS = {
-    'robust_median_d': 'Average GM-WM separation (robust d)',
-    'cohen_d': "Average GM-WM separation (Cohen's d)",
-    'hedges_g': "Average GM-WM separation (Hedges' g)",
-    'signed_auc': 'Average GM-WM separation (signed AUC)',
-    'median_difference': 'Median GM - WM difference',
-    'mean_difference': 'Mean GM - WM difference',
-    'percent_median_difference': 'Median GM - WM difference (% of |WM median|)',
+    'robust_median_d': 'Average WM-GM separation (robust d)',
+    'cohen_d': "Average WM-GM separation (Cohen's d)",
+    'hedges_g': "Average WM-GM separation (Hedges' g)",
+    'signed_auc': 'Average WM-GM separation (signed AUC)',
+    'median_difference': 'Median WM - GM difference',
+    'mean_difference': 'Mean WM - GM difference',
+    'percent_median_difference': 'Median WM - GM difference (% of |WM median|)',
 }
 
 
@@ -69,6 +69,7 @@ def load_subject_effects(path: Path, effect: str) -> pd.DataFrame:
     if missing:
         raise RuntimeError(f'{path} is missing required columns: {", ".join(sorted(missing))}')
     data[effect] = pd.to_numeric(data[effect], errors='coerce')
+    data = data.loc[data['source_image'].astype(str) != 'g-ratio'].copy()
     return data.dropna(subset=[effect]).copy()
 
 
@@ -90,7 +91,7 @@ def summarize_for_plot(data: pd.DataFrame, effect: str) -> pd.DataFrame:
         ['metric_key', 'display_metric', 'source_image'],
         sort=False,
     )):
-        values = group[effect].to_numpy(dtype=float)
+        values = -group[effect].to_numpy(dtype=float)
         values = values[np.isfinite(values)]
         if values.size == 0:
             continue
@@ -127,6 +128,10 @@ def axis_limits(values: np.ndarray) -> tuple[float, float]:
         max_abs = max(abs(low), abs(high))
         return -max_abs, max_abs
     return low, high
+
+
+def display_effect_values(values: np.ndarray) -> np.ndarray:
+    return -np.asarray(values, dtype=float)
 
 
 def format_mean_ci(row: pd.Series) -> str:
@@ -171,7 +176,9 @@ def plot_effect_sizes(
             ax.plot([row['ci95_high'], row['ci95_high']], [y_pos - 0.13, y_pos + 0.13], color='#1f1f1f', lw=0.8, zorder=3)
         ax.scatter([row['mean']], [y_pos], s=34, facecolor='white', edgecolor='#1f1f1f', linewidth=0.8, zorder=5)
         if show_subject_points:
-            metric_values = data.loc[data['metric_key'] == row['metric_key'], effect].to_numpy(dtype=float)
+            metric_values = display_effect_values(
+                data.loc[data['metric_key'] == row['metric_key'], effect].to_numpy(dtype=float)
+            )
             jitter = rng.uniform(-0.16, 0.16, size=metric_values.size)
             ax.scatter(
                 metric_values,
@@ -198,7 +205,11 @@ def plot_effect_sizes(
     ax.set_yticks(y)
     ax.set_yticklabels(labels, fontsize=8.5)
     ax.tick_params(axis='y', length=0)
-    x_low, x_high = axis_limits(data[effect].to_numpy(dtype=float))
+    plot_values = display_effect_values(data[effect].to_numpy(dtype=float))
+    if effect in {'robust_median_d', 'cohen_d', 'hedges_g'}:
+        x_low, x_high = -2.0, 4.0
+    else:
+        x_low, x_high = axis_limits(plot_values)
     ax.set_xlim(x_low, x_high)
     ax.set_ylim(-0.8, len(order) - 0.2)
     for value, color, linewidth in (
@@ -229,7 +240,7 @@ def plot_effect_sizes(
     ax.text(
         0.01,
         1.01,
-        'WM > GM',
+        'GM > WM',
         transform=ax.transAxes,
         ha='left',
         va='bottom',
@@ -239,7 +250,7 @@ def plot_effect_sizes(
     ax.text(
         0.99,
         1.01,
-        'GM > WM',
+        'WM > GM',
         transform=ax.transAxes,
         ha='right',
         va='bottom',
@@ -249,7 +260,11 @@ def plot_effect_sizes(
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    sources = [source for source in SOURCE_IMAGE_COLORS if source in set(summary['source_image'])]
+    sources = [
+        source
+        for source in SOURCE_IMAGE_COLORS
+        if source != 'g-ratio' and source in set(summary['source_image'])
+    ]
     handles = [
         Patch(
             facecolor=SOURCE_IMAGE_COLORS[source],
