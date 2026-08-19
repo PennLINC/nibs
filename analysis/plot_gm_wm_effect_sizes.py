@@ -28,10 +28,10 @@ from path_utils import DERIVATIVES_ROOT, PROJECT_ROOT
 
 
 EFFECT_LABELS = {
-    'robust_median_d': 'Robust standardized GM - WM median difference',
-    'cohen_d': "Cohen's d for GM - WM",
-    'hedges_g': "Hedges' g for GM - WM",
-    'signed_auc': 'Signed AUC effect for GM > WM',
+    'robust_median_d': 'Average GM-WM separation (robust d)',
+    'cohen_d': "Average GM-WM separation (Cohen's d)",
+    'hedges_g': "Average GM-WM separation (Hedges' g)",
+    'signed_auc': 'Average GM-WM separation (signed AUC)',
     'median_difference': 'Median GM - WM difference',
     'mean_difference': 'Mean GM - WM difference',
     'percent_median_difference': 'Median GM - WM difference (% of |WM median|)',
@@ -72,16 +72,29 @@ def load_subject_effects(path: Path, effect: str) -> pd.DataFrame:
     return data.dropna(subset=[effect]).copy()
 
 
+def bootstrap_ci(values: np.ndarray, seed: int, n_boot: int = 10000) -> tuple[float, float]:
+    finite = values[np.isfinite(values)]
+    if finite.size < 2:
+        return np.nan, np.nan
+    rng = np.random.default_rng(seed)
+    estimates = np.empty(n_boot, dtype=float)
+    for index in range(n_boot):
+        sample = rng.choice(finite, size=finite.size, replace=True)
+        estimates[index] = np.mean(sample)
+    return tuple(float(value) for value in np.percentile(estimates, [2.5, 97.5]))
+
+
 def summarize_for_plot(data: pd.DataFrame, effect: str) -> pd.DataFrame:
     rows = []
-    for (metric_key, display_metric, source_image), group in data.groupby(
+    for group_index, ((metric_key, display_metric, source_image), group) in enumerate(data.groupby(
         ['metric_key', 'display_metric', 'source_image'],
         sort=False,
-    ):
+    )):
         values = group[effect].to_numpy(dtype=float)
         values = values[np.isfinite(values)]
         if values.size == 0:
             continue
+        ci_low, ci_high = bootstrap_ci(values, seed=20260819 + group_index)
         rows.append(
             {
                 'metric_key': metric_key,
@@ -92,6 +105,8 @@ def summarize_for_plot(data: pd.DataFrame, effect: str) -> pd.DataFrame:
                 'median': float(np.median(values)),
                 'q25': float(np.percentile(values, 25)),
                 'q75': float(np.percentile(values, 75)),
+                'ci95_low': ci_low,
+                'ci95_high': ci_high,
             }
         )
     return pd.DataFrame(rows).sort_values(['mean', 'display_metric']).reset_index(drop=True)
@@ -114,6 +129,12 @@ def axis_limits(values: np.ndarray) -> tuple[float, float]:
     return low, high
 
 
+def format_mean_ci(row: pd.Series) -> str:
+    if np.isfinite(row['ci95_low']) and np.isfinite(row['ci95_high']):
+        return f"{row['mean']:.2f} [{row['ci95_low']:.2f}, {row['ci95_high']:.2f}]"
+    return f"{row['mean']:.2f}"
+
+
 def plot_effect_sizes(
     data: pd.DataFrame,
     out_prefix: Path,
@@ -134,20 +155,21 @@ def plot_effect_sizes(
     for _, row in summary.iterrows():
         y_pos = order_lookup[row['metric_key']]
         color = SOURCE_IMAGE_COLORS.get(row['source_image'], SOURCE_IMAGE_COLORS['Other'])
-        ax.add_patch(
-            Rectangle(
-                (row['q25'], y_pos - 0.24),
-                max(row['q75'] - row['q25'], 1e-8),
-                0.48,
-                facecolor=color,
-                edgecolor='#2b2b2b',
-                linewidth=0.8,
-                alpha=0.84,
-                zorder=2,
-            )
+        ax.barh(
+            y_pos,
+            row['mean'],
+            height=0.54,
+            left=0,
+            color=color,
+            edgecolor='none',
+            alpha=0.86,
+            zorder=2,
         )
-        ax.plot([row['median'], row['median']], [y_pos - 0.27, y_pos + 0.27], color='white', lw=1.8, zorder=3)
-        ax.scatter([row['mean']], [y_pos], s=34, facecolor='white', edgecolor='#2b2b2b', linewidth=0.8, zorder=4)
+        if np.isfinite(row['ci95_low']) and np.isfinite(row['ci95_high']):
+            ax.hlines(y_pos, row['ci95_low'], row['ci95_high'], color='#1f1f1f', linewidth=1.0, zorder=3)
+            ax.plot([row['ci95_low'], row['ci95_low']], [y_pos - 0.13, y_pos + 0.13], color='#1f1f1f', lw=0.8, zorder=3)
+            ax.plot([row['ci95_high'], row['ci95_high']], [y_pos - 0.13, y_pos + 0.13], color='#1f1f1f', lw=0.8, zorder=3)
+        ax.scatter([row['mean']], [y_pos], s=34, facecolor='white', edgecolor='#1f1f1f', linewidth=0.8, zorder=5)
         if show_subject_points:
             metric_values = data.loc[data['metric_key'] == row['metric_key'], effect].to_numpy(dtype=float)
             jitter = rng.uniform(-0.16, 0.16, size=metric_values.size)
@@ -163,7 +185,7 @@ def plot_effect_sizes(
         ax.text(
             1.01,
             y_pos,
-            f"{row['mean']:.2f} ({row['median']:.2f} [{row['q25']:.2f}, {row['q75']:.2f}])",
+            format_mean_ci(row),
             transform=ax.get_yaxis_transform(),
             ha='left',
             va='center',
@@ -179,11 +201,31 @@ def plot_effect_sizes(
     x_low, x_high = axis_limits(data[effect].to_numpy(dtype=float))
     ax.set_xlim(x_low, x_high)
     ax.set_ylim(-0.8, len(order) - 0.2)
-    ax.axvline(0, color='#6a6a6a', lw=1.0, ls=':', zorder=0)
-    ax.grid(axis='x', color='#d6d6d6', linewidth=0.7, alpha=0.75)
+    for value, color, linewidth in (
+        (-4, '#2F5F9E', 1.05),
+        (-2, '#A8C8EA', 0.95),
+        (2, '#F0A6A6', 0.95),
+        (4, '#B12A2A', 1.05),
+    ):
+        if x_low <= value <= x_high:
+            ax.axvline(value, color=color, lw=linewidth, zorder=0)
+    ax.axvline(0, color='#6a6a6a', lw=1.0, ls=':', zorder=1)
+    ax.grid(False)
     ax.grid(axis='y', visible=False)
-    ax.set_xlabel(EFFECT_LABELS.get(effect, effect), fontsize=10.5)
+    ax.set_xlabel(EFFECT_LABELS.get(effect, effect), fontsize=10.5, labelpad=9)
     ax.set_ylabel('')
+    ax.text(
+        1.01,
+        1.01,
+        'Mean [95% CI]',
+        transform=ax.transAxes,
+        ha='left',
+        va='bottom',
+        fontsize=8.2,
+        fontweight='bold',
+        color='black',
+        clip_on=False,
+    )
     ax.text(
         0.01,
         1.01,
@@ -192,7 +234,7 @@ def plot_effect_sizes(
         ha='left',
         va='bottom',
         fontsize=9,
-        color='#555555',
+        color='#333333',
     )
     ax.text(
         0.99,
@@ -202,7 +244,7 @@ def plot_effect_sizes(
         ha='right',
         va='bottom',
         fontsize=9,
-        color='#555555',
+        color='#333333',
     )
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -222,11 +264,11 @@ def plot_effect_sizes(
         ncol=min(4, len(handles)),
         title='Source image',
         frameon=False,
-        bbox_to_anchor=(0.5, 0.006),
+        bbox_to_anchor=(0.5, 0.002),
         fontsize=9.0,
         title_fontsize=9.5,
     )
-    fig.subplots_adjust(left=0.26, right=0.78, top=0.965, bottom=0.105)
+    fig.subplots_adjust(left=0.26, right=0.81, top=0.965, bottom=0.135)
 
     out_prefix.parent.mkdir(parents=True, exist_ok=True)
     for extension in ('png', 'pdf'):
