@@ -110,7 +110,10 @@ def summarize_for_plot(data: pd.DataFrame, effect: str) -> pd.DataFrame:
                 'ci95_high': ci_high,
             }
         )
-    return pd.DataFrame(rows).sort_values(['mean', 'display_metric']).reset_index(drop=True)
+    summary = pd.DataFrame(rows)
+    summary['abs_mean'] = summary['mean'].abs()
+    summary = summary.sort_values(['abs_mean', 'display_metric']).drop(columns=['abs_mean'])
+    return summary.reset_index(drop=True)
 
 
 def axis_limits(values: np.ndarray) -> tuple[float, float]:
@@ -207,7 +210,7 @@ def plot_effect_sizes(
     ax.tick_params(axis='y', length=0)
     plot_values = display_effect_values(data[effect].to_numpy(dtype=float))
     if effect in {'robust_median_d', 'cohen_d', 'hedges_g'}:
-        x_low, x_high = -2.0, 4.0
+        x_low, x_high = -2.08, 4.08
     else:
         x_low, x_high = axis_limits(plot_values)
     ax.set_xlim(x_low, x_high)
