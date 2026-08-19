@@ -43,6 +43,7 @@ from compute_mni_voxelwise_correlations import (
 from metric_registry import (
     MetricSpec,
     build_metric_specs,
+    gm_noddi_hybrid_pairs,
     metric_display_labels,
     metric_order,
     metric_specs_for_analysis,
@@ -169,17 +170,20 @@ def compute_effect_row(
     session: str,
     spec: MetricSpec,
     display_metric: str,
-    path: Path,
+    gm_path: Path,
+    wm_path: Path,
     tissue_mask_file: Path,
-    data: np.ndarray,
+    gm_data: np.ndarray,
+    wm_data: np.ndarray,
     tissue_masks: dict[str, np.ndarray],
     outlier_z: float,
     min_voxels: int,
     max_voxels_per_tissue: int | None,
     rng: np.random.Generator,
 ) -> tuple[dict[str, object] | None, dict[str, object] | None]:
-    gm = finite_nonzero_tissue_values(data, tissue_masks['gm'], outlier_z)
-    wm = finite_nonzero_tissue_values(data, tissue_masks['wm'], outlier_z)
+    gm = finite_nonzero_tissue_values(gm_data, tissue_masks['gm'], outlier_z)
+    wm = finite_nonzero_tissue_values(wm_data, tissue_masks['wm'], outlier_z)
+    metric_file = str(wm_path) if gm_path == wm_path else f'gm={gm_path};wm={wm_path}'
     n_gm_available = int(gm.size)
     n_wm_available = int(wm.size)
     if n_gm_available < min_voxels or n_wm_available < min_voxels:
@@ -192,7 +196,9 @@ def compute_effect_row(
             'reason': 'too_few_valid_voxels',
             'n_gm_voxels': n_gm_available,
             'n_wm_voxels': n_wm_available,
-            'metric_file': str(path),
+            'metric_file': metric_file,
+            'gm_metric_file': str(gm_path),
+            'wm_metric_file': str(wm_path),
             'tissue_mask_file': str(tissue_mask_file),
         }
 
@@ -210,7 +216,9 @@ def compute_effect_row(
         'primary_label': spec.primary_label,
         'display_metric': display_metric,
         'source_image': spec.source_image,
-        'metric_file': str(path),
+        'metric_file': metric_file,
+        'gm_metric_file': str(gm_path),
+        'wm_metric_file': str(wm_path),
         'tissue_mask_file': str(tissue_mask_file),
         'n_gm_voxels_available': n_gm_available,
         'n_wm_voxels_available': n_wm_available,
@@ -237,7 +245,7 @@ def average_sessions(session_rows: pd.DataFrame) -> pd.DataFrame:
     numeric_cols = [
         column
         for column in session_rows.columns
-        if column not in {*group_cols, 'session', 'metric_file', 'tissue_mask_file'}
+        if column not in {*group_cols, 'session', 'metric_file', 'gm_metric_file', 'wm_metric_file', 'tissue_mask_file'}
         and pd.api.types.is_numeric_dtype(session_rows[column])
     ]
     out = (
@@ -251,6 +259,8 @@ def average_sessions(session_rows: pd.DataFrame) -> pd.DataFrame:
             n_sessions=('session', 'nunique'),
             sessions=('session', lambda values: ','.join(sorted(map(str, set(values))))),
             metric_files=('metric_file', lambda values: ';'.join(map(str, values))),
+            gm_metric_files=('gm_metric_file', lambda values: ';'.join(map(str, values))),
+            wm_metric_files=('wm_metric_file', lambda values: ';'.join(map(str, values))),
             tissue_mask_files=('tissue_mask_file', lambda values: ';'.join(sorted(map(str, set(values))))),
         )
         .reset_index()
@@ -370,6 +380,17 @@ def main() -> None:
     patterns = load_patterns(args.patterns_file)
     all_specs = build_metric_specs(args.patterns_file)
     specs = metric_specs_for_analysis(all_specs, args.analysis_set)
+    hybrid_pairs = gm_noddi_hybrid_pairs(all_specs)
+    hybrid_gm_labels = set(hybrid_pairs.values())
+    path_specs_by_label = {spec.label: spec for spec in specs}
+    path_specs_by_label.update(
+        {
+            spec.label: spec
+            for spec in all_specs
+            if spec.label in hybrid_gm_labels
+        }
+    )
+    path_specs = list(path_specs_by_label.values())
     display_labels = metric_display_labels(all_specs, args.analysis_set)
     qc = load_qc_table(resolve_default_qc(args.no_qc, args.qc_file))
     subjects = (
@@ -433,7 +454,7 @@ def main() -> None:
             metric_paths = metric_paths_for_session(
                 args.derivatives_dir,
                 patterns,
-                specs,
+                path_specs,
                 qc,
                 subject,
                 session,
@@ -448,7 +469,15 @@ def main() -> None:
                 if spec is None:
                     continue
                 display_metric = display_labels.get(metric_label, metric_label)
-                if path is None:
+                gm_metric_label = hybrid_pairs.get(metric_label, metric_label)
+                gm_path = metric_paths.get(gm_metric_label)
+                wm_path = path
+                if wm_path is None or gm_path is None:
+                    missing_parts = []
+                    if gm_path is None:
+                        missing_parts.append('gm')
+                    if wm_path is None:
+                        missing_parts.append('wm')
                     diagnostics.append(
                         {
                             'subject': subject,
@@ -456,23 +485,28 @@ def main() -> None:
                             'metric_key': metric_label,
                             'display_metric': display_metric,
                             'source_image': spec.source_image,
-                            'reason': 'missing_metric_file_or_qc_failed',
+                            'reason': f'missing_{"_and_".join(missing_parts)}_metric_file_or_qc_failed',
                             'n_gm_voxels': 0,
                             'n_wm_voxels': 0,
                             'metric_file': '',
+                            'gm_metric_file': str(gm_path) if gm_path is not None else '',
+                            'wm_metric_file': str(wm_path) if wm_path is not None else '',
                             'tissue_mask_file': str(dseg_path),
                         }
                     )
                     continue
-                data = load_like(path, reference, order=1).reshape(-1)
+                wm_data = load_like(wm_path, reference, order=1).reshape(-1)
+                gm_data = wm_data if gm_path == wm_path else load_like(gm_path, reference, order=1).reshape(-1)
                 row, diagnostic = compute_effect_row(
                     subject,
                     session,
                     spec,
                     display_metric,
-                    path,
+                    gm_path,
+                    wm_path,
                     dseg_path,
-                    data,
+                    gm_data,
+                    wm_data,
                     tissue_masks,
                     args.outlier_z,
                     args.min_voxels,

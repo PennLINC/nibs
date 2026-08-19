@@ -210,16 +210,16 @@ def plot_effect_sizes(
     ax.tick_params(axis='y', length=0)
     plot_values = display_effect_values(data[effect].to_numpy(dtype=float))
     if effect in {'robust_median_d', 'cohen_d', 'hedges_g'}:
-        x_low, x_high = -2.08, 4.08
+        x_low, x_high = -2.0, 4.0
     else:
         x_low, x_high = axis_limits(plot_values)
     ax.set_xlim(x_low, x_high)
     ax.set_ylim(-0.8, len(order) - 0.2)
     for value, color, linewidth in (
-        (-4, '#2F5F9E', 1.05),
-        (-2, '#A8C8EA', 0.95),
-        (2, '#F0A6A6', 0.95),
-        (4, '#B12A2A', 1.05),
+        (-3, '#2F5F9E', 1.05),
+        (-1, '#A8C8EA', 0.95),
+        (1, '#F0A6A6', 0.95),
+        (3, '#B12A2A', 1.05),
     ):
         if x_low <= value <= x_high:
             ax.axvline(value, color=color, lw=linewidth, zorder=0)
