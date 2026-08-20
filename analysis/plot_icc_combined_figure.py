@@ -59,6 +59,7 @@ def draw_interval_panel_no_numbers(
     tissue: str,
     domain: str,
     xlabel: str,
+    label_side: str = 'left',
 ) -> None:
     order = metric_order_for_tissue(summary, tissue)
     tissue_summary = summary.loc[summary['tissue'] == tissue].set_index('metric_key')
@@ -88,14 +89,20 @@ def draw_interval_panel_no_numbers(
         )
         ax.plot([median, median], [position - 0.23, position + 0.23], color='white', lw=1.8, zorder=3)
         ax.scatter([median], [position], s=24, facecolor='white', edgecolor='#2b2b2b', zorder=4)
+        if label_side == 'right':
+            label_x = 1.02
+            label_ha = 'left'
+        else:
+            label_x = -0.02
+            label_ha = 'right'
         ax.text(
-            -0.02,
+            label_x,
             position,
             row['metric'],
             transform=ax.get_yaxis_transform(),
-            ha='right',
+            ha=label_ha,
             va='center',
-            fontsize=8.5,
+            fontsize=8.3,
             clip_on=False,
         )
 
@@ -313,12 +320,12 @@ def plot_combined_icc(
         3,
         2,
         height_ratios=[1.0, 1.0, 1.05],
-        left=0.085,
-        right=0.975,
+        left=0.078,
+        right=0.885,
         bottom=0.085,
         top=0.985,
         hspace=0.20,
-        wspace=0.22,
+        wspace=0.055,
     )
     axes = {
         'A': fig.add_subplot(grid[0, 0]),
@@ -330,9 +337,23 @@ def plot_combined_icc(
     }
 
     draw_interval_panel_no_numbers(axes['A'], voxel_summary, 'wm', 'voxels', 'ICC(2,1) across WM voxels')
-    draw_interval_panel_no_numbers(axes['B'], parcel_summary, 'wm', 'bundles', 'ICC(2,1) across WM bundles')
+    draw_interval_panel_no_numbers(
+        axes['B'],
+        parcel_summary,
+        'wm',
+        'bundles',
+        'ICC(2,1) across WM bundles',
+        label_side='right',
+    )
     draw_interval_panel_no_numbers(axes['C'], voxel_summary, 'gm', 'voxels', 'ICC(2,1) across GM voxels')
-    draw_interval_panel_no_numbers(axes['D'], parcel_summary, 'gm', 'parcels', 'ICC(2,1) across GM parcels')
+    draw_interval_panel_no_numbers(
+        axes['D'],
+        parcel_summary,
+        'gm',
+        'parcels',
+        'ICC(2,1) across GM parcels',
+        label_side='right',
+    )
 
     lower, upper = common_scatter_limits(voxel_summary, parcel_summary)
     draw_scatter_panel_fixed(axes['E'], voxel_summary, 'GM voxels', 'WM voxels', lower, upper)
@@ -341,13 +362,13 @@ def plot_combined_icc(
     for label, ax in axes.items():
         ax.text(
             -0.20,
-            1.03,
+            0.98,
             label,
             transform=ax.transAxes,
             fontsize=18,
             fontweight='bold',
             ha='left',
-            va='bottom',
+            va='top',
             clip_on=False,
         )
 
