@@ -139,7 +139,7 @@ def figure_size(panel_matrices: list[pd.DataFrame]) -> tuple[float, float]:
     max_metrics = max(matrix.shape[0] for matrix in panel_matrices)
     width = max(12.0, min(20.0, 6.2 + 0.39 * max_metrics))
     panel_height = max(5.0, min(11.0, 1.35 + 0.28 * max_metrics))
-    return width, 2.0 * panel_height + 2.85
+    return width, 2.0 * panel_height + 2.15
 
 
 def align_side_axes_to_heatmaps(fig: plt.Figure, panel_axes: list[tuple[plt.Axes, plt.Axes, plt.Axes]]) -> None:
@@ -150,8 +150,44 @@ def align_side_axes_to_heatmaps(fig: plt.Figure, panel_axes: list[tuple[plt.Axes
         heatmap_pos = heatmap_ax.get_position()
         dendro_pos = dendro_ax.get_position()
         source_pos = source_ax.get_position()
-        dendro_ax.set_position([dendro_pos.x0, heatmap_pos.y0, dendro_pos.width, heatmap_pos.height])
-        source_ax.set_position([source_pos.x0, heatmap_pos.y0, source_pos.width, heatmap_pos.height])
+        source_gap = 0.003
+        dendro_gap = 0.002
+        source_width = min(source_pos.width, 0.018)
+        dendro_width = min(dendro_pos.width, 0.075)
+        source_x0 = heatmap_pos.x0 - source_gap - source_width
+        dendro_x0 = source_x0 - dendro_gap - dendro_width
+        dendro_ax.set_position([dendro_x0, heatmap_pos.y0, dendro_width, heatmap_pos.height])
+        source_ax.set_position([source_x0, heatmap_pos.y0, source_width, heatmap_pos.height])
+
+
+def position_shared_guides(
+    fig: plt.Figure,
+    cbar_ax: plt.Axes,
+    legend_ax: plt.Axes,
+    bottom_heatmap_ax: plt.Axes,
+) -> None:
+    """Place shared guide axes from the actual lower tick-label extent."""
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    tick_boxes = [
+        tick.get_window_extent(renderer)
+        for tick in bottom_heatmap_ax.get_xticklabels()
+        if tick.get_visible() and tick.get_text()
+    ]
+    if tick_boxes:
+        label_bottom_display = min(box.y0 for box in tick_boxes)
+        label_bottom = fig.transFigure.inverted().transform((0, label_bottom_display))[1]
+    else:
+        label_bottom = bottom_heatmap_ax.get_position().y0
+
+    cbar_width = 0.40
+    cbar_height = 0.014
+    cbar_y0 = max(0.098, label_bottom - 0.032)
+    legend_y0 = max(0.030, cbar_y0 - 0.074)
+
+    cbar_ax.set_position([0.5 - cbar_width / 2.0, cbar_y0, cbar_width, cbar_height])
+    legend_ax.set_position([0.12, legend_y0, 0.76, 0.045])
 
 
 def draw_source_bar(
@@ -280,8 +316,8 @@ def draw_combined_figure(
         4,
         1,
         figure=fig,
-        height_ratios=[1, 1, 0.046, 0.082],
-        hspace=0.86,
+        height_ratios=[1, 1, 0.012, 0.025],
+        hspace=0.54,
     )
 
     image = None
@@ -333,16 +369,6 @@ def draw_combined_figure(
     cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
     cbar.ax.tick_params(labelsize=max(10.0, fs - 0.3), length=3)
     cbar.set_label(cbar_label(kind, correlation), fontsize=max(11.0, fs + 0.2), labelpad=5)
-    cbar_pos = cbar_ax.get_position()
-    cbar_width = min(0.42, cbar_pos.width)
-    cbar_ax.set_position(
-        [
-            0.5 - cbar_width / 2.0,
-            cbar_pos.y0 - 0.006,
-            cbar_width,
-            max(0.012, cbar_pos.height * 0.70),
-        ]
-    )
 
     legend_ax = fig.add_subplot(outer[3])
     legend_ax.axis('off')
@@ -366,6 +392,7 @@ def draw_combined_figure(
         handlelength=1.5,
         columnspacing=1.6,
     )
+    position_shared_guides(fig, cbar_ax, legend_ax, panel_axes[-1][2])
 
     out_stem.parent.mkdir(parents=True, exist_ok=True)
     for extension in ('pdf', 'png'):
