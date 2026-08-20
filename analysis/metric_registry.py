@@ -93,6 +93,20 @@ SOURCE_IMAGE_COLORS = {
     'Other': '#999999',
 }
 
+METRIC_FAMILY_LEGEND_TITLE = 'Metric family'
+
+SOURCE_IMAGE_DISPLAY_LABELS = {
+    'T1w/T2w': 'T₁w/T₂w',
+    'R1': 'MP2RAGE',
+    'MESE': 'R₂',
+}
+
+
+def source_image_display_label(source: str) -> str:
+    """Return the publication-facing label for a source-image/metric-family key."""
+
+    return SOURCE_IMAGE_DISPLAY_LABELS.get(source, source)
+
 
 def norm_token(text: object) -> str:
     return re.sub(r'[^a-z0-9]+', '', str(text).lower())

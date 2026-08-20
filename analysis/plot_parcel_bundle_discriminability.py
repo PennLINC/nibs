@@ -22,7 +22,7 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from metric_registry import SOURCE_IMAGE_COLORS
+from metric_registry import METRIC_FAMILY_LEGEND_TITLE, SOURCE_IMAGE_COLORS, source_image_display_label
 from path_utils import DERIVATIVES_ROOT, PROJECT_ROOT
 from plot_icc_figures import color_for_source, scatter_label_layout
 
@@ -52,10 +52,7 @@ def require_dependencies() -> None:
 
 
 def source_display_label(source: str) -> str:
-    return {
-        'T1w/T2w': 'T₁w/T₂w',
-        'R1': 'R₁',
-    }.get(source, source)
+    return source_image_display_label(source)
 
 
 def default_wm_input(outdir: Path, analysis_set: str, stat: str, distance_metric: str) -> Path:
@@ -261,7 +258,7 @@ def add_source_legend(fig, data: pd.DataFrame) -> None:
         loc='lower center',
         ncol=len(handles),
         frameon=False,
-        title='Source image',
+        title=METRIC_FAMILY_LEGEND_TITLE,
         bbox_to_anchor=(0.5, 0.014),
         fontsize=10.5,
         title_fontsize=11,

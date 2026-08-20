@@ -29,7 +29,13 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from metric_registry import SOURCE_IMAGE_COLORS, build_metric_specs, metric_display_labels
+from metric_registry import (
+    METRIC_FAMILY_LEGEND_TITLE,
+    SOURCE_IMAGE_COLORS,
+    build_metric_specs,
+    metric_display_labels,
+    source_image_display_label,
+)
 from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT
 
 
@@ -87,10 +93,7 @@ def title_fontsize(n_metrics: int) -> float:
 
 
 def source_display_label(source: str) -> str:
-    return {
-        'T1w/T2w': 'T₁w/T₂w',
-        'R1': 'R₁',
-    }.get(source, source)
+    return source_image_display_label(source)
 
 
 def load_correlation_matrix(path: Path) -> pd.DataFrame:
@@ -214,7 +217,7 @@ def add_source_annotation(
     bar_ax.text(
         -0.10,
         -0.026,
-        'Source image',
+        METRIC_FAMILY_LEGEND_TITLE,
         transform=bar_ax.transAxes,
         rotation=45,
         ha='right',
@@ -300,7 +303,7 @@ def plot_matrix(
     ]
     grid.fig.legend(
         handles=handles,
-        title='Source image',
+        title=METRIC_FAMILY_LEGEND_TITLE,
         loc='lower center',
         bbox_to_anchor=(0.5, 0.004),
         ncol=max(1, len(handles)),

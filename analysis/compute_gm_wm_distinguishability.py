@@ -106,6 +106,15 @@ SOURCE_IMAGE_COLORS = {
     'Other': '#999999',
 }
 SOURCE_IMAGE_ORDER = {source: index for index, source in enumerate(SOURCE_IMAGE_COLORS)}
+METRIC_FAMILY_LEGEND_TITLE = 'Metric family'
+SOURCE_IMAGE_DISPLAY_LABELS = {
+    'T1w/T2w': 'T₁w/T₂w',
+    'R1': 'MP2RAGE',
+}
+
+
+def source_image_display_label(source: str) -> str:
+    return SOURCE_IMAGE_DISPLAY_LABELS.get(source, source)
 
 
 def norm_token(text: object) -> str:
@@ -362,13 +371,13 @@ def plot_effect_sizes(summary: pd.DataFrame, out_prefix: Path) -> None:
             markerfacecolor=SOURCE_IMAGE_COLORS[source],
             markeredgecolor='black',
             markeredgewidth=0.45,
-            label=source,
+            label=source_image_display_label(source),
         )
         for source in used_sources
     ]
     ax.legend(
         handles=handles,
-        title='Source image',
+        title=METRIC_FAMILY_LEGEND_TITLE,
         loc='center left',
         bbox_to_anchor=(1.02, 0.5),
         frameon=False,

@@ -23,7 +23,7 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from metric_registry import SOURCE_IMAGE_COLORS
+from metric_registry import METRIC_FAMILY_LEGEND_TITLE, SOURCE_IMAGE_COLORS
 from path_utils import CODE_ROOT, PROJECT_ROOT
 from plot_icc_figures import (
     BENCHMARKS,
@@ -276,7 +276,7 @@ def add_single_source_legend(fig, *dataframes: pd.DataFrame) -> None:
         loc='lower center',
         ncol=len(handles),
         frameon=False,
-        title='Source image',
+        title=METRIC_FAMILY_LEGEND_TITLE,
         bbox_to_anchor=(0.5, 0.014),
         fontsize=10.5,
         title_fontsize=11,

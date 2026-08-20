@@ -23,7 +23,7 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from metric_registry import SOURCE_IMAGE_COLORS
+from metric_registry import METRIC_FAMILY_LEGEND_TITLE, SOURCE_IMAGE_COLORS, source_image_display_label
 from path_utils import DERIVATIVES_ROOT, PROJECT_ROOT
 
 
@@ -56,10 +56,7 @@ def require_dependencies() -> None:
 
 
 def source_display_label(source: str) -> str:
-    return {
-        'T1w/T2w': 'T₁w/T₂w',
-        'R1': 'R₁',
-    }.get(source, source)
+    return source_image_display_label(source)
 
 
 def load_subject_effects(path: Path, effect: str) -> pd.DataFrame:
@@ -137,12 +134,6 @@ def display_effect_values(values: np.ndarray) -> np.ndarray:
     return -np.asarray(values, dtype=float)
 
 
-def format_mean_ci(row: pd.Series) -> str:
-    if np.isfinite(row['ci95_low']) and np.isfinite(row['ci95_high']):
-        return f"{row['mean']:.2f} [{row['ci95_low']:.2f}, {row['ci95_high']:.2f}]"
-    return f"{row['mean']:.2f}"
-
-
 def plot_effect_sizes(
     data: pd.DataFrame,
     out_prefix: Path,
@@ -157,7 +148,7 @@ def plot_effect_sizes(
     order_lookup = {metric: index for index, metric in enumerate(order)}
     y = np.arange(len(order))
     fig_height = max(6.8, 0.31 * len(order) + 1.9)
-    fig, ax = plt.subplots(figsize=(8.2, fig_height), constrained_layout=False)
+    fig, ax = plt.subplots(figsize=(6.6, fig_height), constrained_layout=False)
 
     rng = np.random.default_rng(20260818)
     for _, row in summary.iterrows():
@@ -192,18 +183,6 @@ def plot_effect_sizes(
                 linewidth=0,
                 zorder=1,
             )
-        ax.text(
-            1.01,
-            y_pos,
-            format_mean_ci(row),
-            transform=ax.get_yaxis_transform(),
-            ha='left',
-            va='center',
-            fontsize=8.0,
-            color='black',
-            clip_on=False,
-        )
-
     labels = summary['display_metric'].tolist()
     ax.set_yticks(y)
     ax.set_yticklabels(labels, fontsize=8.5)
@@ -228,18 +207,6 @@ def plot_effect_sizes(
     ax.grid(axis='y', visible=False)
     ax.set_xlabel(EFFECT_LABELS.get(effect, effect), fontsize=10.5, labelpad=9)
     ax.set_ylabel('')
-    ax.text(
-        1.01,
-        1.01,
-        'Mean [95% CI]',
-        transform=ax.transAxes,
-        ha='left',
-        va='bottom',
-        fontsize=8.2,
-        fontweight='bold',
-        color='black',
-        clip_on=False,
-    )
     ax.text(
         0.01,
         1.01,
@@ -280,13 +247,13 @@ def plot_effect_sizes(
         handles=handles,
         loc='lower center',
         ncol=min(4, len(handles)),
-        title='Source image',
+        title=METRIC_FAMILY_LEGEND_TITLE,
         frameon=False,
         bbox_to_anchor=(0.5, 0.002),
         fontsize=9.0,
         title_fontsize=9.5,
     )
-    fig.subplots_adjust(left=0.26, right=0.81, top=0.965, bottom=0.135)
+    fig.subplots_adjust(left=0.32, right=0.98, top=0.965, bottom=0.135)
 
     out_prefix.parent.mkdir(parents=True, exist_ok=True)
     for extension in ('png', 'pdf'):

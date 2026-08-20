@@ -248,6 +248,16 @@ SOURCE_IMAGE_COLORS = {
 }
 FAMILY_ORDER = {family: index for index, family in enumerate(FAMILY_COLORS)}
 SOURCE_IMAGE_ORDER = {source: index for index, source in enumerate(SOURCE_IMAGE_COLORS)}
+METRIC_FAMILY_LEGEND_TITLE = 'Metric family'
+SOURCE_IMAGE_DISPLAY_LABELS = {
+    'T1w/T2w': 'T₁w/T₂w',
+    'R1': 'MP2RAGE',
+    'MESE': 'R₂',
+}
+
+
+def source_image_display_label(source: str) -> str:
+    return SOURCE_IMAGE_DISPLAY_LABELS.get(source, source)
 
 
 def source_image_from_family(family: object) -> str:
@@ -996,7 +1006,7 @@ wm_corr_grid = plot_correlation_matrix(
     output_stem='selected_metric_wm_spearman',
     metric_families={label: metric_source_image(label) for label in wm_spearman.index},
     family_colors=SOURCE_IMAGE_COLORS,
-    legend_title='Source image',
+    legend_title=METRIC_FAMILY_LEGEND_TITLE,
 )
 plt.show()
 
@@ -1013,7 +1023,7 @@ gm_corr_grid = plot_correlation_matrix(
     output_stem='selected_metric_gm_spearman',
     metric_families={label: metric_source_image(label) for label in gm_spearman.index},
     family_colors=SOURCE_IMAGE_COLORS,
-    legend_title='Source image',
+    legend_title=METRIC_FAMILY_LEGEND_TITLE,
 )
 plt.show()
 
@@ -1219,7 +1229,7 @@ all_wm_corr_grid = plot_correlation_matrix(
     output_stem='all_metric_wm_spearman',
     metric_families=all_wm_sources,
     family_colors=SOURCE_IMAGE_COLORS,
-    legend_title='Source image',
+    legend_title=METRIC_FAMILY_LEGEND_TITLE,
     figure_size=(20, 20),
     label_fontsize=5,
 )
@@ -1241,7 +1251,7 @@ all_gm_corr_grid = plot_correlation_matrix(
     output_stem='all_metric_gm_spearman',
     metric_families=all_gm_sources,
     family_colors=SOURCE_IMAGE_COLORS,
-    legend_title='Source image',
+    legend_title=METRIC_FAMILY_LEGEND_TITLE,
     figure_size=(20, 20),
     label_fontsize=5,
 )
@@ -1691,13 +1701,13 @@ def plot_icc_figure(
             markerfacecolor=SOURCE_IMAGE_COLORS[source],
             markeredgecolor='black',
             markeredgewidth=0.45,
-            label=source,
+            label=source_image_display_label(source),
         )
         for source in used_sources
     ]
     ax_scatter.legend(
         handles=handles,
-        title='Source image',
+        title=METRIC_FAMILY_LEGEND_TITLE,
         loc='center left',
         bbox_to_anchor=(1.03, 0.5),
         frameon=False,
@@ -1849,7 +1859,7 @@ def plot_discriminability_bars(
             plot_data['source_image'].map(SOURCE_IMAGE_ORDER).fillna(len(SOURCE_IMAGE_ORDER))
         )
         # barh places the final row at the top, so ascending data gives
-        # highest scores at the top. Source image is the secondary tie-breaker.
+        # highest scores at the top. Metric family is the secondary tie-breaker.
         plot_data = plot_data.sort_values(
             [score_column, 'source_order', 'metric_label'],
             ascending=[True, True, True],
@@ -1939,13 +1949,13 @@ def plot_discriminability_bars(
             markerfacecolor=SOURCE_IMAGE_COLORS[source],
             markeredgecolor='black',
             markeredgewidth=0.45,
-            label=source,
+            label=source_image_display_label(source),
         )
         for source in used_sources
     ]
     axes[0].legend(
         handles=handles,
-        title='Source image',
+        title=METRIC_FAMILY_LEGEND_TITLE,
         loc='center left',
         bbox_to_anchor=(1.02, 0.5),
         frameon=False,

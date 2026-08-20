@@ -33,9 +33,11 @@ except ImportError:  # pragma: no cover - only required for voxelwise maps
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from metric_registry import (
+    METRIC_FAMILY_LEGEND_TITLE,
     SOURCE_IMAGE_COLORS,
     build_metric_specs,
     metric_display_labels,
+    source_image_display_label,
 )
 from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT
 
@@ -98,10 +100,7 @@ def color_for_source(source: str) -> str:
 
 
 def source_display_label(source: str) -> str:
-    return {
-        'T1w/T2w': 'T₁w/T₂w',
-        'R1': 'R₁',
-    }.get(source, source)
+    return source_image_display_label(source)
 
 
 def format_summary(values: np.ndarray) -> str:
@@ -552,7 +551,7 @@ def add_source_legend(fig, data: pd.DataFrame) -> None:
         loc='lower center',
         ncol=min(4, len(handles)),
         frameon=False,
-        title='Source image',
+        title=METRIC_FAMILY_LEGEND_TITLE,
         bbox_to_anchor=(0.5, 0.012),
         fontsize=10,
         title_fontsize=10.5,
