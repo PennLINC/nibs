@@ -139,7 +139,19 @@ def figure_size(panel_matrices: list[pd.DataFrame]) -> tuple[float, float]:
     max_metrics = max(matrix.shape[0] for matrix in panel_matrices)
     width = max(12.0, min(20.0, 6.2 + 0.39 * max_metrics))
     panel_height = max(5.0, min(11.0, 1.35 + 0.28 * max_metrics))
-    return width, 2.0 * panel_height + 1.45
+    return width, 2.0 * panel_height + 2.85
+
+
+def align_side_axes_to_heatmaps(fig: plt.Figure, panel_axes: list[tuple[plt.Axes, plt.Axes, plt.Axes]]) -> None:
+    """Match dendrogram/source-strip boxes to the final square heatmap boxes."""
+
+    fig.canvas.draw()
+    for dendro_ax, source_ax, heatmap_ax in panel_axes:
+        heatmap_pos = heatmap_ax.get_position()
+        dendro_pos = dendro_ax.get_position()
+        source_pos = source_ax.get_position()
+        dendro_ax.set_position([dendro_pos.x0, heatmap_pos.y0, dendro_pos.width, heatmap_pos.height])
+        source_ax.set_position([source_pos.x0, heatmap_pos.y0, source_pos.width, heatmap_pos.height])
 
 
 def draw_source_bar(
@@ -268,11 +280,12 @@ def draw_combined_figure(
         4,
         1,
         figure=fig,
-        height_ratios=[1, 1, 0.055, 0.075],
-        hspace=0.30,
+        height_ratios=[1, 1, 0.046, 0.082],
+        hspace=0.86,
     )
 
     image = None
+    panel_axes: list[tuple[plt.Axes, plt.Axes, plt.Axes]] = []
     for panel_index, (panel, matrix, z_matrix) in enumerate(zip(panels, matrices, linkages, strict=True)):
         inner = GridSpecFromSubplotSpec(
             1,
@@ -289,6 +302,7 @@ def draw_combined_figure(
         draw_source_bar(source_ax, list(matrix.index), panel.source_by_label, max(9.0, fs - 0.4))
         draw_heatmap(heatmap_ax, matrix, cmap, fs)
         image = heatmap_ax.images[0]
+        panel_axes.append((dendro_ax, source_ax, heatmap_ax))
 
         heatmap_ax.set_title(
             panel.title,
@@ -309,6 +323,9 @@ def draw_combined_figure(
             clip_on=False,
         )
 
+    fig.subplots_adjust(left=0.035, right=0.955, top=0.982, bottom=0.045)
+    align_side_axes_to_heatmaps(fig, panel_axes)
+
     cbar_ax = fig.add_subplot(outer[2])
     if image is None:
         raise RuntimeError('No matrices were plotted.')
@@ -316,6 +333,16 @@ def draw_combined_figure(
     cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
     cbar.ax.tick_params(labelsize=max(10.0, fs - 0.3), length=3)
     cbar.set_label(cbar_label(kind, correlation), fontsize=max(11.0, fs + 0.2), labelpad=5)
+    cbar_pos = cbar_ax.get_position()
+    cbar_width = min(0.42, cbar_pos.width)
+    cbar_ax.set_position(
+        [
+            0.5 - cbar_width / 2.0,
+            cbar_pos.y0 - 0.006,
+            cbar_width,
+            max(0.012, cbar_pos.height * 0.70),
+        ]
+    )
 
     legend_ax = fig.add_subplot(outer[3])
     legend_ax.axis('off')
@@ -340,7 +367,6 @@ def draw_combined_figure(
         columnspacing=1.6,
     )
 
-    fig.subplots_adjust(left=0.035, right=0.955, top=0.982, bottom=0.050)
     out_stem.parent.mkdir(parents=True, exist_ok=True)
     for extension in ('pdf', 'png'):
         out_path = out_stem.with_suffix(f'.{extension}')

@@ -677,6 +677,10 @@ def display_label(spec: MetricSpec) -> str:
 def group_label(group: str) -> str:
     if group == 'B1':
         return math_label('B₁', bold=True)
+    if group == 'R1':
+        return 'MP2RAGE'
+    if group == 'MESE':
+        return math_label('R₂', bold=True)
     if group == 'g-ratio':
         return 'g-ratio'
     return math_label(group, bold=True)
