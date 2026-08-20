@@ -317,7 +317,7 @@ def draw_combined_figure(
         1,
         figure=fig,
         height_ratios=[1, 1, 0.012, 0.025],
-        hspace=0.54,
+        hspace=0.62,
     )
 
     image = None
