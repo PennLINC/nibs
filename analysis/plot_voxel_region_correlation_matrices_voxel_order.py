@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot voxelwise and parcel/bundle correlation matrices in one combined figure."""
+"""Plot voxelwise and parcel/bundle matrices with region panels ordered by voxel clustering."""
 
 from __future__ import annotations
 
@@ -82,6 +82,49 @@ def shared_cbar_label(mni_correlation: str, parcel_correlation: str) -> str:
     return f'Mean correlation (voxels: {mni_label}; regions: {parcel_label})'
 
 
+def order_like_reference(corr, reference_labels: list[str], panel_title: str):
+    """Order a matrix by a voxel-derived label order, appending region-only labels."""
+
+    labels = list(corr.index)
+    ordered_labels = [label for label in reference_labels if label in corr.index and label in corr.columns]
+    missing_reference = [
+        label for label in reference_labels if label not in corr.index or label not in corr.columns
+    ]
+    extra_labels = [label for label in labels if label not in ordered_labels]
+    if missing_reference:
+        print(
+            f'[WARN] {panel_title}: omitted {len(missing_reference)} voxel-ordered metric(s) '
+            f'absent from this matrix: {", ".join(missing_reference[:12])}',
+            flush=True,
+        )
+    if extra_labels:
+        print(
+            f'[WARN] {panel_title}: appended {len(extra_labels)} metric(s) absent from voxel order: '
+            f'{", ".join(extra_labels[:12])}',
+            flush=True,
+        )
+    final_labels = ordered_labels + extra_labels
+    if not final_labels:
+        raise RuntimeError(f'{panel_title}: no labels overlap the voxel reference order.')
+    return corr.loc[final_labels, final_labels].copy()
+
+
+def voxel_ordered_matrices(loaded: list) -> tuple[list, list]:
+    """Cluster voxel panels, then impose those orders on parcel/bundle panels."""
+
+    wm_voxel, wm_z_matrix = ordered_matrix(loaded[0])
+    gm_voxel, gm_z_matrix = ordered_matrix(loaded[2])
+    wm_region = order_like_reference(loaded[1], list(wm_voxel.index), 'White Matter Bundles')
+    gm_region = order_like_reference(loaded[3], list(gm_voxel.index), 'Gray Matter Parcels')
+
+    wm_region_z_matrix = wm_z_matrix if set(wm_region.index) == set(wm_voxel.index) else None
+    gm_region_z_matrix = gm_z_matrix if set(gm_region.index) == set(gm_voxel.index) else None
+    return (
+        [wm_voxel, wm_region, gm_voxel, gm_region],
+        [wm_z_matrix, wm_region_z_matrix, gm_z_matrix, gm_region_z_matrix],
+    )
+
+
 def position_bottom_guides(
     fig: plt.Figure,
     cbar_ax: plt.Axes,
@@ -128,9 +171,7 @@ def draw_mixed_figure(
     out_stem: Path,
 ) -> None:
     loaded = [load_correlation_matrix(spec.panel.path) for spec in panel_specs]
-    ordered = [ordered_matrix(matrix) for matrix in loaded]
-    matrices = [item[0] for item in ordered]
-    linkages = [item[1] for item in ordered]
+    matrices, linkages = voxel_ordered_matrices(loaded)
     max_metrics = max(matrix.shape[0] for matrix in matrices)
     fs = max(9.6, label_fontsize(max_metrics) - 0.7)
 
@@ -314,8 +355,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--output-dir',
         type=Path,
-        default=PROJECT_ROOT / 'figures' / 'correlation_matrices_voxel_region',
-        help='Directory for mixed voxel/region correlation matrix figures.',
+        default=PROJECT_ROOT / 'figures' / 'correlation_matrices_voxel_region_voxel_order',
+        help='Directory for mixed voxel/region figures with region panels ordered by voxel clustering.',
     )
     parser.add_argument(
         '--analysis-set',
@@ -379,7 +420,7 @@ def main() -> None:
             continue
         out_stem = (
             args.output_dir
-            / f'voxel_region_{analysis_set}_mni-{args.mni_correlation}_'
+            / f'voxel_region_voxel-order_{analysis_set}_mni-{args.mni_correlation}_'
             f'parcel-{args.parcel_correlation}_{args.parcel_stat}_correlations'
         )
         draw_mixed_figure(
