@@ -27,8 +27,6 @@ fi
     --derivatives-dir "${PROJECT_ROOT}/derivatives" \
     --patterns-file "${PROJECT_ROOT}/code/configuration/patterns.json" \
     --qc-file "${PROJECT_ROOT}/code/data/manual_qc_modality.tsv" \
-    --gm-probseg "${PROJECT_ROOT}/code/data/tpl-MNI152NLin2009cAsym_res-01_label-GM_probseg.nii.gz" \
-    --wm-probseg "${PROJECT_ROOT}/code/data/tpl-MNI152NLin2009cAsym_res-01_label-WM_probseg.nii.gz" \
-    --gm-threshold 0.5 \
-    --wm-threshold 0.5 \
+    --template-dseg "${PROJECT_ROOT}/code/data/tpl-MNI152NLin2009cAsym_res-01_seg-aseg_dseg.nii.gz" \
+    --tissue-mask-source subject \
     --output-dir "${PROJECT_ROOT}/derivatives/mni_voxelwise_correlations"

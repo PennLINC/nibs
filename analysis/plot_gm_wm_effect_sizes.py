@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot MNI voxelwise GM-vs-WM effect sizes by metric."""
+"""Plot MNI voxelwise GM-compartment-vs-WM effect sizes by metric."""
 
 from __future__ import annotations
 
@@ -36,6 +36,11 @@ EFFECT_LABELS = {
     'mean_difference': 'Mean WM - GM difference',
     'percent_median_difference': 'Median WM - GM difference (% of |WM median|)',
 }
+GM_TISSUE_LABELS = {
+    'cortical_gm': 'Cortical GM',
+    'deep_gm': 'Deep GM',
+    'all_gm': 'All GM',
+}
 
 
 def require_dependencies() -> None:
@@ -59,14 +64,24 @@ def source_display_label(source: str) -> str:
     return source_image_display_label(source)
 
 
-def load_subject_effects(path: Path, effect: str) -> pd.DataFrame:
+def load_subject_effects(path: Path, effect: str, gm_tissue: str) -> pd.DataFrame:
     data = pd.read_csv(path, sep='\t')
-    required = {'metric_key', 'display_metric', 'source_image', 'subject', effect}
+    required = {
+        'gm_tissue',
+        'metric_key',
+        'display_metric',
+        'source_image',
+        'subject',
+        effect,
+    }
     missing = required - set(data.columns)
     if missing:
         raise RuntimeError(f'{path} is missing required columns: {", ".join(sorted(missing))}')
     data[effect] = pd.to_numeric(data[effect], errors='coerce')
+    data = data.loc[data['gm_tissue'].astype(str) == gm_tissue].copy()
     data = data.loc[data['source_image'].astype(str) != 'g-ratio'].copy()
+    if data.empty:
+        raise RuntimeError(f'No {gm_tissue} rows found in {path}')
     return data.dropna(subset=[effect]).copy()
 
 
@@ -138,6 +153,7 @@ def plot_effect_sizes(
     data: pd.DataFrame,
     out_prefix: Path,
     effect: str,
+    gm_tissue: str,
     show_subject_points: bool,
 ) -> None:
     summary = summarize_for_plot(data, effect)
@@ -205,12 +221,14 @@ def plot_effect_sizes(
     ax.axvline(0, color='#6a6a6a', lw=1.0, ls=':', zorder=1)
     ax.grid(False)
     ax.grid(axis='y', visible=False)
-    ax.set_xlabel(EFFECT_LABELS.get(effect, effect), fontsize=10.5, labelpad=9)
+    gm_label = GM_TISSUE_LABELS[gm_tissue]
+    effect_label = EFFECT_LABELS.get(effect, effect).replace('GM', gm_label)
+    ax.set_xlabel(effect_label, fontsize=10.5, labelpad=9)
     ax.set_ylabel('')
     ax.text(
         0.01,
         1.01,
-        'GM > WM',
+        f'{gm_label} > WM',
         transform=ax.transAxes,
         ha='left',
         va='bottom',
@@ -220,7 +238,7 @@ def plot_effect_sizes(
     ax.text(
         0.99,
         1.01,
-        'WM > GM',
+        f'WM > {gm_label}',
         transform=ax.transAxes,
         ha='right',
         va='bottom',
@@ -282,6 +300,12 @@ def parse_args() -> argparse.Namespace:
         default='robust_median_d',
     )
     parser.add_argument(
+        '--gm-tissue',
+        choices=tuple(GM_TISSUE_LABELS),
+        default='cortical_gm',
+        help='GM compartment to plot. The primary figure uses cortical_gm.',
+    )
+    parser.add_argument(
         '--show-subject-points',
         action='store_true',
         help='Overlay subject-level points behind the metric summaries.',
@@ -295,11 +319,16 @@ def main() -> None:
     mpl.rcParams['font.family'] = 'Arial'
     mpl.rcParams['pdf.fonttype'] = 42
     mpl.rcParams['ps.fonttype'] = 42
-    data = load_subject_effects(args.input.expanduser().resolve(), args.effect)
+    data = load_subject_effects(
+        args.input.expanduser().resolve(),
+        args.effect,
+        args.gm_tissue,
+    )
     plot_effect_sizes(
         data,
         args.output.expanduser().resolve(),
         args.effect,
+        args.gm_tissue,
         args.show_subject_points,
     )
 

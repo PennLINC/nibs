@@ -301,7 +301,7 @@ def plot_matrix(
         )
         for source in observed_sources
     ]
-    grid.fig.legend(
+    legend = grid.fig.legend(
         handles=handles,
         title=METRIC_FAMILY_LEGEND_TITLE,
         loc='lower center',
@@ -311,12 +311,14 @@ def plot_matrix(
         fontsize=max(9.0, fs - 0.5),
         title_fontsize=max(10.0, fs),
     )
+    legend.get_title().set_fontweight('bold')
 
     grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.965)
     grid.fig.subplots_adjust(left=0.052, right=0.93, top=0.943, bottom=0.255)
     grid.cax.set_position([0.30, 0.076, 0.40, 0.024])
     grid.cax.tick_params(labelsize=max(9.0, fs - 0.5), length=3)
     grid.cax.xaxis.label.set_size(max(10.0, fs))
+    grid.cax.xaxis.label.set_fontweight('bold')
     grid.cax.xaxis.labelpad = 4
     draw_diagonal(grid)
     add_source_annotation(grid, source_by_label)
@@ -330,7 +332,8 @@ def plot_matrix(
 
 
 def mni_input_path(mni_dir: Path, analysis_set: str, tissue: str, correlation: str) -> Path:
-    return mni_dir / f'mni_voxelwise_{analysis_set}_{tissue}_{correlation}_r.tsv'
+    mni_tissue = 'cortical_gm' if tissue == 'gm' else tissue
+    return mni_dir / f'mni_voxelwise_{analysis_set}_{mni_tissue}_{correlation}_r.tsv'
 
 
 def parcel_input_path(
@@ -465,7 +468,7 @@ def main() -> None:
     for analysis_set in analysis_sets:
         for tissue in tissues:
             source_by_label = source_lookup(args.patterns_file, analysis_set, tissue)
-            tissue_title = 'GM' if tissue == 'gm' else 'WM'
+            tissue_title = 'Cortical GM' if tissue == 'gm' else 'WM'
 
             if not args.skip_mni:
                 for correlation in mni_correlations:

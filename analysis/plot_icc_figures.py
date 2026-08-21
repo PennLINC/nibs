@@ -125,6 +125,11 @@ def summarize_metric_values(df: pd.DataFrame) -> pd.DataFrame:
         rows.append(
             {
                 'tissue': tissue,
+                'mask_tissue': (
+                    str(group['mask_tissue'].iloc[0])
+                    if 'mask_tissue' in group.columns
+                    else tissue
+                ),
                 'metric_key': metric_key,
                 'metric': metric,
                 'source_image': source,
@@ -175,10 +180,15 @@ def load_parcel_bundle_icc(
 
 
 def find_mask(icc_dir: Path, tissue: str) -> Path:
-    label = tissue.upper()
+    label = {
+        'cortical_gm': 'corticalGM',
+        'deep_gm': 'deepGM',
+        'all_gm': 'allGM',
+        'wm': 'WM',
+    }[tissue]
     candidates = sorted(
         icc_dir.glob(
-            f'space-{SPACE}_label-{label}_desc-templateProb*Eroded*mm_mask.nii.gz'
+            f'space-{SPACE}_label-{label}_desc-templateAsegEroded*mm_mask.nii.gz'
         )
     )
     if not candidates:
@@ -217,7 +227,7 @@ def load_voxelwise_icc(
     summary = summary.loc[
         (summary['analysis_set'].astype(str) == analysis_set)
         & (summary['analysis'].astype(str) == analysis)
-        & (summary['tissue'].astype(str).isin(['wm', 'gm']))
+        & (summary['tissue'].astype(str).isin(['wm', 'cortical_gm']))
     ].copy()
     if summary.empty:
         raise RuntimeError(
@@ -226,12 +236,13 @@ def load_voxelwise_icc(
 
     mask_data = {
         tissue: np.asanyarray(nib.load(find_mask(icc_dir, tissue)).dataobj).astype(bool)
-        for tissue in ('wm', 'gm')
+        for tissue in ('wm', 'cortical_gm')
     }
 
     rows = []
     for row_index, row in summary.reset_index(drop=True).iterrows():
-        tissue = str(row['tissue'])
+        source_tissue = str(row['tissue'])
+        tissue = 'gm' if source_tissue == 'cortical_gm' else source_tissue
         metric_key = str(row['metric_key'])
         map_file = (
             icc_dir
@@ -240,12 +251,18 @@ def load_voxelwise_icc(
         if not map_file.exists():
             print(f'[WARN] Missing ICC map, skipping: {map_file}', file=sys.stderr)
             continue
-        values = load_voxel_values(map_file, mask_data[tissue], max_voxels, seed=row_index + 719)
+        values = load_voxel_values(
+            map_file,
+            mask_data[source_tissue],
+            max_voxels,
+            seed=row_index + 719,
+        )
         display = display_by_label.get(metric_key, str(row.get('metric', metric_key)))
         source = str(row.get('source_image', source_by_label.get(metric_key, 'Other')))
         rows.extend(
             {
                 'tissue': tissue,
+                'mask_tissue': source_tissue,
                 'metric_key': metric_key,
                 'metric': display,
                 'source_image': source,
@@ -674,7 +691,7 @@ def main() -> None:
             voxel_data,
             args.output_dir / f'icc_mni_voxelwise_{args.analysis_set}_{args.voxelwise_analysis}',
             f'{args.analysis_set.title()} MNI Voxelwise ICC',
-            gm_domain='GM voxels',
+            gm_domain='cortical GM voxels',
             wm_domain='WM voxels',
         )
 

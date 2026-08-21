@@ -369,6 +369,7 @@ def draw_combined_figure(
     cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
     cbar.ax.tick_params(labelsize=max(10.0, fs - 0.3), length=3)
     cbar.set_label(cbar_label(kind, correlation), fontsize=max(11.0, fs + 0.2), labelpad=5)
+    cbar.ax.xaxis.label.set_fontweight('bold')
 
     legend_ax = fig.add_subplot(outer[3])
     legend_ax.axis('off')
@@ -381,7 +382,7 @@ def draw_combined_figure(
         )
         for source in sources
     ]
-    legend_ax.legend(
+    legend = legend_ax.legend(
         handles=handles,
         title=METRIC_FAMILY_LEGEND_TITLE,
         loc='center',
@@ -392,6 +393,7 @@ def draw_combined_figure(
         handlelength=1.5,
         columnspacing=1.6,
     )
+    legend.get_title().set_fontweight('bold')
     position_shared_guides(fig, cbar_ax, legend_ax, panel_axes[-1][2])
 
     out_stem.parent.mkdir(parents=True, exist_ok=True)
@@ -421,7 +423,7 @@ def build_panel_specs(
             ),
             PanelSpec(
                 tissue='gm',
-                title='Gray Matter Voxels',
+                title='Cortical Gray Matter Voxels',
                 path=mni_input_path(mni_dir, analysis_set, 'gm', correlation),
                 source_by_label=source_lookup(patterns_file, analysis_set, 'gm'),
             ),

@@ -2,9 +2,9 @@
 """Compute voxelwise ICC(2,1) maps in MNI space.
 
 This workflow creates one reliability map per metric and summarizes it within
-fixed GM and WM masks. Fixed group-level GM and WM masks are built once from
-template-space GM and WM probability maps. The analysis mask is the union of
-the non-overlapping GM and WM masks.
+fixed cortical GM, deep GM, all-GM, and WM masks. The group-level masks are
+built once from a deterministic template FreeSurfer aseg segmentation. The
+analysis mask is the union of the non-overlapping all-GM and WM masks.
 
 For each selected metric, the script pairs two sessions within subject and
 computes voxelwise ICC(2,1): two-way random effects, absolute agreement, single
@@ -52,11 +52,6 @@ except ImportError:
     nib = None
     resample_from_to = None
 
-try:
-    from scipy.ndimage import distance_transform_edt
-except ImportError:
-    distance_transform_edt = None
-
 SubjectPairInputs = namedtuple(
     "SubjectPairInputs",
     ["subject", "metric_a", "metric_b"],
@@ -78,6 +73,17 @@ except ImportError:
     metric_display_labels = None
     metric_order = None
 
+try:
+    from mni_tissue_masks import (
+        TISSUE_TITLES,
+        build_template_tissue_masks,
+        metric_registry_tissue,
+    )
+except ImportError:
+    TISSUE_TITLES = None
+    build_template_tissue_masks = None
+    metric_registry_tissue = None
+
 
 ANALYSIS_SETS = (
     "primary",
@@ -87,9 +93,16 @@ ANALYSIS_SETS = (
 
 SPACE = "MNI152NLin2009cAsym"
 ROBUST_NORMAL_SCALE = 0.67448975
-SUMMARY_TISSUES = ("gm", "wm")
+SUMMARY_TISSUES = (
+    "cortical_gm",
+    "deep_gm",
+    "all_gm",
+    "wm",
+)
 TISSUE_LABELS = {
-    "gm": "GM",
+    "cortical_gm": "corticalGM",
+    "deep_gm": "deepGM",
+    "all_gm": "allGM",
     "wm": "WM",
 }
 
@@ -101,8 +114,8 @@ def require_dependencies():
         ("nibabel", nib),
         ("numpy", np),
         ("pandas", pd),
-        ("scipy", distance_transform_edt),
         ("metric_registry", build_metric_specs),
+        ("mni_tissue_masks", build_template_tissue_masks),
     ):
         if module is None:
             missing.append(name)
@@ -730,140 +743,27 @@ def write_nifti(
     )
 
 
-def erode_mask_mm(
-    mask,
-    reference,
-    erosion_mm,
-):
-    mask_3d = np.asarray(
-        mask,
-        dtype=bool,
-    ).reshape(
-        reference.shape[:3]
-    )
-
-    if erosion_mm <= 0:
-        return mask_3d.reshape(-1)
-
-    voxel_sizes = tuple(
-        float(value)
-        for value in nib.affines.voxel_sizes(
-            reference.affine
-        )
-    )
-
-    distance = distance_transform_edt(
-        mask_3d,
-        sampling=voxel_sizes,
-    )
-
-    # Keep voxel centers more than the requested physical distance from
-    # the mask exterior.
-    return (
-        distance > float(erosion_mm)
-    ).reshape(-1)
-
-
 def build_fixed_tissue_masks(
-    gm_probseg,
-    wm_probseg,
-    gm_threshold,
-    wm_threshold,
+    template_dseg,
     gm_erosion_mm,
     wm_erosion_mm,
 ):
-    reference = nib.load(
-        str(gm_probseg)
-    )
-
-    gm_probability = load_like(
-        gm_probseg,
-        reference,
-        order=1,
-    ).reshape(-1)
-
-    wm_probability = load_like(
-        wm_probseg,
-        reference,
-        order=1,
-    ).reshape(-1)
-
-    gm_thresholded = (
-        gm_probability
-        >= float(gm_threshold)
-    )
-    wm_thresholded = (
-        wm_probability
-        >= float(wm_threshold)
-    )
-
-    gm_eroded = erode_mask_mm(
-        gm_thresholded,
-        reference,
+    reference, masks = build_template_tissue_masks(
+        template_dseg,
         gm_erosion_mm,
-    )
-    wm_eroded = erode_mask_mm(
-        wm_thresholded,
-        reference,
         wm_erosion_mm,
     )
-
-    overlap = gm_eroded & wm_eroded
-
-    if np.any(overlap):
-        overlap_indices = np.flatnonzero(overlap)
-
-        gm_wins = (
-            gm_probability[overlap]
-            >= wm_probability[overlap]
-        )
-
-        gm_eroded[
-            overlap_indices[~gm_wins]
-        ] = False
-
-        wm_eroded[
-            overlap_indices[gm_wins]
-        ] = False
-
-    if not np.any(gm_eroded):
-        raise RuntimeError(
-            "The template GM mask is empty "
-            "after thresholding/erosion"
-        )
-
-    if not np.any(wm_eroded):
-        raise RuntimeError(
-            "The template WM mask is empty "
-            "after thresholding/erosion"
-        )
-
-    return {
-        "gm_probability": gm_probability,
-        "wm_probability": wm_probability,
-        "gm_thresholded": gm_thresholded,
-        "wm_thresholded": wm_thresholded,
-        "gm": gm_eroded,
-        "wm": wm_eroded,
-        "reference": reference,
-    }
+    masks["reference"] = reference
+    return masks
 
 
 def write_fixed_masks(
     masks,
     reference,
     output_dir,
-    gm_threshold,
-    wm_threshold,
     gm_erosion_mm,
     wm_erosion_mm,
 ):
-    gm_threshold_token = number_token(
-        gm_threshold
-    )
-    wm_threshold_token = number_token(
-        wm_threshold
-    )
     gm_erosion_token = number_token(
         gm_erosion_mm
     )
@@ -871,94 +771,29 @@ def write_fixed_masks(
         wm_erosion_mm
     )
     base = "space-{0}".format(SPACE)
-
-    write_nifti(
-        masks["gm_probability"],
-        reference,
-        output_dir
-        / "{0}_label-GM_probseg.nii.gz".format(
-            base
-        ),
-        np.float32,
-        "Template GM probability",
-    )
-
-    write_nifti(
-        masks["wm_probability"],
-        reference,
-        output_dir
-        / "{0}_label-WM_probseg.nii.gz".format(
-            base
-        ),
-        np.float32,
-        "Template WM probability",
-    )
-
-    write_nifti(
-        masks["gm_thresholded"].astype(
-            np.uint8
-        ),
-        reference,
-        output_dir
-        / (
-            "{0}_label-GM_desc-templateProb{1}_"
-            "mask.nii.gz"
-        ).format(
-            base,
-            gm_threshold_token,
-        ),
-        np.uint8,
-        "Template GM probability mask before erosion",
-    )
-
-    write_nifti(
-        masks["wm_thresholded"].astype(
-            np.uint8
-        ),
-        reference,
-        output_dir
-        / (
-            "{0}_label-WM_desc-templateProb{1}_"
-            "mask.nii.gz"
-        ).format(
-            base,
-            wm_threshold_token,
-        ),
-        np.uint8,
-        "Template WM probability mask before erosion",
-    )
-
-    write_nifti(
-        masks["gm"].astype(np.uint8),
-        reference,
-        output_dir
-        / (
-            "{0}_label-GM_desc-templateProb{1}"
-            "Eroded{2}mm_mask.nii.gz"
-        ).format(
-            base,
-            gm_threshold_token,
-            gm_erosion_token,
-        ),
-        np.uint8,
-        "Fixed template GM analysis and summary mask",
-    )
-
-    write_nifti(
-        masks["wm"].astype(np.uint8),
-        reference,
-        output_dir
-        / (
-            "{0}_label-WM_desc-templateProb{1}"
-            "Eroded{2}mm_mask.nii.gz"
-        ).format(
-            base,
-            wm_threshold_token,
-            wm_erosion_token,
-        ),
-        np.uint8,
-        "Fixed template WM analysis and summary mask",
-    )
+    for tissue in SUMMARY_TISSUES:
+        erosion_token = (
+            wm_erosion_token
+            if tissue == "wm"
+            else gm_erosion_token
+        )
+        write_nifti(
+            masks[tissue].astype(np.uint8),
+            reference,
+            output_dir
+            / (
+                "{0}_label-{1}_desc-templateAsegEroded{2}mm_"
+                "mask.nii.gz"
+            ).format(
+                base,
+                TISSUE_LABELS[tissue],
+                erosion_token,
+            ),
+            np.uint8,
+            "Fixed deterministic template {0} mask".format(
+                TISSUE_TITLES[tissue]
+            ),
+        )
 
 
 def build_metric_memmap(
@@ -1710,12 +1545,12 @@ def restrict_result_to_metric_tissues(
     """Blank map values outside the metric's valid tissue contexts."""
 
     invalid = np.zeros(
-        len(masks["gm"]),
+        len(masks["all_gm"]),
         dtype=bool,
     )
 
     if "gm" not in metric_spec.tissues:
-        invalid |= masks["gm"]
+        invalid |= masks["all_gm"]
 
     if "wm" not in metric_spec.tissues:
         invalid |= masks["wm"]
@@ -1984,8 +1819,9 @@ def parse_args():
             "tables. Repeat as "
             "needed. The ICC map itself is "
             "always computed once over the "
-            "union of the fixed eroded GM and "
-            "WM masks. Default: gm, wm."
+            "union of the fixed eroded all-GM "
+            "and WM masks. Default: all four "
+            "tissue summaries."
         ),
     )
 
@@ -2000,41 +1836,15 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--gm-probseg",
+        "--template-dseg",
         type=Path,
         default=None,
         help=(
-            "Template-space GM probability map. "
+            "Template-space FreeSurfer aseg dseg. "
             "Defaults to <project-root>/code/data/"
             "tpl-MNI152NLin2009cAsym_res-01_"
-            "label-GM_probseg.nii.gz."
+            "seg-aseg_dseg.nii.gz."
         ),
-    )
-
-    parser.add_argument(
-        "--wm-probseg",
-        type=Path,
-        default=None,
-        help=(
-            "Template-space WM probability map. "
-            "Defaults to <project-root>/code/data/"
-            "tpl-MNI152NLin2009cAsym_res-01_"
-            "label-WM_probseg.nii.gz."
-        ),
-    )
-
-    parser.add_argument(
-        "--gm-threshold",
-        type=float,
-        default=0.50,
-        help="Template GM probability threshold. Default: 0.50.",
-    )
-
-    parser.add_argument(
-        "--wm-threshold",
-        type=float,
-        default=0.50,
-        help="Template WM probability threshold. Default: 0.50.",
     )
 
     parser.add_argument(
@@ -2267,94 +2077,40 @@ def parse_args():
         / "data",
     )
 
-    if args.gm_probseg is None:
-        args.gm_probseg = next(
+    if args.template_dseg is None:
+        args.template_dseg = next(
             (
                 directory
                 / (
-                    "tpl-{0}_res-01_label-GM_"
-                    "probseg.nii.gz"
+                    "tpl-{0}_res-01_seg-aseg_"
+                    "dseg.nii.gz"
                 ).format(SPACE)
                 for directory in data_candidates
                 if (
                     directory
                     / (
-                        "tpl-{0}_res-01_label-GM_"
-                        "probseg.nii.gz"
+                        "tpl-{0}_res-01_seg-aseg_"
+                        "dseg.nii.gz"
                     ).format(SPACE)
                 ).exists()
             ),
             data_candidates[0]
             / (
-                "tpl-{0}_res-01_label-GM_"
-                "probseg.nii.gz"
+                "tpl-{0}_res-01_seg-aseg_"
+                "dseg.nii.gz"
             ).format(SPACE),
         )
     else:
-        args.gm_probseg = (
-            args.gm_probseg
+        args.template_dseg = (
+            args.template_dseg
             .expanduser()
             .resolve()
         )
 
-    if args.wm_probseg is None:
-        args.wm_probseg = next(
-            (
-                directory
-                / (
-                    "tpl-{0}_res-01_label-WM_"
-                    "probseg.nii.gz"
-                ).format(SPACE)
-                for directory in data_candidates
-                if (
-                    directory
-                    / (
-                        "tpl-{0}_res-01_label-WM_"
-                        "probseg.nii.gz"
-                    ).format(SPACE)
-                ).exists()
-            ),
-            data_candidates[0]
-            / (
-                "tpl-{0}_res-01_label-WM_"
-                "probseg.nii.gz"
-            ).format(SPACE),
-        )
-    else:
-        args.wm_probseg = (
-            args.wm_probseg
-            .expanduser()
-            .resolve()
-        )
-
-    if not args.gm_probseg.exists():
+    if not args.template_dseg.exists():
         raise FileNotFoundError(
-            "GM probability map not found: "
-            "{0}".format(args.gm_probseg)
-        )
-
-    if not args.wm_probseg.exists():
-        raise FileNotFoundError(
-            "WM probability map not found: "
-            "{0}".format(args.wm_probseg)
-        )
-
-    if not (
-        0.0
-        < args.gm_threshold
-        <= 1.0
-    ):
-        parser.error(
-            "--gm-threshold must be in (0, 1]"
-        )
-
-    if not (
-        0.0
-        < args.wm_threshold
-        <= 1.0
-    ):
-        parser.error(
-            "--wm-threshold must be in (0, 1]"
+            "Template aseg dseg not found: "
+            "{0}".format(args.template_dseg)
         )
 
     if (
@@ -2705,7 +2461,12 @@ def main():
         all_metric_specs,
         args.analysis_set,
         args.metric,
-        tissues=args.summary_tissues,
+        tissues=list(
+            OrderedDict.fromkeys(
+                metric_registry_tissue(tissue)
+                for tissue in args.summary_tissues
+            )
+        ),
     )
     assert_unique_metric_slugs(
         metric_specs
@@ -2720,7 +2481,7 @@ def main():
             analysis_set: metric_display_labels(
                 all_metric_specs,
                 analysis_set,
-                tissue=tissue,
+                tissue=metric_registry_tissue(tissue),
             )
             for analysis_set in analysis_sets
         }
@@ -2733,7 +2494,7 @@ def main():
                 metric_order(
                     all_metric_specs,
                     analysis_set,
-                    tissue=tissue,
+                    tissue=metric_registry_tissue(tissue),
                 )
             )
             for analysis_set in analysis_sets
@@ -2754,19 +2515,14 @@ def main():
 
     print(
         "Building fixed tissue masks from "
-        "template probability maps: GM >= {0}, "
-        "WM >= {1}".format(
-            args.gm_threshold,
-            args.wm_threshold,
+        "deterministic template aseg: {0}".format(
+            args.template_dseg
         ),
         flush=True,
     )
 
     masks = build_fixed_tissue_masks(
-        args.gm_probseg,
-        args.wm_probseg,
-        args.gm_threshold,
-        args.wm_threshold,
+        args.template_dseg,
         args.gm_erosion_mm,
         args.wm_erosion_mm,
     )
@@ -2776,8 +2532,6 @@ def main():
         masks,
         reference,
         args.output_dir,
-        gm_threshold=args.gm_threshold,
-        wm_threshold=args.wm_threshold,
         gm_erosion_mm=args.gm_erosion_mm,
         wm_erosion_mm=args.wm_erosion_mm,
     )
@@ -2810,18 +2564,16 @@ def main():
         "space": SPACE,
         "one_map_per_metric": True,
         "analysis_mask": (
-            "union of fixed template GM and "
-            "WM probability masks"
+            "union of deterministic template "
+            "all-GM and WM masks"
         ),
-        "gm_probseg": str(args.gm_probseg),
-        "wm_probseg": str(args.wm_probseg),
-        "gm_threshold": args.gm_threshold,
-        "wm_threshold": args.wm_threshold,
+        "template_dseg": str(args.template_dseg),
         "gm_erosion_mm": args.gm_erosion_mm,
         "wm_erosion_mm": args.wm_erosion_mm,
-        "gm_eroded_voxels": int(
-            np.count_nonzero(masks["gm"])
-        ),
+        "tissue_voxels": {
+            tissue: int(np.count_nonzero(masks[tissue]))
+            for tissue in SUMMARY_TISSUES
+        },
         "wm_eroded_voxels": int(
             np.count_nonzero(masks["wm"])
         ),
@@ -2989,7 +2741,7 @@ def main():
 
                     gm_result = process_compartment(
                         values,
-                        masks["gm"],
+                        masks["all_gm"],
                         "GM",
                         min_subjects=(
                             args.min_subjects
@@ -3013,7 +2765,7 @@ def main():
                         flush=True,
                     )
                     gm_result = empty_result(
-                        len(masks["gm"])
+                        len(masks["all_gm"])
                     )
 
                 if "wm" in metric_spec.tissues:
@@ -3056,7 +2808,7 @@ def main():
                     combine_compartment_results(
                         gm_result,
                         wm_result,
-                        masks["gm"],
+                        masks["all_gm"],
                         masks["wm"],
                     )
                 )
@@ -3078,7 +2830,8 @@ def main():
             for analysis_set in analysis_sets:
                 for tissue in args.summary_tissues:
                     if (
-                        tissue not in metric_spec.tissues
+                        metric_registry_tissue(tissue)
+                        not in metric_spec.tissues
                         or metric_spec.label
                         not in labels_by_tissue[tissue][
                             analysis_set

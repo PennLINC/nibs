@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Compute within-scan voxelwise GM-vs-WM effect sizes for MNI scalar maps.
 
-For each subject/session/metric, this script uses the subject-specific
-smriprep MNI deterministic dseg (GM=1, WM=2), extracts voxel values from GM and
-WM, computes signed descriptive effect sizes for GM - WM, averages repeated
-sessions within subject, and summarizes across subjects.
+For each subject/session/metric, this script compares subject-specific cortical
+GM, deep GM, and all GM with subject-specific WM. Cortical GM comes from the
+subject's T1w ribbon transformed to MNI space; the remaining masks combine the
+subject MNI dseg with deterministic template labels. Signed GM - WM effect
+sizes are averaged across repeated sessions and summarized across subjects.
 """
 
 from __future__ import annotations
@@ -26,13 +27,9 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from compute_mni_voxelwise_correlations import (
-    SPACE,
-    build_subject_tissue_masks,
+from mni_analysis_utils import (
     discover_sessions,
     discover_subjects,
-    find_smriprep_dseg,
-    load_like,
     load_patterns,
     load_qc_table,
     metric_paths_for_session,
@@ -49,6 +46,15 @@ from metric_registry import (
     metric_specs_for_analysis,
 )
 from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT
+from mni_tissue_masks import (
+    GM_TISSUES,
+    SPACE,
+    build_subject_tissue_masks,
+    ensure_mni_ribbon,
+    find_smriprep_dseg,
+    load_like,
+    subject_mask_source,
+)
 
 
 EFFECT_COLUMNS = (
@@ -170,9 +176,10 @@ def compute_effect_row(
     session: str,
     spec: MetricSpec,
     display_metric: str,
+    gm_tissue: str,
     gm_path: Path,
     wm_path: Path,
-    tissue_mask_file: Path,
+    tissue_mask_file: str,
     gm_data: np.ndarray,
     wm_data: np.ndarray,
     tissue_masks: dict[str, np.ndarray],
@@ -181,7 +188,7 @@ def compute_effect_row(
     max_voxels_per_tissue: int | None,
     rng: np.random.Generator,
 ) -> tuple[dict[str, object] | None, dict[str, object] | None]:
-    gm = finite_nonzero_tissue_values(gm_data, tissue_masks['gm'], outlier_z)
+    gm = finite_nonzero_tissue_values(gm_data, tissue_masks[gm_tissue], outlier_z)
     wm = finite_nonzero_tissue_values(wm_data, tissue_masks['wm'], outlier_z)
     metric_file = str(wm_path) if gm_path == wm_path else f'gm={gm_path};wm={wm_path}'
     n_gm_available = int(gm.size)
@@ -193,6 +200,7 @@ def compute_effect_row(
             'metric_key': spec.label,
             'display_metric': display_metric,
             'source_image': spec.source_image,
+            'gm_tissue': gm_tissue,
             'reason': 'too_few_valid_voxels',
             'n_gm_voxels': n_gm_available,
             'n_wm_voxels': n_wm_available,
@@ -216,6 +224,7 @@ def compute_effect_row(
         'primary_label': spec.primary_label,
         'display_metric': display_metric,
         'source_image': spec.source_image,
+        'gm_tissue': gm_tissue,
         'metric_file': metric_file,
         'gm_metric_file': str(gm_path),
         'wm_metric_file': str(wm_path),
@@ -241,7 +250,14 @@ def compute_effect_row(
 def average_sessions(session_rows: pd.DataFrame) -> pd.DataFrame:
     if session_rows.empty:
         return session_rows.copy()
-    group_cols = ['subject', 'metric_key', 'primary_label', 'display_metric', 'source_image']
+    group_cols = [
+        'subject',
+        'gm_tissue',
+        'metric_key',
+        'primary_label',
+        'display_metric',
+        'source_image',
+    ]
     numeric_cols = [
         column
         for column in session_rows.columns
@@ -272,11 +288,18 @@ def summarize_subjects(subject_rows: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     if subject_rows.empty:
         return pd.DataFrame(rows)
-    for (metric_key, primary_label, display_metric, source_image), group in subject_rows.groupby(
-        ['metric_key', 'primary_label', 'display_metric', 'source_image'],
+    for (
+        gm_tissue,
+        metric_key,
+        primary_label,
+        display_metric,
+        source_image,
+    ), group in subject_rows.groupby(
+        ['gm_tissue', 'metric_key', 'primary_label', 'display_metric', 'source_image'],
         sort=False,
     ):
         row: dict[str, object] = {
+            'gm_tissue': gm_tissue,
             'metric_key': metric_key,
             'primary_label': primary_label,
             'display_metric': display_metric,
@@ -298,33 +321,59 @@ def summarize_subjects(subject_rows: pd.DataFrame) -> pd.DataFrame:
                 else np.nan
             )
         rows.append(row)
-    return pd.DataFrame(rows).sort_values('robust_median_d_mean').reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values(
+        ['gm_tissue', 'robust_median_d_mean']
+    ).reset_index(drop=True)
 
 
 def write_metric_inclusion(
     out_file: Path,
     specs: list[MetricSpec],
+    analysis_set: str,
+    gm_tissues: list[str],
     subject_rows: pd.DataFrame,
     diagnostics: pd.DataFrame,
 ) -> None:
-    included = set(subject_rows['metric_key']) if not subject_rows.empty else set()
-    observed_failed = set(diagnostics['metric_key']) if not diagnostics.empty else set()
+    included = (
+        set(zip(subject_rows['gm_tissue'], subject_rows['metric_key']))
+        if not subject_rows.empty
+        else set()
+    )
+    observed_failed = (
+        set(zip(diagnostics['gm_tissue'], diagnostics['metric_key']))
+        if not diagnostics.empty and 'gm_tissue' in diagnostics
+        else set()
+    )
+    globally_failed = (
+        set(diagnostics.loc[diagnostics['gm_tissue'] == 'all', 'metric_key'])
+        if not diagnostics.empty and 'gm_tissue' in diagnostics
+        else set()
+    )
     rows = []
-    for spec in specs:
-        rows.append(
-            {
-                'analysis_set': 'primary',
-                'metric_key': spec.label,
-                'primary_label': spec.primary_label,
-                'source_image': spec.source_image,
-                'expected': True,
-                'included': spec.label in included,
-                'observed_but_failed': spec.label in observed_failed,
-                'reason_if_not_included': ''
-                if spec.label in included
-                else ('observed_but_failed' if spec.label in observed_failed else 'not_observed'),
-            }
-        )
+    for gm_tissue in gm_tissues:
+        for spec in specs:
+            key = (gm_tissue, spec.label)
+            rows.append(
+                {
+                    'analysis_set': analysis_set,
+                    'gm_tissue': gm_tissue,
+                    'metric_key': spec.label,
+                    'primary_label': spec.primary_label,
+                    'source_image': spec.source_image,
+                    'expected': True,
+                    'included': key in included,
+                    'observed_but_failed': (
+                        key in observed_failed or spec.label in globally_failed
+                    ),
+                    'reason_if_not_included': ''
+                    if key in included
+                    else (
+                        'observed_but_failed'
+                        if key in observed_failed or spec.label in globally_failed
+                        else 'not_observed'
+                    ),
+                }
+            )
     pd.DataFrame(rows).to_csv(out_file, sep='\t', index=False)
 
 
@@ -348,6 +397,24 @@ def parse_args() -> argparse.Namespace:
         default=DERIVATIVES_ROOT / 'mni_gm_wm_effect_sizes',
     )
     parser.add_argument('--outlier-z', type=float, default=6.0)
+    parser.add_argument(
+        '--gm-tissue',
+        action='append',
+        choices=GM_TISSUES,
+        default=None,
+        help='GM compartment(s) to compare with WM; defaults to all three.',
+    )
+    parser.add_argument(
+        '--template-dseg',
+        type=Path,
+        default=None,
+        help='Deterministic FreeSurfer aseg dseg used to define deep GM.',
+    )
+    parser.add_argument(
+        '--ants-apply-transforms',
+        default='antsApplyTransforms',
+        help='antsApplyTransforms executable used to create missing subject MNI ribbons.',
+    )
     parser.add_argument('--gm-erosion-mm', type=float, default=0.0)
     parser.add_argument('--wm-erosion-mm', type=float, default=0.0)
     parser.add_argument('--min-voxels', type=int, default=100)
@@ -374,6 +441,24 @@ def main() -> None:
     args.patterns_file = args.patterns_file.expanduser().resolve()
     args.output_dir = args.output_dir.expanduser().resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.gm_tissues = args.gm_tissue if args.gm_tissue else list(GM_TISSUES)
+    data_candidates = (
+        args.project_root / 'code' / 'data',
+        CODE_ROOT / 'data',
+    )
+    if args.template_dseg is None:
+        args.template_dseg = next(
+            (
+                directory / f'tpl-{SPACE}_res-01_seg-aseg_dseg.nii.gz'
+                for directory in data_candidates
+                if (directory / f'tpl-{SPACE}_res-01_seg-aseg_dseg.nii.gz').exists()
+            ),
+            data_candidates[0] / f'tpl-{SPACE}_res-01_seg-aseg_dseg.nii.gz',
+        )
+    else:
+        args.template_dseg = args.template_dseg.expanduser().resolve()
+    if not args.template_dseg.exists():
+        raise FileNotFoundError(f'Template aseg dseg not found: {args.template_dseg}')
     if args.max_voxels_per_tissue is not None and args.max_voxels_per_tissue <= 0:
         args.max_voxels_per_tissue = None
 
@@ -418,6 +503,7 @@ def main() -> None:
                         'metric_key': '',
                         'display_metric': '',
                         'source_image': '',
+                        'gm_tissue': 'all',
                         'reason': 'missing_subject_dseg',
                         'n_gm_voxels': 0,
                         'n_wm_voxels': 0,
@@ -428,12 +514,22 @@ def main() -> None:
                 print(f'Skipping {subject} {session}: missing smriprep MNI dseg')
                 continue
             try:
+                ribbon_path = ensure_mni_ribbon(
+                    args.derivatives_dir,
+                    subject,
+                    session,
+                    dseg_path,
+                    SPACE,
+                    args.ants_apply_transforms,
+                )
                 reference, tissue_masks = build_subject_tissue_masks(
                     dseg_path,
+                    ribbon_path,
+                    args.template_dseg,
                     args.gm_erosion_mm,
                     args.wm_erosion_mm,
                 )
-            except RuntimeError as exc:
+            except (FileNotFoundError, RuntimeError) as exc:
                 diagnostics.append(
                     {
                         'subject': subject,
@@ -441,6 +537,7 @@ def main() -> None:
                         'metric_key': '',
                         'display_metric': '',
                         'source_image': '',
+                        'gm_tissue': 'all',
                         'reason': str(exc),
                         'n_gm_voxels': 0,
                         'n_wm_voxels': 0,
@@ -450,6 +547,11 @@ def main() -> None:
                 )
                 print(f'Skipping {subject} {session}: {exc}')
                 continue
+            tissue_mask_file = subject_mask_source(
+                dseg_path,
+                ribbon_path,
+                args.template_dseg,
+            )
 
             metric_paths = metric_paths_for_session(
                 args.derivatives_dir,
@@ -485,38 +587,41 @@ def main() -> None:
                             'metric_key': metric_label,
                             'display_metric': display_metric,
                             'source_image': spec.source_image,
+                            'gm_tissue': 'all',
                             'reason': f'missing_{"_and_".join(missing_parts)}_metric_file_or_qc_failed',
                             'n_gm_voxels': 0,
                             'n_wm_voxels': 0,
                             'metric_file': '',
                             'gm_metric_file': str(gm_path) if gm_path is not None else '',
                             'wm_metric_file': str(wm_path) if wm_path is not None else '',
-                            'tissue_mask_file': str(dseg_path),
+                            'tissue_mask_file': tissue_mask_file,
                         }
                     )
                     continue
                 wm_data = load_like(wm_path, reference, order=1).reshape(-1)
                 gm_data = wm_data if gm_path == wm_path else load_like(gm_path, reference, order=1).reshape(-1)
-                row, diagnostic = compute_effect_row(
-                    subject,
-                    session,
-                    spec,
-                    display_metric,
-                    gm_path,
-                    wm_path,
-                    dseg_path,
-                    gm_data,
-                    wm_data,
-                    tissue_masks,
-                    args.outlier_z,
-                    args.min_voxels,
-                    args.max_voxels_per_tissue,
-                    rng,
-                )
-                if row is not None:
-                    session_rows.append(row)
-                if diagnostic is not None:
-                    diagnostics.append(diagnostic)
+                for gm_tissue in args.gm_tissues:
+                    row, diagnostic = compute_effect_row(
+                        subject,
+                        session,
+                        spec,
+                        display_metric,
+                        gm_tissue,
+                        gm_path,
+                        wm_path,
+                        tissue_mask_file,
+                        gm_data,
+                        wm_data,
+                        tissue_masks,
+                        args.outlier_z,
+                        args.min_voxels,
+                        args.max_voxels_per_tissue,
+                        rng,
+                    )
+                    if row is not None:
+                        session_rows.append(row)
+                    if diagnostic is not None:
+                        diagnostics.append(diagnostic)
 
     session_df = pd.DataFrame(session_rows)
     diagnostics_df = pd.DataFrame(diagnostics)
@@ -533,7 +638,14 @@ def main() -> None:
     subject_df.to_csv(subject_out, sep='\t', index=False)
     summary_df.to_csv(summary_out, sep='\t', index=False)
     diagnostics_df.to_csv(diagnostics_out, sep='\t', index=False)
-    write_metric_inclusion(inclusion_out, specs, subject_df, diagnostics_df)
+    write_metric_inclusion(
+        inclusion_out,
+        specs,
+        args.analysis_set,
+        args.gm_tissues,
+        subject_df,
+        diagnostics_df,
+    )
     for out_file in (session_out, subject_out, summary_out, diagnostics_out, inclusion_out):
         print(f'Wrote: {out_file}')
 

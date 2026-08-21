@@ -71,8 +71,8 @@ def default_parcel_dir() -> Path:
 
 def mixed_figure_size(max_metrics: int) -> tuple[float, float]:
     panel_side = max(5.2, min(7.6, 1.25 + 0.23 * max_metrics))
-    width = 2.0 * panel_side + 4.8
-    height = 2.0 * panel_side + 4.0
+    width = 2.0 * panel_side + 4.45
+    height = 2.0 * panel_side + 3.65
     return width, height
 
 
@@ -186,8 +186,8 @@ def draw_mixed_figure(
         figure=fig,
         height_ratios=[1, 1, 0.055],
         width_ratios=[1, 1],
-        hspace=0.58,
-        wspace=0.24,
+        hspace=0.42,
+        wspace=0.12,
     )
 
     image = None
@@ -245,6 +245,7 @@ def draw_mixed_figure(
         fontsize=max(10.5, fs - 0.1),
         labelpad=5,
     )
+    cbar.ax.xaxis.label.set_fontweight('bold')
 
     legend_ax = fig.add_subplot(outer[2, 1])
     legend_ax.axis('off')
@@ -258,7 +259,7 @@ def draw_mixed_figure(
         )
         for source in sources
     ]
-    legend_ax.legend(
+    legend = legend_ax.legend(
         handles=handles,
         title=METRIC_FAMILY_LEGEND_TITLE,
         loc='center',
@@ -269,6 +270,7 @@ def draw_mixed_figure(
         handlelength=1.4,
         columnspacing=1.15,
     )
+    legend.get_title().set_fontweight('bold')
     position_bottom_guides(fig, cbar_ax, legend_ax, panel_axes)
 
     out_stem.parent.mkdir(parents=True, exist_ok=True)
@@ -312,7 +314,7 @@ def build_mixed_panel_specs(
         MixedPanelSpec(
             PanelSpec(
                 tissue='gm',
-                title='Gray Matter Voxels',
+                title='Cortical Gray Matter Voxels',
                 path=mni_input_path(mni_dir, analysis_set, 'gm', mni_correlation),
                 source_by_label=source_lookup(patterns_file, analysis_set, 'gm'),
             ),

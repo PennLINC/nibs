@@ -40,10 +40,10 @@ from plot_icc_figures import (
 
 
 TISSUE_DOMAIN_TITLES = {
-    ('wm', 'voxels'): 'White Matter (Voxels)',
-    ('wm', 'bundles'): 'White Matter (Bundles)',
-    ('gm', 'voxels'): 'Gray Matter (Voxels)',
-    ('gm', 'parcels'): 'Gray Matter (Parcels)',
+    ('wm', 'voxels'): 'White Matter Voxels',
+    ('wm', 'bundles'): 'White Matter Bundles',
+    ('gm', 'voxels'): 'Cortical Gray Matter Voxels',
+    ('gm', 'parcels'): 'Gray Matter Parcels',
 }
 
 
@@ -164,6 +164,7 @@ def draw_scatter_panel_fixed(
 ) -> None:
     wide = matched_scatter_values(summary)
     meta = summary.drop_duplicates('metric_key').set_index('metric_key')
+    gm_label = 'Cortical GM' if 'cortical' in gm_domain.lower() else 'GM'
     if wide.empty:
         ax.text(0.5, 0.5, 'No matched WM/GM metrics', ha='center', va='center')
         ax.set_axis_off()
@@ -228,7 +229,7 @@ def draw_scatter_panel_fixed(
     ax.text(
         0.12,
         0.81,
-        'WM ICC > GM ICC',
+        f'WM ICC > {gm_label} ICC',
         transform=ax.transAxes,
         color='#6a6a6a',
         fontsize=10,
@@ -238,7 +239,7 @@ def draw_scatter_panel_fixed(
     ax.text(
         0.66,
         0.13,
-        'GM ICC > WM ICC',
+        f'{gm_label} ICC > WM ICC',
         transform=ax.transAxes,
         color='#6a6a6a',
         fontsize=10,
@@ -345,7 +346,13 @@ def plot_combined_icc(
         'ICC(2,1) across WM bundles',
         label_side='right',
     )
-    draw_interval_panel_no_numbers(axes['C'], voxel_summary, 'gm', 'voxels', 'ICC(2,1) across GM voxels')
+    draw_interval_panel_no_numbers(
+        axes['C'],
+        voxel_summary,
+        'gm',
+        'voxels',
+        'ICC(2,1) across cortical GM voxels',
+    )
     draw_interval_panel_no_numbers(
         axes['D'],
         parcel_summary,
@@ -356,7 +363,14 @@ def plot_combined_icc(
     )
 
     lower, upper = common_scatter_limits(voxel_summary, parcel_summary)
-    draw_scatter_panel_fixed(axes['E'], voxel_summary, 'GM voxels', 'WM voxels', lower, upper)
+    draw_scatter_panel_fixed(
+        axes['E'],
+        voxel_summary,
+        'cortical GM voxels',
+        'WM voxels',
+        lower,
+        upper,
+    )
     draw_scatter_panel_fixed(axes['F'], parcel_summary, 'GM parcels', 'WM bundles', lower, upper)
 
     for label, ax in axes.items():
