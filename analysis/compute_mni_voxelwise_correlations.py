@@ -5,10 +5,10 @@ For each subject/session and tissue mask, this script loads configured
 space-MNI152NLin2009cAsym scalar maps, computes pairwise-valid voxelwise
 correlations, Fisher-z transforms them, and averages first within subject and
 then across subjects. By default, cortical GM comes from each subject's
-T1w-space sMRIPrep ribbon transformed to MNI space, deep GM is the intersection
-of subject GM and deterministic template deep-GM labels, and all GM/WM come
-from the subject MNI dseg. Full supplementary matrices are computed first;
-primary-analysis matrices are then written as subsets of those full matrices.
+precomputed MNI-space sMRIPrep ribbon, deep GM is the intersection of subject
+GM and deterministic template deep-GM labels, and all GM/WM come from the
+subject MNI dseg. Full supplementary matrices are computed first; primary-
+analysis matrices are then written as subsets of those full matrices.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ from mni_tissue_masks import (
     TISSUES,
     build_subject_tissue_masks,
     build_template_tissue_masks,
-    ensure_mni_ribbon,
+    find_existing_mni_ribbon,
     find_smriprep_dseg,
     load_like,
     metric_registry_tissue,
@@ -286,11 +286,6 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help='Deterministic FreeSurfer aseg dseg used to define template tissue compartments.',
     )
-    parser.add_argument(
-        '--ants-apply-transforms',
-        default='antsApplyTransforms',
-        help='antsApplyTransforms executable used to create missing subject MNI ribbons.',
-    )
     parser.add_argument('--gm-erosion-mm', type=float, default=0.0)
     parser.add_argument('--wm-erosion-mm', type=float, default=0.0)
     parser.add_argument(
@@ -426,14 +421,14 @@ def main() -> None:
                     print(f'Skipping {subject} {session}: missing smriprep MNI dseg')
                     continue
                 try:
-                    ribbon_path = ensure_mni_ribbon(
-                        args.derivatives_dir,
-                        subject,
-                        session,
-                        dseg_path,
-                        SPACE,
-                        args.ants_apply_transforms,
+                    ribbon_path = find_existing_mni_ribbon(
+                        args.derivatives_dir, subject, session, SPACE
                     )
+                    if ribbon_path is None:
+                        raise FileNotFoundError(
+                            'missing precomputed MNI cortical ribbon; run '
+                            'analysis/prepare_mni_ribbon_masks.sh first'
+                        )
                     reference, tissue_masks = build_subject_tissue_masks(
                         dseg_path,
                         ribbon_path,

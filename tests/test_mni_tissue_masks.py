@@ -98,55 +98,15 @@ def test_smriprep_discovery_supports_subject_and_session_anat(tmp_path):
     assert tissue_masks.find_native_ribbon(derivatives, subject, session) == subject_ribbon
 
 
-def test_ensure_mni_ribbon_uses_generic_label_and_caches_output(tmp_path, monkeypatch):
+def test_mni_ribbon_path_adds_space_entity(tmp_path):
     derivatives = tmp_path / 'derivatives'
     subject = 'sub-001'
-    session = 'ses-01'
     anat = derivatives / 'smriprep' / subject / 'anat'
     native = anat / (f'{subject}_acq-MPRAGE_rec-refaced_run-01_desc-ribbon_mask.nii.gz')
-    transform = anat / (
-        f'{subject}_acq-MPRAGE_rec-refaced_run-01_from-T1w_'
-        f'to-{tissue_masks.SPACE}_mode-image_xfm.h5'
-    )
-    reference = tmp_path / 'reference_dseg.nii.gz'
     anat.mkdir(parents=True)
     native.touch()
-    transform.touch()
-    reference.touch()
-    commands = []
 
-    monkeypatch.setattr(tissue_masks.shutil, 'which', lambda value: f'/bin/{value}')
-
-    def fake_run(command, **kwargs):
-        commands.append((command, kwargs))
-        output = Path(command[command.index('--output') + 1])
-        output.write_bytes(b'mni ribbon')
-
-    monkeypatch.setattr(tissue_masks.subprocess, 'run', fake_run)
-
-    output = tissue_masks.ensure_mni_ribbon(
-        derivatives,
-        subject,
-        session,
-        reference,
+    assert tissue_masks.mni_ribbon_path(native).name == (
+        f'{subject}_acq-MPRAGE_rec-refaced_run-01_'
+        f'space-{tissue_masks.SPACE}_desc-ribbon_mask.nii.gz'
     )
-
-    assert output.name.endswith(f'_space-{tissue_masks.SPACE}_desc-ribbon_mask.nii.gz')
-    assert output.parent == native.parent
-    assert output.read_bytes() == b'mni ribbon'
-    command, kwargs = commands[0]
-    assert command[command.index('--interpolation') + 1] == 'GenericLabel'
-    assert command[command.index('--reference-image') + 1] == str(reference)
-    assert command[command.index('--transform') + 1] == str(transform)
-    assert kwargs == {'check': True, 'capture_output': True, 'text': True}
-
-    assert (
-        tissue_masks.ensure_mni_ribbon(
-            derivatives,
-            subject,
-            session,
-            reference,
-        )
-        == output
-    )
-    assert len(commands) == 1

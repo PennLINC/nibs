@@ -3,10 +3,6 @@
 
 from __future__ import annotations
 
-import os
-import shutil
-import subprocess
-import tempfile
 from pathlib import Path
 from typing import Iterable
 
@@ -174,14 +170,6 @@ def mni_ribbon_path(native_ribbon: Path, space: str = SPACE) -> Path:
     raise ValueError(f'Unexpected ribbon filename: {native_ribbon}')
 
 
-def find_t1w_to_mni_transform(
-    anat_dir: Path,
-    subject: str,
-    space: str = SPACE,
-) -> Path | None:
-    return _preferred_match(anat_dir.glob(f'{subject}*_from-T1w_to-{space}_mode-image_xfm.h5'))
-
-
 def find_existing_mni_ribbon(
     derivatives: Path,
     subject: str,
@@ -193,73 +181,6 @@ def find_existing_mni_ribbon(
         if match is not None:
             return match
     return None
-
-
-def ensure_mni_ribbon(
-    derivatives: Path,
-    subject: str,
-    session: str,
-    reference_file: Path,
-    space: str = SPACE,
-    ants_apply_transforms: str = 'antsApplyTransforms',
-) -> Path:
-    """Return a cached MNI ribbon, creating it beside the native ribbon if needed."""
-
-    native_ribbon = find_native_ribbon(derivatives, subject, session)
-    if native_ribbon is None:
-        existing = find_existing_mni_ribbon(derivatives, subject, session, space)
-        if existing is not None:
-            return existing
-        raise FileNotFoundError(f'No native-space cortical ribbon found for {subject} {session}')
-
-    output_file = mni_ribbon_path(native_ribbon, space)
-    if output_file.exists():
-        return output_file
-
-    transform = find_t1w_to_mni_transform(native_ribbon.parent, subject, space)
-    if transform is None:
-        raise FileNotFoundError(f'No T1w-to-{space} transform found beside {native_ribbon}')
-    executable = shutil.which(ants_apply_transforms)
-    if executable is None:
-        raise RuntimeError(
-            f'Could not find {ants_apply_transforms}; it is required to create {output_file}'
-        )
-
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        dir=output_file.parent,
-        prefix=f'.{output_file.name}.',
-        suffix='.nii.gz',
-        delete=False,
-    ) as temp_file:
-        temp_path = Path(temp_file.name)
-    temp_path.unlink(missing_ok=True)
-    command = [
-        executable,
-        '--dimensionality',
-        '3',
-        '--input',
-        str(native_ribbon),
-        '--reference-image',
-        str(reference_file),
-        '--output',
-        str(temp_path),
-        '--interpolation',
-        'GenericLabel',
-        '--transform',
-        str(transform),
-    ]
-    try:
-        subprocess.run(command, check=True, capture_output=True, text=True)
-        if not temp_path.exists():
-            raise RuntimeError(f'antsApplyTransforms did not create {temp_path}')
-        os.replace(temp_path, output_file)
-    except subprocess.CalledProcessError as exc:
-        detail = exc.stderr.strip() or exc.stdout.strip() or str(exc)
-        raise RuntimeError(f'Failed to transform cortical ribbon: {detail}') from exc
-    finally:
-        temp_path.unlink(missing_ok=True)
-    return output_file
 
 
 def build_subject_tissue_masks(
