@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot combined WM/GM correlation matrix figures with one colorbar and legend."""
+"""Plot primary combined WM/cortical-GM correlation matrix figures."""
 
 from __future__ import annotations
 
@@ -424,6 +424,7 @@ def build_panel_specs(
             PanelSpec(
                 tissue='gm',
                 title='Cortical Gray Matter Voxels',
+                # plot-facing "gm" resolves to the cortical_gm voxel matrix.
                 path=mni_input_path(mni_dir, analysis_set, 'gm', correlation),
                 source_by_label=source_lookup(patterns_file, analysis_set, 'gm'),
             ),

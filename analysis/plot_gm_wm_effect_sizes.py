@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot MNI voxelwise GM-compartment-vs-WM effect sizes by metric."""
+"""Plot primary MNI voxelwise cortical-GM-vs-WM effect sizes by metric."""
 
 from __future__ import annotations
 

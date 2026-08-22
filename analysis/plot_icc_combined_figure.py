@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot combined voxelwise and parcel/bundle ICC panels in one figure."""
+"""Plot primary voxelwise cortical-GM/WM and parcel/bundle ICC panels."""
 
 from __future__ import annotations
 

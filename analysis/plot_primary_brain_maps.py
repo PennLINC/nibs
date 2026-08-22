@@ -4,7 +4,9 @@
 The figure uses one axial slice in MNI152NLin2009cAsym space for every map.
 Scalar overlays are displayed with one shared colormap, while each map's color
 limits are its 5th and 95th percentiles within GM+WM tissue voxels after
-voxelwise averaging across QC-passing images.
+voxelwise averaging across QC-passing images. The primary ICVF panel is a
+GM/WM hybrid: WM voxels come from the regular NODDI fit and GM voxels come
+from the gmNODDI fit.
 """
 
 from __future__ import annotations
@@ -59,12 +61,13 @@ from metric_registry import (  # noqa: E402
     metric_plot_label,
     primary_metric_specs,
 )
+from mni_tissue_masks import build_template_tissue_masks  # noqa: E402
 
 LOGGER = logging.getLogger('primary_maps')
 
 MNI_SPACE = 'MNI152NLin2009cAsym'
 DISPLAY_PERCENTILES = (5.0, 95.0)
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 B1_PATTERN = (
     'pymp2rage/{subject}/{session}/fmap/'
     '{subject}_{session}_run-01_space-MNI152NLin2009cAsym_TB1map.nii.gz'
@@ -143,16 +146,19 @@ class ResolvedMetric:
     space: str
     paths: tuple[Path, ...]
     contributors: tuple[tuple[str, str], ...]
+    hybrid_gm_paths: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
 class TissueSpace:
     reference: nib.spatialimages.SpatialImage
     mask: np.ndarray
+    gm_mask: np.ndarray
+    wm_mask: np.ndarray
     brain_mask: np.ndarray
     background: np.ndarray
     slice_index: int
-    tissue_probability_threshold: float
+    source_file: str
 
 
 @dataclass(frozen=True)
@@ -257,6 +263,13 @@ def find_metric_path(
     return first_glob([derivatives / formatted])
 
 
+def gm_noddi_pattern_for(spec: MetricSpec, patterns_file: Path) -> str | None:
+    if spec.group != 'dMRI' or spec.pattern_key != 'ICVF':
+        return None
+    patterns = load_patterns(patterns_file)
+    return patterns.get('dMRI', {}).get('ICVF (GM)')
+
+
 def candidate_sessions(
     qc_rows: Sequence[dict[str, str]],
     requested_subjects: Sequence[str] | None,
@@ -287,12 +300,15 @@ def resolve_average_metrics(
     qc_rows: Sequence[dict[str, str]],
     requested_subjects: Sequence[str] | None,
     requested_sessions: Sequence[str] | None,
+    patterns_file: Path,
 ) -> list[ResolvedMetric]:
     candidates = candidate_sessions(qc_rows, requested_subjects, requested_sessions)
     resolved: list[ResolvedMetric] = []
     missing: list[str] = []
     for source_group, spec, pattern in metric_specs:
+        gm_pattern = gm_noddi_pattern_for(spec, patterns_file)
         paths: list[Path] = []
+        hybrid_gm_paths: list[Path] = []
         contributors: list[tuple[str, str]] = []
         for subject, session, qc_row in candidates:
             if qc_row is None or not qc_passes(qc_row, [spec], session):
@@ -301,7 +317,14 @@ def resolve_average_metrics(
             path = find_metric_path(derivatives, subject, session, pattern, space)
             if path is None:
                 continue
+            gm_path = None
+            if gm_pattern is not None:
+                gm_path = find_metric_path(derivatives, subject, session, gm_pattern, space)
+                if gm_path is None:
+                    continue
             paths.append(path)
+            if gm_path is not None:
+                hybrid_gm_paths.append(gm_path)
             contributors.append((subject, session))
         if not paths:
             missing.append(spec.primary_label)
@@ -314,9 +337,17 @@ def resolve_average_metrics(
                 space=metric_space(spec),
                 paths=tuple(paths),
                 contributors=tuple(contributors),
+                hybrid_gm_paths=tuple(hybrid_gm_paths),
             )
         )
-        LOGGER.info('%s: averaging %d QC-passing image(s)', spec.primary_label, len(paths))
+        if hybrid_gm_paths:
+            LOGGER.info(
+                '%s: averaging %d matched regular/gmNODDI image pair(s)',
+                spec.primary_label,
+                len(paths),
+            )
+        else:
+            LOGGER.info('%s: averaging %d QC-passing image(s)', spec.primary_label, len(paths))
     if missing:
         raise RuntimeError(
             'No QC-passing MNI image was found for these primary metrics: '
@@ -334,29 +365,23 @@ def middle_axial_slice(mask: np.ndarray) -> int:
     return int(round((z_min + z_max) / 2))
 
 
-def load_mni_tissue_space(
-    gm_probseg: Path,
-    wm_probseg: Path,
-    tissue_probability_threshold: float,
-) -> TissueSpace:
-    if not gm_probseg.exists():
-        raise FileNotFoundError(f'GM probability map not found: {gm_probseg}')
-    if not wm_probseg.exists():
-        raise FileNotFoundError(f'WM probability map not found: {wm_probseg}')
-    reference = load_canonical(gm_probseg)
-    gm_probability = np.asarray(reference.get_fdata(), dtype=np.float32)
-    wm_image = resample_image(load_canonical(wm_probseg), reference, order=1)
-    wm_probability = np.asarray(wm_image.get_fdata(), dtype=np.float32)
-    tissue_probability = gm_probability + wm_probability
-    mask = tissue_probability >= tissue_probability_threshold
-    brain_mask = tissue_probability > 0
+def load_mni_tissue_space(template_dseg: Path) -> TissueSpace:
+    if not template_dseg.exists():
+        raise FileNotFoundError(f'Template aseg dseg not found: {template_dseg}')
+    reference, masks = build_template_tissue_masks(template_dseg)
+    shape = reference.shape[:3]
+    gm_mask = np.asarray(masks['all_gm'], dtype=bool).reshape(shape)
+    wm_mask = np.asarray(masks['wm'], dtype=bool).reshape(shape)
+    mask = gm_mask | wm_mask
     return TissueSpace(
         reference=reference,
         mask=mask,
-        brain_mask=brain_mask,
-        background=tissue_probability,
+        gm_mask=gm_mask,
+        wm_mask=wm_mask,
+        brain_mask=mask,
+        background=mask.astype(np.float32),
         slice_index=middle_axial_slice(mask),
-        tissue_probability_threshold=tissue_probability_threshold,
+        source_file=str(template_dseg),
     )
 
 
@@ -407,6 +432,28 @@ def voxelwise_average(
     return average, count
 
 
+def hybrid_gm_wm_average(
+    wm_paths: Sequence[Path],
+    gm_paths: Sequence[Path],
+    reference: nib.spatialimages.SpatialImage,
+    gm_mask: np.ndarray,
+    wm_mask: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    if len(wm_paths) != len(gm_paths):
+        raise RuntimeError('Hybrid NODDI averaging requires matched WM and GM image lists')
+    wm_average, wm_count = voxelwise_average(wm_paths, reference)
+    gm_average, gm_count = voxelwise_average(gm_paths, reference)
+    data = np.full(wm_average.shape, np.nan, dtype=np.float32)
+    contributor_count = np.zeros(wm_count.shape, dtype=np.uint16)
+    wm_valid = wm_mask & np.isfinite(wm_average) & (wm_count > 0)
+    gm_valid = gm_mask & np.isfinite(gm_average) & (gm_count > 0)
+    data[wm_valid] = wm_average[wm_valid]
+    data[gm_valid] = gm_average[gm_valid]
+    contributor_count[wm_valid] = wm_count[wm_valid]
+    contributor_count[gm_valid] = gm_count[gm_valid]
+    return data, contributor_count
+
+
 def safe_cache_slug(value: str) -> str:
     return ''.join(char if char.isalnum() else '-' for char in value).strip('-')
 
@@ -429,10 +476,11 @@ def panel_cache_metadata(
         'space': metric.space,
         'pattern': metric.pattern,
         'paths': [str(path) for path in metric.paths],
+        'hybrid_gm_paths': [str(path) for path in metric.hybrid_gm_paths],
         'contributors': [list(item) for item in metric.contributors],
         'reference_shape': list(reference.shape),
         'reference_affine': np.asarray(reference.affine).round(6).tolist(),
-        'tissue_probability_threshold': tissue_space.tissue_probability_threshold,
+        'tissue_source_file': tissue_space.source_file,
         'display_percentiles': list(DISPLAY_PERCENTILES),
     }
 
@@ -505,7 +553,16 @@ def prepare_panels(
             if cached_panel is not None:
                 panels.append(cached_panel)
                 continue
-        data, contributor_count = voxelwise_average(metric.paths, tissue_space.reference)
+        if metric.hybrid_gm_paths:
+            data, contributor_count = hybrid_gm_wm_average(
+                metric.paths,
+                metric.hybrid_gm_paths,
+                tissue_space.reference,
+                tissue_space.gm_mask,
+                tissue_space.wm_mask,
+            )
+        else:
+            data, contributor_count = voxelwise_average(metric.paths, tissue_space.reference)
         tissue_mask = tissue_space.mask & np.isfinite(data)
         limits = scalar_limits(data, tissue_mask)
         panel = PreparedPanel(
@@ -652,7 +709,7 @@ def plot_figure(
     )
     bg_limits = {
         space: robust_background_limits(
-            np.asarray(tissue.reference.get_fdata(), dtype=np.float32),
+            np.asarray(tissue.background, dtype=np.float32),
             tissue.brain_mask,
         )
         for space, tissue in tissue_spaces.items()
@@ -746,10 +803,17 @@ def write_status_tsv(
                 'vmin_5th_gmwm',
                 'vmax_95th_gmwm',
                 'path',
+                'hybrid_gm_path',
             ]
         )
         for panel in panels:
-            for (subject, session), path in zip(panel.metric.contributors, panel.metric.paths):
+            gm_paths = panel.metric.hybrid_gm_paths or ('',) * len(panel.metric.paths)
+            for (subject, session), path, gm_path in zip(
+                panel.metric.contributors,
+                panel.metric.paths,
+                gm_paths,
+                strict=True,
+            ):
                 writer.writerow(
                     [
                         subject,
@@ -761,6 +825,7 @@ def write_status_tsv(
                         f'{panel.limits[0]:.10g}',
                         f'{panel.limits[1]:.10g}',
                         path,
+                        gm_path,
                     ]
                 )
 
@@ -792,22 +857,10 @@ def build_parser() -> argparse.ArgumentParser:
         help='Manual modality QC table.',
     )
     parser.add_argument(
-        '--gm-probseg',
-        default=REPO_ROOT / 'data' / f'tpl-{MNI_SPACE}_res-01_label-GM_probseg.nii.gz',
+        '--template-dseg',
+        default=REPO_ROOT / 'data' / f'tpl-{MNI_SPACE}_res-01_seg-aseg_dseg.nii.gz',
         type=Path,
-        help='MNI-space gray-matter probability map.',
-    )
-    parser.add_argument(
-        '--wm-probseg',
-        default=REPO_ROOT / 'data' / f'tpl-{MNI_SPACE}_res-01_label-WM_probseg.nii.gz',
-        type=Path,
-        help='MNI-space white-matter probability map.',
-    )
-    parser.add_argument(
-        '--tissue-probability-threshold',
-        type=float,
-        default=0.2,
-        help='Minimum GM+WM probability used for percentile scaling.',
+        help='Deterministic template aseg dseg used for GM/WM display masks and NODDI hybrids.',
     )
     parser.add_argument(
         '--subject-id',
@@ -859,8 +912,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.max_columns < 1:
         parser.error('--max-columns must be at least 1')
-    if args.tissue_probability_threshold < 0:
-        parser.error('--tissue-probability-threshold must be nonnegative')
     logging.basicConfig(
         level=getattr(logging, args.log_level),
         format='%(asctime)s | %(levelname)s | %(message)s',
@@ -881,7 +932,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         else output_base.with_name(f'{output_base.name}_average_cache')
     )
 
-    metric_specs = table_metric_specs(Path(args.patterns_file).expanduser().resolve())
+    patterns_file = Path(args.patterns_file).expanduser().resolve()
+    metric_specs = table_metric_specs(patterns_file)
     qc_rows = load_qc_rows(Path(args.qc_file).expanduser().resolve())
     resolved_metrics = resolve_average_metrics(
         derivatives,
@@ -889,12 +941,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         qc_rows,
         args.subject_id,
         args.session_id,
+        patterns_file,
     )
     tissue_spaces = {
         MNI_SPACE: load_mni_tissue_space(
-            Path(args.gm_probseg).expanduser().resolve(),
-            Path(args.wm_probseg).expanduser().resolve(),
-            args.tissue_probability_threshold,
+            Path(args.template_dseg).expanduser().resolve(),
         )
     }
     panels = prepare_panels(
