@@ -164,7 +164,7 @@ def draw_scatter_panel_fixed(
 ) -> None:
     wide = matched_scatter_values(summary)
     meta = summary.drop_duplicates('metric_key').set_index('metric_key')
-    gm_label = 'Cortical GM' if 'cortical' in gm_domain.lower() else 'GM'
+    gm_label = 'GM'
     if wide.empty:
         ax.text(0.5, 0.5, 'No matched WM/GM metrics', ha='center', va='center')
         ax.set_axis_off()
