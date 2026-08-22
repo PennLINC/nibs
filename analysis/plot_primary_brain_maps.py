@@ -66,7 +66,7 @@ LOGGER = logging.getLogger('primary_maps')
 
 MNI_SPACE = 'MNI152NLin2009cAsym'
 DISPLAY_PERCENTILES = (5.0, 95.0)
-CACHE_VERSION = 7
+CACHE_VERSION = 8
 B1_PATTERN = (
     'pymp2rage/{subject}/{session}/fmap/'
     '{subject}_{session}_run-01_space-MNI152NLin2009cAsym_TB1map.nii.gz'
@@ -504,7 +504,7 @@ def load_cached_panel(
     except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
         LOGGER.warning('%s: ignoring unreadable average cache %s (%s)', metric.spec.primary_label, cache_path, exc)
         return None
-    tissue_mask = tissue_space.mask & np.isfinite(data)
+    tissue_mask = tissue_space.mask
     LOGGER.info('%s: loaded cached average map', metric.spec.primary_label)
     return PreparedPanel(
         metric=metric,
@@ -560,7 +560,7 @@ def prepare_panels(
             )
         else:
             data, contributor_count = voxelwise_average(metric.paths, tissue_space.reference)
-        tissue_mask = tissue_space.mask & np.isfinite(data)
+        tissue_mask = tissue_space.mask
         limits = scalar_limits(data, tissue_space.scaling_mask)
         panel = PreparedPanel(
             metric=metric,
@@ -644,7 +644,8 @@ def plot_panel(
         vmax=bg_limits[1],
         interpolation='nearest',
     )
-    overlay = np.ma.masked_where(~panel.tissue_mask, panel.data)
+    overlay_data = np.where(np.isfinite(panel.data), panel.data, panel.limits[0])
+    overlay = np.ma.masked_where(~panel.tissue_mask, overlay_data)
     ax.imshow(
         axial_slice(overlay, z_index),
         cmap=scalar_cmap,
