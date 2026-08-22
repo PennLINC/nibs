@@ -71,7 +71,7 @@ LOGGER = logging.getLogger('primary_maps')
 
 MNI_SPACE = 'MNI152NLin2009cAsym'
 DISPLAY_PERCENTILES = (5.0, 95.0)
-CACHE_VERSION = 6
+CACHE_VERSION = 7
 SLICE_CROP_PADDING = 4
 B1_PATTERN = (
     'pymp2rage/{subject}/{session}/fmap/'
@@ -621,7 +621,7 @@ def load_cached_panel(
     except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
         LOGGER.warning('%s: ignoring unreadable average cache %s (%s)', metric.spec.primary_label, cache_path, exc)
         return None
-    tissue_mask = np.isfinite(data)
+    tissue_mask = tissue_space.mask & np.isfinite(data)
     LOGGER.info('%s: loaded cached average map', metric.spec.primary_label)
     return PreparedPanel(
         metric=metric,
@@ -677,7 +677,7 @@ def prepare_panels(
             )
         else:
             data, contributor_count = voxelwise_average(metric.paths, tissue_space.reference)
-        tissue_mask = np.isfinite(data)
+        tissue_mask = tissue_space.mask & np.isfinite(data)
         limits = scalar_limits(data, tissue_space.scaling_mask)
         panel = PreparedPanel(
             metric=metric,
