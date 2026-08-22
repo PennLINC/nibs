@@ -228,7 +228,7 @@ def plot_effect_sizes(
     ax.text(
         0.01,
         1.01,
-        f'{gm_label} > WM',
+        'GM > WM',
         transform=ax.transAxes,
         ha='left',
         va='bottom',
@@ -238,7 +238,7 @@ def plot_effect_sizes(
     ax.text(
         0.99,
         1.01,
-        f'WM > {gm_label}',
+        'WM > GM',
         transform=ax.transAxes,
         ha='right',
         va='bottom',
