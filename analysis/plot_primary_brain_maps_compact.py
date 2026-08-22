@@ -71,7 +71,7 @@ LOGGER = logging.getLogger('primary_maps')
 
 MNI_SPACE = 'MNI152NLin2009cAsym'
 DISPLAY_PERCENTILES = (5.0, 95.0)
-CACHE_VERSION = 2
+CACHE_VERSION = 5
 SLICE_CROP_PADDING = 4
 B1_PATTERN = (
     'pymp2rage/{subject}/{session}/fmap/'
@@ -252,8 +252,8 @@ class ResolvedMetric:
 class TissueSpace:
     reference: nib.spatialimages.SpatialImage
     mask: np.ndarray
+    scaling_mask: np.ndarray
     gm_mask: np.ndarray
-    wm_mask: np.ndarray
     brain_mask: np.ndarray
     background: np.ndarray
     slice_index: int
@@ -471,18 +471,18 @@ def load_mni_tissue_space(template_dseg: Path) -> TissueSpace:
     reference, masks = build_template_tissue_masks(template_dseg)
     shape = reference.shape[:3]
     gm_mask = np.asarray(masks['all_gm'], dtype=bool).reshape(shape)
-    wm_mask = np.asarray(masks['wm'], dtype=bool).reshape(shape)
-    mask = gm_mask | wm_mask
-    slice_index = middle_axial_slice(mask)
+    scaling_mask = gm_mask | np.asarray(masks['wm'], dtype=bool).reshape(shape)
+    brain_mask = np.asanyarray(reference.dataobj).astype(np.float32) > 0
+    slice_index = middle_axial_slice(brain_mask)
     return TissueSpace(
         reference=reference,
-        mask=mask,
+        mask=brain_mask,
+        scaling_mask=scaling_mask,
         gm_mask=gm_mask,
-        wm_mask=wm_mask,
-        brain_mask=mask,
-        background=mask.astype(np.float32),
+        brain_mask=brain_mask,
+        background=brain_mask.astype(np.float32),
         slice_index=slice_index,
-        slice_crop=axial_crop(mask, slice_index, SLICE_CROP_PADDING),
+        slice_crop=axial_crop(brain_mask, slice_index, SLICE_CROP_PADDING),
         source_file=str(template_dseg),
     )
 
@@ -553,7 +553,6 @@ def hybrid_gm_wm_average(
     gm_paths: Sequence[Path],
     reference: nib.spatialimages.SpatialImage,
     gm_mask: np.ndarray,
-    wm_mask: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     if len(wm_paths) != len(gm_paths):
         raise RuntimeError('Hybrid NODDI averaging requires matched WM and GM image lists')
@@ -561,7 +560,7 @@ def hybrid_gm_wm_average(
     gm_average, gm_count = voxelwise_average(gm_paths, reference)
     data = np.full(wm_average.shape, np.nan, dtype=np.float32)
     contributor_count = np.zeros(wm_count.shape, dtype=np.uint16)
-    wm_valid = wm_mask & np.isfinite(wm_average) & (wm_count > 0)
+    wm_valid = np.isfinite(wm_average) & (wm_count > 0)
     gm_valid = gm_mask & np.isfinite(gm_average) & (gm_count > 0)
     data[wm_valid] = wm_average[wm_valid]
     data[gm_valid] = gm_average[gm_valid]
@@ -675,12 +674,11 @@ def prepare_panels(
                 metric.hybrid_gm_paths,
                 tissue_space.reference,
                 tissue_space.gm_mask,
-                tissue_space.wm_mask,
             )
         else:
             data, contributor_count = voxelwise_average(metric.paths, tissue_space.reference)
         tissue_mask = tissue_space.mask & np.isfinite(data)
-        limits = scalar_limits(data, tissue_mask)
+        limits = scalar_limits(data, tissue_space.scaling_mask)
         panel = PreparedPanel(
             metric=metric,
             data=data,
@@ -1236,7 +1234,7 @@ def build_parser() -> argparse.ArgumentParser:
         '--template-dseg',
         default=REPO_ROOT / 'data' / f'tpl-{MNI_SPACE}_res-01_seg-aseg_dseg.nii.gz',
         type=Path,
-        help='Deterministic template aseg dseg used for GM/WM display masks and NODDI hybrids.',
+        help='Deterministic template aseg dseg used as the reference grid and GM selector for NODDI hybrids.',
     )
     parser.add_argument(
         '--subject-id',
