@@ -7,7 +7,7 @@ subject/session:
 1. Selected ACPC-space tract bundles and their T1w-warped counterparts.
 2. The native T1w DKT parcellation and its ACPC-space warp.
 3. T1w-space primary non-dMRI scalar maps.
-4. Native-T1w DKT parcel coverage for each T1w-space primary scalar map.
+4. DKT parcel coverage for T1w-space and ACPC-space primary scalar maps.
 5. Native-ACPC primary dMRI maps with GM/WM tissue distributions.
 
 The script never modifies source derivatives. Temporary tractogram files and
@@ -150,6 +150,7 @@ def primary_metric_patterns(
     patterns_file: Path,
     source_image: str | None,
     space: str,
+    include_gm_noddi_icvf: bool = False,
 ) -> tuple[MetricPattern, ...]:
     patterns = load_patterns(patterns_file)
     metrics: list[MetricPattern] = []
@@ -161,13 +162,26 @@ def primary_metric_patterns(
             continue
         pattern = patterns[spec.group][spec.pattern_key].replace('{space}', space)
         metrics.append(MetricPattern(spec.primary_label, pattern))
+        if (
+            include_gm_noddi_icvf
+            and spec.group == 'dMRI'
+            and spec.pattern_key == 'ICVF'
+            and 'ICVF (GM)' in patterns.get('dMRI', {})
+        ):
+            gm_pattern = patterns['dMRI']['ICVF (GM)'].replace('{space}', space)
+            metrics.append(MetricPattern('ICVF (GM)', gm_pattern))
     return tuple(metrics)
 
 
 MYELIN_METRICS = primary_metric_patterns(DEFAULT_PATTERNS_FILE, None, 'T1w')
 METRIC_BY_LABEL = {metric.label: metric for metric in MYELIN_METRICS}
 
-DWI_METRICS = primary_metric_patterns(DEFAULT_PATTERNS_FILE, 'dMRI', 'ACPC')
+DWI_METRICS = primary_metric_patterns(
+    DEFAULT_PATTERNS_FILE,
+    'dMRI',
+    'ACPC',
+    include_gm_noddi_icvf=True,
+)
 DWI_METRIC_BY_LABEL = {metric.label: metric for metric in DWI_METRICS}
 
 
@@ -1101,7 +1115,7 @@ def parcel_coverage_values(
     metric_path: Path,
     dseg_path: Path,
 ) -> dict[int, float]:
-    """Return DKT valid-voxel coverage for a native T1w scalar map."""
+    """Return DKT valid-voxel coverage for a scalar map and same-space dseg."""
     metric_image = load_canonical(metric_path)
     metric_data = np.asarray(metric_image.get_fdata(), dtype=np.float32)
     dseg = resample_image(load_canonical(dseg_path), metric_image, order=0)
@@ -1125,35 +1139,40 @@ def parcel_coverage_pages(
     metrics: Sequence[MetricPattern],
     statuses: list[StatusEntry],
     page_number: int,
+    space_label: str = 'T1w',
 ) -> int:
-    """Plot native T1w DKT parcel coverage for each metric and session."""
+    """Plot DKT parcel coverage for each metric and session in one space."""
     if not subject_inputs:
         return page_number
     subject_inputs = sorted(subject_inputs, key=lambda item: item.key.session)
     subject = subject_inputs[0].key.subject
     records: list[tuple[SessionKey, str, dict[int, float]]] = []
+    if space_label not in {'T1w', 'ACPC'}:
+        raise ValueError(f'Unsupported DKT coverage space: {space_label}')
+    section = f'{space_label} parcel coverage'
 
     for metric in metrics:
         for inputs in subject_inputs:
             key = inputs.key
             metric_path = find_metric(derivatives, key, metric)
-            if metric_path is None or inputs.dseg_t1w is None:
+            dseg_path = inputs.dseg_acpc if space_label == 'ACPC' else inputs.dseg_t1w
+            if metric_path is None or dseg_path is None:
                 detail = (
-                    'T1w metric not found'
+                    f'{space_label} metric not found'
                     if metric_path is None
-                    else f'T1w {ATLAS_DISPLAY} dseg not found'
+                    else f'{space_label} {ATLAS_DISPLAY} dseg not found'
                 )
                 status(
                     statuses,
                     key,
-                    'parcel coverage',
+                    section,
                     metric.label,
                     False,
                     detail,
                 )
                 continue
             try:
-                coverage = parcel_coverage_values(metric_path, inputs.dseg_t1w)
+                coverage = parcel_coverage_values(metric_path, dseg_path)
                 if not coverage:
                     raise RuntimeError(f'No nonzero {ATLAS_DISPLAY} parcels found')
                 records.append((key, metric.label, coverage))
@@ -1161,7 +1180,7 @@ def parcel_coverage_pages(
                 status(
                     statuses,
                     key,
-                    'parcel coverage',
+                    section,
                     metric.label,
                     True,
                     (
@@ -1180,7 +1199,7 @@ def parcel_coverage_pages(
                 status(
                     statuses,
                     key,
-                    'parcel coverage',
+                    section,
                     metric.label,
                     False,
                     str(error),
@@ -1208,9 +1227,9 @@ def parcel_coverage_pages(
         figure = plt.figure(figsize=PAGE_SIZE, facecolor='white')
         add_page_header(
             figure,
-            f'{subject} | Gray-matter parcel coverage',
+            f'{subject} | {space_label} gray-matter parcel coverage',
             (
-                f'Native T1w {ATLAS_DISPLAY} parcels. Coverage is the percentage of parcel '
+                f'{space_label} {ATLAS_DISPLAY} parcels. Coverage is the percentage of parcel '
                 'voxels with finite, nonzero metric values; corpus callosum labels '
                 'are excluded.'
             ),
@@ -1961,7 +1980,12 @@ def parse_dwi_metrics(
 ) -> list[MetricPattern]:
     metric_by_label = {
         metric.label: metric
-        for metric in primary_metric_patterns(patterns_file, 'dMRI', 'ACPC')
+        for metric in primary_metric_patterns(
+            patterns_file,
+            'dMRI',
+            'ACPC',
+            include_gm_noddi_icvf=True,
+        )
     }
     if not requested:
         return list(metric_by_label.values())
@@ -2092,6 +2116,7 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
                 metrics,
                 statuses=statuses,
                 page_number=page_number,
+                space_label='T1w',
             )
             page_number = dwi_pages(
                 pdf,
@@ -2105,6 +2130,15 @@ def generate_report(args: argparse.Namespace) -> tuple[Path, list[StatusEntry]]:
                 overwrite_warps=args.overwrite_warps,
                 statuses=statuses,
                 page_number=page_number,
+            )
+            page_number = parcel_coverage_pages(
+                pdf,
+                derivatives,
+                subject_inputs,
+                dwi_metrics,
+                statuses=statuses,
+                page_number=page_number,
+                space_label='ACPC',
             )
         summary_pages(pdf, statuses, page_number)
 
