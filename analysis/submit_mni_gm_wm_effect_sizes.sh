@@ -20,7 +20,7 @@ EFFECT="${EFFECT:-robust_median_d}"
 GM_TISSUE="${GM_TISSUE:-cortical_gm}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_ROOT}/derivatives/mni_gm_wm_effect_sizes}"
 FIGURE_DIR="${FIGURE_DIR:-${PROJECT_ROOT}/figures/gm_wm_effect_sizes}"
-RECALCULATE="${RECALCULATE:-0}"
+RECALCULATE="${RECALCULATE:-1}"
 SUBJECT_TSV="${OUTPUT_DIR}/mni_gm_wm_effect_sizes_${ANALYSIS_SET}_subject.tsv"
 
 if [[ -z "${CODE_DIR:-}" ]]; then
