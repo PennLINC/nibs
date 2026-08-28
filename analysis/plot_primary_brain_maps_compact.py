@@ -71,7 +71,7 @@ LOGGER = logging.getLogger('primary_maps')
 
 MNI_SPACE = 'MNI152NLin2009cAsym'
 DISPLAY_PERCENTILES = (5.0, 95.0)
-CACHE_VERSION = 9
+CACHE_VERSION = 10
 SLICE_CROP_PADDING = 4
 B1_PATTERN = (
     'pymp2rage/{subject}/{session}/fmap/'
@@ -88,6 +88,7 @@ INVERTED_DISPLAY_METRICS = {
     'G-ihMTsat',
     'QSM-SEPIA-E5-X',
     'QSM-X-R2p-E5-X',
+    'QSM-X-R2p-E5-Para',
 }
 INVERTED_DISPLAY_SYMBOL = r'$^\dagger$'
 
