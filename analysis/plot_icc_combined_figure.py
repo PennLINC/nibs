@@ -326,7 +326,7 @@ def plot_combined_icc(
         bottom=0.085,
         top=0.955,
         hspace=0.20,
-        wspace=0.010,
+        wspace=0.0,
     )
     axes = {
         'A': fig.add_subplot(grid[0, 0]),
@@ -336,10 +336,6 @@ def plot_combined_icc(
         'E': fig.add_subplot(grid[2, 0]),
         'F': fig.add_subplot(grid[2, 1]),
     }
-    for label in ('A', 'C', 'E'):
-        axes[label].set_anchor('E')
-    for label in ('B', 'D', 'F'):
-        axes[label].set_anchor('W')
 
     draw_interval_panel_no_numbers(axes['A'], voxel_summary, 'wm', 'voxels', 'ICC(2,1) across WM voxels')
     draw_interval_panel_no_numbers(
