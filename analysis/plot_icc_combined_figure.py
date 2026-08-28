@@ -326,7 +326,7 @@ def plot_combined_icc(
         bottom=0.085,
         top=0.955,
         hspace=0.20,
-        wspace=0.030,
+        wspace=0.010,
     )
     axes = {
         'A': fig.add_subplot(grid[0, 0]),
