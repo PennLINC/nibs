@@ -326,7 +326,7 @@ def plot_combined_icc(
         bottom=0.085,
         top=0.955,
         hspace=0.20,
-        wspace=0.135,
+        wspace=0.080,
     )
     axes = {
         'A': fig.add_subplot(grid[0, 0]),
@@ -388,7 +388,7 @@ def plot_combined_icc(
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
     for extension in ('pdf', 'png'):
         out_file = output_prefix.with_suffix(f'.{extension}')
-        fig.savefig(out_file, dpi=300)
+        fig.savefig(out_file, dpi=300, bbox_inches='tight', pad_inches=0.04)
         print(f'Wrote: {out_file}', flush=True)
     plt.close(fig)
 
