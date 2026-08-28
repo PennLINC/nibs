@@ -322,11 +322,11 @@ def plot_combined_icc(
         2,
         height_ratios=[1.0, 1.0, 1.05],
         left=0.078,
-        right=0.885,
+        right=0.965,
         bottom=0.085,
-        top=0.985,
+        top=0.955,
         hspace=0.20,
-        wspace=0.055,
+        wspace=0.135,
     )
     axes = {
         'A': fig.add_subplot(grid[0, 0]),
@@ -344,7 +344,6 @@ def plot_combined_icc(
         'wm',
         'bundles',
         'ICC(2,1) across WM bundles',
-        label_side='right',
     )
     draw_interval_panel_no_numbers(
         axes['C'],
@@ -359,7 +358,6 @@ def plot_combined_icc(
         'gm',
         'parcels',
         'ICC(2,1) across cortical GM parcels',
-        label_side='right',
     )
 
     lower, upper = common_scatter_limits(voxel_summary, parcel_summary)
@@ -376,13 +374,13 @@ def plot_combined_icc(
     for label, ax in axes.items():
         ax.text(
             -0.20,
-            0.98,
+            1.015,
             label,
             transform=ax.transAxes,
             fontsize=22,
             fontweight='bold',
             ha='left',
-            va='top',
+            va='bottom',
             clip_on=False,
         )
 
