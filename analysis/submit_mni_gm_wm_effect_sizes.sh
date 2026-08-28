@@ -13,7 +13,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-/cbica/projects/nibs}"
-CODE_DIR="${CODE_DIR:-${SCRIPT_DIR}}"
 LOGS_DIR="${LOGS_DIR:-${PROJECT_ROOT}/logs}"
 PYTHON_BIN="${PYTHON_BIN:-${HOME}/.conda/envs/myelin_reliability/bin/python}"
 ANALYSIS_SET="${ANALYSIS_SET:-primary}"
@@ -23,6 +22,23 @@ OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_ROOT}/derivatives/mni_gm_wm_effect_sizes}"
 FIGURE_DIR="${FIGURE_DIR:-${PROJECT_ROOT}/figures/gm_wm_effect_sizes}"
 RECALCULATE="${RECALCULATE:-0}"
 SUBJECT_TSV="${OUTPUT_DIR}/mni_gm_wm_effect_sizes_${ANALYSIS_SET}_subject.tsv"
+
+if [[ -z "${CODE_DIR:-}" ]]; then
+  for candidate in \
+    "${SLURM_SUBMIT_DIR:-}/analysis" \
+    "${SLURM_SUBMIT_DIR:-}" \
+    "${PROJECT_ROOT}/analysis" \
+    "${SCRIPT_DIR}"; do
+    if [[ -f "${candidate}/compute_mni_gm_wm_effect_sizes.py" && -f "${candidate}/plot_gm_wm_effect_sizes.py" ]]; then
+      CODE_DIR="${candidate}"
+      break
+    fi
+  done
+fi
+if [[ -z "${CODE_DIR:-}" ]]; then
+  echo "Could not locate analysis code directory. Set CODE_DIR to the directory containing compute_mni_gm_wm_effect_sizes.py." >&2
+  exit 1
+fi
 
 mkdir -p "${LOGS_DIR}/jobs"
 
