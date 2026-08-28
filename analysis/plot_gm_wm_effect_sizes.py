@@ -28,7 +28,7 @@ from path_utils import DERIVATIVES_ROOT, PROJECT_ROOT
 
 
 EFFECT_LABELS = {
-    'robust_median_d': 'Average WM-GM separation (robust d)',
+    'robust_median_d': r'Average WM-GM separation (robust $d$)',
     'cohen_d': "Average WM-GM separation (Cohen's d)",
     'hedges_g': "Average WM-GM separation (Hedges' g)",
     'signed_auc': 'Average WM-GM separation (signed AUC)',
@@ -149,6 +149,10 @@ def display_effect_values(values: np.ndarray) -> np.ndarray:
     return -np.asarray(values, dtype=float)
 
 
+def display_metric_label(label: str) -> str:
+    return 'ICVF*' if label == 'ICVF' else label
+
+
 def plot_effect_sizes(
     data: pd.DataFrame,
     out_prefix: Path,
@@ -161,10 +165,11 @@ def plot_effect_sizes(
         raise RuntimeError(f'No finite {effect} values to plot.')
 
     order = summary['metric_key'].tolist()
-    order_lookup = {metric: index for index, metric in enumerate(order)}
-    y = np.arange(len(order))
-    fig_height = max(6.8, 0.31 * len(order) + 1.9)
-    fig, ax = plt.subplots(figsize=(6.6, fig_height), constrained_layout=False)
+    y_step = 0.82
+    y = np.arange(len(order)) * y_step
+    order_lookup = dict(zip(order, y, strict=True))
+    fig_height = max(6.1, 0.27 * len(order) + 1.75)
+    fig, ax = plt.subplots(figsize=(6.9, fig_height), constrained_layout=False)
 
     rng = np.random.default_rng(20260818)
     for _, row in summary.iterrows():
@@ -173,7 +178,7 @@ def plot_effect_sizes(
         ax.barh(
             y_pos,
             row['mean'],
-            height=0.54,
+            height=0.48,
             left=0,
             color=color,
             edgecolor='none',
@@ -182,14 +187,14 @@ def plot_effect_sizes(
         )
         if np.isfinite(row['ci95_low']) and np.isfinite(row['ci95_high']):
             ax.hlines(y_pos, row['ci95_low'], row['ci95_high'], color='#1f1f1f', linewidth=1.0, zorder=3)
-            ax.plot([row['ci95_low'], row['ci95_low']], [y_pos - 0.13, y_pos + 0.13], color='#1f1f1f', lw=0.8, zorder=3)
-            ax.plot([row['ci95_high'], row['ci95_high']], [y_pos - 0.13, y_pos + 0.13], color='#1f1f1f', lw=0.8, zorder=3)
-        ax.scatter([row['mean']], [y_pos], s=34, facecolor='white', edgecolor='#1f1f1f', linewidth=0.8, zorder=5)
+            ax.plot([row['ci95_low'], row['ci95_low']], [y_pos - 0.12, y_pos + 0.12], color='#1f1f1f', lw=0.8, zorder=3)
+            ax.plot([row['ci95_high'], row['ci95_high']], [y_pos - 0.12, y_pos + 0.12], color='#1f1f1f', lw=0.8, zorder=3)
+        ax.scatter([row['mean']], [y_pos], s=38, facecolor='white', edgecolor='#1f1f1f', linewidth=0.8, zorder=5)
         if show_subject_points:
             metric_values = display_effect_values(
                 data.loc[data['metric_key'] == row['metric_key'], effect].to_numpy(dtype=float)
             )
-            jitter = rng.uniform(-0.16, 0.16, size=metric_values.size)
+            jitter = rng.uniform(-0.13, 0.13, size=metric_values.size)
             ax.scatter(
                 metric_values,
                 y_pos + jitter,
@@ -199,17 +204,29 @@ def plot_effect_sizes(
                 linewidth=0,
                 zorder=1,
             )
-    labels = summary['display_metric'].tolist()
+    labels = [display_metric_label(label) for label in summary['display_metric']]
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=8.5)
+    ax.set_yticklabels(labels, fontsize=9.8)
     ax.tick_params(axis='y', length=0)
+    ax.tick_params(axis='x', labelsize=10.5)
     plot_values = display_effect_values(data[effect].to_numpy(dtype=float))
     if effect in {'robust_median_d', 'cohen_d', 'hedges_g'}:
+        plotted_extents = np.concatenate(
+            [
+                summary['mean'].to_numpy(dtype=float),
+                summary['ci95_low'].to_numpy(dtype=float),
+                summary['ci95_high'].to_numpy(dtype=float),
+            ]
+        )
+        finite_extents = plotted_extents[np.isfinite(plotted_extents)]
         x_low, x_high = -2.0, 4.0
+        if finite_extents.size:
+            x_low = min(x_low, float(np.min(finite_extents)) - 0.08)
+            x_high = max(x_high, float(np.max(finite_extents)) + 0.08)
     else:
         x_low, x_high = axis_limits(plot_values)
     ax.set_xlim(x_low, x_high)
-    ax.set_ylim(-0.8, len(order) - 0.2)
+    ax.set_ylim(float(y[0] - 0.55), float(y[-1] + 0.55))
     for value, color, linewidth in (
         (-3, '#2F5F9E', 1.05),
         (-1, '#A8C8EA', 0.95),
@@ -223,7 +240,7 @@ def plot_effect_sizes(
     ax.grid(axis='y', visible=False)
     gm_label = GM_TISSUE_LABELS[gm_tissue]
     effect_label = EFFECT_LABELS.get(effect, effect).replace('GM', gm_label)
-    ax.set_xlabel(effect_label, fontsize=10.5, labelpad=9)
+    ax.set_xlabel(effect_label, fontsize=12.0, labelpad=9)
     ax.set_ylabel('')
     ax.text(
         0.01,
@@ -232,7 +249,7 @@ def plot_effect_sizes(
         transform=ax.transAxes,
         ha='left',
         va='bottom',
-        fontsize=9,
+        fontsize=10.5,
         color='#333333',
     )
     ax.text(
@@ -242,7 +259,7 @@ def plot_effect_sizes(
         transform=ax.transAxes,
         ha='right',
         va='bottom',
-        fontsize=9,
+        fontsize=10.5,
         color='#333333',
     )
     ax.spines['top'].set_visible(False)
@@ -268,10 +285,10 @@ def plot_effect_sizes(
         title=METRIC_FAMILY_LEGEND_TITLE,
         frameon=False,
         bbox_to_anchor=(0.5, 0.002),
-        fontsize=9.0,
-        title_fontsize=9.5,
+        fontsize=10.0,
+        title_fontsize=10.5,
     )
-    fig.subplots_adjust(left=0.32, right=0.98, top=0.965, bottom=0.135)
+    fig.subplots_adjust(left=0.33, right=0.985, top=0.965, bottom=0.14)
 
     out_prefix.parent.mkdir(parents=True, exist_ok=True)
     for extension in ('png', 'pdf'):

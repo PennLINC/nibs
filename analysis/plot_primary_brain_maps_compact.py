@@ -71,7 +71,7 @@ LOGGER = logging.getLogger('primary_maps')
 
 MNI_SPACE = 'MNI152NLin2009cAsym'
 DISPLAY_PERCENTILES = (5.0, 95.0)
-CACHE_VERSION = 8
+CACHE_VERSION = 9
 SLICE_CROP_PADDING = 4
 B1_PATTERN = (
     'pymp2rage/{subject}/{session}/fmap/'
@@ -81,6 +81,15 @@ FIGURE_SOURCE_COLORS = {
     **SOURCE_IMAGE_COLORS,
     'B1': '#000000',
 }
+INVERTED_DISPLAY_METRICS = {
+    'MD',
+    'RD',
+    'G-ihMTR',
+    'G-ihMTsat',
+    'QSM-SEPIA-E5-X',
+    'QSM-X-R2p-E5-X',
+}
+INVERTED_DISPLAY_SYMBOL = r'$^\dagger$'
 
 TABLE_ORDER = {
     'dMRI': (
@@ -525,6 +534,11 @@ def scalar_limits(data: np.ndarray, mask: np.ndarray) -> tuple[float, float]:
     return float(low), float(high)
 
 
+def is_display_inverted(metric: ResolvedMetric | MetricSpec) -> bool:
+    spec = metric.spec if isinstance(metric, ResolvedMetric) else metric
+    return spec.primary_label in INVERTED_DISPLAY_METRICS
+
+
 def voxelwise_average(
     paths: Sequence[Path],
     reference: nib.spatialimages.SpatialImage,
@@ -597,6 +611,7 @@ def panel_cache_metadata(
         'reference_affine': np.asarray(reference.affine).round(6).tolist(),
         'tissue_source_file': tissue_space.source_file,
         'display_percentiles': list(DISPLAY_PERCENTILES),
+        'inverted_display_metrics': sorted(INVERTED_DISPLAY_METRICS),
     }
 
 
@@ -677,6 +692,8 @@ def prepare_panels(
             )
         else:
             data, contributor_count = voxelwise_average(metric.paths, tissue_space.reference)
+        if is_display_inverted(metric):
+            data = -data
         tissue_mask = tissue_space.mask
         limits = scalar_limits(data, tissue_space.scaling_mask)
         panel = PreparedPanel(
@@ -726,7 +743,10 @@ def math_label(label: str, bold: bool = False) -> str:
 
 
 def display_label(spec: MetricSpec) -> str:
-    return math_label(PANEL_LABELS.get(spec.primary_label, spec.primary_label))
+    label = math_label(PANEL_LABELS.get(spec.primary_label, spec.primary_label))
+    if is_display_inverted(spec):
+        label = f'{label}{INVERTED_DISPLAY_SYMBOL}'
+    return label
 
 
 def group_label(group: str) -> str:
@@ -1177,6 +1197,7 @@ def write_status_tsv(
                 'n_images_for_metric',
                 'vmin_5th_gmwm',
                 'vmax_95th_gmwm',
+                'inverted_for_display',
                 'path',
                 'hybrid_gm_path',
             ]
@@ -1199,6 +1220,7 @@ def write_status_tsv(
                         len(panel.metric.paths),
                         f'{panel.limits[0]:.10g}',
                         f'{panel.limits[1]:.10g}',
+                        int(is_display_inverted(panel.metric)),
                         path,
                         gm_path,
                     ]

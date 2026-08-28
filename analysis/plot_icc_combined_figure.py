@@ -43,7 +43,7 @@ TISSUE_DOMAIN_TITLES = {
     ('wm', 'voxels'): 'White Matter Voxels',
     ('wm', 'bundles'): 'White Matter Bundles',
     ('gm', 'voxels'): 'Cortical Gray Matter Voxels',
-    ('gm', 'parcels'): 'Gray Matter Parcels',
+    ('gm', 'parcels'): 'Cortical Gray Matter Parcels',
 }
 
 
@@ -102,7 +102,7 @@ def draw_interval_panel_no_numbers(
             transform=ax.get_yaxis_transform(),
             ha=label_ha,
             va='center',
-            fontsize=8.3,
+            fontsize=10.6,
             clip_on=False,
         )
 
@@ -208,7 +208,7 @@ def draw_scatter_panel_fixed(
                     'shrinkA': 1,
                     'shrinkB': 4,
                 },
-                fontsize=6.8,
+                fontsize=9.0,
                 color=color,
                 ha=label_ha,
                 va='center',
@@ -219,7 +219,7 @@ def draw_scatter_panel_fixed(
                 label_x,
                 label_y,
                 label,
-                fontsize=6.8,
+                fontsize=9.0,
                 color=color,
                 ha=label_ha,
                 va='center',
@@ -232,7 +232,7 @@ def draw_scatter_panel_fixed(
         f'WM ICC > {gm_label} ICC',
         transform=ax.transAxes,
         color='#6a6a6a',
-        fontsize=10,
+        fontsize=12.5,
         fontstyle='italic',
         bbox={'facecolor': 'white', 'edgecolor': 'none', 'alpha': 0.80, 'pad': 1.0},
     )
@@ -242,7 +242,7 @@ def draw_scatter_panel_fixed(
         f'{gm_label} ICC > WM ICC',
         transform=ax.transAxes,
         color='#6a6a6a',
-        fontsize=10,
+        fontsize=12.5,
         fontstyle='italic',
         bbox={'facecolor': '#eeeeee', 'edgecolor': 'none', 'alpha': 0.80, 'pad': 1.0},
     )
@@ -279,8 +279,8 @@ def add_single_source_legend(fig, *dataframes: pd.DataFrame) -> None:
         frameon=False,
         title=METRIC_FAMILY_LEGEND_TITLE,
         bbox_to_anchor=(0.5, 0.014),
-        fontsize=10.5,
-        title_fontsize=11,
+        fontsize=13.0,
+        title_fontsize=13.5,
     )
 
 
@@ -310,13 +310,13 @@ def plot_combined_icc(
             'font.family': 'Arial',
             'pdf.fonttype': 42,
             'ps.fonttype': 42,
-            'axes.titlesize': 14.5,
-            'axes.labelsize': 11.5,
-            'xtick.labelsize': 9.6,
-            'ytick.labelsize': 9.2,
+            'axes.titlesize': 17.5,
+            'axes.labelsize': 14.0,
+            'xtick.labelsize': 12.0,
+            'ytick.labelsize': 11.8,
         }
     )
-    fig = plt.figure(figsize=(17.2, 18.2), constrained_layout=False)
+    fig = plt.figure(figsize=(18.2, 18.8), constrained_layout=False)
     grid = fig.add_gridspec(
         3,
         2,
@@ -358,7 +358,7 @@ def plot_combined_icc(
         parcel_summary,
         'gm',
         'parcels',
-        'ICC(2,1) across GM parcels',
+        'ICC(2,1) across cortical GM parcels',
         label_side='right',
     )
 
@@ -371,7 +371,7 @@ def plot_combined_icc(
         lower,
         upper,
     )
-    draw_scatter_panel_fixed(axes['F'], parcel_summary, 'GM parcels', 'WM bundles', lower, upper)
+    draw_scatter_panel_fixed(axes['F'], parcel_summary, 'cortical GM parcels', 'WM bundles', lower, upper)
 
     for label, ax in axes.items():
         ax.text(
@@ -379,7 +379,7 @@ def plot_combined_icc(
             0.98,
             label,
             transform=ax.transAxes,
-            fontsize=18,
+            fontsize=22,
             fontweight='bold',
             ha='left',
             va='top',

@@ -77,8 +77,8 @@ def mixed_figure_size(max_metrics: int) -> tuple[float, float]:
 
 
 def shared_cbar_label(mni_correlation: str, parcel_correlation: str) -> str:
-    mni_label = r'Pearson $r$' if mni_correlation == 'pearson' else 'Spearman ρ'
-    parcel_label = r'Pearson $r$' if parcel_correlation == 'pearson' else 'Spearman ρ'
+    mni_label = r'Pearson $\bf{\it r}$' if mni_correlation == 'pearson' else 'Spearman ρ'
+    parcel_label = r'Pearson $\bf{\it r}$' if parcel_correlation == 'pearson' else 'Spearman ρ'
     return f'Mean correlation (voxels: {mni_label}; regions: {parcel_label})'
 
 
@@ -115,7 +115,7 @@ def voxel_ordered_matrices(loaded: list) -> tuple[list, list]:
     wm_voxel, wm_z_matrix = ordered_matrix(loaded[0])
     gm_voxel, gm_z_matrix = ordered_matrix(loaded[2])
     wm_region = order_like_reference(loaded[1], list(wm_voxel.index), 'White Matter Bundles')
-    gm_region = order_like_reference(loaded[3], list(gm_voxel.index), 'Gray Matter Parcels')
+    gm_region = order_like_reference(loaded[3], list(gm_voxel.index), 'Cortical Gray Matter Parcels')
 
     wm_region_z_matrix = wm_z_matrix if set(wm_region.index) == set(wm_voxel.index) else None
     gm_region_z_matrix = gm_z_matrix if set(gm_region.index) == set(gm_voxel.index) else None
@@ -324,7 +324,7 @@ def build_mixed_panel_specs(
         MixedPanelSpec(
             PanelSpec(
                 tissue='gm',
-                title='Gray Matter Parcels',
+                title='Cortical Gray Matter Parcels',
                 path=parcel_input_path(parcel_dir, analysis_set, 'gm', parcel_correlation, parcel_stat),
                 source_by_label=source_lookup(patterns_file, analysis_set, 'gm'),
             ),

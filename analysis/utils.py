@@ -109,6 +109,12 @@ def convert_to_multindex(
     return df_new
 
 
+def format_completeness_label(value: float) -> str:
+    """Format sparkline endpoint labels without decimal noise for integer counts."""
+
+    return str(int(round(value))) if np.isclose(value, round(value)) else f'{value:g}'
+
+
 def matrix(
     df: pd.DataFrame,
     nullity_filter: str | None = None,
@@ -441,7 +447,7 @@ def matrix(
         # Add maximum and minimum labels, circles.
         # Modification: offset row values by 0.5 to center the points on the rows.
         ax1.annotate(
-            max_completeness,
+            format_completeness_label(max_completeness),
             xy=(max_completeness, max_completeness_index + 0.5),
             xytext=(max_completeness + 2, max_completeness_index + 0.5),
             fontsize=int(fontsize / 16 * 14),
@@ -449,7 +455,7 @@ def matrix(
             ha='left',
         )
         ax1.annotate(
-            min_completeness,
+            format_completeness_label(min_completeness),
             xy=(min_completeness, min_completeness_index + 0.5),
             xytext=(min_completeness - 2, min_completeness_index + 0.5),
             fontsize=int(fontsize / 16 * 14),

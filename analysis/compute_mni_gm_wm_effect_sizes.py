@@ -416,8 +416,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--max-voxels-per-tissue',
         type=int,
-        default=200000,
-        help='Randomly sample at most this many valid voxels per tissue per scan; use 0 for all voxels.',
+        default=0,
+        help='Randomly sample at most this many valid voxels per tissue per scan; default 0 uses all voxels.',
     )
     parser.add_argument('--seed', type=int, default=20260818)
     parser.add_argument('--no-qc', action='store_true')
