@@ -18,9 +18,7 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from metric_registry import (  # noqa: E402
-    METRIC_FAMILY_LEGEND_TITLE,
     SOURCE_IMAGE_COLORS,
-    source_image_display_label,
 )
 from path_utils import DERIVATIVES_ROOT, PROJECT_ROOT  # noqa: E402
 from plot_parcel_bundle_discriminability import (  # noqa: E402
@@ -173,7 +171,20 @@ def observed_family_order(discriminability: pd.DataFrame, ranked_families: list[
 
 def html_metric_list(metrics: list[str]) -> str:
     escaped = [html.escape(metric) for metric in metrics]
-    return '<br>'.join(escaped)
+    return ', '.join(escaped)
+
+
+def hex_to_rgb(color: str) -> tuple[int, int, int]:
+    token = color.strip().lstrip('#')
+    if len(token) != 6:
+        return (153, 153, 153)
+    return tuple(int(token[index:index + 2], 16) for index in range(0, 6, 2))
+
+
+def tinted_background(color: str, alpha: float = 0.12) -> str:
+    red, green, blue = hex_to_rgb(color)
+    tint = tuple(round(255 * (1 - alpha) + channel * alpha) for channel in (red, green, blue))
+    return f'rgb({tint[0]}, {tint[1]}, {tint[2]})'
 
 
 def write_html_table(
@@ -181,7 +192,6 @@ def write_html_table(
     family_order: list[str],
     output: Path,
     title: str,
-    score_label: str,
 ) -> None:
     rows_html: list[str] = []
     for family in family_order:
@@ -189,15 +199,10 @@ def write_html_table(
         if family_rows.empty:
             continue
         color = SOURCE_IMAGE_COLORS.get(family, SOURCE_IMAGE_COLORS['Other'])
-        label = source_image_display_label(family)
-        rows_html.append(
-            '<tr class="family-row">'
-            f'<th colspan="3"><span class="swatch" style="background:{html.escape(color)}"></span>'
-            f'{html.escape(label)}</th></tr>'
-        )
+        background = tinted_background(color)
         for row in combine_equal_score_rows(family_rows):
             rows_html.append(
-                '<tr>'
+                f'<tr style="background:{background}; border-left-color:{html.escape(color)}">'
                 f'<td class="metric-name">{html_metric_list(row["metrics"])}</td>'
                 f'<td class="score">{format_score(row["wm"])}</td>'
                 f'<td class="score">{format_score(row["gm"])}</td>'
@@ -216,19 +221,9 @@ def write_html_table(
     font-size: 16px;
   }}
   body {{
-    margin: 2rem;
+    margin: 0;
     color: #1f1f1f;
     background: #ffffff;
-  }}
-  h1 {{
-    margin: 0 0 0.35rem;
-    font-size: 1.55rem;
-    line-height: 1.15;
-  }}
-  .subtitle {{
-    margin: 0 0 1.1rem;
-    color: #555555;
-    font-size: 0.95rem;
   }}
   table {{
     border-collapse: collapse;
@@ -237,30 +232,19 @@ def write_html_table(
   th,
   td {{
     border-bottom: 1px solid #dddddd;
-    padding: 0.52rem 0.7rem;
+    padding: 0.42rem 0.64rem;
     vertical-align: middle;
+  }}
+  tbody tr {{
+    border-left: 0.42rem solid transparent;
   }}
   thead th {{
     border-bottom: 2px solid #2c2c2c;
     font-size: 0.96rem;
     text-align: left;
   }}
-  .family-row th {{
-    border-top: 2px solid #2c2c2c;
-    border-bottom: 1px solid #bfbfbf;
-    padding-top: 0.72rem;
-    background: #f7f7f7;
-    font-size: 1.0rem;
-  }}
-  .swatch {{
-    display: inline-block;
-    width: 0.9rem;
-    height: 0.9rem;
-    margin-right: 0.45rem;
-    vertical-align: -0.1rem;
-  }}
   .metric-name {{
-    line-height: 1.28;
+    line-height: 1.22;
   }}
   .score {{
     width: 9.8rem;
@@ -270,11 +254,6 @@ def write_html_table(
 </style>
 </head>
 <body>
-<h1>{html.escape(title)}</h1>
-<p class="subtitle">
-  {html.escape(METRIC_FAMILY_LEGEND_TITLE)} sections are ordered by descending average parcel/bundle ICC.
-  Metrics with identical WM and GM {html.escape(score_label.lower())} values within a section are combined.
-</p>
 <table>
   <thead>
     <tr>
@@ -350,7 +329,6 @@ def main() -> None:
         family_order,
         args.output.expanduser().resolve(),
         title=f'WM Bundle and Cortical GM Parcel {score_label}',
-        score_label=score_label,
     )
 
 
