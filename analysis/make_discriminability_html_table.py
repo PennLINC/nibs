@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from metric_registry import (  # noqa: E402
     SOURCE_IMAGE_COLORS,
+    source_image_display_label,
 )
 from path_utils import DERIVATIVES_ROOT, PROJECT_ROOT  # noqa: E402
 from plot_parcel_bundle_discriminability import (  # noqa: E402
@@ -98,19 +99,27 @@ def load_combined_discriminability(wm_input: Path, gm_input: Path, score_column:
     )
 
 
+def table_metric_key(metric_key: object) -> str:
+    key = str(metric_key)
+    return 'ICVF' if key.startswith('ICVF') else key
+
+
 def metric_table(discriminability: pd.DataFrame) -> pd.DataFrame:
+    discriminability = discriminability.copy()
+    discriminability['table_metric_key'] = discriminability['metric_key'].map(table_metric_key)
     wide = discriminability.pivot_table(
-        index='metric_key',
+        index='table_metric_key',
         columns='tissue',
         values='score',
         aggfunc='first',
     )
     meta = (
-        discriminability.sort_values(['metric_key', 'tissue'])
-        .drop_duplicates('metric_key')
-        .set_index('metric_key')
+        discriminability.sort_values(['table_metric_key', 'tissue'])
+        .drop_duplicates('table_metric_key')
+        .set_index('table_metric_key')
     )
     rows = wide.reset_index()
+    rows = rows.rename(columns={'table_metric_key': 'metric_key'})
     rows['metric'] = rows['metric_key'].map(meta['metric']).fillna(rows['metric_key'])
     rows['source_image'] = rows['metric_key'].map(meta['source_image']).fillna('Other')
     for tissue in ('wm', 'gm'):
@@ -212,11 +221,23 @@ def write_html_table(
             continue
         color = SOURCE_IMAGE_COLORS.get(family, SOURCE_IMAGE_COLORS['Other'])
         background = tinted_background(color)
+        header_style = html_style(
+            background_color=background,
+            border_top=f'2px solid {color}',
+            border_bottom='1px solid #cfcfcf',
+            padding='0.38rem 0.64rem',
+            text_align='left',
+            font_weight='bold',
+        )
+        rows_html.append(
+            '<tr>'
+            f'<th colspan="3" style="{header_style}">{html.escape(source_image_display_label(family))}</th>'
+            '</tr>'
+        )
         for row in combine_equal_score_rows(family_rows):
             metric_style = html_style(
                 background_color=background,
                 border_bottom='1px solid #dddddd',
-                border_left=f'0.42rem solid {color}',
                 padding='0.42rem 0.64rem',
                 vertical_align='middle',
                 line_height='1.22',
@@ -263,9 +284,6 @@ def write_html_table(
     border-bottom: 1px solid #dddddd;
     padding: 0.42rem 0.64rem;
     vertical-align: middle;
-  }}
-  tbody tr {{
-    border-left: 0.42rem solid transparent;
   }}
   thead th {{
     border-bottom: 2px solid #2c2c2c;
