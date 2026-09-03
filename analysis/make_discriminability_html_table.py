@@ -122,7 +122,7 @@ def metric_table(discriminability: pd.DataFrame) -> pd.DataFrame:
 def score_key(value: object) -> str:
     if pd.isna(value):
         return 'NA'
-    return f'{float(value):.6f}'
+    return format_score(value)
 
 
 def format_score(value: object) -> str:
@@ -136,6 +136,11 @@ def format_score(value: object) -> str:
     return f'{numeric:.3f}'.rstrip('0').rstrip('.')
 
 
+def display_metric_name(metric_key: object, metric: object) -> str:
+    label = str(metric)
+    return f'{label}*' if str(metric_key) == 'ICVF' else label
+
+
 def combine_equal_score_rows(rows: pd.DataFrame) -> list[dict[str, object]]:
     grouped: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
     for _, row in rows.iterrows():
@@ -147,7 +152,10 @@ def combine_equal_score_rows(rows: pd.DataFrame) -> list[dict[str, object]]:
         combined.append(
             {
                 'metric_keys': [str(item['metric_key']) for item in group_rows],
-                'metrics': [str(item['metric']) for item in group_rows],
+                'metrics': [
+                    display_metric_name(item['metric_key'], item['metric'])
+                    for item in group_rows
+                ],
                 'wm': math.nan if wm_key == 'NA' else float(wm_key),
                 'gm': math.nan if gm_key == 'NA' else float(gm_key),
             }
@@ -171,7 +179,11 @@ def observed_family_order(discriminability: pd.DataFrame, ranked_families: list[
 
 def html_metric_list(metrics: list[str]) -> str:
     escaped = [html.escape(metric) for metric in metrics]
-    return ', '.join(escaped)
+    return ',&nbsp;'.join(escaped)
+
+
+def html_style(**properties: str) -> str:
+    return '; '.join(f'{name.replace("_", "-")}: {value}' for name, value in properties.items())
 
 
 def hex_to_rgb(color: str) -> tuple[int, int, int]:
@@ -201,11 +213,28 @@ def write_html_table(
         color = SOURCE_IMAGE_COLORS.get(family, SOURCE_IMAGE_COLORS['Other'])
         background = tinted_background(color)
         for row in combine_equal_score_rows(family_rows):
+            metric_style = html_style(
+                background_color=background,
+                border_bottom='1px solid #dddddd',
+                border_left=f'0.42rem solid {color}',
+                padding='0.42rem 0.64rem',
+                vertical_align='middle',
+                line_height='1.22',
+            )
+            score_style = html_style(
+                background_color=background,
+                border_bottom='1px solid #dddddd',
+                padding='0.42rem 0.64rem',
+                vertical_align='middle',
+                text_align='right',
+                width='9.8rem',
+                font_variant_numeric='tabular-nums',
+            )
             rows_html.append(
-                f'<tr style="background:{background}; border-left-color:{html.escape(color)}">'
-                f'<td class="metric-name">{html_metric_list(row["metrics"])}</td>'
-                f'<td class="score">{format_score(row["wm"])}</td>'
-                f'<td class="score">{format_score(row["gm"])}</td>'
+                f'<tr style="background:{background}">'
+                f'<td class="metric-name" style="{metric_style}">{html_metric_list(row["metrics"])}</td>'
+                f'<td class="score" style="{score_style}">{format_score(row["wm"])}</td>'
+                f'<td class="score" style="{score_style}">{format_score(row["gm"])}</td>'
                 '</tr>'
             )
 
@@ -257,9 +286,9 @@ def write_html_table(
 <table>
   <thead>
     <tr>
-      <th>Metric Name</th>
-      <th class="score">Discriminability (WM)</th>
-      <th class="score">Discriminability (GM)</th>
+      <th style="border-bottom:2px solid #2c2c2c; padding:0.42rem 0.64rem; text-align:left">Metric Name</th>
+      <th class="score" style="border-bottom:2px solid #2c2c2c; padding:0.42rem 0.64rem; text-align:right; width:9.8rem">Discriminability (WM)</th>
+      <th class="score" style="border-bottom:2px solid #2c2c2c; padding:0.42rem 0.64rem; text-align:right; width:9.8rem">Discriminability (GM)</th>
     </tr>
   </thead>
   <tbody>
