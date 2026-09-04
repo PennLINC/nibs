@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize ihMT DKT parcel coverage and reliability diagnostics."""
+"""Summarize DKT parcel coverage and reliability diagnostics."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from metric_registry import build_metric_specs, metric_order
 from path_utils import DERIVATIVES_ROOT
 
 
@@ -44,7 +45,29 @@ def collect_files(input_globs: list[str]) -> list[Path]:
     return sorted(set(files))
 
 
-def load_coverage(files: list[Path], metric_re: re.Pattern[str]) -> pd.DataFrame:
+def selected_metric_labels(args: argparse.Namespace) -> set[str] | None:
+    if args.metric_regex:
+        return None
+    specs = build_metric_specs(args.patterns_file)
+    return set(metric_order(specs, args.metric_set, tissue='gm'))
+
+
+def metric_is_selected(
+    value: object,
+    metric_re: re.Pattern[str] | None,
+    metric_labels: set[str] | None,
+) -> bool:
+    metric = str(value)
+    if metric_re is not None:
+        return bool(metric_re.search(metric))
+    return metric in metric_labels if metric_labels is not None else True
+
+
+def load_coverage(
+    files: list[Path],
+    metric_re: re.Pattern[str] | None,
+    metric_labels: set[str] | None,
+) -> pd.DataFrame:
     records = []
     for path in files:
         df = pd.read_csv(path)
@@ -64,7 +87,9 @@ def load_coverage(files: list[Path], metric_re: re.Pattern[str]) -> pd.DataFrame
         missing = required - set(df.columns)
         if missing:
             raise RuntimeError(f'{path} is missing coverage columns: {sorted(missing)}')
-        df = df.loc[df['metric'].astype(str).map(lambda value: bool(metric_re.search(value)))].copy()
+        df = df.loc[
+            df['metric'].map(lambda value: metric_is_selected(value, metric_re, metric_labels))
+        ].copy()
         if df.empty:
             continue
         df['subject'] = df['subject'].map(normalize_subject)
@@ -80,7 +105,12 @@ def load_coverage(files: list[Path], metric_re: re.Pattern[str]) -> pd.DataFrame
     return out
 
 
-def load_scalarstats(files: list[Path], metric_re: re.Pattern[str], stat: str) -> pd.DataFrame:
+def load_scalarstats(
+    files: list[Path],
+    metric_re: re.Pattern[str] | None,
+    metric_labels: set[str] | None,
+    stat: str,
+) -> pd.DataFrame:
     records = []
     suffix = f'_{stat}'
     for path in files:
@@ -92,7 +122,8 @@ def load_scalarstats(files: list[Path], metric_re: re.Pattern[str], stat: str) -
         metric_cols = [
             col
             for col in df.columns
-            if col.endswith(suffix) and metric_re.search(col[: -len(suffix)])
+            if col.endswith(suffix)
+            and metric_is_selected(col[: -len(suffix)], metric_re, metric_labels)
         ]
         if not metric_cols:
             continue
@@ -298,6 +329,30 @@ def summarize_metric_level(reliability: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values(['coverage_threshold', 'metric']).reset_index(drop=True)
 
 
+def summarize_metric_rankings(metric_summary: pd.DataFrame) -> pd.DataFrame:
+    if metric_summary.empty:
+        return pd.DataFrame()
+    rank_df = metric_summary.copy()
+    ranking_cols = {
+        'rank_highest_median_within_between_sd_ratio': ('median_within_between_sd_ratio', False),
+        'rank_lowest_median_ICC2_1': ('median_ICC2_1', True),
+        'rank_lowest_median_pearson_r': ('median_pearson_r', True),
+        'rank_lowest_median_between_subject_sd': ('median_between_subject_sd', True),
+        'rank_highest_median_within_subject_sd': ('median_within_subject_sd', False),
+    }
+    for rank_col, (value_col, ascending) in ranking_cols.items():
+        rank_df[rank_col] = (
+            rank_df.groupby('coverage_threshold')[value_col]
+            .rank(method='min', ascending=ascending, na_option='bottom')
+            .astype('Int64')
+        )
+    rank_df['likely_low_between_subject_contrast'] = (
+        rank_df['median_within_between_sd_ratio'] >= 1.0
+    )
+    sort_cols = ['coverage_threshold', 'rank_highest_median_within_between_sd_ratio', 'metric']
+    return rank_df.sort_values(sort_cols).reset_index(drop=True)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -314,8 +369,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--metric-regex',
-        default='ihMT',
-        help='Case-insensitive regex selecting metric names to summarize.',
+        default=None,
+        help='Case-insensitive regex selecting metric names. Overrides --metric-set when supplied.',
+    )
+    parser.add_argument(
+        '--metric-set',
+        choices=('primary', 'full'),
+        default='primary',
+        help='Registry metric set to summarize when --metric-regex is not supplied.',
+    )
+    parser.add_argument(
+        '--patterns-file',
+        type=Path,
+        default=Path(__file__).resolve().parents[1] / 'configuration' / 'patterns.json',
+        help='Metric pattern registry used for --metric-set selection.',
+    )
+    parser.add_argument(
+        '--output-prefix',
+        default=None,
+        help='Prefix for output filenames. Defaults to dkt_<metric-set> or dkt_regex_<metric-regex>.',
     )
     parser.add_argument('--stat', choices=('mean', 'median'), default='median')
     parser.add_argument(
@@ -328,16 +400,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--outdir',
         type=Path,
-        default=DERIVATIVES_ROOT / 'DKTatlas_myelin_stats' / 'ihmt_coverage_reliability_summary',
+        default=DERIVATIVES_ROOT / 'DKTatlas_myelin_stats' / 'dkt_coverage_reliability_summary',
         help='Output directory for summary CSVs.',
     )
     return parser
 
 
+def output_prefix(args: argparse.Namespace) -> str:
+    if args.output_prefix:
+        return args.output_prefix
+    if args.metric_regex:
+        clean = re.sub(r'[^A-Za-z0-9]+', '_', args.metric_regex).strip('_').lower()
+        return f'dkt_regex_{clean}'
+    return f'dkt_{args.metric_set}'
+
+
 def main() -> None:
     args = build_parser().parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
-    metric_re = re.compile(args.metric_regex, flags=re.IGNORECASE)
+    metric_re = re.compile(args.metric_regex, flags=re.IGNORECASE) if args.metric_regex else None
+    metric_labels = selected_metric_labels(args)
+    prefix = output_prefix(args)
 
     coverage_files = collect_files(args.coverage_glob)
     scalarstats_files = collect_files(args.scalarstats_glob)
@@ -346,12 +429,12 @@ def main() -> None:
     if not scalarstats_files:
         raise FileNotFoundError(f'No scalarstats files matched: {args.scalarstats_glob}')
 
-    coverage = load_coverage(coverage_files, metric_re)
-    scalarstats = load_scalarstats(scalarstats_files, metric_re, args.stat)
+    coverage = load_coverage(coverage_files, metric_re, metric_labels)
+    scalarstats = load_scalarstats(scalarstats_files, metric_re, metric_labels, args.stat)
     if coverage.empty:
-        raise RuntimeError(f'No coverage rows matched metric regex: {args.metric_regex}')
+        raise RuntimeError('No coverage rows matched the requested metrics.')
     if scalarstats.empty:
-        raise RuntimeError(f'No scalarstats columns matched metric regex/stat: {args.metric_regex}, {args.stat}')
+        raise RuntimeError(f'No scalarstats columns matched the requested metrics/stat: {args.stat}')
 
     merge_cols = ['subject', 'session', 'run', 'metric', 'parcel_intensity', 'parcel_name', 'parcel_hemi']
     observations = scalarstats.merge(
@@ -366,24 +449,29 @@ def main() -> None:
     coverage_summary = summarize_coverage(coverage)
     reliability_summary = summarize_reliability(observations, sorted(set(args.coverage_thresholds)))
     metric_summary = summarize_metric_level(reliability_summary)
+    metric_rankings = summarize_metric_rankings(metric_summary)
 
-    observations_file = args.outdir / f'ihmt_dkt_{args.stat}_parcel_observations.csv'
-    coverage_file = args.outdir / 'ihmt_dkt_coverage_by_parcel.csv'
-    reliability_file = args.outdir / f'ihmt_dkt_{args.stat}_reliability_by_parcel.csv'
-    metric_file = args.outdir / f'ihmt_dkt_{args.stat}_metric_summary.csv'
+    observations_file = args.outdir / f'{prefix}_{args.stat}_parcel_observations.csv'
+    coverage_file = args.outdir / f'{prefix}_coverage_by_parcel.csv'
+    reliability_file = args.outdir / f'{prefix}_{args.stat}_reliability_by_parcel.csv'
+    metric_file = args.outdir / f'{prefix}_{args.stat}_metric_summary.csv'
+    rankings_file = args.outdir / f'{prefix}_{args.stat}_metric_rankings.csv'
 
     observations.to_csv(observations_file, index=False)
     coverage_summary.to_csv(coverage_file, index=False)
     reliability_summary.to_csv(reliability_file, index=False)
     metric_summary.to_csv(metric_file, index=False)
+    metric_rankings.to_csv(rankings_file, index=False)
 
     print(f'Coverage files read: {len(coverage_files)}', flush=True)
     print(f'Scalarstats files read: {len(scalarstats_files)}', flush=True)
+    print(f'Metric selector: {args.metric_regex if args.metric_regex else args.metric_set}', flush=True)
     print(f'Matched metrics: {", ".join(sorted(observations["metric"].dropna().unique()))}', flush=True)
     print(f'Wrote: {observations_file}', flush=True)
     print(f'Wrote: {coverage_file}', flush=True)
     print(f'Wrote: {reliability_file}', flush=True)
     print(f'Wrote: {metric_file}', flush=True)
+    print(f'Wrote: {rankings_file}', flush=True)
 
 
 if __name__ == '__main__':
