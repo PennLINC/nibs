@@ -29,15 +29,23 @@ from path_utils import DERIVATIVES_ROOT
 ANALYSIS_SETS = ('primary', 'full')
 
 
-def compute_icc2(values: np.ndarray, subjects: np.ndarray, sessions: np.ndarray) -> float:
+def complete_case_matrix(
+    values: np.ndarray,
+    subjects: np.ndarray,
+    sessions: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     sub_unique, sub_idx = np.unique(subjects, return_inverse=True)
     ses_unique, ses_idx = np.unique(sessions, return_inverse=True)
     matrix = np.full((len(sub_unique), len(ses_unique)), np.nan, dtype=float)
     for value, i_sub, i_ses in zip(values, sub_idx, ses_idx):
         matrix[i_sub, i_ses] = value
-    matrix = matrix[~np.any(np.isnan(matrix), axis=1)]
+    complete = ~np.any(np.isnan(matrix), axis=1)
+    return matrix[complete], ses_unique
+
+
+def anova_mean_squares(matrix: np.ndarray) -> tuple[float, float, float]:
     if matrix.shape[0] < 2 or matrix.shape[1] < 2:
-        return np.nan
+        return np.nan, np.nan, np.nan
     n_sub, n_ses = matrix.shape
     grand = matrix.mean()
     row_means = matrix.mean(axis=1)
@@ -48,10 +56,75 @@ def compute_icc2(values: np.ndarray, subjects: np.ndarray, sessions: np.ndarray)
     msr = ssr / (n_sub - 1)
     msc = ssc / (n_ses - 1)
     mse = sse / ((n_sub - 1) * (n_ses - 1))
+    return float(msr), float(msc), float(mse)
+
+
+def compute_icc2(values: np.ndarray, subjects: np.ndarray, sessions: np.ndarray) -> float:
+    matrix, _ = complete_case_matrix(values, subjects, sessions)
+    if matrix.shape[0] < 2 or matrix.shape[1] < 2:
+        return np.nan
+    n_sub, n_ses = matrix.shape
+    msr, msc, mse = anova_mean_squares(matrix)
     denom = msr + (n_ses - 1) * mse + n_ses * (msc - mse) / n_sub
     if denom == 0:
         return np.nan
     return float((msr - mse) / denom)
+
+
+def compute_icc3_from_matrix(matrix: np.ndarray) -> float:
+    if matrix.shape[0] < 2 or matrix.shape[1] < 2:
+        return np.nan
+    _, n_ses = matrix.shape
+    msr, _, mse = anova_mean_squares(matrix)
+    denom = msr + (n_ses - 1) * mse
+    if denom == 0:
+        return np.nan
+    return float((msr - mse) / denom)
+
+
+def compute_pairwise_pearson_r(matrix: np.ndarray) -> float:
+    if matrix.shape[0] < 3 or matrix.shape[1] < 2:
+        return np.nan
+    values = []
+    for i in range(matrix.shape[1]):
+        for j in range(i + 1, matrix.shape[1]):
+            x = matrix[:, i]
+            y = matrix[:, j]
+            if np.std(x) == 0 or np.std(y) == 0:
+                continue
+            values.append(float(np.corrcoef(x, y)[0, 1]))
+    if not values:
+        return np.nan
+    z_values = np.arctanh(np.clip(values, -0.999999, 0.999999))
+    return float(np.tanh(np.mean(z_values)))
+
+
+def compute_reliability_diagnostics(matrix: np.ndarray) -> dict[str, float | int]:
+    if matrix.shape[0] < 2 or matrix.shape[1] < 2:
+        return {
+            'ICC3_1': np.nan,
+            'pearson_r': np.nan,
+            'between_subject_sd': np.nan,
+            'within_subject_sd': np.nan,
+            'mean_abs_session_diff': np.nan,
+            'n_complete_subjects': int(matrix.shape[0]),
+            'n_complete_sessions': int(matrix.shape[1]),
+        }
+    _, _, mse = anova_mean_squares(matrix)
+    pairwise_abs_diffs = [
+        np.abs(matrix[:, i] - matrix[:, j])
+        for i in range(matrix.shape[1])
+        for j in range(i + 1, matrix.shape[1])
+    ]
+    return {
+        'ICC3_1': compute_icc3_from_matrix(matrix),
+        'pearson_r': compute_pairwise_pearson_r(matrix),
+        'between_subject_sd': float(np.std(matrix.mean(axis=1), ddof=1)),
+        'within_subject_sd': float(np.sqrt(max(mse, 0.0))) if np.isfinite(mse) else np.nan,
+        'mean_abs_session_diff': float(np.mean(np.concatenate(pairwise_abs_diffs))),
+        'n_complete_subjects': int(matrix.shape[0]),
+        'n_complete_sessions': int(matrix.shape[1]),
+    }
 
 
 def compute_icc_table(long_df: pd.DataFrame, profile_type: str, stat: str) -> pd.DataFrame:
@@ -69,17 +142,19 @@ def compute_icc_table(long_df: pd.DataFrame, profile_type: str, stat: str) -> pd
         paired = finite.loc[finite['subject'].isin(paired_subjects)].copy()
         if paired['subject'].nunique() < 2 or paired['session'].nunique() < 2:
             continue
+        values = paired['value'].to_numpy(float)
+        subjects = paired['subject'].astype(str).to_numpy()
+        sessions = paired['session'].astype(str).to_numpy()
+        matrix, _ = complete_case_matrix(values, subjects, sessions)
+        diagnostics = compute_reliability_diagnostics(matrix)
         rows.append(
             {
                 'profile_type': profile_type,
                 'metric': metric,
                 'feature': feature,
                 'stat': stat,
-                'ICC2_1': compute_icc2(
-                    paired['value'].to_numpy(float),
-                    paired['subject'].astype(str).to_numpy(),
-                    paired['session'].astype(str).to_numpy(),
-                ),
+                'ICC2_1': compute_icc2(values, subjects, sessions),
+                **diagnostics,
                 'n_subjects': int(paired['subject'].nunique()),
                 'n_sessions': int(paired['session'].nunique()),
                 'n_observations': int(len(paired)),

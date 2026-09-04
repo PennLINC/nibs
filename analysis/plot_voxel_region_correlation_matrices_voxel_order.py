@@ -79,6 +79,8 @@ def mixed_figure_size(max_metrics: int) -> tuple[float, float]:
 def shared_cbar_label(mni_correlation: str, parcel_correlation: str) -> str:
     mni_label = r'Pearson $\bf{\it r}$' if mni_correlation == 'pearson' else 'Spearman ρ'
     parcel_label = r'Pearson $\bf{\it r}$' if parcel_correlation == 'pearson' else 'Spearman ρ'
+    if mni_correlation == parcel_correlation:
+        return f'Mean correlation ({mni_label})'
     return f'Mean correlation (voxels: {mni_label}; regions: {parcel_label})'
 
 
@@ -376,7 +378,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--parcel-correlation',
         choices=PARCEL_CORRELATIONS,
-        default='spearman',
+        default='pearson',
         help='Parcel/bundle correlation method to plot.',
     )
     parser.add_argument(
