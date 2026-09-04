@@ -79,6 +79,10 @@ def cbar_label(correlation: str) -> str:
     return f'Mean voxelwise correlation ({method})'
 
 
+def method_label(method: str) -> str:
+    return r'Pearson $\it{r}$' if method == 'pearson' else 'Spearman ρ'
+
+
 def common_metric_labels(wm_corr: pd.DataFrame, gm_corr: pd.DataFrame) -> list[str]:
     return [
         label
@@ -194,17 +198,18 @@ def draw_similarity_panel(
     ]
     values = plot_df['profile_similarity'].to_numpy(dtype=float)
     ax.axvline(0.0, color='#bbbbbb', lw=0.9, zorder=0)
-    for benchmark in (-0.5, 0.5):
+    for benchmark in (0.5,):
         ax.axvline(benchmark, color='#e4e4e4', lw=0.8, zorder=0)
     ax.barh(y, values, height=0.66, color=colors, edgecolor='#2b2b2b', linewidth=0.45, alpha=0.90)
     ax.set_yticks(y)
     ax.set_yticklabels(plot_df['metric'].tolist(), fontsize=label_size)
     ax.tick_params(axis='y', length=0, pad=4)
     ax.tick_params(axis='x', labelsize=max(9.5, label_size - 0.4), length=3)
-    ax.set_xlim(-1.0, 1.0)
-    ax.set_xlabel(f'GM-WM correlation-profile similarity ({method})', fontweight='bold')
+    ax.set_xlim(0.0, 1.0)
+    ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
+    ax.set_xlabel(f'GM-WM correlation-profile similarity ({method_label(method)})', fontweight='bold')
     ax.set_title(
-        'Metric-Specific GM vs WM Structure',
+        'GM/WM Correlation Structure Similarity',
         loc='left',
         fontsize=title_fontsize(len(plot_df)),
         fontweight='bold',
@@ -246,8 +251,25 @@ def position_guides(
     else:
         label_bottom = min(ax.get_position().y0 for ax in heatmap_axes)
     cbar_y0 = max(0.075, label_bottom - 0.036)
-    cbar_ax.set_position([0.24, cbar_y0, 0.28, 0.014])
-    legend_ax.set_position([0.57, cbar_y0 - 0.018, 0.36, 0.055])
+    panel_a_pos = heatmap_axes[0].get_position()
+    cbar_width = min(0.30, 0.82 * panel_a_pos.width)
+    cbar_x0 = panel_a_pos.x0 + 0.5 * (panel_a_pos.width - cbar_width)
+    cbar_ax.set_position([cbar_x0, cbar_y0, cbar_width, 0.014])
+
+    panel_b_pos = heatmap_axes[1].get_position()
+    legend_ax.set_position([panel_b_pos.x0, cbar_y0 - 0.018, panel_b_pos.width, 0.055])
+
+
+def position_similarity_panel(
+    fig: plt.Figure,
+    similarity_ax: plt.Axes,
+    heatmap_axes: list[plt.Axes],
+) -> None:
+    fig.canvas.draw()
+    left = min(ax.get_position().x0 for ax in heatmap_axes)
+    right = max(ax.get_position().x1 for ax in heatmap_axes)
+    pos = similarity_ax.get_position()
+    similarity_ax.set_position([left, pos.y0, right - left, pos.height])
 
 
 def draw_figure(
@@ -319,8 +341,9 @@ def draw_figure(
     similarity_ax = fig.add_subplot(outer[2, :])
     draw_similarity_panel(similarity_ax, similarity, max(8.8, fs - 0.4), profile_similarity_method)
 
-    fig.subplots_adjust(left=0.055, right=0.965, top=0.955, bottom=0.060)
+    fig.subplots_adjust(left=0.080, right=0.965, top=0.955, bottom=0.060)
     align_side_axes_to_heatmaps(fig, panel_axes)
+    position_similarity_panel(fig, similarity_ax, [axes[2] for axes in panel_axes])
 
     if image is None:
         raise RuntimeError('No matrices were plotted.')
