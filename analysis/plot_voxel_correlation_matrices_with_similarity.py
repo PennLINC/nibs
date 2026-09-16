@@ -68,9 +68,9 @@ def default_mni_dir() -> Path:
 
 
 def figure_size(n_metrics: int) -> tuple[float, float]:
-    panel_side = max(5.5, min(8.2, 1.35 + 0.24 * n_metrics))
-    width = 2.0 * panel_side + 4.15
-    height = panel_side + max(4.8, min(7.0, 1.8 + 0.17 * n_metrics))
+    panel_side = max(5.9, min(9.0, 1.6 + 0.28 * n_metrics))
+    width = 2.0 * panel_side + 4.55
+    height = panel_side + max(4.6, min(6.7, 1.7 + 0.16 * n_metrics))
     return width, height
 
 
@@ -250,7 +250,7 @@ def position_guides(
         label_bottom = fig.transFigure.inverted().transform((0, label_bottom_display))[1]
     else:
         label_bottom = min(ax.get_position().y0 for ax in heatmap_axes)
-    cbar_y0 = max(0.075, label_bottom - 0.036)
+    cbar_y0 = max(0.075, label_bottom - 0.026)
     panel_a_pos = heatmap_axes[0].get_position()
     cbar_width = min(0.30, 0.82 * panel_a_pos.width)
     cbar_x0 = panel_a_pos.x0 + 0.5 * (panel_a_pos.width - cbar_width)
@@ -282,7 +282,7 @@ def draw_figure(
 ) -> None:
     matrices = [panel.matrix for panel in panels]
     max_metrics = max(matrix.shape[0] for matrix in matrices)
-    fs = max(9.4, label_fontsize(max_metrics) - 0.7)
+    fs = max(9.2, label_fontsize(max_metrics) - 1.3)
 
     cmap = sns.diverging_palette(220, 20, as_cmap=True)
     cmap.set_bad('#eeeeee')
@@ -293,9 +293,9 @@ def draw_figure(
         3,
         2,
         figure=fig,
-        height_ratios=[1.0, 0.07, 0.86],
+        height_ratios=[1.0, 0.030, 0.74],
         width_ratios=[1.0, 1.0],
-        hspace=0.55,
+        hspace=0.34,
         wspace=0.12,
     )
 
@@ -316,6 +316,10 @@ def draw_figure(
         draw_left_dendrogram(dendro_ax, panel_data.linkage, panel_data.matrix.shape[0])
         draw_source_bar(source_ax, list(panel_data.matrix.index), panel_data.panel.source_by_label, max(8.5, fs - 0.6))
         draw_heatmap(heatmap_ax, panel_data.matrix, cmap, fs)
+        for tick in heatmap_ax.get_xticklabels():
+            tick.set_rotation(52)
+            tick.set_ha('right')
+            tick.set_rotation_mode('anchor')
         image = heatmap_ax.images[0]
         panel_axes.append((dendro_ax, source_ax, heatmap_ax))
 
@@ -352,6 +356,7 @@ def draw_figure(
     cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
     cbar.ax.tick_params(labelsize=max(9.8, fs - 0.6), length=3)
     cbar.set_label(cbar_label(correlation), fontsize=max(10.5, fs - 0.1), labelpad=5)
+    cbar.ax.xaxis.set_label_position('top')
     cbar.ax.xaxis.label.set_fontweight('bold')
 
     legend_ax = fig.add_subplot(outer[1, 1])
