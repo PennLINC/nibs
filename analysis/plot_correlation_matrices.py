@@ -82,10 +82,10 @@ def label_fontsize(n_metrics: int) -> float:
     if n_metrics <= 28:
         return 12.8
     if n_metrics <= 45:
-        return 10.5
+        return 11.2
     if n_metrics <= 70:
-        return 8.8
-    return 7.6
+        return 9.8
+    return 8.8
 
 
 def title_fontsize(n_metrics: int) -> float:

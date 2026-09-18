@@ -68,6 +68,9 @@ QSI_RECON_ALIASES = {
         'qa': 'GQI QA',
         'ad': 'AD (DSIStudio)',
         'fa': 'FA (DSIStudio)',
+        'dtifa': 'FA (DSIStudio)',
+        'tensorfa': 'FA (DSIStudio)',
+        'dsistudiofa': 'FA (DSIStudio)',
         'md': 'MD (DSIStudio)',
         'rd': 'RD (DSIStudio)',
     },
@@ -224,6 +227,23 @@ def canonical_metric_from_qsirecon_context(
     for recon_key, aliases in QSI_RECON_ALIASES.items():
         if norm_token(recon_key) not in context:
             continue
+        if recon_key in {'noddi', 'gmnoddi'} and 'modulated' in f'{variable}{context}':
+            modulated_aliases = (
+                {
+                    'icvf': 'ICVF (GM; Modulated)',
+                    'ficvf': 'ICVF (GM; Modulated)',
+                    'od': 'OD (GM; Modulated)',
+                }
+                if recon_key == 'gmnoddi'
+                else {
+                    'icvf': 'ICVF (Modulated)',
+                    'ficvf': 'ICVF (Modulated)',
+                    'od': 'OD (Modulated)',
+                }
+            )
+            label = modulated_aliases.get(variable)
+            if label in available:
+                return label
         label = aliases.get(variable)
         if label in available:
             return label

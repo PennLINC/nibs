@@ -321,7 +321,7 @@ def plot_faceted_heatmaps(
                             f'{value:.2f}',
                             ha='center',
                             va='center',
-                            fontsize=max(6.2, min(9.0, 70.0 / max(matrix.shape[1], 1))),
+                            fontsize=9.5,
                             color='#111111',
                             fontweight='bold',
                         )
