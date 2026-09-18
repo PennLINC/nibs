@@ -42,7 +42,6 @@ from metric_registry import (
     build_metric_specs,
     gm_noddi_hybrid_pairs,
     metric_display_labels,
-    metric_order,
     metric_specs_for_analysis,
 )
 from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT
@@ -459,7 +458,15 @@ def main() -> None:
 
     patterns = load_patterns(args.patterns_file)
     all_specs = build_metric_specs(args.patterns_file)
-    specs = metric_specs_for_analysis(all_specs, args.analysis_set)
+    # A GM-vs-WM effect requires a WM-compatible metric. GM-only NODDI fits
+    # are supplied below as the GM half of a hybrid pair and must not also be
+    # analyzed as standalone metrics. Likewise, g-ratio is intentionally
+    # WM-only and therefore has no valid GM comparison.
+    specs = [
+        spec
+        for spec in metric_specs_for_analysis(all_specs, args.analysis_set)
+        if 'wm' in spec.tissues and spec.group != 'G-Ratio'
+    ]
     hybrid_pairs = gm_noddi_hybrid_pairs(all_specs)
     hybrid_gm_labels = set(hybrid_pairs.values())
     path_specs_by_label = {spec.label: spec for spec in specs}
@@ -560,7 +567,7 @@ def main() -> None:
             if not metric_paths:
                 print(f'Skipping {subject} {session}: no metric files found after QC')
             spec_by_label = {spec.label: spec for spec in specs}
-            for metric_label in metric_order(all_specs, args.analysis_set):
+            for metric_label in [spec.label for spec in specs]:
                 path = metric_paths.get(metric_label)
                 spec = spec_by_label.get(metric_label)
                 if spec is None:

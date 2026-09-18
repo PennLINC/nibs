@@ -132,6 +132,7 @@ def matrix(
     palette: list | None = None,
     excluded: pd.DataFrame | None = None,
     excluded_color: tuple[float, float, float] = (0.75, 0.75, 0.75),
+    sparkline_values: pd.Series | np.ndarray | list | None = None,
 ) -> object:
     """A matrix visualization of the nullity of the given DataFrame.
 
@@ -182,6 +183,9 @@ def matrix(
         out (e.g., images that failed manual QC). Missing cells are left white regardless.
     excluded_color : tuple, optional
         The color of the excluded cells. Default is `(0.75, 0.75, 0.75)`.
+    sparkline_values : pandas.Series or array-like, optional
+        Row-wise values to plot in the sparkline. Defaults to the row-wise sum
+        of `df`, i.e. the number of present cells.
 
     Returns
     -------
@@ -399,7 +403,16 @@ def matrix(
 
     if sparkline:
         # Calculate row-wise completeness for the sparkline.
-        completeness_srs = df.values.sum(axis=1)
+        if sparkline_values is None:
+            completeness_srs = df.values.sum(axis=1)
+        elif isinstance(sparkline_values, pd.Series):
+            completeness_srs = sparkline_values.reindex(df.index).to_numpy(dtype=float)
+        else:
+            completeness_srs = np.asarray(sparkline_values, dtype=float)
+            if completeness_srs.shape[0] != height:
+                raise ValueError(
+                    'sparkline_values must have one value per row after filtering/sorting.'
+                )
         x_domain = list(range(0, height))
         y_range = list(reversed(completeness_srs))
         min_completeness = min(y_range)

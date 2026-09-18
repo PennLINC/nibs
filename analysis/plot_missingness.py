@@ -103,6 +103,7 @@ if __name__ == '__main__':
     # (e.g., G-Ratio) and subjects absent from the QC table are never grayed out.
     qc_df = pd.read_table('../data/manual_qc_modality.tsv', index_col='participant_id')
     excluded = (qc_df == 0).reindex(index=df.index, columns=df.columns, fill_value=False)
+    qc_usable_acquisition_count = df.where(~excluded, 0).sum(axis=1)
 
     df = df.rename(columns=relabel)
     excluded = excluded.rename(columns=relabel)
@@ -112,9 +113,15 @@ if __name__ == '__main__':
     subjects = pilot_subjects + other_subjects
     df = df.loc[subjects]
     excluded = excluded.loc[subjects]
+    qc_usable_acquisition_count = qc_usable_acquisition_count.loc[subjects]
     df = convert_to_multindex(df)
     excluded = convert_to_multindex(excluded)
-    ax = matrix(df, palette=pal, excluded=excluded)
+    ax = matrix(
+        df,
+        palette=pal,
+        excluded=excluded,
+        sparkline_values=qc_usable_acquisition_count,
+    )
     boundary = session_boundary(columns)
     if boundary is not None:
         ax.axvline(boundary, color='black', linewidth=SESSION_DIVIDER_WIDTH, zorder=5, clip_on=False)

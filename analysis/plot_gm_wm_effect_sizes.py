@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot primary MNI voxelwise cortical-GM-vs-WM effect sizes by metric."""
+"""Plot MNI voxelwise cortical-GM-vs-WM effect sizes by metric."""
 
 from __future__ import annotations
 
@@ -288,7 +288,8 @@ def plot_effect_sizes(
         fontsize=10.6,
         title_fontsize=11.0,
     )
-    fig.subplots_adjust(left=0.34, right=0.985, top=0.965, bottom=0.19)
+    bottom_margin = max(0.08, min(0.19, 1.65 / fig_height))
+    fig.subplots_adjust(left=0.34, right=0.985, top=0.965, bottom=bottom_margin)
 
     out_prefix.parent.mkdir(parents=True, exist_ok=True)
     for extension in ('png', 'pdf'):
@@ -301,15 +302,22 @@ def plot_effect_sizes(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        '--analysis-set',
+        choices=('primary', 'full'),
+        default='primary',
+        help='Metric set used to choose default input and output paths.',
+    )
+    parser.add_argument(
         '--input',
         type=Path,
-        default=DERIVATIVES_ROOT / 'mni_gm_wm_effect_sizes' / 'mni_gm_wm_effect_sizes_primary_subject.tsv',
+        default=None,
         help='Subject-averaged effect-size TSV from compute_mni_gm_wm_effect_sizes.py.',
     )
     parser.add_argument(
         '--output',
         type=Path,
-        default=PROJECT_ROOT / 'figures' / 'gm_wm_effect_sizes' / 'gm_wm_effect_sizes_primary_robust_median_d',
+        default=None,
+        help='Output stem. Defaults to a name based on analysis set, GM tissue, and effect.',
     )
     parser.add_argument(
         '--effect',
@@ -336,14 +344,25 @@ def main() -> None:
     mpl.rcParams['font.family'] = 'Arial'
     mpl.rcParams['pdf.fonttype'] = 42
     mpl.rcParams['ps.fonttype'] = 42
+    input_path = args.input or (
+        DERIVATIVES_ROOT
+        / 'mni_gm_wm_effect_sizes'
+        / f'mni_gm_wm_effect_sizes_{args.analysis_set}_subject.tsv'
+    )
+    output_stem = args.output or (
+        PROJECT_ROOT
+        / 'figures'
+        / 'gm_wm_effect_sizes'
+        / f'gm_wm_effect_sizes_{args.analysis_set}_{args.gm_tissue}_{args.effect}'
+    )
     data = load_subject_effects(
-        args.input.expanduser().resolve(),
+        input_path.expanduser().resolve(),
         args.effect,
         args.gm_tissue,
     )
     plot_effect_sizes(
         data,
-        args.output.expanduser().resolve(),
+        output_stem.expanduser().resolve(),
         args.effect,
         args.gm_tissue,
         args.show_subject_points,
