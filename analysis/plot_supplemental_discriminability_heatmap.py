@@ -269,6 +269,18 @@ def plot_faceted_heatmaps(
 ) -> None:
     if data.empty:
         raise RuntimeError('No finite discriminability values to plot.')
+    finite_scores = data['score'].to_numpy(dtype=float)
+    finite_scores = finite_scores[np.isfinite(finite_scores)]
+    if finite_scores.size == 0:
+        raise RuntimeError('No finite discriminability values to plot.')
+    observed_min = float(np.min(finite_scores))
+    color_min = max(0.0, min(0.90, np.floor(observed_min * 20.0) / 20.0))
+    color_ticks = np.linspace(color_min, 1.0, 6)
+    print(
+        f'[INFO] Discriminability color scale: {color_min:.2f} to 1.00 '
+        f'(observed minimum {observed_min:.3f}).',
+        flush=True,
+    )
     counts = {
         category: int(data.loc[data['category'] == category, 'facet_metric_key'].nunique())
         for category in categories
@@ -308,7 +320,7 @@ def plot_faceted_heatmaps(
                 aspect='auto',
                 interpolation='nearest',
                 cmap=cmap,
-                vmin=0.0,
+                vmin=color_min,
                 vmax=1.0,
             )
             for y_index in range(matrix.shape[0]):
@@ -321,7 +333,7 @@ def plot_faceted_heatmaps(
                             f'{value:.2f}',
                             ha='center',
                             va='center',
-                            fontsize=9.5,
+                            fontsize=10.5,
                             color='#111111',
                             fontweight='bold',
                         )
@@ -365,7 +377,8 @@ def plot_faceted_heatmaps(
         raise RuntimeError('No discriminability panels were drawn.')
     cbar_ax = fig.add_subplot(outer[-1, 0])
     cbar = fig.colorbar(image, cax=cbar_ax, orientation='horizontal')
-    cbar.set_ticks([0, 0.25, 0.5, 0.75, 1.0])
+    cbar.set_ticks(color_ticks)
+    cbar.ax.xaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.2f'))
     cbar.set_label(score_label, fontweight='bold', labelpad=6)
     fig.suptitle(
         f'White Matter Bundle and Gray Matter Parcel {score_label}',
