@@ -20,7 +20,12 @@ except ImportError:  # pragma: no cover
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from metric_registry import build_metric_specs  # noqa: E402
+from metric_registry import (  # noqa: E402
+    MetricSpec,
+    build_metric_specs,
+    metric_plot_label,
+    noddi_hybrid_label,
+)
 from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT  # noqa: E402
 from plot_parcel_bundle_discriminability import (  # noqa: E402
     SCORE_COLUMNS,
@@ -32,7 +37,7 @@ from plot_parcel_bundle_discriminability import (  # noqa: E402
 
 
 CATEGORY_LABELS = {
-    'Tensor': 'TORTOISE Tensor / MAPMRI Tensor',
+    'Tensor': 'Tensor Metrics',
     'DKI': 'DKI',
     'DKI Micro': 'DKI Microstructure',
     'NODDI': 'NODDI',
@@ -50,17 +55,63 @@ CATEGORY_LABELS = {
 }
 
 
+def supplemental_family(spec: MetricSpec) -> str:
+    """Return the publication-facing family used in this supplemental plot."""
+
+    if spec.group == 'Q-Ratio':
+        return 'Q-Ratio'
+    if spec.group == 'dMRI' and (
+        '(DSIStudio)' in spec.pattern_key
+        or 'TORTOISE; Inner Shells' in spec.pattern_key
+        or 'TORTOISE; Full Shells' in spec.pattern_key
+    ):
+        return 'Tensor'
+    return spec.family
+
+
+def compact_metric_label(spec: MetricSpec, category: str) -> str:
+    """Remove information already supplied by the facet title."""
+
+    key = spec.pattern_key
+    if category == 'DKI Micro':
+        return key.removeprefix('DKI Micro ').replace('AxonalD', 'Axonal D')
+    if category == 'DKI':
+        return key.removeprefix('DKI ')
+    if category == 'GQI':
+        return key.removeprefix('GQI ')
+    if category == 'NODDI':
+        return metric_plot_label(noddi_hybrid_label(key))
+    if category == 'Tensor':
+        for suffix, software in (
+            (' (DSIStudio)', 'DSI Studio'),
+            (' (TORTOISE; Inner Shells)', 'TORTOISE inner'),
+            (' (TORTOISE; Full Shells)', 'TORTOISE full'),
+        ):
+            if key.endswith(suffix):
+                return f'{key.removesuffix(suffix)} ({software})'
+    if category == 'T1w/T2w':
+        return key.removesuffix('-MyelinW')
+    if category == 'g-ratio':
+        return key.removeprefix('G-')
+    if category == 'Q-Ratio':
+        return metric_plot_label(key.removeprefix('Q-Ratio-'))
+    if category == 'QSM':
+        label = metric_plot_label(spec.label)
+        return label.removeprefix('QSM-').replace('-', ' ')
+    return metric_plot_label(spec.label)
+
+
+def facet_metric_key(spec: MetricSpec) -> str:
+    """Collapse tissue-specific implementations of one conceptual metric."""
+
+    if spec.family == 'NODDI':
+        return noddi_hybrid_label(spec.pattern_key)
+    return spec.label
+
+
 def metric_categories(patterns_file: Path, level: str) -> tuple[dict[str, str], list[str]]:
     specs = build_metric_specs(patterns_file)
     if level == 'family':
-        def supplemental_family(spec) -> str:
-            # Keep the dMRI model subdivisions from the registry, while
-            # retaining acquisition-derived groups such as Q-ratio as their
-            # own publication-facing categories.
-            if spec.group == 'Q-Ratio':
-                return 'Q-Ratio'
-            return spec.family
-
         lookup = {spec.label: supplemental_family(spec) for spec in specs}
         order = list(dict.fromkeys(supplemental_family(spec) for spec in specs))
     elif level == 'group':
@@ -79,14 +130,89 @@ def add_categories(
     patterns_file: Path,
     level: str,
 ) -> tuple[pd.DataFrame, list[str]]:
+    specs = build_metric_specs(patterns_file)
+    spec_by_label = {spec.label: spec for spec in specs}
     lookup, registry_order = metric_categories(patterns_file, level)
     out = data.copy()
     out['category'] = out['metric_key'].map(lookup).fillna('Other')
+    out['facet_metric_key'] = out['metric_key'].map(
+        lambda label: facet_metric_key(spec_by_label[label]) if label in spec_by_label else label
+    )
+    out['facet_metric_label'] = out.apply(
+        lambda row: (
+            compact_metric_label(spec_by_label[row['metric_key']], row['category'])
+            if row['metric_key'] in spec_by_label
+            else str(row['metric'])
+        ),
+        axis=1,
+    )
     observed = set(out['category'])
     order = [category for category in registry_order if category in observed]
     if 'Other' in observed:
         order.append('Other')
     return out, order
+
+
+def inclusion_path(score_path: Path) -> Path:
+    return score_path.with_name(f'{score_path.stem}_metric_inclusion.tsv')
+
+
+def report_unexpected_missing_scores(
+    data: pd.DataFrame,
+    patterns_file: Path,
+    score_paths: dict[str, Path],
+) -> None:
+    """Explain tissue gaps using the metric-inclusion files when available."""
+
+    specs = build_metric_specs(patterns_file)
+    expected: dict[str, set[str]] = {}
+    raw_keys: dict[tuple[str, str], list[str]] = {}
+    for spec in specs:
+        concept = facet_metric_key(spec)
+        expected.setdefault(concept, set()).update(
+            tissue for tissue in ('wm', 'gm') if tissue in spec.tissues
+        )
+        for tissue in ('wm', 'gm'):
+            if tissue in spec.tissues:
+                raw_keys.setdefault((concept, tissue), []).append(spec.label)
+
+    observed = (
+        data.groupby('facet_metric_key', observed=True)['tissue']
+        .agg(lambda values: set(values.astype(str)))
+        .to_dict()
+    )
+    inclusion_tables: dict[str, pd.DataFrame] = {}
+    for tissue, score_path in score_paths.items():
+        path = inclusion_path(score_path)
+        if path.exists():
+            inclusion_tables[tissue] = pd.read_csv(path, sep='\t')
+
+    for concept, expected_tissues in expected.items():
+        # Report asymmetric gaps visible in the figure, not metrics omitted
+        # altogether by a smaller analysis set.
+        if concept not in observed:
+            continue
+        missing = expected_tissues - observed.get(concept, set())
+        for tissue in sorted(missing):
+            details = ''
+            inclusion = inclusion_tables.get(tissue)
+            if inclusion is not None:
+                candidates = raw_keys.get((concept, tissue), [])
+                rows = inclusion.loc[inclusion['metric_key'].isin(candidates)]
+                if not rows.empty:
+                    reasons = sorted(
+                        {
+                            str(reason)
+                            for reason in rows['reason_if_not_scored'].dropna()
+                            if str(reason)
+                        }
+                    )
+                    if reasons:
+                        details = f" ({'; '.join(reasons)})"
+            print(
+                f'[WARN] No {tissue.upper()} discriminability score for {concept}{details}',
+                flush=True,
+            )
 
 
 def pack_categories(
@@ -119,23 +245,19 @@ def category_matrix(
     category_data = data.loc[data['category'] == category].copy()
     matrix = category_data.pivot_table(
         index='tissue',
-        columns='metric_key',
+        columns='facet_metric_key',
         values='score',
         aggfunc='first',
     ).reindex(index=['wm', 'gm'])
     means = matrix.mean(axis=0, skipna=True).sort_values(ascending=False)
     matrix = matrix.reindex(columns=means.index)
     display = (
-        category_data.drop_duplicates('metric_key')
-        .set_index('metric_key')['metric']
+        category_data.drop_duplicates('facet_metric_key')
+        .set_index('facet_metric_key')['facet_metric_label']
         .astype(str)
         .to_dict()
     )
     return matrix, display, means
-
-
-def annotation_color(value: float) -> str:
-    return 'white' if value >= 0.56 else '#202124'
 
 
 def plot_faceted_heatmaps(
@@ -148,7 +270,7 @@ def plot_faceted_heatmaps(
     if data.empty:
         raise RuntimeError('No finite discriminability values to plot.')
     counts = {
-        category: int(data.loc[data['category'] == category, 'metric_key'].nunique())
+        category: int(data.loc[data['category'] == category, 'facet_metric_key'].nunique())
         for category in categories
     }
     category_rows = pack_categories(categories, counts, max_columns_per_row)
@@ -200,7 +322,7 @@ def plot_faceted_heatmaps(
                             ha='center',
                             va='center',
                             fontsize=max(6.2, min(9.0, 70.0 / max(matrix.shape[1], 1))),
-                            color=annotation_color(float(value)),
+                            color='#111111',
                             fontweight='bold',
                         )
             ax.set_xticks(np.arange(matrix.shape[1]))
@@ -233,7 +355,7 @@ def plot_faceted_heatmaps(
                     {
                         'category': category,
                         'rank_within_category': rank,
-                        'metric_key': metric,
+                        'facet_metric_key': metric,
                         'metric': display.get(metric, metric),
                         'mean_wm_gm_score': mean_score,
                     }
@@ -328,10 +450,16 @@ def main() -> None:
         ],
         ignore_index=True,
     )
+    patterns_file = args.patterns_file.expanduser().resolve()
     data, categories = add_categories(
         data,
-        args.patterns_file.expanduser().resolve(),
+        patterns_file,
         args.category_level,
+    )
+    report_unexpected_missing_scores(
+        data,
+        patterns_file,
+        {'wm': wm_input, 'gm': gm_input},
     )
     output_name = args.output_name or (
         f'discriminability_{args.analysis_set}_{args.stat}_{args.distance_metric}_'

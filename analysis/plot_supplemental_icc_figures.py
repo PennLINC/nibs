@@ -31,6 +31,11 @@ from metric_registry import (  # noqa: E402
     source_image_display_label,
 )
 from path_utils import CODE_ROOT, PROJECT_ROOT  # noqa: E402
+from parcel_bundle_io import (  # noqa: E402
+    EXPECTED_WM_BUNDLE_COUNT,
+    canonical_wm_bundle_name,
+    expected_wm_bundle_ids,
+)
 from plot_icc_figures import (  # noqa: E402
     BENCHMARKS,
     default_mni_icc_dir,
@@ -83,16 +88,52 @@ def load_regional_icc(
     table = table.copy()
     table[icc_column] = pd.to_numeric(table[icc_column], errors='coerce')
     table['metric_key'] = table['metric_key'].astype(str)
+    if tissue == 'wm':
+        raw_features = sorted(table['feature'].astype(str).unique())
+        feature_map = {
+            feature: canonical_wm_bundle_name(feature)
+            for feature in raw_features
+        }
+        unmatched = sorted(
+            feature for feature, canonical in feature_map.items() if canonical is None
+        )
+        if unmatched:
+            raise RuntimeError(
+                f'{path} contains {len(unmatched)} bundle names not found in '
+                f'processing/qsirecon_spec.yml: {", ".join(unmatched[:20])}'
+            )
+        table['feature'] = table['feature'].astype(str).map(feature_map)
+        print(
+            '[INFO] Canonicalized regional ICC bundle names: '
+            f'{len(raw_features)} raw names -> {table["feature"].nunique()} AutoTrack IDs.',
+            flush=True,
+        )
     table['metric'] = table['metric_key'].map(displays).fillna(table['metric_key'])
     table['source_image'] = table['metric_key'].map(sources).fillna(
         table.get('source_image', 'Other')
     )
-    return table.dropna(subset=[icc_column])
+    table = table.dropna(subset=[icc_column]).copy()
+    duplicate = table.duplicated(['metric_key', 'feature'], keep=False)
+    if duplicate.any():
+        examples = (
+            table.loc[duplicate, ['metric_key', 'feature']]
+            .drop_duplicates()
+            .head(10)
+            .apply(lambda row: f'{row.metric_key}/{row.feature}', axis=1)
+            .tolist()
+        )
+        raise RuntimeError(
+            'Canonicalization found multiple ICC estimates for the same metric/bundle. '
+            'Rerun compute_parcel_bundle_icc.py from the canonicalized scalarstats instead '
+            f'of averaging ICC estimates. Examples: {", ".join(examples)}'
+        )
+    return table
 
 
 def ordered_icc_matrix(
     table: pd.DataFrame,
     icc_column: str,
+    expected_features: tuple[str, ...] | None = None,
 ) -> tuple[pd.DataFrame, pd.Series, pd.Series, dict[str, str], dict[str, str]]:
     matrix = table.pivot_table(
         index='feature',
@@ -100,6 +141,14 @@ def ordered_icc_matrix(
         values=icc_column,
         aggfunc='mean',
     )
+    if expected_features is not None:
+        unexpected = sorted(set(matrix.index) - set(expected_features))
+        if unexpected:
+            raise RuntimeError(
+                'Regional ICC table contains unexpected features after canonicalization: '
+                + ', '.join(unexpected[:20])
+            )
+        matrix = matrix.reindex(expected_features)
     row_means = matrix.mean(axis=1, skipna=True).sort_values(ascending=False)
     column_means = matrix.mean(axis=0, skipna=True).sort_values(ascending=False)
     matrix = matrix.loc[row_means.index, column_means.index]
@@ -143,6 +192,74 @@ def save_order_table(
     )
 
 
+def save_coverage_table(
+    output_stem: Path,
+    matrix: pd.DataFrame,
+    display: dict[str, str],
+) -> None:
+    records: list[dict[str, object]] = []
+    for feature, values in matrix.iterrows():
+        available = int(values.notna().sum())
+        records.append(
+            {
+                'axis': 'region',
+                'key': feature,
+                'label': feature,
+                'n_available': available,
+                'n_missing': int(len(values) - available),
+                'available_fraction': available / len(values) if len(values) else np.nan,
+            }
+        )
+    for metric in matrix.columns:
+        values = matrix[metric]
+        available = int(values.notna().sum())
+        records.append(
+            {
+                'axis': 'metric',
+                'key': metric,
+                'label': display.get(metric, metric),
+                'n_available': available,
+                'n_missing': int(len(values) - available),
+                'available_fraction': available / len(values) if len(values) else np.nan,
+            }
+        )
+    pd.DataFrame(records).to_csv(
+        output_stem.with_name(output_stem.name + '_coverage.tsv'),
+        sep='\t',
+        index=False,
+    )
+
+
+def position_regional_guides(
+    fig: plt.Figure,
+    heatmap_ax: plt.Axes,
+    cbar_ax: plt.Axes,
+    legend,
+) -> None:
+    """Place the colorbar and legend tightly below the rotated metric labels."""
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    tick_boxes = [
+        tick.get_window_extent(renderer)
+        for tick in heatmap_ax.get_xticklabels()
+        if tick.get_visible() and tick.get_text()
+    ]
+    if tick_boxes:
+        label_bottom_display = min(box.y0 for box in tick_boxes)
+        label_bottom = fig.transFigure.inverted().transform((0, label_bottom_display))[1]
+    else:
+        label_bottom = heatmap_ax.get_position().y0
+
+    cbar_width = min(0.40, 0.62 * heatmap_ax.get_position().width)
+    cbar_x0 = heatmap_ax.get_position().x0 + 0.5 * (
+        heatmap_ax.get_position().width - cbar_width
+    )
+    cbar_y0 = max(0.052, label_bottom - 0.030)
+    cbar_ax.set_position([cbar_x0, cbar_y0, cbar_width, 0.015])
+    legend.set_bbox_to_anchor((0.5, cbar_y0 - 0.030), transform=fig.transFigure)
+
+
 def plot_regional_heatmap(
     table: pd.DataFrame,
     tissue: str,
@@ -150,11 +267,28 @@ def plot_regional_heatmap(
     icc_label: str,
     output_stem: Path,
 ) -> None:
-    matrix, row_means, column_means, display, source = ordered_icc_matrix(table, icc_column)
+    expected_features = expected_wm_bundle_ids() if tissue == 'wm' else None
+    matrix, row_means, column_means, display, source = ordered_icc_matrix(
+        table,
+        icc_column,
+        expected_features=expected_features,
+    )
     if matrix.empty:
         raise RuntimeError(f'No finite regional ICC values for {tissue}.')
 
     n_rows, n_columns = matrix.shape
+    if tissue == 'wm' and n_rows != EXPECTED_WM_BUNDLE_COUNT:
+        raise RuntimeError(
+            f'WM ICC heatmap must contain {EXPECTED_WM_BUNDLE_COUNT} bundles; got {n_rows}.'
+        )
+    missing_cells = int(matrix.isna().to_numpy().sum())
+    total_cells = int(matrix.size)
+    print(
+        f'[INFO] {REGIONAL_DOMAINS[tissue][1]} ICC matrix: {n_rows} rows x '
+        f'{n_columns} metrics; {missing_cells}/{total_cells} cells missing '
+        f'({missing_cells / total_cells:.1%}).',
+        flush=True,
+    )
     fig_width = max(14.0, min(34.0, 5.0 + 0.29 * n_columns))
     fig_height = max(8.0, min(28.0, 3.7 + 0.20 * n_rows))
     fig = plt.figure(figsize=(fig_width, fig_height), constrained_layout=False)
@@ -164,8 +298,8 @@ def plot_regional_heatmap(
         height_ratios=[0.018, 1.0],
         left=0.19,
         right=0.975,
-        bottom=0.29,
-        top=0.91,
+        bottom=0.205,
+        top=0.925,
         hspace=0.008,
     )
     family_ax = fig.add_subplot(grid[0, 0])
@@ -195,25 +329,31 @@ def plot_regional_heatmap(
         rotation=55,
         ha='right',
         rotation_mode='anchor',
-        fontsize=max(5.2, min(8.2, 460.0 / max(n_columns, 1))),
+        fontsize=max(7.4, min(9.6, 680.0 / max(n_columns, 1))),
     )
     ax.set_yticks(np.arange(n_rows))
-    ax.set_yticklabels(matrix.index, fontsize=max(4.8, min(8.0, 360.0 / max(n_rows, 1))))
+    ax.set_yticklabels(
+        matrix.index,
+        fontsize=max(7.0, min(9.2, 610.0 / max(n_rows, 1))),
+    )
     ax.tick_params(length=0, pad=2)
     ax.set_ylabel('Bundle' if tissue == 'wm' else 'Parcel', fontweight='bold')
-    ax.set_title(
+    fig.text(
+        0.19,
+        0.955,
         f'{REGIONAL_DOMAINS[tissue][1]} {icc_label}',
-        loc='left',
+        ha='left',
+        va='top',
         fontsize=17,
         fontweight='bold',
-        pad=15,
     )
 
-    cbar_ax = fig.add_axes([0.36, 0.09, 0.36, 0.014])
+    cbar_ax = fig.add_axes([0.36, 0.07, 0.36, 0.015])
     cbar = fig.colorbar(image, cax=cbar_ax, orientation='horizontal')
-    cbar.set_label(icc_label, fontweight='bold')
+    cbar.set_label(icc_label, fontsize=11.0, fontweight='bold', labelpad=5)
     cbar.ax.xaxis.set_label_position('top')
     cbar.set_ticks([0, 0.25, 0.5, 0.75, 1.0])
+    cbar.ax.tick_params(labelsize=9.8, length=3)
 
     observed_sources = [
         key for key in SOURCE_IMAGE_COLORS if key in set(column_sources)
@@ -226,19 +366,24 @@ def plot_regional_heatmap(
         )
         for key in observed_sources
     ]
-    fig.legend(
+    legend = fig.legend(
         handles=handles,
         title=METRIC_FAMILY_LEGEND_TITLE,
-        loc='lower center',
-        bbox_to_anchor=(0.55, 0.005),
+        loc='upper center',
+        bbox_to_anchor=(0.5, 0.025),
         ncol=max(1, len(handles)),
         frameon=False,
-        fontsize=9,
-        title_fontsize=10,
+        fontsize=10.2,
+        title_fontsize=11.2,
+        handlelength=1.5,
+        columnspacing=1.25,
     )
+    legend.get_title().set_fontweight('bold')
+    position_regional_guides(fig, ax, cbar_ax, legend)
 
     output_stem.parent.mkdir(parents=True, exist_ok=True)
     save_order_table(output_stem, row_means, column_means, display)
+    save_coverage_table(output_stem, matrix, display)
     for extension in ('pdf', 'png'):
         output = output_stem.with_suffix(f'.{extension}')
         fig.savefig(output, dpi=240, bbox_inches='tight')
@@ -325,17 +470,27 @@ def plot_voxel_intervals(
         )
         for key in sources
     ]
-    fig.legend(
+    fig.subplots_adjust(left=0.33, right=0.97, top=0.96, bottom=0.050)
+    legend = fig.legend(
         handles=handles,
         title=METRIC_FAMILY_LEGEND_TITLE,
-        loc='lower center',
-        bbox_to_anchor=(0.58, -0.035),
+        loc='upper center',
+        bbox_to_anchor=(0.65, 0.0),
         ncol=min(4, len(handles)),
         frameon=False,
         fontsize=9,
         title_fontsize=10,
     )
-    fig.subplots_adjust(left=0.33, right=0.97, top=0.96, bottom=0.08)
+    legend.get_title().set_fontweight('bold')
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    label_box = ax.xaxis.label.get_window_extent(renderer)
+    label_bottom = fig.transFigure.inverted().transform((0, label_box.y0))[1]
+    axis_center = 0.5 * (ax.get_position().x0 + ax.get_position().x1)
+    legend.set_bbox_to_anchor(
+        (axis_center, label_bottom - 0.008),
+        transform=fig.transFigure,
+    )
 
     output_stem.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(output_stem.with_suffix('.summary.tsv'), sep='\t', index=False)

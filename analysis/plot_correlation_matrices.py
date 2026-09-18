@@ -80,12 +80,12 @@ def figure_size(n_metrics: int) -> tuple[float, float]:
 
 def label_fontsize(n_metrics: int) -> float:
     if n_metrics <= 28:
-        return 12.2
+        return 12.8
     if n_metrics <= 45:
-        return 9.6
+        return 10.5
     if n_metrics <= 70:
-        return 7.6
-    return 6.3
+        return 8.8
+    return 7.6
 
 
 def title_fontsize(n_metrics: int) -> float:
@@ -227,6 +227,35 @@ def add_source_annotation(
     )
 
 
+def position_matrix_guides(grid, legend) -> None:
+    """Place the colorbar and legend directly below the rotated metric labels."""
+
+    grid.fig.canvas.draw()
+    renderer = grid.fig.canvas.get_renderer()
+    tick_boxes = [
+        tick.get_window_extent(renderer)
+        for tick in grid.ax_heatmap.get_xticklabels()
+        if tick.get_visible() and tick.get_text()
+    ]
+    if tick_boxes:
+        label_bottom_display = min(box.y0 for box in tick_boxes)
+        label_bottom = grid.fig.transFigure.inverted().transform(
+            (0, label_bottom_display)
+        )[1]
+    else:
+        label_bottom = grid.ax_heatmap.get_position().y0
+
+    heatmap_position = grid.ax_heatmap.get_position()
+    cbar_width = min(0.42, 0.62 * heatmap_position.width)
+    cbar_x0 = heatmap_position.x0 + 0.5 * (heatmap_position.width - cbar_width)
+    cbar_y0 = max(0.050, label_bottom - 0.028)
+    grid.cax.set_position([cbar_x0, cbar_y0, cbar_width, 0.018])
+    legend.set_bbox_to_anchor(
+        (heatmap_position.x0 + 0.5 * heatmap_position.width, cbar_y0 - 0.030),
+        transform=grid.fig.transFigure,
+    )
+
+
 def plot_matrix(
     corr: pd.DataFrame,
     source_by_label: dict[str, str],
@@ -304,24 +333,27 @@ def plot_matrix(
     legend = grid.fig.legend(
         handles=handles,
         title=METRIC_FAMILY_LEGEND_TITLE,
-        loc='lower center',
-        bbox_to_anchor=(0.5, 0.004),
+        loc='upper center',
+        bbox_to_anchor=(0.5, 0.025),
         ncol=max(1, len(handles)),
         frameon=False,
-        fontsize=max(9.0, fs - 0.5),
-        title_fontsize=max(10.0, fs),
+        fontsize=max(10.0, fs - 0.2),
+        title_fontsize=max(11.0, fs + 0.5),
+        handlelength=1.5,
+        columnspacing=1.25,
     )
     legend.get_title().set_fontweight('bold')
 
-    grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.965)
-    grid.fig.subplots_adjust(left=0.052, right=0.93, top=0.943, bottom=0.255)
-    grid.cax.set_position([0.30, 0.076, 0.40, 0.024])
-    grid.cax.tick_params(labelsize=max(9.0, fs - 0.5), length=3)
-    grid.cax.xaxis.label.set_size(max(10.0, fs))
+    grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.975)
+    grid.fig.subplots_adjust(left=0.052, right=0.93, top=0.953, bottom=0.180)
+    grid.cax.tick_params(labelsize=max(10.0, fs - 0.2), length=3)
+    grid.cax.xaxis.set_label_position('top')
+    grid.cax.xaxis.label.set_size(max(11.0, fs + 0.5))
     grid.cax.xaxis.label.set_fontweight('bold')
-    grid.cax.xaxis.labelpad = 4
+    grid.cax.xaxis.labelpad = 5
     draw_diagonal(grid)
     add_source_annotation(grid, source_by_label)
+    position_matrix_guides(grid, legend)
 
     out_stem.parent.mkdir(parents=True, exist_ok=True)
     for extension in ('pdf', 'png'):

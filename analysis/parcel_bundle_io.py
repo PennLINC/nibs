@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from functools import lru_cache
 from glob import glob
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from metric_registry import build_metric_specs
+from metric_registry import build_metric_specs, norm_token
 from parcel_metric_utils import add_metric_metadata, canonical_metric_from_row, canonical_metric_name
 from path_utils import CODE_ROOT, DERIVATIVES_ROOT
 
@@ -39,6 +40,62 @@ EXCLUDED_BUNDLE_PATTERNS = (
     'DentatorubrothalamicTractlr',
     'DentatorubrothalamicTractrl',
 )
+AUTOTRACK_SPEC_FILE = CODE_ROOT / 'processing' / 'qsirecon_spec.yml'
+EXPECTED_WM_BUNDLE_COUNT = 91
+
+
+@lru_cache(maxsize=None)
+def autotrack_bundle_ids(spec_file: Path = AUTOTRACK_SPEC_FILE) -> tuple[str, ...]:
+    """Read the DSI Studio AutoTrack IDs directly from the QSIRecon specification."""
+
+    if not spec_file.exists():
+        raise FileNotFoundError(f'Missing QSIRecon specification: {spec_file}')
+    bundle_ids: list[str] = []
+    for line in spec_file.read_text().splitlines():
+        match = re.match(r'^\s*track_id:\s*(.+?)\s*$', line)
+        if match is None:
+            continue
+        value = match.group(1).strip().strip('"\'')
+        bundle_ids.extend(item.strip() for item in value.split(',') if item.strip())
+    bundle_ids = list(dict.fromkeys(bundle_ids))
+    if not bundle_ids:
+        raise RuntimeError(f'No AutoTrack track_id entries found in {spec_file}')
+    return tuple(bundle_ids)
+
+
+def is_excluded_wm_bundle(bundle: object) -> bool:
+    text = str(bundle)
+    return any(pattern in text for pattern in EXCLUDED_BUNDLE_PATTERNS)
+
+
+@lru_cache(maxsize=None)
+def expected_wm_bundle_ids(spec_file: Path = AUTOTRACK_SPEC_FILE) -> tuple[str, ...]:
+    """Return the canonical bundle set retained by regional analyses."""
+
+    bundles = tuple(
+        bundle for bundle in autotrack_bundle_ids(spec_file) if not is_excluded_wm_bundle(bundle)
+    )
+    if len(bundles) != EXPECTED_WM_BUNDLE_COUNT:
+        raise RuntimeError(
+            f'Expected {EXPECTED_WM_BUNDLE_COUNT} retained AutoTrack bundles from {spec_file}, '
+            f'but found {len(bundles)}.'
+        )
+    return bundles
+
+
+def canonical_wm_bundle_name(
+    bundle: object,
+    spec_file: Path = AUTOTRACK_SPEC_FILE,
+) -> str | None:
+    """Map punctuation/underscore variants onto the canonical AutoTrack ID."""
+
+    lookup = {norm_token(item): item for item in autotrack_bundle_ids(spec_file)}
+    token = norm_token(bundle)
+    if token in lookup:
+        return lookup[token]
+    if token.startswith('bundle') and token.removeprefix('bundle') in lookup:
+        return lookup[token.removeprefix('bundle')]
+    return None
 
 
 def _normalize_subject(value: object) -> str:
@@ -245,9 +302,37 @@ def collect_bundle_scalarstats(input_globs: list[str], patterns_file: Path) -> p
     out = out.loc[~out['subject_id'].map(_is_pilot_subject)].copy()
     out['session_id'] = out['session_id'].astype(str)
     out['bundle'] = out['bundle'].astype(str)
-    excluded = out['bundle'].str.contains('|'.join(EXCLUDED_BUNDLE_PATTERNS), regex=True, na=False)
+    raw_bundle_names = sorted(out['bundle'].unique())
+    bundle_name_map = {
+        bundle: canonical_wm_bundle_name(bundle)
+        for bundle in raw_bundle_names
+    }
+    unmatched = sorted(bundle for bundle, canonical in bundle_name_map.items() if canonical is None)
+    if unmatched:
+        print(
+            '[WARN] Dropping scalarstats rows with bundle names absent from the AutoTrack '
+            f'specification ({len(unmatched)} names): ' + ', '.join(unmatched[:20]),
+            flush=True,
+        )
+    out['bundle'] = out['bundle'].map(bundle_name_map)
+    out = out.dropna(subset=['bundle']).copy()
+    excluded = out['bundle'].map(is_excluded_wm_bundle)
     if excluded.any():
         out = out.loc[~excluded].copy()
+    observed_bundles = set(out['bundle'])
+    expected_bundles = set(expected_wm_bundle_ids())
+    missing_bundles = sorted(expected_bundles - observed_bundles)
+    print(
+        '[INFO] Canonical WM bundles after input loading: '
+        f'{len(observed_bundles)}/{len(expected_bundles)} expected.',
+        flush=True,
+    )
+    if missing_bundles:
+        print(
+            '[WARN] AutoTrack bundles absent from all loaded scalarstats: '
+            + ', '.join(missing_bundles),
+            flush=True,
+        )
     metric_counts = out['metric'].value_counts().sort_index()
     print(
         '[INFO] Loaded WM scalarstats: '
