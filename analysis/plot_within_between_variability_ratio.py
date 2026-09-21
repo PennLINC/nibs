@@ -207,12 +207,12 @@ def draw_ratio_panel(
 
     ax.axvline(1.0, color='#777777', lw=1.2, ls='--', zorder=1)
     ax.text(
-        0.50,
-        -0.060,
+        0.72,
+        0.006,
         'Between > within',
         transform=ax.get_xaxis_transform(),
         ha='center',
-        va='top',
+        va='bottom',
         fontsize=10.2,
         color='#2F5F9E',
         fontweight='bold',
@@ -222,11 +222,11 @@ def draw_ratio_panel(
     if upper > 1.0:
         ax.text(
             0.5 * (1.0 + upper),
-            -0.060,
+            0.006,
             'Within > between',
             transform=ax.get_xaxis_transform(),
             ha='center',
-            va='top',
+            va='bottom',
             fontsize=10.2,
             color='#B12A2A',
             fontweight='bold',
@@ -248,7 +248,7 @@ def draw_ratio_panel(
         'Within-participant test–retest SD / between-participant SD',
         fontsize=11.5,
         fontweight='bold',
-        labelpad=42,
+        labelpad=9,
     )
     ax.set_title(
         TISSUE_CONFIG[tissue][1],
@@ -281,7 +281,7 @@ def plot_figure(
     fig, axes = plt.subplots(1, 2, figsize=(18.0, 11.5), constrained_layout=False)
     draw_ratio_panel(axes[0], summary, 'wm', upper, label_side='left')
     draw_ratio_panel(axes[1], summary, 'gm', upper, label_side='right')
-    fig.subplots_adjust(left=0.16, right=0.84, top=0.91, bottom=0.17, wspace=0.08)
+    fig.subplots_adjust(left=0.16, right=0.84, top=0.91, bottom=0.13, wspace=0.08)
 
     for label, ax in zip(('A', 'B'), axes, strict=True):
         ax.text(
