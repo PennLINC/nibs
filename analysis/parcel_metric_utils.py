@@ -242,8 +242,15 @@ def canonical_metric_from_qsirecon_context(
                 }
             )
             compact_variable = variable
-            if compact_variable.startswith('noddi'):
-                compact_variable = compact_variable.removeprefix('noddi')
+            # QSIRecon has emitted both prefix- and suffix-form names for
+            # modulated NODDI maps (for example, ``modulated_icvf`` and
+            # ``icvf_modulated``).  Remove either form before looking up the
+            # underlying NODDI variable.
+            while compact_variable.startswith(('noddi', 'modulated')):
+                if compact_variable.startswith('noddi'):
+                    compact_variable = compact_variable.removeprefix('noddi')
+                elif compact_variable.startswith('modulated'):
+                    compact_variable = compact_variable.removeprefix('modulated')
             if compact_variable.endswith('modulated'):
                 compact_variable = compact_variable.removesuffix('modulated')
             label = modulated_aliases.get(variable) or modulated_aliases.get(
