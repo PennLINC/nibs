@@ -207,16 +207,37 @@ def draw_ratio_panel(
 
     ax.axvline(1.0, color='#777777', lw=1.2, ls='--', zorder=1)
     ax.text(
-        1.0,
-        1.012,
-        'Within = between',
+        0.50,
+        0.985,
+        'Between > within',
         transform=ax.get_xaxis_transform(),
         ha='center',
-        va='bottom',
-        fontsize=9.8,
-        color='#666666',
+        va='top',
+        fontsize=10.2,
+        color='#2F5F9E',
+        fontweight='bold',
+        bbox={'facecolor': 'white', 'edgecolor': 'none', 'alpha': 0.82, 'pad': 1.5},
         clip_on=False,
     )
+    if upper > 1.0:
+        ax.text(
+            0.5 * (1.0 + upper),
+            0.985,
+            'Within > between',
+            transform=ax.get_xaxis_transform(),
+            ha='center',
+            va='top',
+            fontsize=10.2,
+            color='#B12A2A',
+            fontweight='bold',
+            bbox={
+                'facecolor': 'white',
+                'edgecolor': 'none',
+                'alpha': 0.82,
+                'pad': 1.5,
+            },
+            clip_on=False,
+        )
     ax.set_xlim(0.0, upper)
     ax.set_ylim(-0.8, len(tissue_summary) - 0.2)
     ax.set_yticks(positions)

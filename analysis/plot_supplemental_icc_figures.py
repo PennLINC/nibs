@@ -298,7 +298,7 @@ def plot_regional_heatmap(
         1,
         2,
         width_ratios=[0.018, 1.0],
-        left=0.20,
+        left=0.22,
         right=0.975,
         bottom=0.22,
         top=0.925,
@@ -328,7 +328,15 @@ def plot_regional_heatmap(
         ]
     ).reshape(n_metrics, 1, 4)
     family_ax.imshow(family_colors, aspect='auto', interpolation='nearest')
-    family_ax.set_axis_off()
+    family_ax.set_xticks([])
+    family_ax.set_yticks(np.arange(n_metrics))
+    family_ax.set_yticklabels(
+        [display.get(metric, metric) for metric in matrix.columns],
+        fontsize=max(8.7, min(10.5, 810.0 / max(n_metrics, 1))),
+    )
+    family_ax.tick_params(axis='y', length=0, pad=6)
+    for spine in family_ax.spines.values():
+        spine.set_visible(False)
 
     ax.set_xticks(np.arange(n_regions))
     ax.set_xticklabels(
@@ -339,15 +347,13 @@ def plot_regional_heatmap(
         fontsize=max(8.3, min(10.2, 780.0 / max(n_regions, 1))),
     )
     ax.set_yticks(np.arange(n_metrics))
-    ax.set_yticklabels(
-        [display.get(metric, metric) for metric in matrix.columns],
-        fontsize=max(8.7, min(10.5, 810.0 / max(n_metrics, 1))),
-    )
+    ax.set_yticklabels([])
     ax.tick_params(length=0, pad=2)
     ax.set_xlabel('Bundle' if tissue == 'wm' else 'Parcel', fontweight='bold')
-    ax.set_ylabel('Metric', fontweight='bold')
+    ax.set_ylabel('')
+    family_ax.set_ylabel('Metric', fontweight='bold', labelpad=8)
     fig.text(
-        0.20,
+        0.22,
         0.955,
         f'{REGIONAL_DOMAINS[tissue][1]} {icc_label}',
         ha='left',

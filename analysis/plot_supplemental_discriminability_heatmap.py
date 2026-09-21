@@ -327,6 +327,13 @@ def plot_faceted_heatmaps(
                 for x_index in range(matrix.shape[1]):
                     value = matrix.iloc[y_index, x_index]
                     if np.isfinite(value):
+                        normalized = np.clip(
+                            (float(value) - color_min) / max(1.0 - color_min, 1e-12),
+                            0.0,
+                            1.0,
+                        )
+                        red, green, blue, _ = cmap(normalized)
+                        luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
                         ax.text(
                             x_index,
                             y_index,
@@ -334,7 +341,7 @@ def plot_faceted_heatmaps(
                             ha='center',
                             va='center',
                             fontsize=10.5,
-                            color='#111111',
+                            color='white' if luminance < 0.48 else '#111111',
                             fontweight='bold',
                         )
             ax.set_xticks(np.arange(matrix.shape[1]))
@@ -347,7 +354,9 @@ def plot_faceted_heatmaps(
             )
             ax.set_yticks([0, 1])
             ax.set_yticklabels(
-                ['WM bundles', 'GM parcels'] if panel_index == 0 else ['', ''],
+                ['White matter bundles', 'Gray matter parcels']
+                if panel_index == 0
+                else ['', ''],
                 fontsize=9.2,
             )
             ax.tick_params(length=0, pad=3)

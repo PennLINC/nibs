@@ -39,13 +39,15 @@ from plot_supplemental_discriminability_heatmap import (
 
 
 EFFECT_LABELS = {
-    'robust_median_d': r'Average WM-GM separation (robust $d$)',
-    'cohen_d': "Average WM-GM separation (Cohen's d)",
-    'hedges_g': "Average WM-GM separation (Hedges' g)",
-    'signed_auc': 'Average WM-GM separation (signed AUC)',
-    'median_difference': 'Median WM - GM difference',
-    'mean_difference': 'Mean WM - GM difference',
-    'percent_median_difference': 'Median WM - GM difference (% of |WM median|)',
+    'robust_median_d': r'Average White Matter–Gray Matter separation (robust $d$)',
+    'cohen_d': "Average White Matter–Gray Matter separation (Cohen's d)",
+    'hedges_g': "Average White Matter–Gray Matter separation (Hedges' g)",
+    'signed_auc': 'Average White Matter–Gray Matter separation (signed AUC)',
+    'median_difference': 'Median White Matter − Gray Matter difference',
+    'mean_difference': 'Mean White Matter − Gray Matter difference',
+    'percent_median_difference': (
+        'Median White Matter − Gray Matter difference (% of |White Matter median|)'
+    ),
 }
 GM_TISSUE_LABELS = {
     'cortical_gm': 'Cortical GM',
@@ -289,8 +291,13 @@ def plot_faceted_effect_sizes(
             )
             ax.set_yticks([])
             ax.tick_params(length=0, pad=3)
+            category_title = CATEGORY_LABELS.get(
+                category, category.replace('_', ' ').title()
+            )
+            if category == 'NODDI':
+                category_title = r'NODDI$^{\dagger}$'
             ax.set_title(
-                CATEGORY_LABELS.get(category, category.replace('_', ' ').title()),
+                category_title,
                 loc='left',
                 fontsize=12.5,
                 fontweight='bold',
@@ -318,12 +325,12 @@ def plot_faceted_effect_sizes(
     cbar = fig.colorbar(image, cax=cbar_ax, orientation='horizontal')
     cbar.set_ticks(np.linspace(-color_limit, color_limit, 5))
     gm_label = GM_TISSUE_LABELS[gm_tissue]
-    effect_label = EFFECT_LABELS.get(effect, effect).replace('GM', gm_label)
+    effect_label = EFFECT_LABELS.get(effect, effect).replace('Gray Matter', gm_label)
     cbar.set_label(effect_label, fontsize=11.5, fontweight='bold', labelpad=6)
     cbar.ax.text(
         0.0,
         1.95,
-        f'{gm_label} > WM',
+        f'{gm_label} > White Matter',
         transform=cbar.ax.transAxes,
         ha='left',
         va='bottom',
@@ -332,18 +339,30 @@ def plot_faceted_effect_sizes(
     cbar.ax.text(
         1.0,
         1.95,
-        f'WM > {gm_label}',
+        f'White Matter > {gm_label}',
         transform=cbar.ax.transAxes,
         ha='right',
         va='bottom',
         fontsize=10.5,
     )
     fig.suptitle(
-        f'White Matter–{gm_label} Effect Sizes by Metric Family',
+        'Gray–White Matter Differentiation',
         fontsize=17,
         fontweight='bold',
         y=0.97,
     )
+    if 'NODDI' in categories:
+        fig.text(
+            0.055,
+            0.012,
+            (
+                r'$^{\dagger}$ White matter and gray matter NODDI measures were '
+                'obtained from separate model fits.'
+            ),
+            ha='left',
+            va='bottom',
+            fontsize=9.5,
+        )
 
     out_prefix.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(out_prefix.with_suffix('.summary.tsv'), sep='\t', index=False)
@@ -445,13 +464,13 @@ def plot_effect_sizes(
     ax.grid(False)
     ax.grid(axis='y', visible=False)
     gm_label = GM_TISSUE_LABELS[gm_tissue]
-    effect_label = EFFECT_LABELS.get(effect, effect).replace('GM', gm_label)
+    effect_label = EFFECT_LABELS.get(effect, effect).replace('Gray Matter', gm_label)
     ax.set_xlabel(effect_label, fontsize=13.0, labelpad=9)
     ax.set_ylabel('')
     ax.text(
         0.01,
         1.01,
-        'GM > WM',
+        f'{gm_label} > White Matter',
         transform=ax.transAxes,
         ha='left',
         va='bottom',
@@ -461,7 +480,7 @@ def plot_effect_sizes(
     ax.text(
         0.99,
         1.01,
-        'WM > GM',
+        f'White Matter > {gm_label}',
         transform=ax.transAxes,
         ha='right',
         va='bottom',
