@@ -241,7 +241,14 @@ def canonical_metric_from_qsirecon_context(
                     'od': 'OD (Modulated)',
                 }
             )
-            label = modulated_aliases.get(variable)
+            compact_variable = variable
+            if compact_variable.startswith('noddi'):
+                compact_variable = compact_variable.removeprefix('noddi')
+            if compact_variable.endswith('modulated'):
+                compact_variable = compact_variable.removesuffix('modulated')
+            label = modulated_aliases.get(variable) or modulated_aliases.get(
+                compact_variable
+            )
             if label in available:
                 return label
         label = aliases.get(variable)
