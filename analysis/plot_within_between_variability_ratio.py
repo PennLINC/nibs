@@ -208,11 +208,11 @@ def draw_ratio_panel(
     ax.axvline(1.0, color='#777777', lw=1.2, ls='--', zorder=1)
     ax.text(
         0.50,
-        0.985,
+        0.012,
         'Between > within',
         transform=ax.get_xaxis_transform(),
         ha='center',
-        va='top',
+        va='bottom',
         fontsize=10.2,
         color='#2F5F9E',
         fontweight='bold',
@@ -222,11 +222,11 @@ def draw_ratio_panel(
     if upper > 1.0:
         ax.text(
             0.5 * (1.0 + upper),
-            0.985,
+            0.012,
             'Within > between',
             transform=ax.get_xaxis_transform(),
             ha='center',
-            va='top',
+            va='bottom',
             fontsize=10.2,
             color='#B12A2A',
             fontweight='bold',
