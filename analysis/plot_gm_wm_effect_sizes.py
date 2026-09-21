@@ -23,8 +23,19 @@ except ImportError:  # pragma: no cover - checked after argparse handles --help
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from metric_registry import METRIC_FAMILY_LEGEND_TITLE, SOURCE_IMAGE_COLORS, source_image_display_label
-from path_utils import DERIVATIVES_ROOT, PROJECT_ROOT
+from metric_registry import (
+    METRIC_FAMILY_LEGEND_TITLE,
+    SOURCE_IMAGE_COLORS,
+    build_metric_specs,
+    source_image_display_label,
+)
+from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT
+from plot_supplemental_discriminability_heatmap import (
+    CATEGORY_LABELS,
+    compact_metric_label,
+    pack_categories,
+    supplemental_family,
+)
 
 
 EFFECT_LABELS = {
@@ -151,6 +162,201 @@ def display_effect_values(values: np.ndarray) -> np.ndarray:
 
 def display_metric_label(label: str) -> str:
     return 'ICVF†' if label == 'ICVF' else label
+
+
+def add_effect_categories(
+    summary: pd.DataFrame,
+    patterns_file: Path,
+) -> tuple[pd.DataFrame, list[str]]:
+    specs = build_metric_specs(patterns_file)
+    spec_by_label = {spec.label: spec for spec in specs}
+    out = summary.copy()
+    out['category'] = out['metric_key'].map(
+        lambda key: (
+            supplemental_family(spec_by_label[key])
+            if key in spec_by_label
+            else 'Other'
+        )
+    )
+    out['compact_metric'] = out.apply(
+        lambda row: (
+            compact_metric_label(spec_by_label[row['metric_key']], row['category'])
+            if row['metric_key'] in spec_by_label
+            else display_metric_label(str(row['display_metric']))
+        ),
+        axis=1,
+    )
+    registry_order = list(
+        dict.fromkeys(
+            supplemental_family(spec)
+            for spec in specs
+            if spec.source_image != 'g-ratio'
+        )
+    )
+    observed = set(out['category'])
+    categories = [category for category in registry_order if category in observed]
+    if 'Other' in observed:
+        categories.append('Other')
+    return out, categories
+
+
+def plot_faceted_effect_sizes(
+    data: pd.DataFrame,
+    out_prefix: Path,
+    effect: str,
+    gm_tissue: str,
+    patterns_file: Path,
+    max_columns_per_row: int,
+) -> None:
+    summary = summarize_for_plot(data, effect)
+    if summary.empty:
+        raise RuntimeError(f'No finite {effect} values to plot.')
+    summary, categories = add_effect_categories(summary, patterns_file)
+    counts = {
+        category: int(summary.loc[summary['category'] == category, 'metric_key'].nunique())
+        for category in categories
+    }
+    category_rows = pack_categories(categories, counts, max_columns_per_row)
+
+    finite = summary['mean'].to_numpy(dtype=float)
+    finite = finite[np.isfinite(finite)]
+    max_abs = max(0.25, float(np.max(np.abs(finite))))
+    color_limit = float(np.ceil(max_abs * 2.0) / 2.0)
+    cmap = mpl.colormaps['RdBu_r'].copy()
+
+    fig = plt.figure(
+        figsize=(20.0, max(6.0, 3.15 * len(category_rows) + 1.4)),
+        constrained_layout=False,
+    )
+    outer = fig.add_gridspec(
+        len(category_rows) + 1,
+        1,
+        height_ratios=[1.0] * len(category_rows) + [0.09],
+        left=0.055,
+        right=0.985,
+        top=0.925,
+        bottom=0.065,
+        hspace=1.35,
+    )
+    image = None
+    ordering_records: list[dict[str, object]] = []
+
+    for row_index, row_categories in enumerate(category_rows):
+        inner = outer[row_index].subgridspec(
+            1,
+            len(row_categories),
+            width_ratios=[max(2.5, counts[category]) for category in row_categories],
+            wspace=0.30,
+        )
+        for panel_index, category in enumerate(row_categories):
+            ax = fig.add_subplot(inner[0, panel_index])
+            category_data = summary.loc[summary['category'] == category].copy()
+            category_data['abs_mean'] = category_data['mean'].abs()
+            category_data = category_data.sort_values(
+                ['abs_mean', 'display_metric'],
+                ascending=[False, True],
+            ).reset_index(drop=True)
+            values = category_data['mean'].to_numpy(dtype=float).reshape(1, -1)
+            image = ax.imshow(
+                values,
+                aspect='auto',
+                interpolation='nearest',
+                cmap=cmap,
+                vmin=-color_limit,
+                vmax=color_limit,
+            )
+            for x_index, value in enumerate(values[0]):
+                annotation_color = (
+                    'white' if abs(value) >= 0.58 * color_limit else '#111111'
+                )
+                ax.text(
+                    x_index,
+                    0,
+                    f'{value:.2f}',
+                    ha='center',
+                    va='center',
+                    fontsize=10.2,
+                    color=annotation_color,
+                    fontweight='bold',
+                )
+            ax.set_xticks(np.arange(len(category_data)))
+            ax.set_xticklabels(
+                category_data['compact_metric'].tolist(),
+                rotation=52,
+                ha='right',
+                rotation_mode='anchor',
+                fontsize=max(7.2, min(9.5, 90.0 / max(len(category_data), 1))),
+            )
+            ax.set_yticks([])
+            ax.tick_params(length=0, pad=3)
+            ax.set_title(
+                CATEGORY_LABELS.get(category, category.replace('_', ' ').title()),
+                loc='left',
+                fontsize=12.5,
+                fontweight='bold',
+                pad=8,
+            )
+            for spine in ax.spines.values():
+                spine.set_edgecolor('#555555')
+                spine.set_linewidth(0.6)
+
+            for rank, row in category_data.iterrows():
+                ordering_records.append(
+                    {
+                        'category': category,
+                        'rank_by_absolute_effect': rank + 1,
+                        'metric_key': row['metric_key'],
+                        'metric': row['display_metric'],
+                        'mean_effect': row['mean'],
+                        'absolute_mean_effect': row['abs_mean'],
+                    }
+                )
+
+    if image is None:
+        raise RuntimeError('No effect-size panels were drawn.')
+    cbar_ax = fig.add_subplot(outer[-1, 0])
+    cbar = fig.colorbar(image, cax=cbar_ax, orientation='horizontal')
+    cbar.set_ticks(np.linspace(-color_limit, color_limit, 5))
+    gm_label = GM_TISSUE_LABELS[gm_tissue]
+    effect_label = EFFECT_LABELS.get(effect, effect).replace('GM', gm_label)
+    cbar.set_label(effect_label, fontsize=11.5, fontweight='bold', labelpad=6)
+    cbar.ax.text(
+        0.0,
+        1.95,
+        f'{gm_label} > WM',
+        transform=cbar.ax.transAxes,
+        ha='left',
+        va='bottom',
+        fontsize=10.5,
+    )
+    cbar.ax.text(
+        1.0,
+        1.95,
+        f'WM > {gm_label}',
+        transform=cbar.ax.transAxes,
+        ha='right',
+        va='bottom',
+        fontsize=10.5,
+    )
+    fig.suptitle(
+        f'White Matter–{gm_label} Effect Sizes by Metric Family',
+        fontsize=17,
+        fontweight='bold',
+        y=0.97,
+    )
+
+    out_prefix.parent.mkdir(parents=True, exist_ok=True)
+    summary.to_csv(out_prefix.with_suffix('.summary.tsv'), sep='\t', index=False)
+    pd.DataFrame(ordering_records).to_csv(
+        out_prefix.with_name(out_prefix.name + '_ordering.tsv'),
+        sep='\t',
+        index=False,
+    )
+    for extension in ('png', 'pdf'):
+        out_file = out_prefix.with_suffix(f'.{extension}')
+        fig.savefig(out_file, bbox_inches='tight', dpi=300)
+        print(f'Wrote: {out_file}')
+    plt.close(fig)
 
 
 def plot_effect_sizes(
@@ -335,6 +541,18 @@ def parse_args() -> argparse.Namespace:
         action='store_true',
         help='Overlay subject-level points behind the metric summaries.',
     )
+    parser.add_argument(
+        '--patterns-file',
+        type=Path,
+        default=CODE_ROOT / 'configuration' / 'patterns.json',
+        help='Metric registry used to organize the full supplemental heatmap.',
+    )
+    parser.add_argument(
+        '--max-columns-per-row',
+        type=int,
+        default=28,
+        help='Approximate maximum number of metric cells per heatmap row.',
+    )
     return parser.parse_args()
 
 
@@ -360,13 +578,23 @@ def main() -> None:
         args.effect,
         args.gm_tissue,
     )
-    plot_effect_sizes(
-        data,
-        output_stem.expanduser().resolve(),
-        args.effect,
-        args.gm_tissue,
-        args.show_subject_points,
-    )
+    if args.analysis_set == 'full':
+        plot_faceted_effect_sizes(
+            data,
+            output_stem.expanduser().resolve(),
+            args.effect,
+            args.gm_tissue,
+            args.patterns_file.expanduser().resolve(),
+            args.max_columns_per_row,
+        )
+    else:
+        plot_effect_sizes(
+            data,
+            output_stem.expanduser().resolve(),
+            args.effect,
+            args.gm_tissue,
+            args.show_subject_points,
+        )
 
 
 if __name__ == '__main__':

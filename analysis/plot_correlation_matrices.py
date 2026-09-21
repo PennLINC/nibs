@@ -80,12 +80,12 @@ def figure_size(n_metrics: int) -> tuple[float, float]:
 
 def label_fontsize(n_metrics: int) -> float:
     if n_metrics <= 28:
-        return 12.8
+        return 13.6
     if n_metrics <= 45:
-        return 11.2
+        return 12.6
     if n_metrics <= 70:
-        return 9.8
-    return 8.8
+        return 11.6
+    return 11.0
 
 
 def title_fontsize(n_metrics: int) -> float:
@@ -227,6 +227,14 @@ def add_source_annotation(
     )
 
 
+def style_row_dendrogram(grid, linewidth: float = 2.0) -> None:
+    """Make hierarchical-clustering branches legible in full-metric figures."""
+
+    for collection in grid.ax_row_dendrogram.collections:
+        collection.set_linewidth(linewidth)
+        collection.set_color('#2b2b2b')
+
+
 def position_matrix_guides(grid, legend) -> None:
     """Place the colorbar and legend directly below the rotated metric labels."""
 
@@ -293,6 +301,7 @@ def plot_matrix(
         },
     )
     grid.ax_col_dendrogram.set_visible(False)
+    style_row_dendrogram(grid)
     grid.ax_heatmap.set_aspect('equal', adjustable='box')
     grid.ax_heatmap.set_xlabel('')
     grid.ax_heatmap.set_ylabel('')

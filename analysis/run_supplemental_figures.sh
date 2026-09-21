@@ -27,6 +27,9 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
     --icc-column ICC2_1 \
     --strict
 
+"${PYTHON_BIN}" analysis/plot_within_between_variability_ratio.py \
+    --stat median
+
 "${PYTHON_BIN}" analysis/plot_supplemental_discriminability_heatmap.py \
     --analysis-set full \
     --stat median \

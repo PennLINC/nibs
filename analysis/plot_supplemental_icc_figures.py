@@ -245,6 +245,8 @@ def position_regional_guides(
         for tick in heatmap_ax.get_xticklabels()
         if tick.get_visible() and tick.get_text()
     ]
+    if heatmap_ax.xaxis.label.get_visible() and heatmap_ax.xaxis.label.get_text():
+        tick_boxes.append(heatmap_ax.xaxis.label.get_window_extent(renderer))
     if tick_boxes:
         label_bottom_display = min(box.y0 for box in tick_boxes)
         label_bottom = fig.transFigure.inverted().transform((0, label_bottom_display))[1]
@@ -276,70 +278,76 @@ def plot_regional_heatmap(
     if matrix.empty:
         raise RuntimeError(f'No finite regional ICC values for {tissue}.')
 
-    n_rows, n_columns = matrix.shape
-    if tissue == 'wm' and n_rows != EXPECTED_WM_BUNDLE_COUNT:
+    n_regions, n_metrics = matrix.shape
+    if tissue == 'wm' and n_regions != EXPECTED_WM_BUNDLE_COUNT:
         raise RuntimeError(
-            f'WM ICC heatmap must contain {EXPECTED_WM_BUNDLE_COUNT} bundles; got {n_rows}.'
+            f'WM ICC heatmap must contain {EXPECTED_WM_BUNDLE_COUNT} bundles; got {n_regions}.'
         )
     missing_cells = int(matrix.isna().to_numpy().sum())
     total_cells = int(matrix.size)
     print(
-        f'[INFO] {REGIONAL_DOMAINS[tissue][1]} ICC matrix: {n_rows} rows x '
-        f'{n_columns} metrics; {missing_cells}/{total_cells} cells missing '
+        f'[INFO] {REGIONAL_DOMAINS[tissue][1]} ICC matrix: {n_metrics} metric rows x '
+        f'{n_regions} region columns; {missing_cells}/{total_cells} cells missing '
         f'({missing_cells / total_cells:.1%}).',
         flush=True,
     )
-    fig_width = max(14.0, min(34.0, 5.0 + 0.29 * n_columns))
-    fig_height = max(8.0, min(28.0, 3.7 + 0.20 * n_rows))
+    fig_width = max(15.0, min(38.0, 5.2 + 0.31 * n_regions))
+    fig_height = max(10.0, min(32.0, 4.0 + 0.25 * n_metrics))
     fig = plt.figure(figsize=(fig_width, fig_height), constrained_layout=False)
     grid = fig.add_gridspec(
-        2,
         1,
-        height_ratios=[0.018, 1.0],
-        left=0.19,
+        2,
+        width_ratios=[0.018, 1.0],
+        left=0.20,
         right=0.975,
-        bottom=0.205,
+        bottom=0.22,
         top=0.925,
-        hspace=0.008,
+        wspace=0.004,
     )
     family_ax = fig.add_subplot(grid[0, 0])
-    ax = fig.add_subplot(grid[1, 0], sharex=family_ax)
+    ax = fig.add_subplot(grid[0, 1], sharey=family_ax)
 
     cmap = mpl.colormaps['viridis'].copy()
     cmap.set_bad('#eeeeee')
     cmap.set_under('#52245f')
     image = ax.imshow(
-        matrix.to_numpy(dtype=float),
+        matrix.T.to_numpy(dtype=float),
         aspect='auto',
         interpolation='nearest',
         cmap=cmap,
         vmin=0.0,
         vmax=1.0,
     )
-    column_sources = [source.get(metric, 'Other') for metric in matrix.columns]
+    metric_sources = [source.get(metric, 'Other') for metric in matrix.columns]
     family_colors = np.asarray(
-        [mpl.colors.to_rgba(SOURCE_IMAGE_COLORS.get(item, SOURCE_IMAGE_COLORS['Other'])) for item in column_sources]
-    ).reshape(1, n_columns, 4)
+        [
+            mpl.colors.to_rgba(
+                SOURCE_IMAGE_COLORS.get(item, SOURCE_IMAGE_COLORS['Other'])
+            )
+            for item in metric_sources
+        ]
+    ).reshape(n_metrics, 1, 4)
     family_ax.imshow(family_colors, aspect='auto', interpolation='nearest')
     family_ax.set_axis_off()
 
-    ax.set_xticks(np.arange(n_columns))
+    ax.set_xticks(np.arange(n_regions))
     ax.set_xticklabels(
-        [display.get(metric, metric) for metric in matrix.columns],
+        matrix.index,
         rotation=55,
         ha='right',
         rotation_mode='anchor',
-        fontsize=max(7.4, min(9.6, 680.0 / max(n_columns, 1))),
+        fontsize=max(8.3, min(10.2, 780.0 / max(n_regions, 1))),
     )
-    ax.set_yticks(np.arange(n_rows))
+    ax.set_yticks(np.arange(n_metrics))
     ax.set_yticklabels(
-        matrix.index,
-        fontsize=max(7.0, min(9.2, 610.0 / max(n_rows, 1))),
+        [display.get(metric, metric) for metric in matrix.columns],
+        fontsize=max(8.7, min(10.5, 810.0 / max(n_metrics, 1))),
     )
     ax.tick_params(length=0, pad=2)
-    ax.set_ylabel('Bundle' if tissue == 'wm' else 'Parcel', fontweight='bold')
+    ax.set_xlabel('Bundle' if tissue == 'wm' else 'Parcel', fontweight='bold')
+    ax.set_ylabel('Metric', fontweight='bold')
     fig.text(
-        0.19,
+        0.20,
         0.955,
         f'{REGIONAL_DOMAINS[tissue][1]} {icc_label}',
         ha='left',
@@ -356,7 +364,7 @@ def plot_regional_heatmap(
     cbar.ax.tick_params(labelsize=9.8, length=3)
 
     observed_sources = [
-        key for key in SOURCE_IMAGE_COLORS if key in set(column_sources)
+        key for key in SOURCE_IMAGE_COLORS if key in set(metric_sources)
     ]
     handles = [
         Patch(
@@ -398,66 +406,88 @@ def plot_voxel_intervals(
 ) -> None:
     summary = summarize_metric_values(voxel_data)
     summary = summary.loc[summary['tissue'] == tissue].copy()
-    summary = summary.sort_values(['median', 'metric'], ascending=[True, True])
+    summary = summary.sort_values(['median', 'metric'], ascending=[False, True])
     if summary.empty:
         raise RuntimeError(f'No finite voxelwise ICC values for {tissue}.')
 
-    positions = np.arange(len(summary))
-    fig_height = max(8.0, 1.8 + 0.265 * len(summary))
-    fig, ax = plt.subplots(figsize=(9.0, fig_height), constrained_layout=False)
-    for position, (_, row) in zip(positions, summary.iterrows(), strict=True):
-        color = SOURCE_IMAGE_COLORS.get(row['source_image'], SOURCE_IMAGE_COLORS['Other'])
-        ax.add_patch(
-            Rectangle(
-                (row['q25'], position - 0.22),
-                max(row['q75'] - row['q25'], 0.001),
-                0.44,
-                facecolor=color,
+    column_tables = [chunk.copy() for chunk in np.array_split(summary, 2) if not chunk.empty]
+    max_column_metrics = max(len(chunk) for chunk in column_tables)
+    fig_height = max(8.0, 2.15 + 0.255 * max_column_metrics)
+    fig, axes = plt.subplots(
+        1,
+        len(column_tables),
+        figsize=(14.5, fig_height),
+        constrained_layout=False,
+        squeeze=False,
+    )
+    axes = list(axes[0])
+    for ax, column_table in zip(axes, column_tables, strict=True):
+        positions = np.arange(len(column_table))
+        for position, (_, row) in zip(positions, column_table.iterrows(), strict=True):
+            color = SOURCE_IMAGE_COLORS.get(
+                row['source_image'], SOURCE_IMAGE_COLORS['Other']
+            )
+            ax.add_patch(
+                Rectangle(
+                    (row['q25'], position - 0.22),
+                    max(row['q75'] - row['q25'], 0.001),
+                    0.44,
+                    facecolor=color,
+                    edgecolor='#2b2b2b',
+                    linewidth=0.65,
+                    alpha=0.88,
+                    zorder=2,
+                )
+            )
+            ax.plot(
+                [row['median'], row['median']],
+                [position - 0.25, position + 0.25],
+                color='white',
+                lw=1.8,
+                zorder=3,
+            )
+            ax.scatter(
+                [row['median']],
+                [position],
+                s=22,
+                facecolor='white',
                 edgecolor='#2b2b2b',
                 linewidth=0.65,
-                alpha=0.88,
-                zorder=2,
+                zorder=4,
             )
-        )
-        ax.plot(
-            [row['median'], row['median']],
-            [position - 0.25, position + 0.25],
-            color='white',
-            lw=1.8,
-            zorder=3,
-        )
-        ax.scatter(
-            [row['median']],
-            [position],
-            s=22,
-            facecolor='white',
-            edgecolor='#2b2b2b',
-            linewidth=0.65,
-            zorder=4,
-        )
 
-    for benchmark in BENCHMARKS:
-        ax.axvline(
-            benchmark,
-            color='#c7c7c7',
-            lw=0.9 if benchmark else 1.1,
-            ls='-' if benchmark else ':',
-            zorder=0,
-        )
-    ax.set_yticks(positions)
-    ax.set_yticklabels(summary['metric'], fontsize=8.8)
-    ax.tick_params(axis='y', length=0, pad=4)
-    ax.set_ylim(-0.8, len(summary) - 0.2)
-    ax.set_xlim(0.0, 1.0)
-    ax.set_xlabel(
+        for benchmark in BENCHMARKS:
+            ax.axvline(
+                benchmark,
+                color='#c7c7c7',
+                lw=0.9 if benchmark else 1.1,
+                ls='-' if benchmark else ':',
+                zorder=0,
+            )
+        ax.set_yticks(positions)
+        ax.set_yticklabels(column_table['metric'], fontsize=9.4)
+        ax.tick_params(axis='y', length=0, pad=4)
+        ax.tick_params(axis='x', labelsize=9.5)
+        ax.set_ylim(len(column_table) - 0.2, -0.8)
+        ax.set_xlim(0.0, 1.0)
+        ax.set_xticks([0.0, 0.25, 0.5, 0.75, 1.0])
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+    xlabel = (
         'ICC(2,1) across white matter voxels'
         if tissue == 'wm'
-        else 'ICC(2,1) across cortical gray matter voxels',
+        else 'ICC(2,1) across cortical gray matter voxels'
+    )
+    fig.supxlabel(xlabel, fontsize=11.5, fontweight='bold', y=0.052)
+    fig.suptitle(
+        VOXEL_TITLES[tissue],
+        x=0.20,
+        y=0.985,
+        ha='left',
+        fontsize=17,
         fontweight='bold',
     )
-    ax.set_title(VOXEL_TITLES[tissue], loc='left', fontsize=16, fontweight='bold')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
 
     sources = [
         key for key in SOURCE_IMAGE_COLORS if key in set(summary['source_image'])
@@ -470,27 +500,20 @@ def plot_voxel_intervals(
         )
         for key in sources
     ]
-    fig.subplots_adjust(left=0.33, right=0.97, top=0.96, bottom=0.050)
+    fig.subplots_adjust(left=0.20, right=0.985, top=0.955, bottom=0.105, wspace=0.48)
     legend = fig.legend(
         handles=handles,
         title=METRIC_FAMILY_LEGEND_TITLE,
-        loc='upper center',
-        bbox_to_anchor=(0.65, 0.0),
-        ncol=min(4, len(handles)),
+        loc='lower center',
+        bbox_to_anchor=(0.59, 0.002),
+        ncol=max(1, len(handles)),
         frameon=False,
-        fontsize=9,
-        title_fontsize=10,
+        fontsize=9.5,
+        title_fontsize=10.5,
+        handlelength=1.4,
+        columnspacing=1.15,
     )
     legend.get_title().set_fontweight('bold')
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
-    label_box = ax.xaxis.label.get_window_extent(renderer)
-    label_bottom = fig.transFigure.inverted().transform((0, label_box.y0))[1]
-    axis_center = 0.5 * (ax.get_position().x0 + ax.get_position().x1)
-    legend.set_bbox_to_anchor(
-        (axis_center, label_bottom - 0.008),
-        transform=fig.transFigure,
-    )
 
     output_stem.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(output_stem.with_suffix('.summary.tsv'), sep='\t', index=False)
