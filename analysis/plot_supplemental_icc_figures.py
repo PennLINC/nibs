@@ -347,7 +347,7 @@ def plot_regional_heatmap(
         fontsize=max(8.3, min(10.2, 780.0 / max(n_regions, 1))),
     )
     ax.set_yticks(np.arange(n_metrics))
-    ax.set_yticklabels([])
+    ax.tick_params(axis='y', labelleft=False)
     ax.tick_params(length=0, pad=2)
     ax.set_xlabel('Bundle' if tissue == 'wm' else 'Parcel', fontweight='bold')
     ax.set_ylabel('')

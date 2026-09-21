@@ -50,9 +50,9 @@ EFFECT_LABELS = {
     ),
 }
 GM_TISSUE_LABELS = {
-    'cortical_gm': 'Cortical GM',
-    'deep_gm': 'Deep GM',
-    'all_gm': 'All GM',
+    'cortical_gm': 'Cortical Gray Matter',
+    'deep_gm': 'Deep Gray Matter',
+    'all_gm': 'All Gray Matter',
 }
 
 
