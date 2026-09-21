@@ -1108,7 +1108,9 @@ def plot_figure(
         top=0.990,
         bottom=0.035,
         hspace=0.045,
-        wspace=0.008,
+        # Leave a narrow white gutter between adjacent group boxes so their
+        # colored spines remain visually distinct instead of being overdrawn.
+        wspace=0.025,
         height_ratios=height_ratios,
     )
     bg_limits = {
