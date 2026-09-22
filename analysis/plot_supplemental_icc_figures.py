@@ -44,6 +44,7 @@ from plot_icc_figures import (  # noqa: E402
     require_dependencies,
     summarize_metric_values,
 )
+from region_display_labels import regional_feature_display_label  # noqa: E402
 
 
 REGIONAL_DOMAINS = {
@@ -334,7 +335,7 @@ def plot_regional_heatmap(
     family_ax.set_yticks(np.arange(n_metrics))
     family_ax.set_yticklabels(
         [display.get(metric, metric) for metric in matrix.columns],
-        fontsize=max(10.8, min(13.5, 1100.0 / max(n_metrics, 1))),
+        fontsize=max(10.2, min(12.5, 1000.0 / max(n_metrics, 1))),
     )
     family_ax.tick_params(axis='y', length=0, pad=6)
     for spine in family_ax.spines.values():
@@ -342,11 +343,11 @@ def plot_regional_heatmap(
 
     ax.set_xticks(np.arange(n_regions))
     ax.set_xticklabels(
-        matrix.index,
+        [regional_feature_display_label(feature, tissue) for feature in matrix.index],
         rotation=55,
         ha='right',
         rotation_mode='anchor',
-        fontsize=max(10.8, min(13.0, 1050.0 / max(n_regions, 1))),
+        fontsize=max(9.8, min(11.5, 880.0 / max(n_regions, 1))),
     )
     ax.set_yticks(np.arange(n_metrics))
     ax.tick_params(axis='y', labelleft=False)
