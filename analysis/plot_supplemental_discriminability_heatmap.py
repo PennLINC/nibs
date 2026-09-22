@@ -41,7 +41,7 @@ CATEGORY_LABELS = {
     'DKI': 'DKI',
     'DKI Micro': 'DKI Microstructure',
     'NODDI': 'NODDI',
-    'MAPMRI': 'MAPMRI',
+    'MAPMRI': 'MAP-MRI',
     'GQI': 'DSI Studio GQI',
     'dMRI': 'Other dMRI',
     'T1w/T2w': 'T₁w/T₂w',
