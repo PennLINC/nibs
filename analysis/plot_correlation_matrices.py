@@ -88,7 +88,7 @@ def label_fontsize(n_metrics: int) -> float:
         return 14.5
     if n_metrics <= 70:
         return 14.0
-    return 10.5
+    return 10
 
 
 def title_fontsize(n_metrics: int) -> float:
@@ -224,17 +224,6 @@ def add_source_annotation(
     bar_ax.set_yticks([])
     for spine in bar_ax.spines.values():
         spine.set_visible(False)
-    bar_ax.text(
-        -0.10,
-        -0.026,
-        METRIC_FAMILY_LEGEND_TITLE,
-        transform=bar_ax.transAxes,
-        rotation=45,
-        ha='right',
-        va='top',
-        rotation_mode='anchor',
-        fontsize=14.0,
-    )
 
 
 def style_row_dendrogram(grid, linewidth: float = 2.8) -> None:
