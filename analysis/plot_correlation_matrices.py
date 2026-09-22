@@ -34,6 +34,7 @@ from metric_registry import (
     SOURCE_IMAGE_COLORS,
     build_metric_specs,
     metric_display_labels,
+    metric_plot_label,
     source_image_display_label,
 )
 from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT
@@ -87,7 +88,7 @@ def label_fontsize(n_metrics: int) -> float:
         return 14.5
     if n_metrics <= 70:
         return 14.0
-    return 11
+    return 10.5
 
 
 def title_fontsize(n_metrics: int) -> float:
@@ -113,6 +114,13 @@ def load_correlation_matrix(path: Path) -> pd.DataFrame:
     values = corr.to_numpy(dtype=float)
     values = (values + values.T) / 2.0
     corr.loc[:, :] = values
+    display_labels = [metric_plot_label(label) for label in corr.index]
+    if len(set(display_labels)) != len(display_labels):
+        raise RuntimeError(
+            f'{path} contains metric labels that collide after publication formatting.'
+        )
+    corr.index = display_labels
+    corr.columns = [metric_plot_label(label) for label in corr.columns]
     return corr
 
 

@@ -143,7 +143,10 @@ def metric_plot_label(label: str) -> str:
     """Return the publication-facing label for figures."""
 
     replacements = {
+        'NG Parallel': 'NG ∥',
+        'NG (Parallel)': 'NG ∥',
         'NG (Perpendicular)': 'NG⊥',
+        'PAth': 'PAθ',
         'MPRAGE-MyelinW': 'MPRAGE T₁w/T₂w Ratio',
         'SPACE-MyelinW': 'SPACE T₁w/T₂w Ratio',
         'QSM-SEPIA-E5-X': 'QSM-SEPIA-E5-χ',
