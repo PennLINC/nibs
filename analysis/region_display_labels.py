@@ -31,8 +31,6 @@ def dkt_parcel_display_label(parcel_id: object) -> str:
 
     hemisphere = 'L' if match.group(1).lower() in {'lh', 'l'} else 'R'
     region = re.sub(r'[_\s-]+', ' ', match.group(2)).strip().title()
-    if not region.lower().endswith(' cortex'):
-        region = f'{region} Cortex'
     return f'{region} ({hemisphere})'
 
 

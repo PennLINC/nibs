@@ -28,8 +28,8 @@ def test_wm_bundle_display_label(track_id, expected):
 @pytest.mark.parametrize(
     ('parcel_id', 'expected'),
     [
-        ('rh_pericalcarine', 'Pericalcarine Cortex (R)'),
-        ('lh_caudal anterior cingulate', 'Caudal Anterior Cingulate Cortex (L)'),
+        ('rh_pericalcarine', 'Pericalcarine (R)'),
+        ('lh_caudal anterior cingulate', 'Caudal Anterior Cingulate (L)'),
     ],
 )
 def test_dkt_parcel_display_label(parcel_id, expected):
@@ -42,7 +42,7 @@ def test_regional_feature_display_label_routes_by_tissue():
     ) == 'Arcuate Fasciculus (L)'
     assert regional_feature_display_label(
         'rh_pericalcarine', 'gm'
-    ) == 'Pericalcarine Cortex (R)'
+    ) == 'Pericalcarine (R)'
 
 
 def test_regional_feature_display_label_rejects_unknown_tissue():
