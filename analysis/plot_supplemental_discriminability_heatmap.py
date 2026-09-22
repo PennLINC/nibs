@@ -287,7 +287,7 @@ def plot_faceted_heatmaps(
     }
     category_rows = pack_categories(categories, counts, max_columns_per_row)
     fig = plt.figure(
-        figsize=(20.0, max(6.0, 4.15 * len(category_rows) + 1.3)),
+        figsize=(17.0, max(7.0, 4.55 * len(category_rows) + 1.6)),
         constrained_layout=False,
     )
     outer = fig.add_gridspec(
@@ -340,7 +340,7 @@ def plot_faceted_heatmaps(
                             f'{value:.2f}',
                             ha='center',
                             va='center',
-                            fontsize=10.5,
+                            fontsize=13.0,
                             color='white' if luminance < 0.48 else '#111111',
                             fontweight='bold',
                         )
@@ -350,20 +350,20 @@ def plot_faceted_heatmaps(
                 rotation=52,
                 ha='right',
                 rotation_mode='anchor',
-                fontsize=max(6.5, min(9.0, 85.0 / max(matrix.shape[1], 1))),
+                fontsize=max(10.5, min(13.0, 120.0 / max(matrix.shape[1], 1))),
             )
             ax.set_yticks([0, 1])
             ax.set_yticklabels(
                 ['White matter bundles', 'Gray matter parcels']
                 if panel_index == 0
                 else ['', ''],
-                fontsize=9.2,
+                fontsize=12.0,
             )
-            ax.tick_params(length=0, pad=3)
+            ax.tick_params(length=0, pad=4)
             ax.set_title(
                 CATEGORY_LABELS.get(category, category.replace('_', ' ').title()),
                 loc='left',
-                fontsize=12.5,
+                fontsize=16.0,
                 fontweight='bold',
                 pad=8,
             )
@@ -388,10 +388,11 @@ def plot_faceted_heatmaps(
     cbar = fig.colorbar(image, cax=cbar_ax, orientation='horizontal')
     cbar.set_ticks(color_ticks)
     cbar.ax.xaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.2f'))
-    cbar.set_label(score_label, fontweight='bold', labelpad=6)
+    cbar.ax.tick_params(labelsize=12.0, length=4)
+    cbar.set_label(score_label, fontsize=14.0, fontweight='bold', labelpad=7)
     fig.suptitle(
         f'White Matter Bundle and Gray Matter Parcel {score_label}',
-        fontsize=17,
+        fontsize=22,
         fontweight='bold',
         y=0.975,
     )

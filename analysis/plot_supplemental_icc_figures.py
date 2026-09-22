@@ -291,8 +291,10 @@ def plot_regional_heatmap(
         f'({missing_cells / total_cells:.1%}).',
         flush=True,
     )
-    fig_width = max(15.0, min(38.0, 5.2 + 0.31 * n_regions))
-    fig_height = max(10.0, min(32.0, 4.0 + 0.25 * n_metrics))
+    # Keep the source canvas compact enough that manuscript downscaling does
+    # not turn otherwise reasonable point sizes into illegible text.
+    fig_width = max(15.0, min(20.0, 5.2 + 0.18 * n_regions))
+    fig_height = max(12.0, min(26.0, 4.5 + 0.23 * n_metrics))
     fig = plt.figure(figsize=(fig_width, fig_height), constrained_layout=False)
     grid = fig.add_gridspec(
         1,
@@ -332,7 +334,7 @@ def plot_regional_heatmap(
     family_ax.set_yticks(np.arange(n_metrics))
     family_ax.set_yticklabels(
         [display.get(metric, metric) for metric in matrix.columns],
-        fontsize=max(8.7, min(10.5, 810.0 / max(n_metrics, 1))),
+        fontsize=max(10.8, min(13.5, 1100.0 / max(n_metrics, 1))),
     )
     family_ax.tick_params(axis='y', length=0, pad=6)
     for spine in family_ax.spines.values():
@@ -344,30 +346,34 @@ def plot_regional_heatmap(
         rotation=55,
         ha='right',
         rotation_mode='anchor',
-        fontsize=max(8.3, min(10.2, 780.0 / max(n_regions, 1))),
+        fontsize=max(10.8, min(13.0, 1050.0 / max(n_regions, 1))),
     )
     ax.set_yticks(np.arange(n_metrics))
     ax.tick_params(axis='y', labelleft=False)
     ax.tick_params(length=0, pad=2)
-    ax.set_xlabel('Bundle' if tissue == 'wm' else 'Parcel', fontweight='bold')
+    ax.set_xlabel(
+        'Bundle' if tissue == 'wm' else 'Parcel',
+        fontsize=14.0,
+        fontweight='bold',
+    )
     ax.set_ylabel('')
-    family_ax.set_ylabel('Metric', fontweight='bold', labelpad=8)
+    family_ax.set_ylabel('Metric', fontsize=14.0, fontweight='bold', labelpad=9)
     fig.text(
         0.22,
         0.955,
         f'{REGIONAL_DOMAINS[tissue][1]} {icc_label}',
         ha='left',
         va='top',
-        fontsize=17,
+        fontsize=21,
         fontweight='bold',
     )
 
     cbar_ax = fig.add_axes([0.36, 0.07, 0.36, 0.015])
     cbar = fig.colorbar(image, cax=cbar_ax, orientation='horizontal')
-    cbar.set_label(icc_label, fontsize=11.0, fontweight='bold', labelpad=5)
+    cbar.set_label(icc_label, fontsize=14.0, fontweight='bold', labelpad=6)
     cbar.ax.xaxis.set_label_position('top')
     cbar.set_ticks([0, 0.25, 0.5, 0.75, 1.0])
-    cbar.ax.tick_params(labelsize=9.8, length=3)
+    cbar.ax.tick_params(labelsize=12.0, length=4)
 
     observed_sources = [
         key for key in SOURCE_IMAGE_COLORS if key in set(metric_sources)
@@ -387,8 +393,8 @@ def plot_regional_heatmap(
         bbox_to_anchor=(0.5, 0.025),
         ncol=max(1, len(handles)),
         frameon=False,
-        fontsize=10.2,
-        title_fontsize=11.2,
+        fontsize=12.5,
+        title_fontsize=13.5,
         handlelength=1.5,
         columnspacing=1.25,
     )

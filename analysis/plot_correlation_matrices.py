@@ -74,22 +74,24 @@ def clean_title_token(value: str) -> str:
 
 
 def figure_size(n_metrics: int) -> tuple[float, float]:
-    side = max(9.6, min(28.0, 4.3 + 0.40 * n_metrics))
+    # Very large canvases are aggressively downscaled when placed in a paper,
+    # which makes their text much smaller than its nominal point size.
+    side = max(10.5, min(20.0, 5.0 + 0.18 * n_metrics))
     return side, side
 
 
 def label_fontsize(n_metrics: int) -> float:
     if n_metrics <= 28:
-        return 13.6
+        return 15.0
     if n_metrics <= 45:
-        return 12.6
+        return 14.5
     if n_metrics <= 70:
-        return 11.6
-    return 11.0
+        return 14.0
+    return 13.5
 
 
 def title_fontsize(n_metrics: int) -> float:
-    return max(18.0, min(26.0, 29.0 - 0.10 * n_metrics))
+    return max(21.0, min(27.0, 30.0 - 0.09 * n_metrics))
 
 
 def source_display_label(source: str) -> str:
@@ -223,11 +225,11 @@ def add_source_annotation(
         ha='right',
         va='top',
         rotation_mode='anchor',
-        fontsize=11.5,
+        fontsize=14.0,
     )
 
 
-def style_row_dendrogram(grid, linewidth: float = 2.0) -> None:
+def style_row_dendrogram(grid, linewidth: float = 2.8) -> None:
     """Make hierarchical-clustering branches legible in full-metric figures."""
 
     for collection in grid.ax_row_dendrogram.collections:
@@ -346,18 +348,23 @@ def plot_matrix(
         bbox_to_anchor=(0.5, 0.025),
         ncol=max(1, len(handles)),
         frameon=False,
-        fontsize=max(10.0, fs - 0.2),
-        title_fontsize=max(11.0, fs + 0.5),
+        fontsize=max(13.0, fs - 0.2),
+        title_fontsize=max(14.0, fs + 0.5),
         handlelength=1.5,
         columnspacing=1.25,
     )
     legend.get_title().set_fontweight('bold')
 
-    grid.fig.suptitle(title, fontsize=title_fontsize(n_metrics), y=0.975)
+    grid.fig.suptitle(
+        title,
+        fontsize=title_fontsize(n_metrics),
+        fontweight='bold',
+        y=0.975,
+    )
     grid.fig.subplots_adjust(left=0.052, right=0.93, top=0.953, bottom=0.180)
-    grid.cax.tick_params(labelsize=max(10.0, fs - 0.2), length=3)
+    grid.cax.tick_params(labelsize=max(13.0, fs - 0.2), length=4)
     grid.cax.xaxis.set_label_position('top')
-    grid.cax.xaxis.label.set_size(max(11.0, fs + 0.5))
+    grid.cax.xaxis.label.set_size(max(14.0, fs + 0.5))
     grid.cax.xaxis.label.set_fontweight('bold')
     grid.cax.xaxis.labelpad = 5
     draw_diagonal(grid)

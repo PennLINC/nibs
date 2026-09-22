@@ -227,7 +227,7 @@ def plot_faceted_effect_sizes(
     cmap = mpl.colormaps['RdBu_r'].copy()
 
     fig = plt.figure(
-        figsize=(20.0, max(6.0, 3.15 * len(category_rows) + 1.4)),
+        figsize=(17.0, max(7.0, 3.65 * len(category_rows) + 1.7)),
         constrained_layout=False,
     )
     outer = fig.add_gridspec(
@@ -277,7 +277,7 @@ def plot_faceted_effect_sizes(
                     f'{value:.2f}',
                     ha='center',
                     va='center',
-                    fontsize=10.2,
+                    fontsize=13.0,
                     color=annotation_color,
                     fontweight='bold',
                 )
@@ -287,10 +287,10 @@ def plot_faceted_effect_sizes(
                 rotation=52,
                 ha='right',
                 rotation_mode='anchor',
-                fontsize=max(7.2, min(9.5, 90.0 / max(len(category_data), 1))),
+                fontsize=max(10.5, min(13.0, 120.0 / max(len(category_data), 1))),
             )
             ax.set_yticks([])
-            ax.tick_params(length=0, pad=3)
+            ax.tick_params(length=0, pad=4)
             category_title = CATEGORY_LABELS.get(
                 category, category.replace('_', ' ').title()
             )
@@ -299,7 +299,7 @@ def plot_faceted_effect_sizes(
             ax.set_title(
                 category_title,
                 loc='left',
-                fontsize=12.5,
+                fontsize=16.0,
                 fontweight='bold',
                 pad=8,
             )
@@ -326,7 +326,8 @@ def plot_faceted_effect_sizes(
     cbar.set_ticks(np.linspace(-color_limit, color_limit, 5))
     gm_label = GM_TISSUE_LABELS[gm_tissue]
     effect_label = EFFECT_LABELS.get(effect, effect).replace('Gray Matter', gm_label)
-    cbar.set_label(effect_label, fontsize=11.5, fontweight='bold', labelpad=6)
+    cbar.ax.tick_params(labelsize=12.0, length=4)
+    cbar.set_label(effect_label, fontsize=14.0, fontweight='bold', labelpad=7)
     cbar.ax.text(
         0.0,
         1.95,
@@ -334,7 +335,7 @@ def plot_faceted_effect_sizes(
         transform=cbar.ax.transAxes,
         ha='left',
         va='bottom',
-        fontsize=10.5,
+        fontsize=13.0,
     )
     cbar.ax.text(
         1.0,
@@ -343,11 +344,11 @@ def plot_faceted_effect_sizes(
         transform=cbar.ax.transAxes,
         ha='right',
         va='bottom',
-        fontsize=10.5,
+        fontsize=13.0,
     )
     fig.suptitle(
         'Gray–White Matter Differentiation',
-        fontsize=17,
+        fontsize=22,
         fontweight='bold',
         y=0.97,
     )
@@ -361,7 +362,7 @@ def plot_faceted_effect_sizes(
             ),
             ha='left',
             va='bottom',
-            fontsize=9.5,
+            fontsize=11.5,
         )
 
     out_prefix.parent.mkdir(parents=True, exist_ok=True)
