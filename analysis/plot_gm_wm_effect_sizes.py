@@ -352,19 +352,6 @@ def plot_faceted_effect_sizes(
         fontweight='bold',
         y=0.97,
     )
-    if 'NODDI' in categories:
-        fig.text(
-            0.055,
-            0.012,
-            (
-                r'$^{\dagger}$ White matter and gray matter NODDI measures were '
-                'obtained from separate model fits.'
-            ),
-            ha='left',
-            va='bottom',
-            fontsize=11.5,
-        )
-
     out_prefix.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(out_prefix.with_suffix('.summary.tsv'), sep='\t', index=False)
     pd.DataFrame(ordering_records).to_csv(
