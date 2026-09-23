@@ -86,6 +86,22 @@ MODALITY_ORDER = [
     'MESE',
 ]
 
+# Source boxes use the same color identity as their associated scalar family.
+# B₁⁺ is the one acquisition without a scalar-family palette entry, so it
+# retains the black styling used for the B₁ panel in the compact brain map.
+MODALITY_COLOR_KEYS = {
+    'MPRAGE T1w': 'T1w/T2w',
+    'SPACE T1w': 'T1w/T2w',
+    'SPACE T2w': 'T1w/T2w',
+    'MP2RAGE': 'R1',
+    'B1+': 'B1',
+    'ihMTRAGE': 'ihMT',
+    'dMRI': 'dMRI',
+    'MEGRE': 'MEGRE',
+    'MESE': 'MESE',
+}
+B1_COLOR = '#000000'
+
 # Scalars that differ only in how many MEGRE echoes were fit are the same
 # contrast measured two ways, so they collapse to one node. The suffix is
 # stripped from dependencies too, which is what merges R2*-E4/R2*-E5 into the
@@ -189,7 +205,8 @@ FAMILY_ORDER = (
 # is what makes a given point size read larger.
 SCALE = 9.0
 
-FAINT = '#d5d2cc'
+FAINT = '#b9b6b0'
+REFERENCE_LINESTYLE = (0, (4, 3))
 
 # Applied longest-first so R2' and R2* are not eaten by the bare R2 rule.
 _PRETTY = [
@@ -259,6 +276,15 @@ def grouped_family(signature, names):
     raise ValueError(
         f'Scalar set {names!r} mixes metric families: {sorted(families)}'
     )
+
+
+def modality_color(name):
+    """Return the compact-brain-map color for one source modality."""
+
+    color_key = MODALITY_COLOR_KEYS[name]
+    if color_key == 'B1':
+        return B1_COLOR
+    return SOURCE_IMAGE_COLORS[color_key]
 
 
 def wrap_signature(pretty):
@@ -706,7 +732,15 @@ def check_no_box_intrusions(routes, rects, margin=0.35, samples=800):
         )
 
 
-def draw_spline(ax, points, color=EDGE_COLOR, linewidth=1.2, head=(5, 3), zorder=2):
+def draw_spline(
+    ax,
+    points,
+    color=EDGE_COLOR,
+    linewidth=1.2,
+    head=(5, 3),
+    zorder=2,
+    linestyle='solid',
+):
     """Draw one arrow that follows a smooth path through ``points``."""
     ax.add_patch(
         FancyArrowPatch(
@@ -714,6 +748,7 @@ def draw_spline(ax, points, color=EDGE_COLOR, linewidth=1.2, head=(5, 3), zorder
             arrowstyle=f'-|>,head_length={head[0]},head_width={head[1]}',
             color=color,
             linewidth=linewidth,
+            linestyle=linestyle,
             shrinkA=0,
             shrinkB=0,
             zorder=zorder,
@@ -911,7 +946,15 @@ if __name__ == '__main__':
     # Backbone edges first, so the real dependencies draw over them.
     for dst in backbone:
         points = edge_polyline([f'mod:{UNIVERSAL}', dst])
-        draw_spline(ax, points, color=FAINT, linewidth=0.7, head=(3.5, 2.2), zorder=1)
+        draw_spline(
+            ax,
+            points,
+            color=FAINT,
+            linewidth=0.9,
+            head=(3.5, 2.2),
+            zorder=1,
+            linestyle=REFERENCE_LINESTYLE,
+        )
 
     for chain in chains.values():
         draw_spline(ax, edge_polyline(chain))
@@ -920,7 +963,7 @@ if __name__ == '__main__':
         role = 'modality' if node['kind'] == 'mod' else 'output'
         fontsize = FONT_MOD if node['kind'] == 'mod' else FONT_SET
         color = (
-            None
+            modality_color(node_id.removeprefix('mod:'))
             if node['kind'] == 'mod'
             else SOURCE_IMAGE_COLORS.get(node['family'], SOURCE_IMAGE_COLORS['Other'])
         )
@@ -937,35 +980,6 @@ if __name__ == '__main__':
             color=color,
         )
 
-    # Dependency key above a full-width scalar-family key. Scalar nodes use the
-    # same colors as the other manuscript figures.
-    entries = [
-        ('box', 'modality', 'Source modality'),
-        ('edge', 'direct', 'Direct input'),
-        ('edge', 'faint', 'Anatomical reference via sMRIPrep (cross-session)'),
-    ]
-    for i, (kind, role, label) in enumerate(entries):
-        lx = x0 + 2 + i * (right / 3)
-        ly = floor - 5.5
-        if kind == 'box':
-            ax.add_patch(
-                FancyBboxPatch(
-                    (lx, ly - 0.9),
-                    3.0,
-                    1.8,
-                    boxstyle='round,pad=0,rounding_size=0.3',
-                    facecolor=tint(PALETTE[role]),
-                    edgecolor=PALETTE[role],
-                    linewidth=1.5,
-                    zorder=3,
-                )
-            )
-        elif role == 'direct':
-            draw_edge(ax, (lx, ly), (lx + 3.0, ly))
-        else:
-            draw_edge(ax, (lx, ly), (lx + 3.0, ly), color=FAINT, linewidth=0.7, head=(3.5, 2.2))
-        ax.text(lx + 4.0, ly, label, ha='left', va='center', fontsize=FONT_LEGEND, color=INK_MUTED)
-
     observed_families = {
         node['family'] for node in nodes.values() if node.get('family') is not None
     }
@@ -973,7 +987,9 @@ if __name__ == '__main__':
     unknown_families = sorted(observed_families - set(families))
     families.extend(unknown_families)
 
-    family_y = floor - 13.0
+    # Keep every key on one baseline well below the graph. The left portion is
+    # the family palette; the right portion explains the two line encodings.
+    family_y = floor - 11.5
     ax.text(
         x0 + 2,
         family_y,
@@ -984,8 +1000,9 @@ if __name__ == '__main__':
         fontweight='bold',
         color=INK_MUTED,
     )
-    family_left = x0 + 22
-    family_step = (right - family_left) / max(len(families), 1)
+    family_left = x0 + 20
+    edge_key_left = right - 69
+    family_step = (edge_key_left - family_left) / max(len(families), 1)
     for index, family in enumerate(families):
         lx = family_left + index * family_step
         color = SOURCE_IMAGE_COLORS.get(family, SOURCE_IMAGE_COLORS['Other'])
@@ -1010,6 +1027,38 @@ if __name__ == '__main__':
             fontsize=FONT_LEGEND,
             color=INK_MUTED,
         )
+
+    direct_x = edge_key_left + 2
+    draw_edge(ax, (direct_x, family_y), (direct_x + 3.0, family_y))
+    ax.text(
+        direct_x + 4.0,
+        family_y,
+        'Direct input',
+        ha='left',
+        va='center',
+        fontsize=FONT_LEGEND,
+        color=INK_MUTED,
+    )
+
+    reference_x = edge_key_left + 25
+    draw_edge(
+        ax,
+        (reference_x, family_y),
+        (reference_x + 3.0, family_y),
+        color=FAINT,
+        linewidth=0.9,
+        head=(3.5, 2.2),
+        linestyle=REFERENCE_LINESTYLE,
+    )
+    ax.text(
+        reference_x + 4.0,
+        family_y,
+        'Anatomical reference via sMRIPrep (cross-session)',
+        ha='left',
+        va='center',
+        fontsize=FONT_LEGEND,
+        color=INK_MUTED,
+    )
 
     save(fig, 'workflow_modality_layers')
     plt.close(fig)

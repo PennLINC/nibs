@@ -322,7 +322,17 @@ def draw_box(
         )
 
 
-def draw_edge(ax, start, end, rad=0.08, color=EDGE_COLOR, linewidth=1.2, head=(5, 3), zorder=2):
+def draw_edge(
+    ax,
+    start,
+    end,
+    rad=0.08,
+    color=EDGE_COLOR,
+    linewidth=1.2,
+    head=(5, 3),
+    zorder=2,
+    linestyle='solid',
+):
     """Draw one curved arrow between two anchor points."""
     ax.add_patch(
         FancyArrowPatch(
@@ -332,6 +342,7 @@ def draw_edge(ax, start, end, rad=0.08, color=EDGE_COLOR, linewidth=1.2, head=(5
             arrowstyle=f'-|>,head_length={head[0]},head_width={head[1]}',
             color=color,
             linewidth=linewidth,
+            linestyle=linestyle,
             shrinkA=0,
             shrinkB=0,
             zorder=zorder,
