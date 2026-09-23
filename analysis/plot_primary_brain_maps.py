@@ -131,8 +131,6 @@ LAYOUT_ROWS = (
 PANEL_LABELS = {
     'MPRAGE-MyelinW': 'MPRAGE T1w/T2w Ratio',
     'SPACE-MyelinW': 'SPACE T1w/T2w Ratio',
-    'QSM-X-R2p-E5-Para': 'QSM-X-R2p-E5-para',
-    'QSM-X-R2p-E5-Dia': 'QSM-X-R2p-E5-dia',
     'B1': 'B₁ map',
 }
 
@@ -607,6 +605,8 @@ def display_label(spec: MetricSpec) -> str:
 def group_label(group: str) -> str:
     if group == 'B1':
         return math_label('B₁', bold=True)
+    if group == 'g-ratio':
+        return r'$\it{g}$-Ratio'
     return math_label(group, bold=True)
 
 

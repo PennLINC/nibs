@@ -147,8 +147,6 @@ LAYOUT_ROWS = (
 PANEL_LABELS = {
     'MPRAGE-MyelinW': 'MPRAGE\nT1w/T2w Ratio',
     'SPACE-MyelinW': 'SPACE\nT1w/T2w Ratio',
-    'QSM-X-R2p-E5-Para': 'QSM-X-R2p-E5-para',
-    'QSM-X-R2p-E5-Dia': 'QSM-X-R2p-E5-dia',
     'B1': 'B₁ map',
 }
 
@@ -758,7 +756,7 @@ def group_label(group: str) -> str:
     if group == 'MESE':
         return math_label('R₂', bold=True)
     if group == 'g-ratio':
-        return 'g-ratio'
+        return r'$\it{g}$-Ratio'
     return math_label(group, bold=True)
 
 

@@ -97,6 +97,7 @@ METRIC_FAMILY_LEGEND_TITLE = 'Metric family'
 
 SOURCE_IMAGE_DISPLAY_LABELS = {
     'T1w/T2w': 'T₁w/T₂w',
+    'g-ratio': r'$\it{g}$-Ratio',
     'R1': 'MP2RAGE',
     'MESE': 'R₂',
 }
@@ -151,15 +152,36 @@ def metric_plot_label(label: str) -> str:
         'SPACE-MyelinW': 'SPACE T₁w/T₂w Ratio',
         'QSM-SEPIA-E5-X': 'QSM-SEPIA-E5-χ',
         'QSM-X-R2p-E5-X': 'QSM-χ-R₂p-E5-χ',
-        'QSM-X-R2p-E5-Para': 'QSM-χ-R₂p-E5-para',
-        'QSM-X-R2p-E5-Dia': 'QSM-χ-R₂p-E5-dia',
+        'QSM-X-R2p-E5-Para': 'QSM-χ-R₂p-E5-Para',
+        'QSM-X-R2p-E5-Dia': 'QSM-χ-R₂p-E5-Dia',
     }
-    if label in replacements:
-        return replacements[label]
+    label = replacements.get(label, label)
     if label.startswith('QSM-X-'):
         label = label.replace('QSM-X-', 'QSM-χ-', 1)
     if label.startswith('QSM-') and label.endswith('-X'):
         label = f'{label[:-2]}-χ'
+    label = re.sub(
+        r'-(para|dia)$',
+        lambda match: f'-{match.group(1).capitalize()}',
+        label,
+        flags=re.IGNORECASE,
+    )
+    if re.match(r'^q-ratio', label, flags=re.IGNORECASE):
+        label = re.sub(
+            r'^q-ratio',
+            lambda _: r'$\it{q}$-Ratio',
+            label,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+    elif re.match(r'^g-ratio', label, flags=re.IGNORECASE):
+        label = re.sub(
+            r'^g-ratio',
+            lambda _: r'$\it{g}$-Ratio',
+            label,
+            count=1,
+            flags=re.IGNORECASE,
+        )
     for source, target in (
         ('R2p', 'R₂p'),
         ('R2*', 'R₂*'),

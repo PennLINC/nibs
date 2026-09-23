@@ -27,6 +27,7 @@ from metric_registry import (
     METRIC_FAMILY_LEGEND_TITLE,
     SOURCE_IMAGE_COLORS,
     build_metric_specs,
+    metric_plot_label,
     source_image_display_label,
 )
 from path_utils import CODE_ROOT, DERIVATIVES_ROOT, PROJECT_ROOT
@@ -163,7 +164,8 @@ def display_effect_values(values: np.ndarray) -> np.ndarray:
 
 
 def display_metric_label(label: str) -> str:
-    return 'ICVF†' if label == 'ICVF' else label
+    label = 'ICVF†' if label == 'ICVF' else label
+    return metric_plot_label(label)
 
 
 def add_effect_categories(

@@ -125,6 +125,8 @@ def publication_label(spec: MetricSpec) -> str:
     key = spec.pattern_key
     if spec.group == 'T1w/T2w Ratio':
         return key.replace('-MyelinW', '-T1w/T2w')
+    if spec.group == 'Q-Ratio':
+        return spec.label.replace('Q-Ratio', 'q-Ratio', 1)
     if spec.group == 'dMRI':
         if key == 'DKI FA':
             return 'DKI Tensor FA'
@@ -160,9 +162,9 @@ def publication_family(spec: MetricSpec) -> str:
     if spec.group == 'MP2RAGE':
         return 'MP2RAGE'
     if spec.group == 'G-Ratio':
-        return 'G-Ratio'
+        return 'g-Ratio'
     if spec.group == 'Q-Ratio':
-        return 'Q-Ratio'
+        return 'q-Ratio'
     if spec.group == 'MEGRE' and spec.pattern_key.startswith("R2'-"):
         return 'MESE/MEGRE'
     return spec.group

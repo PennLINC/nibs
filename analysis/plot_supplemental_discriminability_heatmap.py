@@ -45,11 +45,11 @@ CATEGORY_LABELS = {
     'GQI': 'DSI Studio GQI',
     'dMRI': 'Other dMRI',
     'T1w/T2w': 'T₁w/T₂w',
-    'g-ratio': 'g-ratio',
+    'g-ratio': r'$\it{g}$-Ratio',
     'R1': 'MP2RAGE R₁',
     'MESE': 'R₂',
     'MEGRE': 'MEGRE',
-    'Q-Ratio': 'Q-ratio',
+    'Q-Ratio': r'$\it{q}$-Ratio',
     'ihMT': 'ihMT',
     'QSM': 'QSM',
 }

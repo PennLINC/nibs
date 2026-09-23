@@ -162,8 +162,12 @@ def load_ordered_data(
         raise RuntimeError('Need at least 3 shared WM/GM metrics for profile similarity.')
     wm_common = wm_corr.loc[labels, labels].copy()
     gm_common = gm_corr.loc[labels, labels].copy()
-    wm_ordered, wm_linkage = ordered_matrix(wm_common)
-    gm_ordered, gm_linkage = ordered_matrix(gm_common)
+    # Cluster each tissue's complete matrix independently. The shared subset is
+    # needed only for the cross-tissue profile-similarity calculation; using it
+    # for panels A/B incorrectly removed tissue-specific measures such as the
+    # white-matter-only g-ratio metrics.
+    wm_ordered, wm_linkage = ordered_matrix(wm_corr)
+    gm_ordered, gm_linkage = ordered_matrix(gm_corr)
     similarity = profile_similarity_table(
         wm_common,
         gm_common,
