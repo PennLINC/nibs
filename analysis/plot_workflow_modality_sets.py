@@ -51,6 +51,9 @@ SET_ORDER = [
     ('SPACE T1w', 'SPACE T2w'),
     ('MP2RAGE',),
     ('MP2RAGE', 'B1+'),
+    ('MESE',),
+    ('MP2RAGE', 'MEGRE'),
+    ('MP2RAGE', 'MEGRE', 'B1+'),
     ('MP2RAGE', 'ihMTRAGE', 'B1+'),
     ('ihMTRAGE',),
     ('dMRI', 'ihMTRAGE'),
@@ -63,7 +66,7 @@ SET_ORDER = [
 # Sets too large to name scalar by scalar get a stand-in and a qualifier. The two
 # QSM sets share a group name, so the qualifier is what tells them apart.
 STAND_INS = {
-    ('dMRI',): ('dMRI Scalars', 'DKI, DSIStudio, NODDI, TORTOISE'),
+    ('dMRI',): ('dMRI Scalars', 'DKI, DSI Studio, NODDI, TORTOISE'),
     ('MEGRE',): ('QSM Scalars', 'SEPIA and χ-separation from R₂* alone'),
     ('MEGRE', 'MESE'): ('QSM Scalars', 'χ-separation using a measured R₂′'),
 }
