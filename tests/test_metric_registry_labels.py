@@ -12,6 +12,7 @@ from metric_registry import metric_plot_label
         ('NG Parallel', 'NG ∥'),
         ('NG (Parallel)', 'NG ∥'),
         ('NG (Perpendicular)', 'NG⊥'),
+        ('FA (DSIStudio)', 'FA (DSI Studio)'),
         ('Q-Ratio-E5-B1c', r'$\it{q}$-Ratio-E5-B₁c'),
         ('q-Ratio-E4', r'$\it{q}$-Ratio-E4'),
         ('G-Ratio', r'$\it{g}$-Ratio'),

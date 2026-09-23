@@ -156,6 +156,9 @@ def metric_plot_label(label: str) -> str:
         'QSM-X-R2p-E5-Dia': 'QSM-χ-R₂p-E5-Dia',
     }
     label = replacements.get(label, label)
+    # Keep internal identifiers unchanged while using the published software
+    # name in presentation-facing labels.
+    label = label.replace('DSIStudio', 'DSI Studio')
     if label.startswith('QSM-X-'):
         label = label.replace('QSM-X-', 'QSM-χ-', 1)
     if label.startswith('QSM-') and label.endswith('-X'):
