@@ -182,6 +182,8 @@ def metric_plot_label(label: str) -> str:
             count=1,
             flags=re.IGNORECASE,
         )
+    elif label in {'G-ihMTsat', 'G-ihMTR'}:
+        label = rf'$\it{{g}}$-{label.removeprefix("G-")}'
     for source, target in (
         ('R2p', 'R₂p'),
         ('R2*', 'R₂*'),
