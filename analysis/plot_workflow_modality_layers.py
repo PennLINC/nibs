@@ -125,12 +125,12 @@ KEEP_GROUPED = ('NODDI ICVF', 'NODDI ISOVF')
 # by (depth, signature). The QSM groups share a stand-in name, so the qualifier
 # and the signature underneath are what tell them apart.
 STAND_INS = {
-    (1, ('dMRI',)): ('dMRI Scalars', 'DKI, DSI Studio, NODDI, TORTOISE'),
+    (1, ('dMRI',)): ('dMRI Scalars', 'DKI, DSI Studio,\nNODDI, TORTOISE'),
     (1, ('MEGRE',)): (
         'QSM Scalars',
         'SEPIA and χ-separation\nwithout a measured R₂′',
     ),
-    (3, ('MEGRE', "R2'")): ('QSM Scalars', 'χ-separation using a measured R₂′'),
+    (3, ('MEGRE', "R2'")): ('QSM Scalars', 'χ-separation using\na measured R₂′'),
 }
 
 MAX_NAMED = 3
@@ -183,10 +183,12 @@ SWEEPS = 4
 # Order-preserving relaxation steps used to settle y coordinates in one column.
 RELAX_PASSES = 24
 
-FONT_MOD = 16
-FONT_SET = 15
-FONT_HEADER = 17
-FONT_LEGEND = 13
+# The workflow is usually reduced to page width, so its native typography must
+# be generous enough to remain readable after scaling in the manuscript.
+FONT_MOD = 20
+FONT_SET = 19
+FONT_HEADER = 21
+FONT_LEGEND = 17
 
 # Keep source modalities visually distinct, but use the same scalar-family
 # colors as the correlation, ICC, effect-size, and discriminability figures.
@@ -1002,7 +1004,7 @@ if __name__ == '__main__':
         fontweight='bold',
         color=INK_MUTED,
     )
-    family_left = x0 + 20
+    family_left = x0 + 27
     edge_key_left = right - 69
     family_step = (edge_key_left - family_left) / max(len(families), 1)
     for index, family in enumerate(families):
