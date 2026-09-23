@@ -168,32 +168,29 @@
         "ihMTRAGE"
     ],
     "ihMTsat": [
-        "MP2RAGE",
-        "ihMTRAGE",
-        "B1+"
+        "R1",
+        "ihMTRAGE"
     ],
     "ihMTsat-B1c": [
-        "MP2RAGE",
+        "R1",
         "ihMTRAGE",
         "B1+"
     ],
     "MTdsat": [
-        "MP2RAGE",
-        "ihMTRAGE",
-        "B1+"
+        "R1",
+        "ihMTRAGE"
     ],
     "MTssat": [
-        "MP2RAGE",
-        "ihMTRAGE",
-        "B1+"
+        "R1",
+        "ihMTRAGE"
     ],
     "MTdsat-B1c": [
-        "MP2RAGE",
+        "R1",
         "ihMTRAGE",
         "B1+"
     ],
     "MTssat-B1c": [
-        "MP2RAGE",
+        "R1",
         "ihMTRAGE",
         "B1+"
     ],
@@ -207,12 +204,12 @@
         "MEGRE"
     ],
     "R2'-E5": [
-        "MEGRE",
-        "MESE"
+        "R2*-E5",
+        "R2"
     ],
     "R2'-E4": [
-        "MEGRE",
-        "MESE"
+        "R2*-E4",
+        "R2"
     ],
     "R1": [
         "MP2RAGE"
@@ -230,32 +227,30 @@
         "SPACE T2w"
     ],
     "G-ihMTsat": [
-        "MP2RAGE",
-        "dMRI",
-        "ihMTRAGE",
-        "B1+"
+        "ihMTsat-B1c",
+        "NODDI ICVF",
+        "NODDI ISOVF"
     ],
     "G-ihMTR": [
-        "dMRI",
-        "ihMTRAGE"
+        "ihMTR",
+        "NODDI ICVF",
+        "NODDI ISOVF"
     ],
     "Q-Ratio-E5": [
-        "MP2RAGE",
-        "MEGRE"
+        "R2*-E5",
+        "R1"
     ],
     "Q-Ratio-E5-B1c": [
-        "MP2RAGE",
-        "MEGRE",
-        "B1+"
+        "R2*-E5",
+        "R1-B1c"
     ],
     "Q-Ratio-E4": [
-        "MP2RAGE",
-        "MEGRE"
+        "R2*-E4",
+        "R1"
     ],
     "Q-Ratio-E4-B1c": [
-        "MP2RAGE",
-        "MEGRE",
-        "B1+"
+        "R2*-E4",
+        "R1-B1c"
     ],
     "QSM-SEPIA-E5-χ": [
         "MEGRE"
@@ -265,27 +260,27 @@
     ],
     "QSM-X-R2'-E5-χ": [
         "MEGRE",
-        "MESE"
+        "R2'-E5"
     ],
     "QSM-X-R2'-E4-χ": [
         "MEGRE",
-        "MESE"
+        "R2'-E4"
     ],
     "QSM-X-R2'-E5-Para": [
         "MEGRE",
-        "MESE"
+        "R2'-E5"
     ],
     "QSM-X-R2'-E4-Para": [
         "MEGRE",
-        "MESE"
+        "R2'-E4"
     ],
     "QSM-X-R2'-E5-Dia": [
         "MEGRE",
-        "MESE"
+        "R2'-E5"
     ],
     "QSM-X-R2'-E4-Dia": [
         "MEGRE",
-        "MESE"
+        "R2'-E4"
     ],
     "QSM-X-R2pnet-E5-χ": [
         "MEGRE"
