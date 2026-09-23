@@ -739,7 +739,7 @@ def draw_spline(
     ax,
     points,
     color=EDGE_COLOR,
-    linewidth=1.2,
+    linewidth=1.5,
     head=(5, 3),
     zorder=2,
     linestyle='solid',
@@ -953,7 +953,7 @@ if __name__ == '__main__':
             ax,
             points,
             color=FAINT,
-            linewidth=0.9,
+            linewidth=1.3,
             head=(3.5, 2.2),
             zorder=1,
             linestyle=REFERENCE_LINESTYLE,
@@ -1034,7 +1034,12 @@ if __name__ == '__main__':
         )
 
     direct_x = edge_key_left - 1
-    draw_edge(ax, (direct_x, family_y), (direct_x + 3.0, family_y))
+    draw_edge(
+        ax,
+        (direct_x, family_y),
+        (direct_x + 3.0, family_y),
+        linewidth=1.5,
+    )
     ax.text(
         direct_x + 4.0,
         family_y,
@@ -1051,7 +1056,7 @@ if __name__ == '__main__':
         (reference_x, family_y),
         (reference_x + 3.0, family_y),
         color=FAINT,
-        linewidth=0.9,
+        linewidth=1.3,
         head=(3.5, 2.2),
         linestyle=REFERENCE_LINESTYLE,
     )

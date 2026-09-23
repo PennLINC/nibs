@@ -287,9 +287,16 @@ def draw_box(
     )
 
     if detail:
+        headline_lines = headline.count('\n') + 1
+        if headline_lines == 1:
+            headline_y = y + height * 0.23
+            detail_y = y - height * 0.22
+        else:
+            headline_y = y + height * 0.12
+            detail_y = y - height * 0.28
         ax.text(
             x,
-            y + height * 0.23,
+            headline_y,
             headline,
             ha='center',
             va='center',
@@ -301,7 +308,7 @@ def draw_box(
         )
         ax.text(
             x,
-            y - height * 0.22,
+            detail_y,
             detail,
             ha='center',
             va='center',
