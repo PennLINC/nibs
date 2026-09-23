@@ -97,7 +97,7 @@ def compact_metric_label(spec: MetricSpec, category: str) -> str:
         return metric_plot_label(key.removeprefix('Q-Ratio-'))
     if category == 'QSM':
         label = metric_plot_label(spec.label)
-        return label.removeprefix('QSM-').replace('-', ' ')
+        return label.removeprefix('QSM-')
     return metric_plot_label(spec.label)
 
 
