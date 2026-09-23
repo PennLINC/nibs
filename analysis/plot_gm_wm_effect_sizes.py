@@ -55,6 +55,11 @@ GM_TISSUE_LABELS = {
     'deep_gm': 'Deep Gray Matter',
     'all_gm': 'All Gray Matter',
 }
+PRIMARY_GM_TISSUE_LABELS = {
+    'cortical_gm': 'Cortical GM',
+    'deep_gm': 'Deep GM',
+    'all_gm': 'All GM',
+}
 
 
 def require_dependencies() -> None:
@@ -453,14 +458,16 @@ def plot_effect_sizes(
     ax.axvline(0, color='#6a6a6a', lw=1.0, ls=':', zorder=1)
     ax.grid(False)
     ax.grid(axis='y', visible=False)
-    gm_label = GM_TISSUE_LABELS[gm_tissue]
-    effect_label = EFFECT_LABELS.get(effect, effect).replace('Gray Matter', gm_label)
+    gm_label = PRIMARY_GM_TISSUE_LABELS[gm_tissue]
+    effect_label = EFFECT_LABELS.get(effect, effect)
+    effect_label = effect_label.replace('Gray Matter', gm_label).replace('White Matter', 'WM')
     ax.set_xlabel(effect_label, fontsize=13.0, labelpad=9)
     ax.set_ylabel('')
+    directional_gm_label = 'GM' if gm_tissue == 'cortical_gm' else gm_label
     ax.text(
         0.01,
         1.01,
-        f'{gm_label} > White Matter',
+        f'{directional_gm_label} > WM',
         transform=ax.transAxes,
         ha='left',
         va='bottom',
@@ -470,7 +477,7 @@ def plot_effect_sizes(
     ax.text(
         0.99,
         1.01,
-        f'White Matter > {gm_label}',
+        f'WM > {directional_gm_label}',
         transform=ax.transAxes,
         ha='right',
         va='bottom',
