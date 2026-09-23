@@ -57,6 +57,7 @@ from metric_registry import (
 )
 from workflow_graph import (
     EDGE_COLOR,
+    INK,
     INK_MUTED,
     MODALITIES,
     PALETTE,
@@ -188,7 +189,7 @@ RELAX_PASSES = 24
 FONT_MOD = 20
 FONT_SET = 19
 FONT_HEADER = 21
-FONT_LEGEND = 17
+FONT_LEGEND = 21
 
 # Keep source modalities visually distinct, but use the same scalar-family
 # colors as the correlation, ICC, effect-size, and discriminability figures.
@@ -1002,19 +1003,19 @@ if __name__ == '__main__':
         va='center',
         fontsize=FONT_LEGEND + 1,
         fontweight='bold',
-        color=INK_MUTED,
+        color=INK,
     )
-    family_left = x0 + 27
-    edge_key_left = right - 69
+    family_left = x0 + 31
+    edge_key_left = right - 47
     family_step = (edge_key_left - family_left) / max(len(families), 1)
     for index, family in enumerate(families):
         lx = family_left + index * family_step
         color = SOURCE_IMAGE_COLORS.get(family, SOURCE_IMAGE_COLORS['Other'])
         ax.add_patch(
             FancyBboxPatch(
-                (lx, family_y - 0.9),
-                3.0,
-                1.8,
+                (lx, family_y - 1.1),
+                3.6,
+                2.2,
                 boxstyle='round,pad=0,rounding_size=0.3',
                 facecolor=tint(color),
                 edgecolor=color,
@@ -1023,16 +1024,16 @@ if __name__ == '__main__':
             )
         )
         ax.text(
-            lx + 4.0,
+            lx + 4.8,
             family_y,
             source_image_display_label(family),
             ha='left',
             va='center',
             fontsize=FONT_LEGEND,
-            color=INK_MUTED,
+            color=INK,
         )
 
-    direct_x = edge_key_left + 2
+    direct_x = edge_key_left - 1
     draw_edge(ax, (direct_x, family_y), (direct_x + 3.0, family_y))
     ax.text(
         direct_x + 4.0,
@@ -1041,10 +1042,10 @@ if __name__ == '__main__':
         ha='left',
         va='center',
         fontsize=FONT_LEGEND,
-        color=INK_MUTED,
+        color=INK,
     )
 
-    reference_x = edge_key_left + 25
+    reference_x = edge_key_left + 27
     draw_edge(
         ax,
         (reference_x, family_y),
@@ -1057,11 +1058,11 @@ if __name__ == '__main__':
     ax.text(
         reference_x + 4.0,
         family_y,
-        'Anatomical reference via sMRIPrep (cross-session)',
+        'Anatomical reference',
         ha='left',
         va='center',
         fontsize=FONT_LEGEND,
-        color=INK_MUTED,
+        color=INK,
     )
 
     save(fig, 'workflow_modality_layers')

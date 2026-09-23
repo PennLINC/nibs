@@ -289,7 +289,7 @@ def draw_box(
     if detail:
         ax.text(
             x,
-            y + height * 0.17,
+            y + height * 0.23,
             headline,
             ha='center',
             va='center',
@@ -301,7 +301,7 @@ def draw_box(
         )
         ax.text(
             x,
-            y - height * 0.20,
+            y - height * 0.22,
             detail,
             ha='center',
             va='center',
