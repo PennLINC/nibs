@@ -264,9 +264,11 @@ def draw_box(
     dashed=False,
     fontsize=9,
     color=None,
+    facecolor=None,
 ):
     """Draw one rounded box with a bold headline and a muted detail line."""
     color = PALETTE[role] if color is None else color
+    facecolor = tint(color) if facecolor is None else facecolor
 
     ax.add_patch(
         FancyBboxPatch(
@@ -274,7 +276,7 @@ def draw_box(
             width,
             height,
             boxstyle='round,pad=0,rounding_size=0.35',
-            facecolor=tint(color),
+            facecolor=facecolor,
             edgecolor=color,
             linewidth=1.6,
             # Secondary encoding for the backbone stages, so identity never

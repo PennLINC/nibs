@@ -962,8 +962,9 @@ if __name__ == '__main__':
     for node_id, node in nodes.items():
         role = 'modality' if node['kind'] == 'mod' else 'output'
         fontsize = FONT_MOD if node['kind'] == 'mod' else FONT_SET
+        modality = node_id.removeprefix('mod:') if node['kind'] == 'mod' else None
         color = (
-            modality_color(node_id.removeprefix('mod:'))
+            modality_color(modality)
             if node['kind'] == 'mod'
             else SOURCE_IMAGE_COLORS.get(node['family'], SOURCE_IMAGE_COLORS['Other'])
         )
@@ -978,6 +979,7 @@ if __name__ == '__main__':
             role,
             fontsize=fontsize,
             color=color,
+            facecolor='white' if modality == 'B1+' else None,
         )
 
     observed_families = {
