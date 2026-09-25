@@ -1,4 +1,4 @@
-"""Tests for processing/utils.py -- Tier 1 (unit) and Tier 2 (mock)."""
+"""Tests for shared processing utilities -- Tier 1 (unit) and Tier 2 (mock)."""
 
 import os
 from unittest.mock import MagicMock, patch
@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from utils import calculate_r_squared, load_config
+from configuration import load_config
+from utils.processing import calculate_r_squared
 
 
 # ===================================================================

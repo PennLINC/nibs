@@ -50,7 +50,7 @@ def _make_bids_file(path):
 
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NIBS_BIDS_CONFIG = os.path.join(REPO_ROOT, 'configuration', 'nibs_bids_config.json')
+MIRROR_BIDS_CONFIG = os.path.join(REPO_ROOT, 'configuration', 'bids', 'layout.json')
 
 # (acquisition, mt) pairs of the five raw ihMTRAGE images, as named by curation/heuristic.py
 IHMTRAGE_ACQS = [
@@ -137,7 +137,7 @@ def _build_scaling_factors_dataset(tmp_path, subject, sessions):
 
     layout = BIDSLayout(
         raw_dir,
-        config=NIBS_BIDS_CONFIG,
+        config=MIRROR_BIDS_CONFIG,
         validate=False,
         derivatives=[smriprep_dir, qsiprep_dir, noddi_dir, ihmt_dir],
     )
@@ -246,7 +246,7 @@ class TestCollectRunDataScalingFactors:
     def _import_collect(self):
         """Import collect_run_data, patching load_config for module-level CFG."""
         with patch(
-            'utils.load_config',
+            'utils.processing.load_config',
             return_value={
                 'code_dir': '/fake/code',
                 'bids_dir': '/fake/bids',

@@ -5,7 +5,7 @@ from pathlib import Path
 import nibabel as nib
 import numpy as np
 
-import mni_tissue_masks as tissue_masks
+from utils import tissue_masks
 
 
 def save_image(path: Path, data: np.ndarray) -> Path:

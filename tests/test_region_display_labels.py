@@ -2,7 +2,7 @@
 
 import pytest
 
-from region_display_labels import (
+from utils.regions import (
     dkt_parcel_display_label,
     regional_feature_display_label,
     wm_bundle_display_label,

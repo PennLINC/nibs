@@ -1,0 +1,44 @@
+{
+  "profile_description": "Copy outside the repository and point MIRROR_CONFIG to the copy.",
+  "project_root": "/path/to/mirror",
+  "bids_dir": "dset",
+  "code_dir": "auto",
+  "work_dir": "work/mirror_data_descriptor_replication",
+  "source_derivatives_dir": "derivatives",
+  "run_name": "mirror_data_descriptor_replication",
+  "output_derivatives_dir": "derivatives/mirror_data_descriptor_replication",
+  "logs_dir": "logs/mirror_data_descriptor_replication",
+  "derivatives": {
+    "smriprep": "smriprep",
+    "qsiprep": "qsiprep",
+    "qsirecon_dipydki": "qsirecon/derivatives/qsirecon-DIPYDKI",
+    "qsirecon_noddi": "qsirecon/derivatives/qsirecon-NODDI",
+    "qsirecon_dsistudio": "qsirecon/derivatives/qsirecon-DSIStudio",
+    "pymp2rage": "pymp2rage",
+    "ihmt": "ihmt",
+    "mese": "mese",
+    "megre": "megre",
+    "qsm": "qsm",
+    "t1wt2w_ratio": "t1wt2w_ratio",
+    "q_ratio": "q_ratio",
+    "g_ratio": "g_ratio"
+  },
+  "synthstrip_runtime": "apptainer",
+  "apptainer": {
+    "fmriprep": "apptainer/fmriprep-25.0.0.sif",
+    "qsiprep": "apptainer/qsiprep-26.0.0.sif",
+    "qsirecon": "apptainer/qsirecon-26.0.0.sif",
+    "synthstrip": "apptainer/synthstrip-1.7.sif"
+  },
+  "docker": {
+    "synthstrip": "freesurfer/synthstrip:1.7"
+  },
+  "freesurfer": {
+    "subjects_dir": "derivatives/smriprep/sourcedata/freesurfer",
+    "license": "tokens/freesurfer_license.txt"
+  },
+  "software": {
+    "qsm_root": "software/qsm",
+    "sepia_home": "software/qsm/sepia-1.2.2.6"
+  }
+}

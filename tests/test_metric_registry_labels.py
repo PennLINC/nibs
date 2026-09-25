@@ -2,7 +2,7 @@
 
 import pytest
 
-from metric_registry import metric_plot_label
+from utils.metrics import metric_plot_label
 
 
 @pytest.mark.parametrize(

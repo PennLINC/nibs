@@ -180,4 +180,3 @@ dependencies:
     - wheel==0.45.1
     - wrapt==1.17.2
     - xyzservices==2025.4.0
-prefix: /cbica/projects/nibs/.conda/envs/processing
