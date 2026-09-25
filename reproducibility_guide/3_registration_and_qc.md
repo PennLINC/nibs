@@ -5,8 +5,21 @@ Run every SBATCH command from the repository root. This makes the relative
 
 ```bash
 cd /cbica/projects/nibs/code_replication
+micromamba activate processing
 export MIRROR_CONFIG="${PWD}/configuration/profiles/replication.example.yml"
 bash configuration/create_log_directories.sh
+command -v python
+```
+
+The final command should print the Python executable inside the activated
+`processing` environment. Submit jobs from this same shell: Slurm normally
+inherits its `PATH`, allowing each launcher to resolve `python` with
+`command -v`. Do not submit with `sbatch --export=NONE`. If the cluster is
+configured not to export the active environment, set it explicitly before
+submitting:
+
+```bash
+export PYTHON_BIN="$(command -v python)"
 ```
 
 ## T1w registration

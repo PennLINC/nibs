@@ -30,6 +30,7 @@ from utils.regional_io import (  # noqa: E402
     load_dkt_long_df,
     load_qc_table,
     load_wm_long_df,
+    require_regional_analysis_inputs,
 )
 from utils.paths import OUTPUT_DERIVATIVES_ROOT  # noqa: E402
 
@@ -409,6 +410,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
+    require_regional_analysis_inputs(
+        args.wm_input_globs,
+        args.dkt_input_glob,
+        require_wm=args.analysis in {'wm', 'both'},
+        require_dkt=args.analysis in {'dkt', 'both'},
+    )
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 

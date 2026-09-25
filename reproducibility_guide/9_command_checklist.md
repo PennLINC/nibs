@@ -9,8 +9,12 @@ Run it from the repository root after reviewing the preceding chapters.
 micromamba activate processing
 export MIRROR_CONFIG="${PWD}/configuration/profiles/replication.example.yml"
 export ANALYSIS_SET=primary
+command -v python
 python configuration/resolve_paths.py
 ```
+
+Keep this environment active and submit every SBATCH command from this same
+shell. The printed Python path should belong to the `processing` environment.
 
 `ANALYSIS_SET=primary` makes this checklist explicitly primary-only. Change it
 to `full` to compute all metrics and write both primary and supplemental result
@@ -60,18 +64,17 @@ sbatch --dependency="afterok:${ribbon_job}" \
   analysis/03_correlations/01_mni_voxelwise/submit.sbatch
 
 sbatch --dependency="afterok:${dkt_stats_job}:${bundle_stats_job}" \
-  analysis/03_correlations/02_parcel_bundle/submit.sbatch
-
-sbatch --dependency="afterok:${dkt_stats_job}:${bundle_stats_job}" \
   analysis/04_icc/01_parcel_bundle/submit.sbatch
 
 sbatch analysis/04_icc/02_mni_voxelwise/submit.sbatch
 
-sbatch analysis/05_discriminability/01_mni_voxelwise/submit.sbatch
-
 sbatch --dependency="afterok:${dkt_stats_job}:${bundle_stats_job}" \
   analysis/05_discriminability/02_parcel_bundle/submit.sbatch
 ```
+
+These are the five analysis jobs required by the current main-text artifacts.
+The regional-correlation job is supplemental, and no current figure or table
+requires the MNI voxelwise-discriminability job.
 
 Wait for every required job and array task to finish successfully.
 

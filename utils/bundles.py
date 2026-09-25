@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Standalone bundle scalar mapping outside QSIRecon.
+Bundle scalar mapping with host or QSIRecon-container execution.
 
 Given:
 - a DWI reference image
@@ -24,8 +24,10 @@ import argparse
 import json
 import logging
 import os
+import shlex
 import shutil
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -37,29 +39,83 @@ from nilearn.maskers import NiftiMasker
 LOGGER = logging.getLogger('bundle_scalar_mapper')
 
 
-def resolve_tckmap_binary() -> str:
-    """Resolve tckmap binary from env, default env path, or PATH."""
+def _resolve_executable(command: str) -> str | None:
+    """Resolve a command name or executable path without invoking a shell."""
+    expanded = str(Path(command).expanduser())
+    if os.path.sep in expanded:
+        return expanded if os.path.isfile(expanded) and os.access(expanded, os.X_OK) else None
+    return shutil.which(expanded)
+
+
+def resolve_tckmap_command() -> list[str]:
+    """Build the command prefix used to run MRtrix ``tckmap``.
+
+    ``TCKMAP_BIN`` is an explicit host override. Otherwise, a ``tckmap`` found
+    on ``PATH`` is preferred, followed by the configured QSIRecon image.
+    """
     env_bin = os.environ.get('TCKMAP_BIN')
     if env_bin:
-        return env_bin
+        resolved = _resolve_executable(env_bin)
+        if resolved is None:
+            raise FileNotFoundError(
+                f'TCKMAP_BIN is set to {env_bin!r}, but that executable was not found. '
+                'Unset TCKMAP_BIN to use the configured QSIRecon container.'
+            )
+        return [resolved]
 
-    default_bin = str(Path('~/.conda/envs/mrtrix3/bin/tckmap').expanduser())
-    if os.path.exists(default_bin):
-        return default_bin
-
-    path_bin = shutil.which('tckmap')
+    path_bin = _resolve_executable('tckmap')
     if path_bin is not None:
-        return path_bin
+        return [path_bin]
 
-    # Let subprocess surface the command-not-found error clearly.
-    return 'tckmap'
+    container = os.environ.get('MIRROR_APPTAINER_QSIRECON')
+    if container:
+        container_path = Path(container).expanduser()
+        if not container_path.is_file():
+            raise FileNotFoundError(
+                f'Configured QSIRecon image does not exist: {container_path}. '
+                'Update apptainer.qsirecon in the selected MIRROR profile.'
+            )
+
+        requested_runtime = os.environ.get('APPTAINER_BIN')
+        runtime_candidates = [requested_runtime] if requested_runtime else ['apptainer', 'singularity']
+        runtime = next(
+            (
+                resolved
+                for candidate in runtime_candidates
+                if candidate and (resolved := _resolve_executable(candidate)) is not None
+            ),
+            None,
+        )
+        if runtime is None:
+            requested = requested_runtime or 'apptainer (or singularity)'
+            raise FileNotFoundError(
+                f'Container runtime not found: {requested}. Load Apptainer on the compute nodes '
+                'or set APPTAINER_BIN to its executable.'
+            )
+
+        command = [runtime, 'exec', '--cleanenv']
+        project_root = os.environ.get('MIRROR_PROJECT_ROOT')
+        if project_root:
+            command.extend(['--bind', f'{project_root}:{project_root}'])
+        command.extend([str(container_path), 'tckmap'])
+        return command
+
+    raise FileNotFoundError(
+        'Could not run tckmap. Load a MIRROR profile with apptainer.qsirecon configured, '
+        'or set TCKMAP_BIN to a working host executable.'
+    )
 
 
-def run_tckmap(dwiref_image: str, tck_file: str, output_tdi_file: str) -> nib.Nifti1Image:
+def run_tckmap(
+    dwiref_image: str,
+    tck_file: str,
+    output_tdi_file: str,
+    tckmap_command: Sequence[str] | None = None,
+) -> nib.Nifti1Image:
     """Create a track-density image (TDI) from a .tck file using MRtrix."""
-    tckmap_bin = resolve_tckmap_binary()
+    command_prefix = list(tckmap_command or resolve_tckmap_command())
     cmd = [
-        tckmap_bin,
+        *command_prefix,
         '-template',
         dwiref_image,
         '-contrast',
@@ -68,7 +124,7 @@ def run_tckmap(dwiref_image: str, tck_file: str, output_tdi_file: str) -> nib.Ni
         tck_file,
         output_tdi_file,
     ]
-    LOGGER.info('Running: %s', ' '.join(cmd))
+    LOGGER.info('Running: %s', shlex.join(cmd))
     subprocess.run(cmd, check=True)
     return nib.load(output_tdi_file)
 
@@ -204,6 +260,7 @@ def summarize_bundles(
     out_dir: str,
     bundle_source: str | None = None,
     bundle_params_id: str | None = None,
+    tckmap_command: Sequence[str] | None = None,
 ) -> tuple[str, str]:
     """Main bundle summarization routine."""
     out_path = Path(out_dir)
@@ -216,7 +273,12 @@ def summarize_bundles(
         LOGGER.info('Processing bundle %s', bundle_name)
 
         tdi_file = str(out_path / f'{bundle_name}_tdi.nii.gz')
-        tdi_img = run_tckmap(dwiref_image, tck_file, tdi_file)
+        tdi_img = run_tckmap(
+            dwiref_image,
+            tck_file,
+            tdi_file,
+            tckmap_command=tckmap_command,
+        )
 
         tdi_data = np.asanyarray(tdi_img.dataobj)
         mask_data = (tdi_data > 0).astype(np.uint8)

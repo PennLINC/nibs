@@ -44,6 +44,54 @@ AUTOTRACK_SPEC_FILE = CODE_ROOT / 'processing' / '01_smri_dmri' / 'qsirecon_spec
 EXPECTED_WM_BUNDLE_COUNT = 91
 
 
+def require_regional_analysis_inputs(
+    wm_input_globs: list[str],
+    dkt_input_globs: list[str],
+    *,
+    require_wm: bool,
+    require_dkt: bool,
+) -> None:
+    """Fail quickly when required prepared regional summaries are absent.
+
+    The default WM inputs combine reusable QSIRecon statistics with bundle
+    summaries created by ``analysis/00_prepare_inputs``. Checking only whether
+    *any* WM input exists can therefore conceal a missing bundle-summary step.
+    """
+
+    checks: list[tuple[str, list[str], str]] = []
+    if require_wm:
+        wm_patterns = (
+            [DEFAULT_WM_GLOBS[-1]]
+            if list(wm_input_globs) == DEFAULT_WM_GLOBS
+            else list(wm_input_globs)
+        )
+        checks.append(
+            (
+                'prepared WM bundle statistics',
+                wm_patterns,
+                'analysis/00_prepare_inputs/03_bundle_myelin_stats/submit.sbatch',
+            )
+        )
+    if require_dkt:
+        checks.append(
+            (
+                'prepared DKT parcel statistics',
+                list(dkt_input_globs),
+                'analysis/00_prepare_inputs/02_dkt_parcel_stats/submit.sbatch',
+            )
+        )
+
+    missing: list[str] = []
+    for label, patterns, producer in checks:
+        if not any(glob(pattern) for pattern in patterns):
+            rendered_patterns = ', '.join(patterns)
+            missing.append(
+                f'{label}: no files matched [{rendered_patterns}]. Run {producer} first.'
+            )
+    if missing:
+        raise FileNotFoundError('Missing regional analysis inputs:\n- ' + '\n- '.join(missing))
+
+
 @lru_cache(maxsize=None)
 def autotrack_bundle_ids(spec_file: Path = AUTOTRACK_SPEC_FILE) -> tuple[str, ...]:
     """Read the DSI Studio AutoTrack IDs directly from the QSIRecon specification."""

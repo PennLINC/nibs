@@ -32,6 +32,15 @@ bundle_stats_job=$(sbatch --parsable --dependency="afterok:${bundle_warp_job}" \
   analysis/00_prepare_inputs/03_bundle_myelin_stats/submit.sbatch)
 ```
 
+This launcher first looks for `tckmap` in the activated environment's `PATH`.
+When it is available, the task runs in that host environment. Otherwise, the
+launcher uses the QSIRecon image named by `apptainer.qsirecon` in the selected
+profile. It enters the container once per participant array task; the Python
+program and all of its MRtrix `tckmap` calls then run within that same
+container. A separate host MRtrix installation is therefore optional.
+
+Setting `TCKMAP_BIN` explicitly takes precedence over both automatic options.
+
 The DKT and bundle summary branches are independent and may run concurrently.
 
 ## Acquisition-availability table

@@ -17,9 +17,37 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 source "${MIRROR_CODE_ROOT}/configuration/load_profile.sh"
 BIDS_DIR="${MIRROR_BIDS_DIR}"
 LOGS_DIR="${MIRROR_LOGS_DIR}"
-TCKMAP_BIN="${TCKMAP_BIN:-tckmap}"
 
 mkdir -p "${LOGS_DIR}/jobs"
+
+# Prefer an explicit host override, then tckmap from the activated environment.
+# Fall back to running the complete participant task in the QSIRecon container.
+if [[ -z "${TCKMAP_BIN:-}" ]]; then
+  if path_tckmap=$(command -v tckmap 2>/dev/null); then
+    export TCKMAP_BIN="${path_tckmap}"
+  fi
+fi
+
+if [[ -z "${TCKMAP_BIN:-}" ]]; then
+  if [[ -z "${MIRROR_APPTAINER_QSIRECON:-}" || ! -f "${MIRROR_APPTAINER_QSIRECON}" ]]; then
+    echo "QSIRecon image not found: ${MIRROR_APPTAINER_QSIRECON:-<not configured>}" >&2
+    echo "Set apptainer.qsirecon in the selected MIRROR profile." >&2
+    exit 1
+  fi
+  if [[ -n "${APPTAINER_BIN:-}" ]]; then
+    if ! command -v "${APPTAINER_BIN}" >/dev/null 2>&1; then
+      echo "APPTAINER_BIN is not executable: ${APPTAINER_BIN}" >&2
+      exit 1
+    fi
+  elif command -v apptainer >/dev/null 2>&1; then
+    export APPTAINER_BIN=apptainer
+  elif command -v singularity >/dev/null 2>&1; then
+    export APPTAINER_BIN=singularity
+  else
+    echo "Neither apptainer nor singularity is available on this compute node." >&2
+    exit 1
+  fi
+fi
 
 # Parse participants.tsv line corresponding to this array index.
 subject=$( sed -n -E "$((${SLURM_ARRAY_TASK_ID} + 1))s/sub-(\S*)\>.*/\1/gp" "${BIDS_DIR}/participants.tsv" )
@@ -29,16 +57,48 @@ if [[ -z "${subject}" ]]; then
   exit 1
 fi
 
-cmd="TCKMAP_BIN=${TCKMAP_BIN} ${PYTHON_BIN} ${SCRIPT_DIR}/compute_bundle_myelin_stats.py \
-  --subject-id ${subject} \
-  --source-derivatives-dir ${MIRROR_SOURCE_DERIVATIVES} \
-  --run-derivatives-dir ${MIRROR_OUTPUT_DERIVATIVES} \
-  --patterns-file ${MIRROR_CODE_ROOT}/configuration/metrics.yml \
-  --out-root ${MIRROR_OUTPUT_DERIVATIVES}/bundle_myelin_stats"
+python_args=(
+  "${SCRIPT_DIR}/compute_bundle_myelin_stats.py"
+  --subject-id "${subject}"
+  --source-derivatives-dir "${MIRROR_SOURCE_DERIVATIVES}"
+  --run-derivatives-dir "${MIRROR_OUTPUT_DERIVATIVES}"
+  --patterns-file "${MIRROR_CODE_ROOT}/configuration/metrics.yml"
+  --out-root "${MIRROR_OUTPUT_DERIVATIVES}/bundle_myelin_stats"
+)
+
+if [[ -n "${TCKMAP_BIN:-}" ]]; then
+  # Use the activated host environment and resolved MRtrix binary.
+  cmd=("${PYTHON_BIN}" "${python_args[@]}")
+else
+  # Default: enter QSIRecon once per subject. All tckmap calls then execute
+  # directly inside this process namespace instead of starting one container
+  # for every bundle.
+  container_args=(
+    exec
+    --cleanenv
+    --bind "${MIRROR_PROJECT_ROOT}:${MIRROR_PROJECT_ROOT}"
+    --bind "${MIRROR_CODE_ROOT}:${MIRROR_CODE_ROOT}:ro"
+    --pwd "${MIRROR_CODE_ROOT}"
+    --env TCKMAP_BIN=tckmap
+    --env PYTHONDONTWRITEBYTECODE=1
+  )
+  if [[ -n "${MIRROR_CONFIG:-}" ]]; then
+    container_args+=(--env "MIRROR_CONFIG=${MIRROR_CONFIG}")
+  fi
+  cmd=(
+    "${APPTAINER_BIN}"
+    "${container_args[@]}"
+    "${MIRROR_APPTAINER_QSIRECON}"
+    python
+    "${python_args[@]}"
+  )
+fi
 
 echo "Running task ${SLURM_ARRAY_TASK_ID} for sub-${subject}"
-echo "Commandline: ${cmd}"
-eval "${cmd}"
+printf 'Commandline:'
+printf ' %q' "${cmd[@]}"
+printf '\n'
+"${cmd[@]}"
 exitcode=$?
 
 echo "sub-${subject}   ${SLURM_ARRAY_TASK_ID}    ${exitcode}" \

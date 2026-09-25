@@ -31,6 +31,31 @@ before writing the expanded supplemental view. Therefore, running `full` after
 equivalent recomputed versions, while supplemental results are added.
 ```
 
+## Minimal main-text workflow
+
+For Figures 1–5 and Table 4, the required computational workflow is:
+
+1. Run all three launchers in `processing/03_registration_and_warping/` in
+   dependency order: T1w registration first, then the DKT and bundle warps in
+   parallel.
+2. Run all three launchers in `analysis/00_prepare_inputs/`: the ribbon masks,
+   DKT parcel statistics, and bundle statistics. The DKT and bundle summaries
+   must wait for their corresponding warp jobs.
+3. Run these five main-analysis launchers:
+
+   - `analysis/02_gm_wm_differentiation/01_mni_effect_sizes/submit.sbatch`
+   - `analysis/03_correlations/01_mni_voxelwise/submit.sbatch`
+   - `analysis/04_icc/01_parcel_bundle/submit.sbatch`
+   - `analysis/04_icc/02_mni_voxelwise/submit.sbatch`
+   - `analysis/05_discriminability/02_parcel_bundle/submit.sbatch`
+
+4. Run `python analysis/01_build_missingness_list.py` for Figure 2.
+
+The regional-correlation launcher and MNI voxelwise-discriminability launcher
+are not required by the current main-text figure or table generators. Regional
+correlations are required for Figures S3–S6. Voxelwise discriminability is an
+available analysis output, but no current manuscript artifact consumes it.
+
 ## GM/WM differentiation
 
 The default job produces the primary results for Figure 3:
@@ -58,8 +83,8 @@ regional_correlation_job=$(sbatch --parsable \
   analysis/03_correlations/02_parcel_bundle/submit.sbatch)
 ```
 
-The primary results support Figure 4; the corresponding full results support
-Figures S3–S6.
+Primary MNI voxelwise results support Figure 4. Full voxelwise and regional
+results support Figures S3–S6.
 
 ## Intraclass correlation
 
@@ -95,8 +120,9 @@ regional_discriminability_job=$(sbatch --parsable \
   analysis/05_discriminability/02_parcel_bundle/submit.sbatch)
 ```
 
-Primary discriminability results support Table 4; full regional results support
-Figure S12.
+Primary regional discriminability results support Table 4; full regional
+results support Figure S12. No current manuscript artifact requires MNI
+voxelwise discriminability.
 
 ## Run analysis branches in parallel
 
@@ -121,9 +147,9 @@ the same time based on available resources.
 
 ## Full workflow with supplemental metrics
 
-The primary commands above are sufficient for the main analyses. In a
-complete reproduction, add the expanded supplemental results by submitting the
-relevant launchers with `ANALYSIS_SET=full`:
+The minimal workflow above is sufficient for the main-text artifacts. In a
+complete reproduction, add the expanded supplemental results by submitting
+the relevant launchers with `ANALYSIS_SET=full`:
 
 ```bash
 sbatch --dependency="afterok:${ribbon_job}" \

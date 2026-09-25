@@ -9,7 +9,10 @@ namespace for all newly computed products.
 2. `00_prepare_inputs/02_dkt_parcel_stats`: summarize scalar maps in DKT
    parcels after DKT warping.
 3. `00_prepare_inputs/03_bundle_myelin_stats`: summarize T1w-space scalar maps
-   within warped AutoTrack bundles.
+   within warped AutoTrack bundles. Its launcher uses host `tckmap` when it is
+   on `PATH`; otherwise, it runs the complete participant task inside the
+   configured QSIRecon container so repeated calls do not repeatedly start the
+   container.
 4. `01_build_missingness_list.py`: build the Figure 2
    acquisition-availability table.
 5. `02_gm_wm_differentiation`: compute Figure 3 and Figure S2 effect sizes.

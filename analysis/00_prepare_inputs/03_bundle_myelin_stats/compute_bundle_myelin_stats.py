@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from utils.bundles import summarize_bundles  # noqa: E402
+from utils.bundles import resolve_tckmap_command, summarize_bundles  # noqa: E402
 from utils.metrics import build_metric_specs, flatten_metric_patterns, metric_specs_for_analysis  # noqa: E402
 from utils.paths import OUTPUT_DERIVATIVES_ROOT, SOURCE_DERIVATIVES_ROOT  # noqa: E402
 
@@ -177,6 +177,10 @@ def process_subject(
     bundle_params_id: str,
     patterns_file: Path,
 ) -> None:
+    # Resolve the runtime before discovering or writing any subject outputs so
+    # a missing image/runtime fails immediately and with an actionable error.
+    tckmap_command = resolve_tckmap_command()
+
     bundles_root = os.path.join(run_deriv_dir, 'warped_bundles', f'sub-{subject}')
     if not os.path.isdir(bundles_root):
         print(f'[WARN] No warped bundles directory for sub-{subject}: {bundles_root}', flush=True)
@@ -244,6 +248,7 @@ def process_subject(
             out_dir=out_dir,
             bundle_source=bundle_source,
             bundle_params_id=bundle_params_id,
+            tckmap_command=tckmap_command,
         )
 
         final_tsv = os.path.join(
