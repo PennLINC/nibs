@@ -12,11 +12,10 @@ The expected filesystem layout is:
 ```text
 <project_root>/
 ├── apptainer/              # container images
-├── code/                   # this repository; may have any checkout name
+├── code/                   # this repository; contains ignored logs/
 ├── derivatives/            # reusable preprocessing and source scalar maps
 │   └── mirror_data_descriptor/  # default manuscript-run outputs
 ├── dset/                   # raw BIDS dataset
-├── logs/
 └── work/
 ```
 
@@ -31,8 +30,10 @@ The reusable boundary is after source scalar generation. `smriprep`, `qsiprep`,
 `q_ratio`, and `g_ratio` are read from `source_derivatives_dir`. Registration,
 warping, regional statistics, analyses, QC products, and newly rendered
 figures/tables are written beneath the run-specific `output_derivatives_dir`.
-Temporary work and scheduler logs use the separately configurable `work_dir`
-and `logs_dir`.
+Temporary work uses `work_dir`. Scheduler output and workflow job records are
+written below the checkout's ignored `logs/` directory. Run
+`configuration/create_log_directories.sh` once after cloning, and submit
+SBATCH launchers from the repository root.
 
 ## Repository layout
 

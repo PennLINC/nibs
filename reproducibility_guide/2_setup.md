@@ -7,6 +7,7 @@ git clone -b code_reorg \
   git@github.com:PennLINC/nibs.git \
   /cbica/projects/nibs/code_replication
 cd /cbica/projects/nibs/code_replication
+bash configuration/create_log_directories.sh
 ```
 
 The checkout does not have to be named `MIRROR` or placed directly below the
@@ -48,7 +49,7 @@ A cluster profile may look like:
   "source_derivatives_dir": "derivatives",
   "run_name": "replication",
   "output_derivatives_dir": "derivatives/replication",
-  "logs_dir": "logs/replication",
+  "logs_dir": "auto",
   "derivatives": {
     "smriprep": "smriprep",
     "qsiprep": "qsiprep",
@@ -94,8 +95,9 @@ Confirm that:
 
 1. `MIRROR_CODE_ROOT` is the checkout you just cloned;
 2. `MIRROR_SOURCE_DERIVATIVES` points to the reusable inputs; and
-3. `MIRROR_OUTPUT_DERIVATIVES`, `MIRROR_LOGS_DIR`, and `MIRROR_WORK_DIR`
-   point to replication-specific locations.
+3. `MIRROR_OUTPUT_DERIVATIVES` and `MIRROR_WORK_DIR` point to
+   replication-specific locations; and
+4. `MIRROR_LOGS_DIR` is `<checkout>/logs`.
 
 All SBATCH launchers load this same profile through
 `configuration/load_profile.sh`.
@@ -104,6 +106,15 @@ The profile's relative paths are resolved against `project_root`, so this
 example reads reusable inputs from `/cbica/projects/nibs/derivatives` and
 writes new results to `/cbica/projects/nibs/derivatives/replication`. The
 checkout itself is discovered from Git because `code_dir` is `auto`.
+`logs_dir: auto` similarly follows the checkout, so renaming or moving the
+clone does not require a hard-coded log path.
+
+The SBATCH headers use relative paths such as
+`logs/t1w_reg/%x-%A_%a.out`. Slurm does not create missing parent directories;
+`configuration/create_log_directories.sh` creates every required job folder.
+It is safe to rerun after adding or renaming launchers. Submit all documented
+SBATCH commands from the repository root so those relative paths resolve
+inside the checkout.
 
 ## Optional repository checks
 

@@ -41,3 +41,15 @@ Every launcher loads `MIRROR_CONFIG` through
 `configuration/load_profile.sh`. Cluster-specific Python executables and
 modules can be selected with environment variables such as `PYTHON_BIN` and
 `MATLAB_MODULE` without editing tracked scripts.
+
+Run `configuration/create_log_directories.sh` once after cloning and submit
+all SBATCH launchers from the repository root. Their relative output paths
+write scheduler logs below the checkout's ignored `logs/` directory, grouped
+by Slurm job name.
+
+`environment_processing.yml` contains the direct Python and MRtrix
+dependencies used by retained code. Site-provided commands remain external:
+Apptainer, the ANTs command-line tools, MATLAB/SEPIA, FreeSurfer, `trxrs`, and
+`antsApplyTransformsToTRX`. The source-scalar ihMT script also expects the
+project-specific `ihmt_proc` Python API. That API is not needed for the
+documented replication, which begins after source-scalar generation.

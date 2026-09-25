@@ -25,32 +25,35 @@ the current checkout, so no profile edit is needed after moving or renaming it.
 Slurm executes a temporary copy of an SBATCH script under `/var/spool`.
 Current launchers therefore recover the checkout with `SLURM_SUBMIT_DIR` and
 Git rather than treating that temporary copy as the repository. Submit from
-any directory inside the checkout. If submitting while standing elsewhere,
-export the checkout explicitly:
+the checkout root so both repository discovery and relative log paths are
+correct:
 
 ```bash
-export MIRROR_CODE_ROOT=/cbica/projects/nibs/code_replication
+cd /cbica/projects/nibs/code_replication
 ```
 
 Seeing the `/var/spool/configuration` error means the checkout contains an
 older launcher; update the branch before resubmitting.
 
-## Slurm output appears beside the submitted script
+## Slurm reports that the output file cannot be opened
 
-Without an `--output` option, Slurm writes `slurm-<job-id>.out` in the
-submission directory. It chooses this path before the job starts and before
-the replication profile can be loaded. The configured `logs_dir` is used for
-logs written by the running workflow, not automatically for Slurm's own
-stdout/stderr file.
-
-To collect scheduler output there as well:
+Slurm creates output files but not missing parent directories. From the
+repository root, create all folders declared by the SBATCH headers:
 
 ```bash
-mkdir -p /cbica/projects/nibs/logs/replication/slurm
-sbatch \
-  --output=/cbica/projects/nibs/logs/replication/slurm/%x-%A_%a.out \
-  processing/03_registration_and_warping/01_submit_t1w_registration.sbatch
+bash configuration/create_log_directories.sh
 ```
+
+Then resubmit from that same repository root. Log files are grouped by Slurm
+job name, for example `logs/t1w_reg/t1w_reg-18435027_1.out`.
+
+## A launcher says `Python executable not found: python`
+
+Activate the processing environment before calling `sbatch`, and do not use
+`sbatch --export=NONE`; Slurm normally exports the activated environment's
+`PATH`. Current launchers resolve command names such as `python` with
+`command -v`, so both an environment-provided command and an explicitly set
+absolute `PYTHON_BIN` are supported.
 
 ## A Slurm array skipped a participant
 

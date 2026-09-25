@@ -42,8 +42,8 @@ processing/03_registration_and_warping/
 
 All later computational outputs are written beneath the configured
 `output_derivatives_dir`. Generated figures and tables default to its
-`figures/` subdirectory. Logs and temporary files use the separately
-configured `logs_dir` and `work_dir`.
+`figures/` subdirectory. Logs use the checkout's ignored `logs/` directory;
+temporary files use the configured `work_dir`.
 
 ## Expected project layout
 
@@ -53,6 +53,7 @@ One possible cluster layout is:
 <project_root>/
 ├── apptainer/
 ├── code_replication/             # this repository; any name/location is valid
+│   └── logs/                     # ignored Slurm output and job records
 ├── derivatives/
 │   ├── smriprep/                 # reusable inputs
 │   ├── qsiprep/
@@ -67,7 +68,6 @@ One possible cluster layout is:
 │   ├── g_ratio/
 │   └── replication/              # new outputs
 ├── dset/                         # raw BIDS dataset
-├── logs/
 └── work/
 ```
 

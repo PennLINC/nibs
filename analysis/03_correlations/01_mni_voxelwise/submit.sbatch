@@ -16,13 +16,13 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 source "${MIRROR_CODE_ROOT}/configuration/load_profile.sh"
 PYTHON="${PYTHON:-${PYTHON_BIN}}"
 ANALYSIS_SET="${ANALYSIS_SET:-primary}"
-if [[ ! -x "${PYTHON}" ]]; then
-  echo "Python executable not found or not executable: ${PYTHON}" >&2
+PYTHON_REQUESTED="${PYTHON}"
+if ! PYTHON="$(command -v "${PYTHON_REQUESTED}")"; then
+  echo "Python executable not found or not executable: ${PYTHON_REQUESTED}" >&2
   exit 1
 fi
 
-
- "${PYTHON}" -u "${SCRIPT_DIR}/compute_mni_voxelwise_correlations.py" \
+"${PYTHON}" -u "${SCRIPT_DIR}/compute_mni_voxelwise_correlations.py" \
     --project-root "${MIRROR_PROJECT_ROOT}" \
     --derivatives-dir "${MIRROR_SOURCE_DERIVATIVES}" \
     --run-derivatives-dir "${MIRROR_OUTPUT_DERIVATIVES}" \

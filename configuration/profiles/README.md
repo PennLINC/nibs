@@ -16,6 +16,12 @@ Use `code_dir: auto` to resolve repository assets from the active checkout.
 This is the default and remains valid if the clone is renamed from `nibs` to
 `MIRROR` or placed anywhere else beneath the project root.
 
+Use `logs_dir: auto` to place Slurm output and workflow job records in the
+checkout's ignored `logs/` directory. Run
+`configuration/create_log_directories.sh` once after cloning, then submit
+SBATCH launchers from the repository root; their relative output paths require
+that working directory.
+
 For the documented CUBIC reproduction, edit `replication.example.yml` in
 place. It is preconfigured for a checkout at
 `/cbica/projects/nibs/code_replication`, reusable derivatives at

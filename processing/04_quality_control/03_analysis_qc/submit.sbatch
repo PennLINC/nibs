@@ -28,8 +28,9 @@ export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 mkdir -p "${MPLCONFIGDIR}" "${TMPDIR}"
 
-if [[ ! -x "${PYTHON}" ]]; then
-  echo "Python executable not found or not executable: ${PYTHON}" >&2
+PYTHON_REQUESTED="${PYTHON}"
+if ! PYTHON="$(command -v "${PYTHON_REQUESTED}")"; then
+  echo "Python executable not found or not executable: ${PYTHON_REQUESTED}" >&2
   exit 1
 fi
 
