@@ -22,6 +22,21 @@ python figures/figure_05_icc/plot_figure_5_icc.py
 The default output stems are exactly `Figure1` through `Figure5`, with PNG and
 PDF versions written by each renderer.
 
+## View figures from the cluster
+
+The processing environment includes the `imgcat` command for viewing a PNG
+directly in a compatible terminal. Load the selected profile into the current
+shell, then provide the generated image path:
+
+```bash
+eval "$(python configuration/resolve_paths.py --shell)"
+imgcat "${MIRROR_OUTPUT_DERIVATIVES}/figures/figure_01_primary_maps/Figure1.png"
+```
+
+The image is displayed locally by the terminal even though the file remains on
+the cluster. Inline display depends on terminal support; when unsupported, use
+SFTP or another file-transfer method to inspect the PNG locally.
+
 ## Supplementary figures
 
 Figures S2–S6 and S8–S12 require `full` outputs from their corresponding

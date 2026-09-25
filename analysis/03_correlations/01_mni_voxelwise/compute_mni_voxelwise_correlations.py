@@ -369,7 +369,22 @@ def main() -> None:
         raise RuntimeError('Primary metric registry contains duplicate labels.')
     analysis_sets = selected_analysis_sets(args.analysis_set)
     processing_set = 'primary' if args.analysis_set == 'primary' else 'full'
-    specs = metric_specs_for_analysis(all_specs, processing_set)
+    if processing_set == 'primary':
+        # Load the union of tissue-specific primary inputs. A global primary
+        # selection contains the WM-compatible ICVF record, while cortical GM
+        # requires the separate GM-NODDI ICVF map with the same display label.
+        selected_pattern_keys = {
+            spec.pattern_key
+            for tissue in ('gm', 'wm')
+            for spec in metric_specs_for_analysis(
+                all_specs,
+                processing_set,
+                tissue=tissue,
+            )
+        }
+        specs = [spec for spec in all_specs if spec.pattern_key in selected_pattern_keys]
+    else:
+        specs = metric_specs_for_analysis(all_specs, processing_set)
     qc = load_qc_table(args.qc_file)
 
     subjects = (

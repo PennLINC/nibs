@@ -13,6 +13,7 @@ dependencies:
   # PyMP2RAGE has no published release and documents installation from Git.
   - pip:
       - antspyx==0.6.3
+      - imgcat==0.6.0
       - lxml==5.4.0
       - matplotlib==3.10.3
       - missingno==0.5.2

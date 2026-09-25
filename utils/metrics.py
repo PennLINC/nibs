@@ -368,14 +368,18 @@ def primary_metric_specs(
     specs: list[MetricSpec],
     tissue: str | None = None,
 ) -> list[MetricSpec]:
+    """Return one tissue-appropriate specification per primary metric.
+
+    Some primary metrics have distinct source maps by tissue. For example,
+    cortical-GM ICVF comes from the GM-NODDI fit even though the canonical
+    primary ICVF record is the WM-compatible fit. Select the first eligible
+    record for each primary display label, matching the manuscript workflow.
+    """
     candidates = [spec for spec in specs if tissue is None or tissue in spec.tissues]
     by_label: dict[str, MetricSpec] = {}
     for spec in candidates:
         by_label.setdefault(spec.primary_label, spec)
-    return sorted(
-        (spec for spec in by_label.values() if spec.primary),
-        key=lambda spec: spec.primary_order or 10**9,
-    )
+    return [by_label[label] for label in PRIMARY_METRIC_LABELS if label in by_label]
 
 
 def metric_specs_for_analysis(

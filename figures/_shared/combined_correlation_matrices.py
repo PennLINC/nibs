@@ -193,6 +193,8 @@ def draw_source_bar(
     labels: list[str],
     source_by_label: dict[str, str],
     label_size: float,
+    label_rotation: float = 45.0,
+    label_fontweight: str = 'normal',
 ) -> None:
     colors = np.array(
         [
@@ -209,7 +211,13 @@ def draw_source_bar(
     ax.set_xlim(-0.5, 0.5)
     ax.set_ylim(len(labels) - 0.5, -0.5)
     ax.set_xticks([0])
-    ax.set_xticklabels([METRIC_FAMILY_LEGEND_TITLE], rotation=45, ha='right', rotation_mode='anchor')
+    ax.set_xticklabels(
+        [METRIC_FAMILY_LEGEND_TITLE],
+        rotation=label_rotation,
+        ha='right',
+        rotation_mode='anchor',
+        fontweight=label_fontweight,
+    )
     ax.tick_params(axis='x', length=0, pad=7, labelsize=label_size)
     ax.set_yticks([])
     for spine in ax.spines.values():

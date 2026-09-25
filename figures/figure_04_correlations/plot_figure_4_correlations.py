@@ -56,6 +56,7 @@ from figures._shared.correlation_matrices import (  # noqa: E402
 ANALYSIS_SETS = ('primary', 'full')
 MNI_CORRELATIONS = ('pearson', 'spearman')
 PROFILE_SIMILARITY_METHODS = ('pearson', 'spearman')
+HEATMAP_LABEL_ROTATION = 52.0
 
 
 @dataclass(frozen=True)
@@ -320,10 +321,17 @@ def draw_figure(
         heatmap_ax = fig.add_subplot(inner[0, 2])
 
         draw_left_dendrogram(dendro_ax, panel_data.linkage, panel_data.matrix.shape[0])
-        draw_source_bar(source_ax, list(panel_data.matrix.index), panel_data.panel.source_by_label, max(8.5, fs - 0.6))
+        draw_source_bar(
+            source_ax,
+            list(panel_data.matrix.index),
+            panel_data.panel.source_by_label,
+            max(8.5, fs - 0.6),
+            label_rotation=HEATMAP_LABEL_ROTATION,
+            label_fontweight='bold',
+        )
         draw_heatmap(heatmap_ax, panel_data.matrix, cmap, fs)
         for tick in heatmap_ax.get_xticklabels():
-            tick.set_rotation(52)
+            tick.set_rotation(HEATMAP_LABEL_ROTATION)
             tick.set_ha('right')
             tick.set_rotation_mode('anchor')
         image = heatmap_ax.images[0]
