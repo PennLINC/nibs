@@ -3,12 +3,15 @@
 ## Clone the repository
 
 ```bash
-git clone git@github.com:PennLINC/nibs.git /path/to/your/checkout
-cd /path/to/your/checkout
+git clone -b code_reorg \
+  git@github.com:PennLINC/nibs.git \
+  /cbica/projects/nibs/code_replication
+cd /cbica/projects/nibs/code_replication
 ```
 
 The checkout does not have to be named `MIRROR` or placed directly below the
-project root.
+project root. The paths below reproduce the CUBIC example used for this guide;
+other locations work when the profile is updated accordingly.
 
 ## Create the processing environment
 
@@ -25,30 +28,27 @@ micromamba activate processing
 The curation environment is unnecessary unless the raw BIDS dataset is being
 rebuilt.
 
-## Create a replication profile
+## Configure the replication profile
 
-Copy the example outside the checkout so local machine paths do not become
-version-controlled changes:
+Edit the included replication profile directly from the repository root:
 
 ```bash
-mkdir -p /path/to/replication/config
-cp configuration/profiles/replication.example.yml \
-  /path/to/replication/config/mirror_replication.yml
+nano configuration/profiles/replication.example.yml
 ```
 
-Edit the copy. JSON syntax is valid YAML and can be loaded even when PyYAML is
-not installed. A cluster profile may look like:
+JSON syntax is valid YAML and can be loaded even when PyYAML is not installed.
+A cluster profile may look like:
 
 ```json
 {
   "project_root": "/cbica/projects/nibs",
   "bids_dir": "dset",
   "code_dir": "auto",
-  "work_dir": "/cbica/comp_space/USERNAME/mirror_data_descriptor_replication",
+  "work_dir": "work/replication",
   "source_derivatives_dir": "derivatives",
-  "run_name": "mirror_data_descriptor_replication",
-  "output_derivatives_dir": "derivatives/mirror_data_descriptor_replication",
-  "logs_dir": "logs/mirror_data_descriptor_replication",
+  "run_name": "replication",
+  "output_derivatives_dir": "derivatives/replication",
+  "logs_dir": "logs/replication",
   "derivatives": {
     "smriprep": "smriprep",
     "qsiprep": "qsiprep",
@@ -71,6 +71,13 @@ Retain the `apptainer`, `freesurfer`, and `software` sections from the example
 when they are needed by the target cluster.
 
 ```{warning}
+`configuration/profiles/replication.example.yml` is tracked by Git. After
+editing it, `git status` will report a modification. Do not commit or push
+cluster-specific paths unless that change is intentional. Having a locally
+modified profile does not prevent job submission.
+```
+
+```{warning}
 Use a new, preferably nonexistent, `output_derivatives_dir` for the replication.
 Rerunning within that same directory may replace outputs from that replication.
 It will not affect the manuscript run when the two profiles use different paths.
@@ -79,7 +86,7 @@ It will not affect the manuscript run when the two profiles use different paths.
 ## Select and inspect the profile
 
 ```bash
-export MIRROR_CONFIG=/path/to/replication/config/mirror_replication.yml
+export MIRROR_CONFIG="${PWD}/configuration/profiles/replication.example.yml"
 python configuration/resolve_paths.py
 ```
 
@@ -92,6 +99,11 @@ Confirm that:
 
 All SBATCH launchers load this same profile through
 `configuration/load_profile.sh`.
+
+The profile's relative paths are resolved against `project_root`, so this
+example reads reusable inputs from `/cbica/projects/nibs/derivatives` and
+writes new results to `/cbica/projects/nibs/derivatives/replication`. The
+checkout itself is discovered from Git because `code_dir` is `auto`.
 
 ## Optional repository checks
 

@@ -5,9 +5,10 @@
 #SBATCH --time=02:00:00
 
 set -euo pipefail
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-CODE_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
-export MIRROR_CODE_ROOT="${MIRROR_CODE_ROOT:-${CODE_ROOT}}"
+if [[ ! -f "${MIRROR_CODE_ROOT:-}/configuration/load_profile.sh" ]]; then
+  export MIRROR_CODE_ROOT="$(git -C "${SLURM_SUBMIT_DIR:-$PWD}" rev-parse --show-toplevel)"
+fi
+SCRIPT_DIR="${MIRROR_CODE_ROOT}/processing/02_other_metric_processing/08_g_ratio"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 source "${MIRROR_CODE_ROOT}/configuration/load_profile.sh"
 "${PYTHON_BIN}" -u "${SCRIPT_DIR}/aggregate_g_ratio_scaling_factors.py" "$@"

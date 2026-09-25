@@ -8,12 +8,49 @@ python configuration/resolve_paths.py
 ```
 
 `MIRROR_CONFIG` may be a profile name such as `hpc` or an absolute YAML path.
-For replication, an absolute path to a copied profile is least ambiguous.
+For replication, point it to the edited profile in the current checkout:
+
+```bash
+repo_root="$(git rev-parse --show-toplevel)"
+export MIRROR_CONFIG="${repo_root}/configuration/profiles/replication.example.yml"
+```
 
 ## The repository was renamed or moved
 
 Keep `code_dir: auto`. The loader resolves code and configuration assets from
 the current checkout, so no profile edit is needed after moving or renaming it.
+
+## A job looks for `/var/spool/configuration/load_profile.sh`
+
+Slurm executes a temporary copy of an SBATCH script under `/var/spool`.
+Current launchers therefore recover the checkout with `SLURM_SUBMIT_DIR` and
+Git rather than treating that temporary copy as the repository. Submit from
+any directory inside the checkout. If submitting while standing elsewhere,
+export the checkout explicitly:
+
+```bash
+export MIRROR_CODE_ROOT=/cbica/projects/nibs/code_replication
+```
+
+Seeing the `/var/spool/configuration` error means the checkout contains an
+older launcher; update the branch before resubmitting.
+
+## Slurm output appears beside the submitted script
+
+Without an `--output` option, Slurm writes `slurm-<job-id>.out` in the
+submission directory. It chooses this path before the job starts and before
+the replication profile can be loaded. The configured `logs_dir` is used for
+logs written by the running workflow, not automatically for Slurm's own
+stdout/stderr file.
+
+To collect scheduler output there as well:
+
+```bash
+mkdir -p /cbica/projects/nibs/logs/replication/slurm
+sbatch \
+  --output=/cbica/projects/nibs/logs/replication/slurm/%x-%A_%a.out \
+  processing/03_registration_and_warping/01_submit_t1w_registration.sbatch
+```
 
 ## A Slurm array skipped a participant
 

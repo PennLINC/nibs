@@ -6,6 +6,9 @@
 #SBATCH --time=12:00:00
 
 set -euo pipefail
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ ! -f "${MIRROR_CODE_ROOT:-}/configuration/load_profile.sh" ]]; then
+  export MIRROR_CODE_ROOT="$(git -C "${SLURM_SUBMIT_DIR:-$PWD}" rev-parse --show-toplevel)"
+fi
+SCRIPT_DIR="${MIRROR_CODE_ROOT}/processing/04_quality_control/01_coregistration_reports"
 exec bash "${SCRIPT_DIR}/../../run_subject_job.sh" \
   "${SCRIPT_DIR}/generate_coregistration_reports.py"

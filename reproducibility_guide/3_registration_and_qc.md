@@ -1,6 +1,25 @@
 # Registration, warping, and quality control
 
-Run commands from the repository root with `MIRROR_CONFIG` exported.
+The examples below are written from the repository root, but an SBATCH
+launcher may be submitted from any directory inside the checkout. The
+launcher uses Slurm's original submission directory to find the Git root; it
+does not rely on the temporary script copy under `/var/spool`.
+
+Export `MIRROR_CONFIG` as an absolute path before changing directories:
+
+```bash
+export MIRROR_CONFIG="/cbica/projects/nibs/code_replication/configuration/profiles/replication.example.yml"
+```
+
+For example, submitting the first job from its own folder is supported:
+
+```bash
+cd /cbica/projects/nibs/code_replication/processing/03_registration_and_warping
+sbatch 01_submit_t1w_registration.sbatch
+```
+
+If submitting an absolute script path while standing *outside* the checkout,
+also export `MIRROR_CODE_ROOT=/cbica/projects/nibs/code_replication`.
 
 ## T1w registration
 

@@ -10,8 +10,10 @@ set -euo pipefail
 
 #==============Shell script==============#
 # Location of the *reduced* BIDS dataset
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-export MIRROR_CODE_ROOT="${MIRROR_CODE_ROOT:-$(cd -- "${SCRIPT_DIR}/../.." && pwd)}"
+if [[ ! -f "${MIRROR_CODE_ROOT:-}/configuration/load_profile.sh" ]]; then
+  export MIRROR_CODE_ROOT="$(git -C "${SLURM_SUBMIT_DIR:-$PWD}" rev-parse --show-toplevel)"
+fi
+SCRIPT_DIR="${MIRROR_CODE_ROOT}/processing/01_smri_dmri"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 source "${MIRROR_CODE_ROOT}/configuration/load_profile.sh"
 LOGS_DIR="${MIRROR_LOGS_DIR}"

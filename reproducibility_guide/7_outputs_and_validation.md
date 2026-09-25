@@ -43,7 +43,7 @@ as its output unless the user explicitly overrides a script argument or points
 
 Before submitting all array tasks:
 
-1. copy a profile and select a fresh output directory;
+1. edit the replication profile and select a fresh output directory;
 2. temporarily change the relevant SBATCH array range to one participant in an
    untracked copy of the launcher, or submit a single array index with
    `sbatch --array=1`;

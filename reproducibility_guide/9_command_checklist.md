@@ -7,7 +7,7 @@ Run it from the repository root after reviewing the preceding chapters.
 
 ```bash
 micromamba activate processing
-export MIRROR_CONFIG=/absolute/path/to/mirror_replication.yml
+export MIRROR_CONFIG="${PWD}/configuration/profiles/replication.example.yml"
 export ANALYSIS_SET=primary
 python configuration/resolve_paths.py
 ```

@@ -52,7 +52,7 @@ One possible cluster layout is:
 ```text
 <project_root>/
 ├── apptainer/
-├── code/                         # this repository; any name/location is valid
+├── code_replication/             # this repository; any name/location is valid
 ├── derivatives/
 │   ├── smriprep/                 # reusable inputs
 │   ├── qsiprep/
@@ -65,7 +65,7 @@ One possible cluster layout is:
 │   ├── t1wt2w_ratio/
 │   ├── q_ratio/
 │   ├── g_ratio/
-│   └── mirror_data_descriptor_replication/  # new outputs
+│   └── replication/              # new outputs
 ├── dset/                         # raw BIDS dataset
 ├── logs/
 └── work/
@@ -73,4 +73,3 @@ One possible cluster layout is:
 
 The source and output trees may live elsewhere, including on different
 filesystems, as long as the profile contains their absolute paths.
-

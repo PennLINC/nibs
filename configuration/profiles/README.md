@@ -16,9 +16,14 @@ Use `code_dir: auto` to resolve repository assets from the active checkout.
 This is the default and remains valid if the clone is renamed from `nibs` to
 `MIRROR` or placed anywhere else beneath the project root.
 
-For an independent reproduction, copy `replication.example.yml` and choose a
-new `run_name` and `output_derivatives_dir`. Never point
-`output_derivatives_dir` at `source_derivatives_dir`.
+For the documented CUBIC reproduction, edit `replication.example.yml` in
+place. It is preconfigured for a checkout at
+`/cbica/projects/nibs/code_replication`, reusable derivatives at
+`/cbica/projects/nibs/derivatives`, and new outputs at
+`/cbica/projects/nibs/derivatives/replication`. Because the profile is tracked,
+local edits will appear in `git status`; do not commit cluster- or user-specific
+changes unintentionally. Never point `output_derivatives_dir` at
+`source_derivatives_dir`.
 
 Generated figures and tables default to `<output_derivatives_dir>/figures`.
 Set `run_figures_dir` (and, if desired, `run_tables_dir`) only when those

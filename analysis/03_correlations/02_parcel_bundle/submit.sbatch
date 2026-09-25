@@ -7,8 +7,10 @@
 #SBATCH --time=24:00:00
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export MIRROR_CODE_ROOT="${MIRROR_CODE_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
+if [[ ! -f "${MIRROR_CODE_ROOT:-}/configuration/load_profile.sh" ]]; then
+  export MIRROR_CODE_ROOT="$(git -C "${SLURM_SUBMIT_DIR:-$PWD}" rev-parse --show-toplevel)"
+fi
+SCRIPT_DIR="${MIRROR_CODE_ROOT}/analysis/03_correlations/02_parcel_bundle"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 source "${MIRROR_CODE_ROOT}/configuration/load_profile.sh"
 PYTHON="${PYTHON:-${PYTHON_BIN}}"

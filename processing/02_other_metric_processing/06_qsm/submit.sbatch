@@ -9,7 +9,10 @@ set -euo pipefail
 if command -v module >/dev/null 2>&1; then
   module load "${MATLAB_MODULE:-matlab/R2023A}"
 fi
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ ! -f "${MIRROR_CODE_ROOT:-}/configuration/load_profile.sh" ]]; then
+  export MIRROR_CODE_ROOT="$(git -C "${SLURM_SUBMIT_DIR:-$PWD}" rev-parse --show-toplevel)"
+fi
+SCRIPT_DIR="${MIRROR_CODE_ROOT}/processing/02_other_metric_processing/06_qsm"
 exec bash "${SCRIPT_DIR}/../../run_subject_job.sh" \
   "${SCRIPT_DIR}/process_qsm.py" \
   "${SCRIPT_DIR}/process_qsm_post.py"
