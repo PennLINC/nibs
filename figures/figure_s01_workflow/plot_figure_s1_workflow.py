@@ -38,11 +38,14 @@ stop at the first scalar layer and the legend covers the rest.
 """
 
 import json
+import logging
 import os
 import re
 import sys
 from collections import OrderedDict
 from pathlib import Path
+
+logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
 
 import matplotlib.pyplot as plt
 import numpy as np

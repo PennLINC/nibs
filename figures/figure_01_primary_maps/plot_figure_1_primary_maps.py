@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
+
 if 'MPLCONFIGDIR' not in os.environ:
     mpl_config_dir = Path(os.environ.get('TMPDIR', '/tmp')) / 'mirror_matplotlib'
     mpl_config_dir.mkdir(parents=True, exist_ok=True)
