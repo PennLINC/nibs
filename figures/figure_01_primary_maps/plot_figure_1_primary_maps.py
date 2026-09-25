@@ -149,7 +149,7 @@ LAYOUT_ROWS = (
 PANEL_LABELS = {
     'MPRAGE-MyelinW': 'MPRAGE\nT1w/T2w Ratio',
     'SPACE-MyelinW': 'SPACE\nT1w/T2w Ratio',
-    'B1': 'B₁ map',
+    'B1': 'B₁⁺ map',
 }
 
 STACKED_PANEL_GROUPS = {'T1w/T2w'}
@@ -733,6 +733,7 @@ def math_label(label: str, bold: bool = False) -> str:
     replacements = {
         '₁': r'$_1$',
         '₂': r'$_2$',
+        '⁺': r'$^{+}$',
         'χ': r'$\chi$',
     }
     for source, target in replacements.items():
@@ -740,6 +741,7 @@ def math_label(label: str, bold: bool = False) -> str:
     if bold:
         text = text.replace(r'$_1$', r'$_{\mathbf{1}}$')
         text = text.replace(r'$_2$', r'$_{\mathbf{2}}$')
+        text = text.replace(r'$^{+}$', r'$^{\mathbf{+}}$')
     return text
 
 
@@ -752,7 +754,7 @@ def display_label(spec: MetricSpec) -> str:
 
 def group_label(group: str) -> str:
     if group == 'B1':
-        return math_label('B₁', bold=True)
+        return math_label('B₁⁺', bold=True)
     if group == 'R1':
         return 'MP2RAGE'
     if group == 'MESE':
