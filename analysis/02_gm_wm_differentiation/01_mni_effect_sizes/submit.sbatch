@@ -15,22 +15,38 @@ LOGS_DIR="${MIRROR_LOGS_DIR}"
 ANALYSIS_SET="${ANALYSIS_SET:-primary}"
 OUTPUT_DIR="${OUTPUT_DIR:-${MIRROR_OUTPUT_DERIVATIVES}/mni_gm_wm_effect_sizes}"
 RECALCULATE="${RECALCULATE:-1}"
-SUBJECT_TSV="${OUTPUT_DIR}/mni_gm_wm_effect_sizes_${ANALYSIS_SET}_subject.tsv"
+
+case "${ANALYSIS_SET}" in
+  primary)
+    analysis_sets=(primary)
+    ;;
+  full)
+    analysis_sets=(primary full)
+    ;;
+  *)
+    echo "ANALYSIS_SET must be primary or full; received: ${ANALYSIS_SET}" >&2
+    exit 2
+    ;;
+esac
 
 mkdir -p "${LOGS_DIR}/jobs"
 
-if [[ "${RECALCULATE}" == "1" || ! -s "${SUBJECT_TSV}" ]] || ! head -n 1 "${SUBJECT_TSV}" | grep -q 'gm_tissue'; then
-  "${PYTHON_BIN}" "${SCRIPT_DIR}/compute_mni_gm_wm_effect_sizes.py" \
-    --project-root "${MIRROR_PROJECT_ROOT}" \
-    --derivatives-dir "${MIRROR_SOURCE_DERIVATIVES}" \
-    --run-derivatives-dir "${MIRROR_OUTPUT_DERIVATIVES}" \
-    --analysis-set "${ANALYSIS_SET}" \
-    --output-dir "${OUTPUT_DIR}" \
-    "$@"
-else
-  echo "Using cached subject-level effect sizes: ${SUBJECT_TSV}"
-  echo "Set RECALCULATE=1 to recompute voxelwise GM/WM effects."
-fi
+for current_set in "${analysis_sets[@]}"; do
+  subject_tsv="${OUTPUT_DIR}/mni_gm_wm_effect_sizes_${current_set}_subject.tsv"
+  if [[ "${RECALCULATE}" == "1" || ! -s "${subject_tsv}" ]] \
+    || ! head -n 1 "${subject_tsv}" | grep -q 'gm_tissue'; then
+    "${PYTHON_BIN}" "${SCRIPT_DIR}/compute_mni_gm_wm_effect_sizes.py" \
+      --project-root "${MIRROR_PROJECT_ROOT}" \
+      --derivatives-dir "${MIRROR_SOURCE_DERIVATIVES}" \
+      --run-derivatives-dir "${MIRROR_OUTPUT_DERIVATIVES}" \
+      --analysis-set "${current_set}" \
+      --output-dir "${OUTPUT_DIR}" \
+      "$@"
+  else
+    echo "Using cached subject-level effect sizes: ${subject_tsv}"
+    echo "Set RECALCULATE=1 to recompute voxelwise GM/WM effects."
+  fi
+done
 
 exitcode=0
 job_id="${SLURM_JOB_ID:-local}"

@@ -24,6 +24,11 @@ PDF versions written by each renderer.
 
 ## Supplementary figures
 
+Figures S2–S6 and S8–S12 require `full` outputs from their corresponding
+analyses. Run those analyses with `ANALYSIS_SET=full`; this also writes the
+primary result views needed by the main figures. Figure S1 uses configuration
+metadata, and Figure S7 uses the primary regional ICC results.
+
 ```bash
 python figures/figure_s01_workflow/plot_figure_s1_workflow.py
 python figures/figure_s02_gm_wm_effect_sizes/plot_figure_s2_gm_wm_effect_sizes.py

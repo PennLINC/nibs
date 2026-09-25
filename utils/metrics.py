@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 DEFAULT_METRICS_FILE = Path(__file__).resolve().parents[1] / 'configuration' / 'metrics.yml'
+ANALYSIS_SET_CHOICES = ('primary', 'full')
 
 
 def _load_document(path: Path) -> dict:
@@ -391,6 +392,16 @@ def metric_specs_for_analysis(
         return primary_metric_specs(specs, tissue=tissue)
     if analysis_set in {'full', 'expanded'}:
         return candidates
+    raise ValueError(f'Unsupported metric set: {analysis_set}')
+
+
+def selected_analysis_sets(analysis_set: str) -> tuple[str, ...]:
+    """Expand an analysis-set selector into the concrete sets to write."""
+
+    if analysis_set == 'full':
+        return ('primary', 'full')
+    if analysis_set == 'primary':
+        return ('primary',)
     raise ValueError(f'Unsupported metric set: {analysis_set}')
 
 

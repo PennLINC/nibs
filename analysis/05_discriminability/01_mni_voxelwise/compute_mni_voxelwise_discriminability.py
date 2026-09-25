@@ -49,7 +49,7 @@ from utils.paths import OUTPUT_DERIVATIVES_ROOT, PROJECT_ROOT, SOURCE_DERIVATIVE
 
 
 TISSUES = (*DETERMINISTIC_TISSUES, 'gmwm')
-ANALYSIS_SETS = ('primary', 'full', 'both')
+ANALYSIS_SETS = ('primary', 'full')
 
 
 def require_dependencies() -> None:
@@ -188,7 +188,7 @@ def robust_outlier_mask(values: np.ndarray, z_threshold: float) -> np.ndarray:
 
 
 def selected_analysis_sets(analysis_set: str) -> list[str]:
-    return ['primary', 'full'] if analysis_set == 'both' else [analysis_set]
+    return ['primary', 'full'] if analysis_set == 'full' else ['primary']
 
 
 def specs_for_analysis_set(
@@ -490,7 +490,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--subject-id', action='append')
     parser.add_argument('--session-id', action='append', default=None)
     parser.add_argument('--metric', action='append')
-    parser.add_argument('--analysis-set', choices=ANALYSIS_SETS, default='both')
+    parser.add_argument('--analysis-set', choices=ANALYSIS_SETS, default='primary')
     parser.add_argument('--tissue', action='append', choices=TISSUES, default=None)
     parser.add_argument('--distance-metric', choices=('correlation', 'euclidean'), default='correlation')
     parser.add_argument('--zscore-features', action='store_true')

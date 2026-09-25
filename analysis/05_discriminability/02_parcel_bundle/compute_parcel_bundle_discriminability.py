@@ -14,7 +14,13 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from utils.metrics import build_metric_specs, metric_display_labels, metric_order  # noqa: E402
+from utils.metrics import (  # noqa: E402
+    ANALYSIS_SET_CHOICES,
+    build_metric_specs,
+    metric_display_labels,
+    metric_order,
+    selected_analysis_sets,
+)
 from utils.regional_io import (  # noqa: E402
     DEFAULT_DKT_GLOBS,
     DEFAULT_QC_FILE,
@@ -28,7 +34,6 @@ from utils.regional_io import (  # noqa: E402
 from utils.paths import OUTPUT_DERIVATIVES_ROOT  # noqa: E402
 
 
-ANALYSIS_SETS = ('primary', 'full')
 RESULT_COLUMNS = [
     'profile_type',
     'profile_group',
@@ -321,6 +326,12 @@ def build_parser() -> argparse.ArgumentParser:
         help='Which profile discriminability analysis to run.',
     )
     parser.add_argument(
+        '--analysis-set',
+        choices=ANALYSIS_SET_CHOICES,
+        default='primary',
+        help='Metric set to process. Default: primary.',
+    )
+    parser.add_argument(
         '--stat',
         choices=('mean', 'median'),
         default='median',
@@ -424,7 +435,7 @@ def main() -> None:
                 profile_type='wm',
                 patterns_file=args.patterns_file,
             )
-            for analysis_set in ANALYSIS_SETS:
+            for analysis_set in selected_analysis_sets(args.analysis_set):
                 expected_labels = metric_order(specs, analysis_set, tissue='wm')
                 observed_labels = set(filtered_wm['metric'])
                 display = metric_display_labels(specs, analysis_set, tissue='wm')
@@ -496,7 +507,7 @@ def main() -> None:
                 profile_type='dkt',
                 patterns_file=args.patterns_file,
             )
-            for analysis_set in ANALYSIS_SETS:
+            for analysis_set in selected_analysis_sets(args.analysis_set):
                 expected_labels = metric_order(specs, analysis_set, tissue='gm')
                 observed_labels = set(filtered_dkt['metric'])
                 display = metric_display_labels(specs, analysis_set, tissue='gm')

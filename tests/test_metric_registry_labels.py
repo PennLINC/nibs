@@ -2,7 +2,7 @@
 
 import pytest
 
-from utils.metrics import metric_plot_label
+from utils.metrics import metric_plot_label, selected_analysis_sets
 
 
 @pytest.mark.parametrize(
@@ -24,3 +24,19 @@ from utils.metrics import metric_plot_label
 )
 def test_metric_plot_label_symbols(source, expected):
     assert metric_plot_label(source) == expected
+
+
+@pytest.mark.parametrize(
+    ('requested', 'expected'),
+    [
+        ('primary', ('primary',)),
+        ('full', ('primary', 'full')),
+    ],
+)
+def test_selected_analysis_sets(requested, expected):
+    assert selected_analysis_sets(requested) == expected
+
+
+def test_selected_analysis_sets_rejects_unknown_value():
+    with pytest.raises(ValueError, match='Unsupported metric set'):
+        selected_analysis_sets('unknown')

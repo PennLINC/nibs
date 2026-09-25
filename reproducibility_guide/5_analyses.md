@@ -3,20 +3,41 @@
 The numbered analysis directories encode the intended order. Once all shared
 inputs exist, independent branches can run concurrently.
 
-## GM/WM differentiation
+## Select the metric set
 
-Figure 3 uses the primary metric set, while Figure S2 uses the full metric
-set. Submit both variants; their filenames are distinct within the same output
-directory:
+All analysis launchers use the same `ANALYSIS_SET` environment variable:
+
+| Value | Purpose |
+| --- | --- |
+| `primary` | Main analyses and main-text artifacts; this is the default |
+| `full` | Process all metrics and write both primary and supplemental result views |
+
+The analytic replicator normally runs the default `primary` workflow. No
+additional flag is required. For an explicit primary-only session, run:
 
 ```bash
-primary_effect_size_job=$(sbatch --parsable \
-  --dependency="afterok:${ribbon_job}" \
-  analysis/02_gm_wm_differentiation/01_mni_effect_sizes/submit.sbatch)
+export ANALYSIS_SET=primary
+```
 
-full_effect_size_job=$(sbatch --parsable \
+All subsequent `sbatch` submissions inherit that value. To run a launcher with
+the supplemental metric set, add `--export=ALL,ANALYSIS_SET=full` to its
+`sbatch` command. Output tables identify the selected analysis set, and most
+set-specific filenames include `primary` or `full`.
+
+```{important}
+`full` includes every primary metric. It also refreshes the primary result view
+before writing the expanded supplemental view. Therefore, running `full` after
+`primary` in the same output root is safe: primary summaries may be replaced by
+equivalent recomputed versions, while supplemental results are added.
+```
+
+## GM/WM differentiation
+
+The default job produces the primary results for Figure 3:
+
+```bash
+effect_size_job=$(sbatch --parsable \
   --dependency="afterok:${ribbon_job}" \
-  --export=ALL,ANALYSIS_SET=full \
   analysis/02_gm_wm_differentiation/01_mni_effect_sizes/submit.sbatch)
 ```
 
@@ -37,7 +58,8 @@ regional_correlation_job=$(sbatch --parsable \
   analysis/03_correlations/02_parcel_bundle/submit.sbatch)
 ```
 
-These results support Figure 4 and Figures S3–S6.
+The primary results support Figure 4; the corresponding full results support
+Figures S3–S6.
 
 ## Intraclass correlation
 
@@ -59,7 +81,8 @@ mni_icc_job=$(sbatch --parsable \
 
 The regional ICC output includes `within_subject_sd` and
 `between_subject_sd`. Figure S7 calculates their ratio directly from these
-tables. ICC results also support Figure 5 and Figures S8–S11.
+tables. Primary ICC results support Figure 5, while full ICC results support
+Figures S8–S11.
 
 ## Discriminability
 
@@ -72,7 +95,47 @@ regional_discriminability_job=$(sbatch --parsable \
   analysis/05_discriminability/02_parcel_bundle/submit.sbatch)
 ```
 
-These results support Table 4 and Figure S12.
+Primary discriminability results support Table 4; full regional results support
+Figure S12.
+
+## Full workflow with supplemental metrics
+
+The primary commands above are sufficient for the main analyses. In a
+complete reproduction, add the expanded supplemental results by submitting the
+relevant launchers with `ANALYSIS_SET=full`:
+
+```bash
+sbatch --dependency="afterok:${ribbon_job}" \
+  --export=ALL,ANALYSIS_SET=full \
+  analysis/02_gm_wm_differentiation/01_mni_effect_sizes/submit.sbatch
+
+sbatch --dependency="afterok:${ribbon_job}" \
+  --export=ALL,ANALYSIS_SET=full \
+  analysis/03_correlations/01_mni_voxelwise/submit.sbatch
+
+sbatch --dependency="afterok:${dkt_stats_job}:${bundle_stats_job}" \
+  --export=ALL,ANALYSIS_SET=full \
+  analysis/03_correlations/02_parcel_bundle/submit.sbatch
+
+sbatch --export=ALL,ANALYSIS_SET=full \
+  analysis/04_icc/02_mni_voxelwise/submit.sbatch
+
+sbatch --dependency="afterok:${dkt_stats_job}:${bundle_stats_job}" \
+  --export=ALL,ANALYSIS_SET=full \
+  analysis/04_icc/01_parcel_bundle/submit.sbatch
+
+sbatch --dependency="afterok:${dkt_stats_job}:${bundle_stats_job}" \
+  --export=ALL,ANALYSIS_SET=full \
+  analysis/05_discriminability/02_parcel_bundle/submit.sbatch
+```
+
+These jobs provide Figure S2, Figures S3–S6, Figures S8–S11, and Figure S12.
+Figure S7 uses primary regional ICC results. Full voxelwise discriminability
+can also be requested with the same flag, although no supplemental plotting
+script requires it.
+
+Because `full` also writes the primary result view, these commands may be used
+from the outset instead of first running the primary analysis commands.
 
 ## Monitor jobs
 

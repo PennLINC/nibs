@@ -8,8 +8,13 @@ Run it from the repository root after reviewing the preceding chapters.
 ```bash
 micromamba activate processing
 export MIRROR_CONFIG=/absolute/path/to/mirror_replication.yml
+export ANALYSIS_SET=primary
 python configuration/resolve_paths.py
 ```
+
+`ANALYSIS_SET=primary` makes this checklist explicitly primary-only. Change it
+to `full` to compute all metrics and write both primary and supplemental result
+views.
 
 ## 2. Registration and warping
 
@@ -41,12 +46,12 @@ python analysis/01_missingness/01_build_missingness_list.py
 
 ## 4. Analyses
 
+These commands use the default `ANALYSIS_SET=primary` and reproduce the main
+analyses. See the manuscript-analyses chapter for the optional full
+supplemental workflow.
+
 ```bash
 sbatch --dependency="afterok:${ribbon_job}" \
-  analysis/02_gm_wm_differentiation/01_mni_effect_sizes/submit.sbatch
-
-sbatch --dependency="afterok:${ribbon_job}" \
-  --export=ALL,ANALYSIS_SET=full \
   analysis/02_gm_wm_differentiation/01_mni_effect_sizes/submit.sbatch
 
 sbatch --dependency="afterok:${ribbon_job}" \
@@ -78,7 +83,7 @@ sbatch processing/04_quality_control/03_analysis_qc/submit.sbatch
 
 Review the reports before accepting the results.
 
-## 6. Figures and tables
+## 6. Main figures and table
 
 ```bash
 python figures/figure_01_primary_maps/plot_figure_1_primary_maps.py
@@ -87,6 +92,15 @@ python figures/figure_03_gm_wm_effect_sizes/plot_figure_3_gm_wm_effect_sizes.py
 python figures/figure_04_correlations/plot_figure_4_correlations.py
 python figures/figure_05_icc/plot_figure_5_icc.py
 
+python figures/table_04_discriminability/make_table_4_discriminability.py
+```
+
+The remaining commands are supplemental. Figures S2–S6 and S8–S12 require
+the corresponding `full` analysis runs described in the
+manuscript-analyses chapter:
+
+```bash
+
 python figures/figure_s01_workflow/plot_figure_s1_workflow.py
 python figures/figure_s02_gm_wm_effect_sizes/plot_figure_s2_gm_wm_effect_sizes.py
 python figures/figure_s03-s06_correlation_matrices/plot_figure_s3_s6_correlation_matrices.py
@@ -94,7 +108,6 @@ python figures/figure_s07_variability_ratio/plot_figure_s7_variability_ratio.py
 python figures/figure_s08-s11_icc/plot_figure_s8_s11_icc.py
 python figures/figure_s12_discriminability/plot_figure_s12_discriminability.py
 
-python figures/table_04_discriminability/make_table_4_discriminability.py
 python figures/table_s03_metrics/make_table_s3_metrics.py
 ```
 

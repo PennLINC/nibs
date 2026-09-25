@@ -22,3 +22,12 @@ namespace for all newly computed products.
 The two regional-statistic preparation branches can run in parallel after the
 corresponding processing products exist. ICC and discriminability branches can
 also run in parallel once their shared input summaries are complete.
+
+Every analysis launcher accepts the `ANALYSIS_SET` environment variable:
+
+- `primary` (default) runs only the metrics used in the main analyses; and
+- `full` processes the expanded metric set and writes both primary and full
+  result views for a complete reproduction.
+
+For example, `sbatch path/to/submit.sbatch` runs the primary set, while
+`sbatch --export=ALL,ANALYSIS_SET=full path/to/submit.sbatch` runs the full set.

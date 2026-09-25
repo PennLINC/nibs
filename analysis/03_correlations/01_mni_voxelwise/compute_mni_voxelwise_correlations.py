@@ -4,11 +4,11 @@
 For each subject/session and tissue mask, this script loads configured
 space-MNI152NLin2009cAsym scalar maps, computes pairwise-valid voxelwise
 correlations, Fisher-z transforms them, and averages first within subject and
-then across subjects. By default, cortical GM comes from each subject's
+then across subjects. By default, only the primary metric set is processed and
+cortical GM comes from each subject's
 precomputed MNI-space sMRIPrep ribbon, deep GM is the intersection of subject
 GM and deterministic template deep-GM labels, and all GM/WM come from the
-subject MNI dseg. Full supplementary matrices are computed first; primary-
-analysis matrices are then written as subsets of those full matrices.
+subject MNI dseg. Selecting the full set also writes the primary result view.
 """
 
 from __future__ import annotations
@@ -33,10 +33,13 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from utils.metrics import (  # noqa: E402
+    ANALYSIS_SET_CHOICES,
     build_metric_specs,
     metric_display_labels,
     metric_order,
+    metric_specs_for_analysis,
     primary_metric_specs,
+    selected_analysis_sets,
 )
 from utils.mni_analysis import (  # noqa: E402
     discover_sessions,
@@ -262,6 +265,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--subject-id', action='append', help='Subject(s), with or without sub-.')
     parser.add_argument('--session-id', action='append', help='Session(s), with or without ses-.')
     parser.add_argument(
+        '--analysis-set',
+        choices=ANALYSIS_SET_CHOICES,
+        default='primary',
+        help='Metric set to process. Default: primary.',
+    )
+    parser.add_argument(
         '--output-dir',
         type=Path,
         default=None,
@@ -354,10 +363,13 @@ def main() -> None:
     require_dependencies()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     patterns = load_patterns(args.patterns_file)
-    specs = build_metric_specs(args.patterns_file)
-    primary_specs = primary_metric_specs(specs)
-    if len(primary_specs) != len(metric_order(specs, 'primary')):
+    all_specs = build_metric_specs(args.patterns_file)
+    primary_specs = primary_metric_specs(all_specs)
+    if len(primary_specs) != len(metric_order(all_specs, 'primary')):
         raise RuntimeError('Primary metric registry contains duplicate labels.')
+    analysis_sets = selected_analysis_sets(args.analysis_set)
+    processing_set = 'primary' if args.analysis_set == 'primary' else 'full'
+    specs = metric_specs_for_analysis(all_specs, processing_set)
     qc = load_qc_table(args.qc_file)
 
     subjects = (
@@ -483,8 +495,8 @@ def main() -> None:
                 tissue_labels = [
                     label
                     for label in metric_order(
-                        specs,
-                        'full',
+                        all_specs,
+                        processing_set,
                         tissue=metric_registry_tissue(tissue),
                     )
                     if label in analysis_data.columns
@@ -590,26 +602,31 @@ def main() -> None:
         if not mats:
             continue
         orders = {
-            'full': metric_order(
-                specs,
-                'full',
+            analysis_set: metric_order(
+                all_specs,
+                analysis_set,
                 tissue=metric_registry_tissue(tissue),
-            ),
-            'primary': metric_order(
-                specs,
-                'primary',
-                tissue=metric_registry_tissue(tissue),
-            ),
+            )
+            for analysis_set in analysis_sets
         }
         display_labels = {
             analysis_set: metric_display_labels(
-                specs,
+                all_specs,
                 analysis_set,
                 tissue=metric_registry_tissue(tissue),
             )
             for analysis_set in orders
         }
-        full_labels = [label for label in orders['full'] if any(label in mat.index for mat in mats)]
+        processing_labels = metric_order(
+            all_specs,
+            processing_set,
+            tissue=metric_registry_tissue(tissue),
+        )
+        full_labels = [
+            label
+            for label in processing_labels
+            if any(label in mat.index for mat in mats)
+        ]
         observed_labels = set(full_labels)
         stack = np.stack(
             [

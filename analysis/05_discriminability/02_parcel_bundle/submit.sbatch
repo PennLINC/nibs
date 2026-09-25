@@ -12,12 +12,14 @@ export MIRROR_CODE_ROOT="${MIRROR_CODE_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pw
 PYTHON_BIN="${PYTHON_BIN:-python}"
 source "${MIRROR_CODE_ROOT}/configuration/load_profile.sh"
 PYTHON="${PYTHON:-${PYTHON_BIN}}"
+ANALYSIS_SET="${ANALYSIS_SET:-primary}"
 
 "${PYTHON}" -u "${SCRIPT_DIR}/compute_parcel_bundle_discriminability.py" \
   --patterns-file "${MIRROR_CODE_ROOT}/configuration/metrics.yml" \
   --qc-file "${MIRROR_CODE_ROOT}/data/qc/manual_qc_modality.tsv" \
   --outdir "${MIRROR_OUTPUT_DERIVATIVES}/parcel_bundle_discriminability" \
   --analysis both \
+  --analysis-set "${ANALYSIS_SET}" \
   --qc-mode metricqc \
   --stat median \
   --prefer-masked \

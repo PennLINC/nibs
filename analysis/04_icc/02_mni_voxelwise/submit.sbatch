@@ -12,6 +12,7 @@ export MIRROR_CODE_ROOT="${MIRROR_CODE_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pw
 PYTHON_BIN="${PYTHON_BIN:-python}"
 source "${MIRROR_CODE_ROOT}/configuration/load_profile.sh"
 PYTHON="${PYTHON:-${PYTHON_BIN}}"
+ANALYSIS_SET="${ANALYSIS_SET:-primary}"
 if [[ ! -x "${PYTHON}" ]]; then
   echo "Python executable not found or not executable: ${PYTHON}" >&2
   exit 1
@@ -22,6 +23,7 @@ fi
     --project-root "${MIRROR_PROJECT_ROOT}" \
     --derivatives-dir "${MIRROR_SOURCE_DERIVATIVES}" \
     --patterns-file "${MIRROR_CODE_ROOT}/configuration/metrics.yml" \
+    --analysis-set "${ANALYSIS_SET}" \
     --qc-file "${MIRROR_CODE_ROOT}/data/qc/manual_qc_modality.tsv" \
     --template-dseg "${MIRROR_CODE_ROOT}/data/atlases/tpl-MNI152NLin2009cAsym_res-01_seg-aseg_dseg.nii.gz" \
     --output-dir "${MIRROR_OUTPUT_DERIVATIVES}/mni_voxelwise_icc" \

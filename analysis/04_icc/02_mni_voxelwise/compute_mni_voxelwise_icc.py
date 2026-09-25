@@ -97,7 +97,6 @@ except ImportError:
 ANALYSIS_SETS = (
     "primary",
     "full",
-    "both",
 )
 
 SPACE = "MNI152NLin2009cAsym"
@@ -407,7 +406,7 @@ def qc_passes(
 
 
 def selected_analysis_sets(analysis_set):
-    if analysis_set == "both":
+    if analysis_set == "full":
         return [
             "primary",
             "full",
@@ -1801,12 +1800,13 @@ def parse_args():
     parser.add_argument(
         "--analysis-set",
         choices=ANALYSIS_SETS,
-        default="both",
+        default="primary",
         help=(
             "Metric set to process and summarize. "
             "Use primary for the primary-analysis "
-            "metrics, full for all metrics in "
-            "metrics.yml, or both. Default: both."
+            "metrics, or full to process all metrics in "
+            "metrics.yml and write both result views. "
+            "Default: primary."
         ),
     )
 

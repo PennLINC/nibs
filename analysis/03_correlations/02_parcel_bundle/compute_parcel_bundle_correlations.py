@@ -15,7 +15,13 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from utils.metrics import build_metric_specs, metric_display_labels, metric_order  # noqa: E402
+from utils.metrics import (  # noqa: E402
+    ANALYSIS_SET_CHOICES,
+    build_metric_specs,
+    metric_display_labels,
+    metric_order,
+    selected_analysis_sets,
+)
 from utils.regional_io import (  # noqa: E402
     DEFAULT_DKT_GLOBS,
     DEFAULT_QC_FILE,
@@ -29,7 +35,6 @@ from utils.regional_io import (  # noqa: E402
 from utils.paths import OUTPUT_DERIVATIVES_ROOT  # noqa: E402
 
 
-ANALYSIS_SETS = ('primary', 'full')
 PROFILE_TYPES = ('wm_bundles', 'gm_parcels')
 CORRELATION_METHODS = ('spearman', 'pearson')
 
@@ -179,6 +184,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=OUTPUT_DERIVATIVES_ROOT / 'parcel_bundle_correlations',
     )
     parser.add_argument('--analysis', choices=('wm', 'gm', 'both'), default='both')
+    parser.add_argument(
+        '--analysis-set',
+        choices=ANALYSIS_SET_CHOICES,
+        default='primary',
+        help='Metric set to process. Default: primary.',
+    )
     parser.add_argument('--qc-mode', choices=QC_MODES, default='metricqc')
     parser.add_argument(
         '--correlation',
@@ -242,7 +253,7 @@ def main() -> None:
         inputs.append(('gm_parcels', raw_gm_df, qc_gm_df))
 
     for profile_type, raw_df, long_df in inputs:
-        for analysis_set in ANALYSIS_SETS:
+        for analysis_set in selected_analysis_sets(args.analysis_set):
             tissue = 'wm' if profile_type == 'wm_bundles' else 'gm'
             expected_labels = metric_order(
                 specs,
