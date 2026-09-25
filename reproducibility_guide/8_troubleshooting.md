@@ -47,7 +47,7 @@ Figure 2 prefers:
 ```
 
 and falls back to `data/qc/missingness_list.tsv`. Run
-`analysis/01_missingness/01_build_missingness_list.py` to reproduce the table
+`analysis/01_build_missingness_list.py` to reproduce the table
 from the configured BIDS dataset.
 
 ## Plotting fonts differ
@@ -66,4 +66,3 @@ ANTs, FreeSurfer tools, and tractogram conversion utilities.
 
 Set `work_dir` to cluster scratch in the replication profile. It should be
 unique to the run and may be cleaned after successful completion and review.
-

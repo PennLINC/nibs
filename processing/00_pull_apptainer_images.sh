@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-CODE_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+CODE_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 PROJECT_ROOT="${MIRROR_PROJECT_ROOT:-$(cd -- "${CODE_ROOT}/.." && pwd)}"
 APPTAINER_DIR="${MIRROR_APPTAINER_DIR:-${PROJECT_ROOT}/apptainer}"
 APPTAINER_BIN="${APPTAINER_BIN:-apptainer}"

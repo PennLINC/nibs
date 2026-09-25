@@ -56,7 +56,7 @@ For example:
 
 ```bash
 sbatch --array=1 \
-  processing/03_registration_and_warping/01_t1w_registration/submit.sbatch
+  processing/03_registration_and_warping/01_submit_t1w_registration.sbatch
 ```
 
 ## Compare with manuscript artifacts

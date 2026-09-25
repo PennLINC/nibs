@@ -20,13 +20,13 @@ views.
 
 ```bash
 registration_job=$(sbatch --parsable \
-  processing/03_registration_and_warping/01_t1w_registration/submit.sbatch)
+  processing/03_registration_and_warping/01_submit_t1w_registration.sbatch)
 
 dkt_warp_job=$(sbatch --parsable --dependency="afterok:${registration_job}" \
-  processing/03_registration_and_warping/02_dkt_atlas_warping/submit.sbatch)
+  processing/03_registration_and_warping/02_submit_dkt_atlas_warping.sbatch)
 
 bundle_warp_job=$(sbatch --parsable --dependency="afterok:${registration_job}" \
-  processing/03_registration_and_warping/03_bundle_warping/submit.sbatch)
+  processing/03_registration_and_warping/03_submit_bundle_warping.sbatch)
 ```
 
 ## 3. Shared analysis inputs
@@ -41,14 +41,16 @@ dkt_stats_job=$(sbatch --parsable --dependency="afterok:${dkt_warp_job}" \
 bundle_stats_job=$(sbatch --parsable --dependency="afterok:${bundle_warp_job}" \
   analysis/00_prepare_inputs/03_bundle_myelin_stats/submit.sbatch)
 
-python analysis/01_missingness/01_build_missingness_list.py
+python analysis/01_build_missingness_list.py
 ```
 
 ## 4. Analyses
 
 These commands use the default `ANALYSIS_SET=primary` and reproduce the main
 analyses. See the manuscript-analyses chapter for the optional full
-supplemental workflow.
+supplemental workflow. Submit the commands together without waiting between
+them; the declared dependencies protect shared inputs, and the analysis jobs do
+not depend on one another.
 
 ```bash
 sbatch --dependency="afterok:${ribbon_job}" \

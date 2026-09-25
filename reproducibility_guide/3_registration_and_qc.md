@@ -8,7 +8,7 @@ The first replicated processing step estimates the ACPC↔T1w transforms:
 
 ```bash
 registration_job=$(sbatch --parsable \
-  processing/03_registration_and_warping/01_t1w_registration/submit.sbatch)
+  processing/03_registration_and_warping/01_submit_t1w_registration.sbatch)
 echo "T1w registration job: ${registration_job}"
 ```
 
@@ -25,14 +25,17 @@ parallel:
 
 ```bash
 dkt_warp_job=$(sbatch --parsable --dependency="afterok:${registration_job}" \
-  processing/03_registration_and_warping/02_dkt_atlas_warping/submit.sbatch)
+  processing/03_registration_and_warping/02_submit_dkt_atlas_warping.sbatch)
 
 bundle_warp_job=$(sbatch --parsable --dependency="afterok:${registration_job}" \
-  processing/03_registration_and_warping/03_bundle_warping/submit.sbatch)
+  processing/03_registration_and_warping/03_submit_bundle_warping.sbatch)
 
 echo "DKT warp job: ${dkt_warp_job}"
 echo "Bundle warp job: ${bundle_warp_job}"
 ```
+
+These are sibling jobs with the same dependency. Slurm may run the DKT atlas
+warp and bundle warp at the same time; neither waits for the other.
 
 The DKT segmentation is stored with the registration derivatives; warped
 AutoTrack bundles are stored under:
@@ -73,4 +76,3 @@ Successful job completion is not a substitute for visual QC. Review missing
 input warnings, registration overlays, scalar reportlets, and the consolidated
 report before interpreting replicated statistics.
 ```
-

@@ -40,7 +40,7 @@ Figure 2 uses a modality-availability table generated from the raw BIDS
 dataset:
 
 ```bash
-python analysis/01_missingness/01_build_missingness_list.py
+python analysis/01_build_missingness_list.py
 ```
 
 The new table is written to:

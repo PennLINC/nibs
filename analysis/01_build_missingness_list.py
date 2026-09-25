@@ -12,7 +12,7 @@ try:
 except ImportError:  # pragma: no cover - checked after argparse handles --help
     pd = None
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from configuration import load_config  # noqa: E402

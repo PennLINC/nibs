@@ -98,6 +98,27 @@ regional_discriminability_job=$(sbatch --parsable \
 Primary discriminability results support Table 4; full regional results support
 Figure S12.
 
+## Run analysis branches in parallel
+
+No manuscript analysis depends on the output of another manuscript analysis.
+Once the required shared inputs below are available, all analysis launchers may
+be submitted together and Slurm may run them concurrently:
+
+| Analysis branch | Required shared input |
+| --- | --- |
+| GM/WM effect sizes | MNI ribbon masks |
+| MNI voxelwise correlations | MNI ribbon masks |
+| Regional correlations | DKT parcel and bundle summary tables |
+| Regional ICC | DKT parcel and bundle summary tables |
+| MNI voxelwise ICC | Reusable source-scalar derivatives |
+| MNI voxelwise discriminability | Reusable source-scalar derivatives |
+| Regional discriminability | DKT parcel and bundle summary tables |
+
+The simplest conservative schedule is to wait for the ribbon-mask, DKT-summary,
+and bundle-summary jobs to finish, then submit every analysis job in this
+chapter at once. The cluster scheduler controls how many actually execute at
+the same time based on available resources.
+
 ## Full workflow with supplemental metrics
 
 The primary commands above are sufficient for the main analyses. In a

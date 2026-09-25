@@ -10,7 +10,8 @@ namespace for all newly computed products.
    parcels after DKT warping.
 3. `00_prepare_inputs/03_bundle_myelin_stats`: summarize T1w-space scalar maps
    within warped AutoTrack bundles.
-4. `01_missingness`: build the Figure 2 acquisition-availability table.
+4. `01_build_missingness_list.py`: build the Figure 2
+   acquisition-availability table.
 5. `02_gm_wm_differentiation`: compute Figure 3 and Figure S2 effect sizes.
 6. `03_correlations`: compute voxelwise and parcel/bundle correlations for
    Figure 4 and Figures S3-S6.
