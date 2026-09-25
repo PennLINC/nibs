@@ -143,7 +143,9 @@ def load_config(config: str | os.PathLike[str] | None = None) -> dict[str, Any]:
         'run_name': run_name,
         'figures_dir': str(_resolve_path(code_dir, raw.get('figures_dir', 'figures'))),
         'logs_dir': str(
-            _resolve_path(project_root, raw.get('logs_dir', Path('logs') / run_name))
+            code_dir / 'logs'
+            if raw.get('logs_dir', 'auto') in {None, 'auto'}
+            else _resolve_path(project_root, raw['logs_dir'])
         ),
     }
     run_figures_value = raw.get('run_figures_dir')

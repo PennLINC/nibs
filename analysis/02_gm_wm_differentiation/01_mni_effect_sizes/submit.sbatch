@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=mni_gmwm_effects
+#SBATCH --output=logs/mni_gmwm_effects/%x-%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

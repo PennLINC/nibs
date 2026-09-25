@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=qc_report
+#SBATCH --output=logs/qc_report/%x-%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

@@ -7,7 +7,7 @@
   "source_derivatives_dir": "derivatives",
   "run_name": "mirror_data_descriptor",
   "output_derivatives_dir": "derivatives/mirror_data_descriptor",
-  "logs_dir": "logs/mirror_data_descriptor",
+  "logs_dir": "auto",
   "sourcedata": {
     "root": "sourcedata",
     "scitran": "sourcedata/scitran/bbl/NIBS_857664"

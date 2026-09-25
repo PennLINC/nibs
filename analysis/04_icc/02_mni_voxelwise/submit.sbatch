@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=mni_icc
+#SBATCH --output=logs/mni_icc/%x-%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

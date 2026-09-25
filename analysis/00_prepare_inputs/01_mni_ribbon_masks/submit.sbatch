@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=prep_mni_ribbon
+#SBATCH --output=logs/prep_mni_ribbon/%x-%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2

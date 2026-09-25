@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=qsiprep
+#SBATCH --output=logs/qsiprep/%x-%A_%a.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1-26

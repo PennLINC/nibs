@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=t1w_reg
+#SBATCH --output=logs/t1w_reg/%x-%A_%a.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1-26

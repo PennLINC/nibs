@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=parcel_corr
+#SBATCH --output=logs/parcel_corr/%x-%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

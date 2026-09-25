@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=g_ratio_scale
+#SBATCH --output=logs/g_ratio_scale/%x-%A_%a.out
 #SBATCH --array=1-26
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32gb

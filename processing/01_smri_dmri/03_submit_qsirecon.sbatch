@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=qsirecon
+#SBATCH --output=logs/qsirecon/%x-%A_%a.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1-26

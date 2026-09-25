@@ -7,7 +7,7 @@
   "source_derivatives_dir": "derivatives",
   "run_name": "replication",
   "output_derivatives_dir": "derivatives/replication",
-  "logs_dir": "logs/replication",
+  "logs_dir": "auto",
   "derivatives": {
     "smriprep": "smriprep",
     "qsiprep": "qsiprep",

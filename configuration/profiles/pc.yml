@@ -15,7 +15,7 @@ source_derivatives_dir: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives
 # Change these two values for an independent replication.
 run_name: mirror_data_descriptor
 output_derivatives_dir: /mnt/c/Users/tsalo/Documents/datasets/nibs/derivatives/mirror_data_descriptor
-logs_dir: /mnt/c/Users/tsalo/Documents/datasets/nibs/logs/mirror_data_descriptor
+logs_dir: auto
 
 sourcedata:
   root: /mnt/c/Users/tsalo/Documents/datasets/nibs/sourcedata

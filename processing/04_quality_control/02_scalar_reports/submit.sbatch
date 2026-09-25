@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=scalar_qc
+#SBATCH --output=logs/scalar_qc/%x-%A_%a.out
 #SBATCH --array=1-26
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=16gb

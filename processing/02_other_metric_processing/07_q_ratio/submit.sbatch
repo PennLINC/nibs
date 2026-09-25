@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=q_ratio
+#SBATCH --output=logs/q_ratio/%x-%A_%a.out
 #SBATCH --array=1-26
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32gb

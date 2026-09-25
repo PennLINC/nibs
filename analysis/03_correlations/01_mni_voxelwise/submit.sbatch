@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=mni_voxcorr
+#SBATCH --output=logs/mni_voxcorr/%x-%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

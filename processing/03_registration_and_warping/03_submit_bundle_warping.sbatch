@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=warp_bundles
+#SBATCH --output=logs/warp_bundles/%x-%A_%a.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1-26

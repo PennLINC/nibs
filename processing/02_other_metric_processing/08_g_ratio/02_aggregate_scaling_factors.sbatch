@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=g_ratio_aggregate
+#SBATCH --output=logs/g_ratio_aggregate/%x-%j.out
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=8gb
 #SBATCH --time=02:00:00

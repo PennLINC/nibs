@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=smriprep
+#SBATCH --output=logs/smriprep/%x-%A_%a.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1-26

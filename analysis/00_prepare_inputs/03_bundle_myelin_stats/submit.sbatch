@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=bundle_myelin_stats
+#SBATCH --output=logs/bundle_myelin_stats/%x-%A_%a.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --array=1-26
